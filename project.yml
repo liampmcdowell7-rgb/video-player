@@ -1,0 +1,194 @@
+# XcodeGen spec. The .xcodeproj is generated on the build machine (no Mac needed).
+name: VideoPlayer
+options:
+  deploymentTarget:
+    # PROVISIONAL (docs/DESIGN_SYSTEM.md, decision D-DS1): tvOS 27.0 so the system look (Liquid Glass) and every 27 API is used with
+    # no availability checks. Alternative: "18.0" with availability checks (recorded there). Never built yet.
+    tvOS: "27.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+packages:
+  VideoPlayerCore:
+    path: Packages/VideoPlayerCore
+
+targets:
+  VideoPlayer:
+    type: application
+    platform: tvOS
+    sources:
+      - path: App
+        excludes:
+          - "Licenses/**"
+      # The full open-source licence texts (Settings > About > Full Licence Texts, OPEN_QUESTIONS R149), copied into the
+      # app bundle explicitly: XcodeGen's docs do not say which phase a .txt file gets by default.
+      - path: App/Licenses
+        buildPhase: resources
+    dependencies:
+      - package: VideoPlayerCore
+        product: VideoPlayerCore
+      - package: VideoPlayerCore
+        product: SourceWebDAV
+      # SOURCES: every other source type, plus the loopback range server (docs/SOURCES_WIRING.md). SourceSFTPCitadel exists only after
+      # scripts/setup-citadel.sh and SourceSMB links AMSMB2 only when Vendor/AMSMB2 exists; run the setup scripts before generating the project.
+      - package: VideoPlayerCore
+        product: SourceSMB
+      - package: VideoPlayerCore
+        product: SourceNFS
+      - package: VideoPlayerCore
+        product: SourceSFTP
+      - package: VideoPlayerCore
+        product: SourceSFTPCitadel
+      - package: VideoPlayerCore
+        product: SourceFTP
+      - package: VideoPlayerCore
+        product: SourceUPnP
+      - package: VideoPlayerCore
+        product: SourceJellyfin
+      - package: VideoPlayerCore
+        product: SourceEmby
+      - package: VideoPlayerCore
+        product: SourceLinks
+      - package: VideoPlayerCore
+        product: SourceOneDrive
+      - package: VideoPlayerCore
+        product: SourceRangeProxy
+      - package: VideoPlayerCore
+        product: RemuxEngine
+      - package: VideoPlayerCore
+        product: AudioDecode
+      - package: VideoPlayerCore
+        product: AppLogic
+      - package: VideoPlayerCore
+        product: LibraryIndex
+      - package: VideoPlayerCore
+        product: UserData
+      - package: VideoPlayerCore
+        product: PlaybackLogic
+      - package: VideoPlayerCore
+        product: PlaybackStatus
+      # PLAYBACK: picture subtitle (PGS) parsing and placement for the one custom subtitle menu.
+      - package: VideoPlayerCore
+        product: Subtitles
+      # ARTWORK: the online lookups (TMDB and OMDb clients, matcher) wired in App/Support/OnlineServices.swift.
+      - package: VideoPlayerCore
+        product: MetadataOnline
+      # The Top Shelf extension is embedded in the app.
+      - target: TopShelf
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Video Player
+        CFBundleShortVersionString: "0.1.0"
+        # Plain system launch screen: no storyboard, no image.
+        UILaunchScreen: {}
+        # The link scheme Top Shelf items use (AppLogic/DeepLink.swift): videoplayer://item/42, series/7, library.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.liamp.videoplayer
+            CFBundleURLSchemes:
+              - videoplayer
+        # Scene-based life cycle is required by tvOS 27 (the SDK release notes: apps that do not adopt it fail to launch). A SwiftUI App with
+        # WindowGroup is scene based; this manifest states it explicitly, one scene. PROVISIONAL until a build is launched on a device.
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        ITSAppUsesNonExemptEncryption: false
+        # Local networking only (no blanket ATS exception). Needed for plain http:// to servers on the home network.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        # The visible text comes from InfoPlist.xcstrings (key NSLocalNetworkUsageDescription).
+        NSLocalNetworkUsageDescription: "Video Player uses your local network to find your servers and play your own videos from them."
+        # Bonjour types the app browses for (one per source type that advertises itself). Keep in step with BonjourMapping.serviceTypes.
+        # CI agent check 2026-11-17: the reference pages for NSBonjourServices and NSLocalNetworkUsageDescription list iOS 14.0+, iPadOS 14.0+,
+        # macOS 11.0+ and visionOS 1.0+ only (no tvOS). Kept because an unused key is harmless; PROVISIONAL, alternative: remove both keys.
+        # SOURCES finding: the Bonjour/local-network pages checked did not state tvOS applicability for these two keys; they stay as PROVISIONAL
+        # until a device run. The multicast entitlement (needed for SSDP) is not offered for tvOS, so none is requested and DLNA servers are
+        # added by typed address (OPEN_QUESTIONS, docs/SOURCES_WIRING.md).
+        NSBonjourServices:
+          - _webdav._tcp
+          - _webdavs._tcp
+          - _smb._tcp
+          - _nfs._tcp
+          - _sftp-ssh._tcp
+          - _ftp._tcp
+    # Capabilities (docs/STORAGE_MODEL.md, R58). Declared here only: nothing is registered with Apple by this file.
+    # The identifiers must exist in the Apple Developer account (docs/CODEMAGIC_SETUP.md, steps 19 to 22) before the first
+    # signed build, or signing fails.
+    entitlements:
+      path: App/VideoPlayer.entitlements
+      properties:
+        # iCloud with CloudKit: the private database holds watch history, saved views and the source list.
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.liamp.videoplayer
+        com.apple.developer.icloud-services:
+          - CloudKit
+        # Keychain Sharing: one group, so the Top Shelf extension can read what it needs later. On tvOS Keychain items are
+        # NOT synchronised through iCloud (docs/STORAGE_MODEL.md), so this is local sharing only.
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.liamp.videoplayer
+        # App Group shared with the Top Shelf extension (snapshot and artwork files; purgeable, see the storage model).
+        com.apple.security.application-groups:
+          - group.com.liamp.videoplayer
+    settings:
+      base:
+        # Extension targets added later use this as their prefix
+        # (for example the Top Shelf extension: com.liamp.videoplayer.topshelf).
+        PRODUCT_BUNDLE_IDENTIFIER: com.liamp.videoplayer
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        # Toolchain: Swift 6.4 (Xcode 27.x). Language mode stays 5 for now (PROVISIONAL; alternative "6.0" = strict concurrency errors,
+        # untested because nothing has been compiled yet). The package targets use their own tools version (5.9).
+        # PROVISIONAL (CI agent, 2026-11-17, user decision for the FIRST compile): Swift 5 language mode with MINIMAL strict concurrency,
+        # so a Swift 6 isolation error cannot hide real errors. Setting names from Apple's "Build settings reference"
+        # (developer.apple.com/documentation/xcode/build-settings-reference: SWIFT_VERSION, SWIFT_STRICT_CONCURRENCY); the value "minimal"
+        # is the raw value of the "Minimal" level (Apple "Adopting strict concurrency in Swift 6 apps"; swift.org migration guide shows
+        # the raw value "complete"). Alternative / backlog: SWIFT_VERSION "6.0" (strict concurrency is then always complete, as errors).
+        SWIFT_VERSION: "5.0"
+        SWIFT_STRICT_CONCURRENCY: minimal
+        TARGETED_DEVICE_FAMILY: "3"
+        ASSETCATALOG_COMPILER_APPICON_NAME: "App Icon & Top Shelf Image"
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+
+  # Top Shelf extension (docs/TOP_SHELF.md): reads the snapshot the app writes into the App Group folder. Never compiled.
+  TopShelf:
+    type: tv-app-extension
+    platform: tvOS
+    sources:
+      - path: TopShelf
+        excludes:
+          - "*.entitlements"
+    dependencies:
+      - package: VideoPlayerCore
+        product: UserData
+    info:
+      path: TopShelf/Info.plist
+      properties:
+        CFBundleDisplayName: Video Player Top Shelf
+        CFBundleShortVersionString: "0.1.0"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.tv-top-shelf
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).TopShelfProvider
+    entitlements:
+      path: TopShelf/TopShelf.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.liamp.videoplayer
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.liamp.videoplayer.topshelf
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        # Same PROVISIONAL first-compile decision as the app target (Swift 5 mode, minimal strict concurrency).
+        SWIFT_VERSION: "5.0"
+        SWIFT_STRICT_CONCURRENCY: minimal
+        TARGETED_DEVICE_FAMILY: "3"
+
+schemes:
+  VideoPlayer:
+    build:
+      targets:
+        VideoPlayer: all
+    run:
+      config: Debug
+    archive:
+      config: Release

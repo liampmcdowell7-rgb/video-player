@@ -1,0 +1,7 @@
+// Linux, tests only: points `CDolbyVisionRPU` at the RPU library built from its 3.3.2 source by scripts/test-dovi.sh
+// (installed under ~/vp-dovi/libdovi-3.3.2 with a pkg-config file named vp-dovi).
+module CDolbyVisionRPU [system] {
+    header "shim.h"
+    link "dolby_vision"
+    export *
+}

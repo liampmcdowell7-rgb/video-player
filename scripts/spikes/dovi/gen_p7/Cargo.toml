@@ -1,0 +1,12 @@
+[package]
+name = "gen_p7"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Spike tool: builds synthetic Dolby Vision Profile 7 (FEL) RPUs with the dolby_vision crate (MIT, quietvoid/dovi_tool).
+# Path points at the clone made by scripts/spikes/dovi/run.sh.
+[dependencies]
+dolby_vision = { path = "../src/dolby_vision", features = ["serde"] }
+serde_json = "1"
+anyhow = "1"

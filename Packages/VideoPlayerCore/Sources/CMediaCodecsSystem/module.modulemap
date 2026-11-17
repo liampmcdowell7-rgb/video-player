@@ -1,0 +1,7 @@
+module CMediaCodecsSystem [system] {
+    header "shim.h"
+    link "avcodec"
+    link "avutil"
+    link "swresample"
+    export *
+}

@@ -1,0 +1,7 @@
+// Linux only: the C API of the system SQLite (header copied from SQLite 3.46.1, public domain).
+// Apple platforms use `import SQLite3` from the SDK instead.
+module CSQLite [system] {
+    header "sqlite3.h"
+    link "sqlite3"
+    export *
+}

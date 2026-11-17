@@ -1,0 +1,1 @@
+b93961a2988607a756cbc21a811f406f27aa9ab6  https://github.com/Wellz26/swift-nio-ssh.git  (vendored by scripts/setup-citadel.sh)

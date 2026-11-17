@@ -1,0 +1,1 @@
+upstream amosavian/AMSMB2 tag 4.0.3, commit 4942c3b336dc6cc5ae93a60a65961a66535e482a (submodule Dependencies/libsmb2 copied as checked out by that tag; its commit id was not captured); scripts/patches/AMSMB2-4.0.3-swift6.4.patch applied. Copied from the WSL scratch copy on 2026-11-17 so a clean checkout needs no network for SMB.

@@ -1,0 +1,31 @@
+.DS_Store
+build/
+DerivedData/
+.build/
+*.xcodeproj
+App/Info.plist
+xcuserdata/
+
+# Never commit secrets or signing material
+*.p12
+*.cer
+*.mobileprovision
+*.p8
+*.pem
+*_rsa
+*_rsa.pub
+.env
+.env.*
+
+# Build output and generated test media (recreated by the scripts; never committed)
+.build/
+.swiftpm/
+*.log
+*.mkv
+*.mp4
+*.m4v
+*.mov
+*.sup
+/testmedia/
+*.pyc
+__pycache__/

@@ -1,0 +1,122 @@
+import Foundation
+import VideoPlayerCore
+import LibraryIndex
+
+// Detail page of one movie or episode: facts, the Play button, the versions of the file and the files that belong with it.
+
+public struct VersionRow: Equatable, Sendable, Identifiable {
+    public var id: Int64
+    public var title: String
+    public var detail: String?
+    public var isPreferred: Bool
+}
+
+public struct ExtraRow: Equatable, Sendable, Identifiable {
+    public var id: Int64
+    public var name: String
+    public var kindText: String
+    public var sizeText: String?
+}
+
+public struct ItemDetailContent: Equatable, Sendable {
+    public var itemID: Int64
+    public var kind: ItemKind
+    public var title: String
+    public var seriesID: Int64?
+    public var seriesTitle: String?
+    /// "2020 · 1 h 52 min · ★ 7.8", or "S2 E4 · 41 min".
+    public var facts: String
+    public var badges: [String]
+    public var playTitle: String
+    public var canStartOver: Bool
+    public var isWatched: Bool
+    public var isFavorite: Bool
+    public var progress: Double?
+    public var versions: [VersionRow]
+    public var extras: [ExtraRow]
+    public var artworkKey: String
+}
+
+public struct ItemDetailViewModel: Sendable {
+    public let store: any LibraryStore
+    public let itemID: Int64
+    public private(set) var state: ViewState<ItemDetailContent> = .idle
+
+    public init(store: any LibraryStore, itemID: Int64) { self.store = store; self.itemID = itemID }
+
+    public mutating func load() async {
+        state = .loading
+        do {
+            guard let item = try await store.item(id: itemID) else {
+                state = .empty(EmptyState(reason: .nothingIndexed, title: "Not in Your Library", message: "This title is no longer in your library."))
+                return
+            }
+            let files = try await store.versions(of: itemID)
+            let preferred = item.preferredFileID ?? files.first?.id
+            var sidecars: [StoredFile] = []
+            if let preferred { sidecars = try await store.sidecars(for: preferred) }
+            state = .loaded(Self.content(item, files: files, sidecars: sidecars))
+        } catch {
+            state = .failed(ErrorState.from(error, doing: "load this title"))
+        }
+    }
+
+    static func content(_ item: LibraryItem, files: [StoredFile], sidecars: [StoredFile]) -> ItemDetailContent {
+        let card = CardBuilder.card(item)
+        var facts: [String] = []
+        if item.kind == .episode, let code = DisplayText.episodeCode(season: item.season, episode: item.episode, episodeEnd: item.episodeEnd) { facts.append(code) }
+        if item.kind == .movie, let y = item.year, y > 0 { facts.append(String(y)) }
+        if let r = item.runtime ?? item.watch.duration, r > 0 { facts.append(DisplayText.runtime(r)) }
+        if let rating = item.rating, rating > 0 { facts.append("★ " + String(format: "%.1f", rating)) }
+        let progress = CardBuilder.progressFraction(item)
+        let started = progress != nil
+        let playTitle = started ? "Resume" : (item.watch.watched ? "Play Again" : "Play")
+        let preferred = item.preferredFileID ?? files.first?.id
+        let versions = files.map { f -> VersionRow in
+            var parts: [String] = []
+            if let t = f.technical {
+                // Real format names (docs/NAMES.md): "HEVC · Dolby Vision Profile 8 / HDR10 · Dolby TrueHD with Dolby Atmos 7.1".
+                if let h = t.height { parts.append("\(h)p") }
+                if let c = t.videoCodec { parts.append(FormatNames.videoCodec(c)) }
+                if let hdr = FormatNames.hdr(t.hdrFormats, dolbyVisionProfile: t.dolbyVisionProfile) { parts.append(hdr) }
+                if let audio = FormatNames.audio(codec: t.audioCodec, channels: t.audioChannels, atmos: t.hasAtmos) { parts.append(audio) }
+            }
+            if let s = f.size { parts.append(DisplayText.fileSize(s)) }
+            return VersionRow(id: f.id, title: f.versionLabel ?? f.name, detail: parts.isEmpty ? nil : parts.joined(separator: " · "), isPreferred: f.id == preferred)
+        }
+        let extras = sidecars.map { s in
+            ExtraRow(id: s.id, name: s.name, kindText: Self.kindText(s.kind), sizeText: s.size.map(DisplayText.fileSize))
+        }
+        return ItemDetailContent(itemID: item.id, kind: item.kind, title: card.title, seriesID: item.seriesID, seriesTitle: item.seriesTitle,
+                                 facts: facts.joined(separator: " · "), badges: card.badges, playTitle: playTitle, canStartOver: started,
+                                 isWatched: item.watch.watched, isFavorite: item.watch.favorite, progress: progress,
+                                 versions: versions, extras: extras, artworkKey: card.artworkKey)
+    }
+
+    static func kindText(_ kind: FileKind) -> String {
+        switch kind {
+        case .subtitle: return "Subtitles"
+        case .image: return "Artwork"
+        case .nfo: return "Information"
+        case .video: return "Video"
+        case .directory: return "Folder"
+        case .other: return "File"
+        }
+    }
+
+    public mutating func setWatched(_ watched: Bool) async {
+        do { try await store.markWatched(itemIDs: [itemID], watched: watched, at: Date()) } catch { return }
+        await load()
+    }
+
+    public mutating func toggleFavorite() async {
+        guard case .loaded(let c) = state else { return }
+        do { try await store.setFavorite(itemID: itemID, favorite: !c.isFavorite) } catch { return }
+        await load()
+    }
+
+    public mutating func choosePreferredVersion(_ fileID: Int64) async {
+        do { try await store.setPreferredVersion(itemID: itemID, fileID: fileID) } catch { return }
+        await load()
+    }
+}

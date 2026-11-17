@@ -1,0 +1,38 @@
+Video Player: Privacy Policy (DRAFT, not published, not legal advice)
+
+Last updated: [date you publish it]
+Contact: [an email address you choose; none is recorded in this project]
+
+What this app is
+Video Player plays video files from servers and storage that you add yourself. The developer runs no server for this app and has no account system. The developer does not receive your files, your library, your passwords or your viewing history.
+
+Information that stays on your Apple TV
+- The list of sources you add (names, addresses, folder paths).
+- Your library index, watch history, favorites, saved views and settings.
+- Passwords for your sources. They are kept in the system Keychain on the device.
+
+Information stored in your own iCloud account
+If you are signed in to iCloud, the app keeps a copy of your watch history, favorites, saved views, source definitions and an encrypted copy of your source passwords in your private iCloud database for this app, so a reset or second device can restore them. Passwords are encrypted on the device before upload. The developer cannot read this data; it is part of your own iCloud storage and is governed by Apple's terms for iCloud.
+
+Information sent to servers you choose
+- Your own media servers and storage: the app sends them the login details you entered and the requests needed to list and play files. Whether that connection is encrypted depends on the server and the connection type you choose; the app tells you when a connection is not encrypted.
+- Online lookups (optional; nothing is sent until you enter your own key in Settings > Online Lookup): with a TMDB key (The Movie Database), the app sends TMDB the title and year it read from your file and folder names, season numbers, TMDB's own number for a title it already matched, a title number found in an info file next to your video, the language code en-US and your own key. It uses the answers for pictures, Fix Match, Discover and where to watch. Your where-to-watch region is not sent: the app picks it from the answer on the device. TMDB receives your device's network address as any web service does. The app sends nothing else to it. An OMDb key (the Open Movie Database) can be entered and is stored, but this version does not use it, so nothing is sent to OMDb. TMDB's handling of that information is described in its own privacy terms: [add the link after you have read them].
+- Where-to-watch information, if shown, comes from TMDB's watch-provider data, whose source is JustWatch; the app shows the notices TMDB requires ("This application uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB." and "Where-to-watch data is provided by JustWatch.").
+- Artwork images are downloaded from the addresses TMDB returns.
+[Kept equal to the app's Settings > Online Lookup text (OnlineLookupText.whatIsSent) on 2026-11-17; both were checked against the code that builds the requests. If the app changes what it sends, change both.]
+
+What the app does not do
+- No advertising, no analytics, no tracking, no data sale, no accounts.
+- No data is combined with other companies' data.
+- No access to contacts, photos, location or microphone.
+
+How long data is kept
+Everything above stays until you remove a source, reset the app's data in Settings, or delete the app. Copies in your iCloud account are deleted from Settings > Storage and Cloud > Delete cloud copy (if that control exists in the build you have; verify before publishing) or from your iCloud storage settings.
+
+Children
+The app has no content of its own and collects no personal information from anyone.
+
+Changes
+If this policy changes, the date at the top changes.
+
+[Replace the bracketed items, read it against the app you actually ship, and host it at an address you control before using it in App Store Connect. Nothing here has been published.]

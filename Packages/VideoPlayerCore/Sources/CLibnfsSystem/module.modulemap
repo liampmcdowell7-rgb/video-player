@@ -1,0 +1,6 @@
+// Linux, tests only: points `CLibnfs` at a libnfs built from source (see scripts/test-nfs.sh).
+module CLibnfs [system] {
+    header "shim.h"
+    link "nfs"
+    export *
+}

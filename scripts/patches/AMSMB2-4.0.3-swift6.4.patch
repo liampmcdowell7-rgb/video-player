@@ -1,0 +1,43 @@
+diff --git a/AMSMB2/Stream.swift b/AMSMB2/Stream.swift
+index 8f20cbc..4ad5725 100644
+--- a/AMSMB2/Stream.swift
++++ b/AMSMB2/Stream.swift
+@@ -171,22 +171,31 @@ public class AsyncInputStream<Seq>: InputStream, @unchecked Sendable where Seq:
+     }
+ 
+     private func prefetchData() {
++        // Local patch (Swift 6.4): the Task closure may not capture `self` directly; pass it in a box.
++        let box = UncheckedSendableBox(self)
+         Task { @Sendable in
++            let this = box.value
+             do {
+-                while let data = try await iterator.next() {
+-                    bufferLock.withLock {
+-                        if self.buffer == nil {
+-                            self.buffer = Data(data)
++                while let data = try await this.iterator.next() {
++                    this.bufferLock.withLock {
++                        if this.buffer == nil {
++                            this.buffer = Data(data)
+                         } else {
+-                            self.buffer!.append(contentsOf: data)
++                            this.buffer!.append(contentsOf: data)
+                         }
+                     }
+                 }
+             } catch {
+-                bufferLock.withLock {
+-                    _streamStatus = .error
++                this.bufferLock.withLock {
++                    this._streamStatus = .error
+                 }
+             }
+         }
+     }
+ }
++
++/// Local patch: carries a reference across a @Sendable boundary.
++private struct UncheckedSendableBox<T>: @unchecked Sendable {
++    let value: T
++    init(_ value: T) { self.value = value }
++}

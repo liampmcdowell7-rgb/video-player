@@ -1,0 +1,2 @@
+fixture FixtureTargetTests 3
+fixture OtherTargetTests 1

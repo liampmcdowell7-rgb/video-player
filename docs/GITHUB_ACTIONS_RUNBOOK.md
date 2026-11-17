@@ -1,0 +1,301 @@
+# GitHub Actions compile check: runbook
+
+Rewritten 2026-11-17 (OPEN_QUESTIONS R152). **You decide when, and whether, to do any of this.** None of it has been done yet:
+no repository has been created, nothing has been pushed, no GitHub setting has been changed and the workflow has never run.
+You do every step yourself on Windows, in a web browser and in a terminal window. Do the parts in order. If anything you see
+differs from what a step describes, stop at that step. Nothing in this runbook asks you to contact anyone.
+
+- Repository name: `video-player`
+- Repository page: https://github.com/liampmcdowell7-rgb/video-player
+- Remote URL (what git pushes to): `https://github.com/liampmcdowell7-rgb/video-player.git`
+- Workflow name on the Actions tab: **Compile check (tvOS Simulator, no signing)**
+- Branch: `main`
+
+## What was checked (facts this runbook relies on)
+
+- **Cost.** Standard GitHub-hosted runners are free in public repositories. Larger runners are billed even in public
+  repositories, and they need a payment method on file. Source: https://docs.github.com/en/billing/concepts/product-billing/github-actions
+- **Runner.** `xcode-27` is **generally available**. GitHub changelog, 15 October 2026, "Xcode 27 runner image generally
+  available": https://github.blog/changelog/2026-10-15-xcode-27-runner-image-generally-available/ . The labels are `xcode-27`
+  (standard) and `xcode-27-xlarge` (larger, paid). `xcode-27` (3 CPU M1, 7 GB RAM, 14 GB disk, arm64) is in the standard-runner
+  table: https://docs.github.com/en/actions/reference/github-hosted-runners-reference
+- **Paid labels.** These are larger runners and are refused by the pre-push check:
+  - `macos-latest-large`, `macos-15-large`, `macos-26-large`
+  - `macos-latest-xlarge`, `macos-15-xlarge`, `macos-26-xlarge`, `xcode-27-xlarge`
+
+  Sources: https://docs.github.com/en/actions/reference/runners/larger-runners and https://github.com/actions/runner-images
+- **Xcode.** The `xcode-27` image has Xcode 27.0, 27.1 (the default) and 27.2, with the tvOS 27.2 SDK and tvOS 27.2
+  Simulator SDK. The workflow selects Xcode 27.2. Source:
+  https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md . The `macos-26` / `macos-latest`
+  images have only Xcode 26.x and cannot build this project, because it targets tvOS 27.0.
+- **XcodeGen.** It is not on the image. The workflow downloads XcodeGen 2.46.0 from its GitHub release and checks the
+  SHA-256 published on the release page; a mismatch stops the run.
+- **Budget form.** The fields and buttons in Part A come from https://docs.github.com/en/billing/how-tos/set-up-budgets .
+  That page says that if "Stop usage when budget limit is reached" is left unticked, you only get an e-mail and usage
+  does not stop.
+- **Payment information.** The click path in Part A comes from
+  https://docs.github.com/en/billing/how-tos/set-up-payment/manage-payment-info .
+- **Your account.** On 2026-11-17, https://github.com/liampmcdowell7-rgb existed and showed 0 public repositories.
+  https://github.com/liampmcdowell7-rgb/video-player answered "404 Not Found".
+- **Local repository.**
+  - It has no remote. Its branch is `main` and it holds exactly **one** commit, signed
+    "Video Player Dev <dev@localhost.invalid>".
+  - The earlier history was replaced by that single commit (R146). A backup bundle of the old history is kept outside the
+    project folder; it is never pushed.
+
+## What becomes public
+
+Everything in the project folder that is committed: the app code (`App/`, `TopShelf/`), the package
+(`Packages/VideoPlayerCore/`, including the prebuilt libraries and the third-party code under `Vendor/`, each with its
+licence), `docs/`, `scripts/`, `.github/`, `README.md`, `OPEN_QUESTIONS.md`, `project.yml`, `codemagic.yaml` and `.gitignore`.
+
+Personal details: a scan of every file and of the single commit found no e-mail address of yours, no Windows user name, no
+`C:\Users\...` or home-folder path, no time zone in the commit, no password, no key and no token. Some third-party source
+files keep their authors' own e-mail addresses in their copyright lines; that is upstream text. Two things you decided to
+keep do appear:
+
+- Your GitHub user name `liampmcdowell7-rgb`: in this runbook, and in the address of the source repository that the
+  open-source licence offer needs (Settings > About in the app, `AboutNotices.swift`, and docs/NAMES.md section 4a).
+- The short name `liamp` inside the identifiers `com.liamp.videoplayer`, `com.liamp.videoplayer.topshelf`,
+  `group.com.liamp.videoplayer` and `iCloud.com.liamp.videoplayer` (your decision, R147).
+
+## Part A: make sure GitHub can never charge you (browser)
+
+1. Open https://github.com in your browser and sign in.
+2. Go to the billing overview page. Paste this address into the address bar and press Enter:
+
+   ```text
+   https://github.com/settings/billing
+   ```
+
+3. Click **Budgets and alerts**, then click **New budget**.
+4. Fill in the form:
+   - **Budget Type**: choose **Product-level budget**, and choose **Actions** in the product drop-down.
+   - **Budget scope**: choose your whole account, not one repository.
+   - **Budget**: type `0`.
+   - Tick **Stop usage when budget limit is reached**.
+   - Optional: tick **Receive budget threshold alerts**.
+
+   Then click **Create budget**.
+
+   *Success looks like this:* the **Budgets and alerts** page lists an Actions budget of $0 with stop usage switched on.
+
+   *If it fails:* if the stop-usage box is missing or cannot be ticked, do not go on with the rest of the runbook. Without a
+   payment method GitHub blocks paid usage anyway (Part A step 6), but the budget is the second safeguard you asked for.
+5. Check that no payment method is on file:
+   1. Click your profile picture in the upper-right corner of any GitHub page.
+   2. Click **Settings**.
+   3. In the **Access** section of the left sidebar, click **Billing & Licensing**.
+   4. Click **Payment information**.
+
+   *Success looks like this:* no credit card and no PayPal account is listed.
+
+   *If a payment method is listed:* you can remove it on that page, or leave it there and rely on the $0 budget with stop
+   usage. Never add one for this project.
+6. Why this is enough: this project only uses the free standard runner, in a public repository. GitHub blocks paid usage when
+   no valid payment method is on file, and larger runners cannot run at all without one.
+
+## Part B: create the empty public repository (browser)
+
+1. Check whether the repository already exists. While signed in, open:
+
+   ```text
+   https://github.com/liampmcdowell7-rgb/video-player
+   ```
+
+   - **"404 Not Found"**: it does not exist. Go to Part B step 2.
+   - **It exists, is empty and is private**:
+     1. Click **Settings** on the repository.
+     2. Scroll down to **Danger Zone** and click **Change visibility**.
+     3. Choose **Public** and confirm.
+
+     Then skip to Part C.
+   - **It exists and already has files**: stop. Pushing would be refused. Do not delete anything.
+2. Open the new-repository page:
+
+   ```text
+   https://github.com/new
+   ```
+
+3. Fill in the page:
+   - **Owner**: `liampmcdowell7-rgb`
+   - **Repository name**: type `video-player`
+   - Choose **Public**. Standard runners are free only in public repositories.
+   - Leave **Add a README** unticked. Leave **.gitignore** and **license** set to none: anything added here makes the first
+     push fail.
+
+   Click **Create repository**.
+
+   *Success looks like this:* a page titled `liampmcdowell7-rgb/video-player` that says the repository is empty and shows
+   "Quick setup" instructions. Ignore those instructions; Part C replaces them.
+
+## Part C: check the project and push it (terminal)
+
+1. Open a terminal in the project folder:
+   1. In File Explorer, open the folder that contains `project.yml`.
+   2. Right-click an empty area of the folder and choose **Open in Terminal**.
+
+   A PowerShell window opens. Type every command below into it, then press Enter.
+2. Check that git is installed:
+
+   ```powershell
+   git --version
+   ```
+
+   *Success looks like this:* a line such as `git version 2.x`.
+   *If it says "not recognized":* Git for Windows is missing. Stop here.
+3. Check that everything is committed:
+
+   ```powershell
+   git status
+   ```
+
+   *Success looks like this:* `On branch main` and `nothing to commit, working tree clean`.
+   *If files are listed:* stop. The project has uncommitted changes, so it is not the checked version.
+4. Check that there is exactly one commit:
+
+   ```powershell
+   git log --oneline
+   ```
+
+   *Success looks like this:* exactly one line, ending in `Video Player: tvOS app, package, tests, docs and compile-check
+   workflow`.
+   *If there is more than one line:* stop. The history has not been replaced.
+5. Check the commit's author:
+
+   ```powershell
+   git log -1 --format="%an <%ae>"
+   ```
+
+   *Success looks like this:* `Video Player Dev <dev@localhost.invalid>`.
+   *If it shows anything else:* stop.
+6. Run the pre-push check:
+
+   ```powershell
+   & "C:\Program Files\Git\bin\bash.exe" scripts/pre-push-check.sh
+   ```
+
+   *Success looks like this:*
+   - `No secret patterns found.`
+   - `Workflows: manual trigger only, no secrets, standard runners only.`
+   - `No file is over 50 MiB.`
+   - No line starts with `!!`.
+   - A line saying that some `Vendor/` files contain sample keys is expected: that is public third-party test text.
+
+   *If any line starts with `!!`:* stop and do not push. The check refuses:
+   - any secret;
+   - any trigger other than the manual button;
+   - any `runs-on` label ending in `-large` or `-xlarge` (including `xcode-27-xlarge`);
+   - any file over 100 MiB.
+7. Connect the local repository to GitHub:
+
+   ```powershell
+   git remote add origin https://github.com/liampmcdowell7-rgb/video-player.git
+   ```
+
+   Then check the connection:
+
+   ```powershell
+   git remote -v
+   ```
+
+   *Success looks like this:* two lines, both showing `https://github.com/liampmcdowell7-rgb/video-player.git`.
+
+   *If it says "remote origin already exists":* run the next command, then run `git remote -v` again.
+
+   ```powershell
+   git remote set-url origin https://github.com/liampmcdowell7-rgb/video-player.git
+   ```
+8. Push:
+
+   ```powershell
+   git push -u origin main
+   ```
+
+   If a browser window asks you to sign in to GitHub, sign in and allow it. The push uploads the prebuilt libraries too, so it
+   can take several minutes.
+
+   *Success looks like this:* the output ends with a line like `branch 'main' set up to track 'origin/main'`.
+
+   *If it fails:*
+   - **"rejected"**: the repository on GitHub is not empty. Go back to Part B step 1.
+   - **"exceeds GitHub's file size limit"**: a file is too big. Do not retry.
+   - **An authentication error**: run the push command again and complete the browser sign-in.
+9. Check in the browser:
+
+   ```text
+   https://github.com/liampmcdowell7-rgb/video-player
+   ```
+
+   *Success looks like this:* the folders `App`, `Packages`, `docs` and so on are shown, and the commit count says
+   **1 commit**.
+
+## Part D: run the compile check (browser)
+
+1. On the repository page, click the **Actions** tab.
+2. In the left list, click **Compile check (tvOS Simulator, no signing)**.
+3. On the right, click **Run workflow**, keep **Branch: main**, then click the green **Run workflow** button.
+
+   This button is the only way the workflow runs. Nothing runs on a push. A run stops by itself after at most 30 minutes.
+4. Refresh the page after a minute. A new run appears with a yellow dot while it is running.
+5. Wait for the result:
+   - A **green tick** means the app and the Top Shelf extension compiled for the tvOS Simulator.
+   - A **red cross** is expected for the first run: nothing in `App/` has ever been compiled.
+
+   Both results are useful.
+
+   *If the run stays "Queued" for a long time:* the free standard runners are busy. Wait; do not switch to another label.
+
+   *If the step "Select Xcode 27.2" fails:* GitHub has changed the image. The fix is one line (`XCODE_APP`) in
+   `.github/workflows/compile-check.yml`.
+
+## Part E: save the results
+
+Save the error list in either of these two ways.
+
+**Browser:**
+
+1. Open the run and scroll to **Artifacts** at the bottom.
+2. Click **compile-check-results** to download a zip file.
+3. Unzip it into your Downloads folder. Do not unzip it into the project folder.
+
+The zip holds three files:
+
+- `errors.txt`: the short list (file, line, message).
+- `errors-other.txt`: errors that have no file position.
+- `build.log`: the full log.
+
+The run's **Summary** page shows the same short list, so you can also copy it from there.
+
+**Terminal (the `gh` tool is installed and signed in):**
+
+1. List the newest run:
+
+   ```powershell
+   gh run list --repo liampmcdowell7-rgb/video-player --workflow compile-check.yml --limit 1
+   ```
+
+   This prints one line. The long number in it is the run ID.
+2. Download the results. Put the run ID in place of `RUN-ID`:
+
+   ```powershell
+   gh run download RUN-ID --repo liampmcdowell7-rgb/video-player --name compile-check-results --dir "$env:USERPROFILE\Downloads\compile-check"
+   ```
+
+   *Success looks like this:* the folder `Downloads\compile-check` contains `errors.txt`, `errors-other.txt` and `build.log`.
+
+   *If it says "no artifact":* the run failed before the upload step. Open the run in the browser and read its last red step.
+
+## Do not
+
+- Do not run the Codemagic build. `codemagic.yaml` stays only for a TestFlight upload later.
+- Do not change `runs-on` to any label ending in `-large` or `-xlarge`.
+- Do not add a trigger other than the manual button.
+- Do not add secrets to the repository.
+- Do not add a payment method to GitHub for this project.
+
+## Notes
+
+- Only people with write access to the repository can press **Run workflow**. Others can read the code and the run logs.
+- The workflow uses no secrets. Every workflow job automatically receives GitHub's short-lived token. Here that token is
+  limited to read-only access to the code (`permissions: contents: read`), and the checkout step uses it to download the code.

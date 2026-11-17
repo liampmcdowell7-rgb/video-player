@@ -1,0 +1,253 @@
+import SwiftUI
+import Observation
+import VideoPlayerCore
+import LibraryIndex
+import UserData
+import AppLogic
+
+/// What the player is asked to start (an item, from the beginning or from its saved place).
+struct PlayRequest: Identifiable, Equatable {
+    let id = UUID()
+    let itemID: Int64
+    let fromStart: Bool
+}
+
+/// The one place the app's long-lived parts are built and held, handed to every screen through the environment.
+/// Screens receive plain protocols and view models; none of them builds a database or a network client.
+@MainActor
+@Observable
+final class AppServices {
+    let sqlite: SQLiteLibraryStore
+    let ledger: UserDataLedger
+    let essentials: UDEssentialsStore
+    let secrets: MirroredSecrets
+    let cloud: CloudKitUserDataCloud
+    let connector: any SourceConnecting
+    /// Which sources are refused for a changed certificate or host key (SOURCES, docs/SOURCES_WIRING.md).
+    let trust: TrustCenter
+    /// Builds the live object for every source kind; the one place that applies the approved fingerprints.
+    let sourceFactory: SourceFactory
+    /// Online lookups, built only from the keys the user entered (artwork, Fix Match, Discover). ARTWORK.
+    let online: OnlineServices
+    /// iCloud (CloudKit) sync of the user-data ledger: schedule and honest status (Settings > Storage and iCloud). ARTWORK.
+    let sync: CloudSyncHost
+    /// The start-up sequence (restore after a cleanup, rebuild a lost ledger, then sync). Run once by `startCloudSync()`.
+    let ledgerWasLost: Bool
+    let syncEngine: UserDataSyncEngine
+    /// True when the library database could not be opened and was created again (shown as "Rebuilding").
+    let databaseWasRebuilt: Bool
+
+    var libraryRevision = 0
+    var pendingLink: DeepLink?
+    var playRequest: PlayRequest?
+    var isScanning = false
+    var accountStatus: UDAccountStatus = .unknown
+    var secretState: CloudSecretState = .signedOut
+    var passwordsNeeded = 0
+
+    var store: any LibraryStore { sqlite }
+
+    init() {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        let databaseURL = caches.appendingPathComponent("library.sqlite")
+        var rebuilt = false
+        var opened: SQLiteLibraryStore?
+        do {
+            opened = try SQLiteLibraryStore(path: databaseURL.path)
+        } catch {
+            for suffix in ["", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: databaseURL.path + suffix) }
+            rebuilt = true
+            opened = try? SQLiteLibraryStore(path: databaseURL.path)
+        }
+        // An in-memory database only fails to open if SQLite itself is broken; there is nothing better to fall back to.
+        self.sqlite = opened ?? (try! SQLiteLibraryStore(path: ":memory:"))
+        self.databaseWasRebuilt = rebuilt
+
+        let defaults = UserDefaults.standard
+        let deviceKey = "vp.deviceID"
+        let deviceID = defaults.string(forKey: deviceKey) ?? UUID().uuidString.lowercased()
+        defaults.set(deviceID, forKey: deviceKey)
+        let ledger = UserDataLedger(deviceID: deviceID)
+        let essentials = UDEssentialsStore(store: UserDefaultsKeyValueStore())
+        essentials.restore(into: ledger)
+        self.ledger = ledger
+        self.essentials = essentials
+        self.cloud = CloudKitUserDataCloud()
+        let secrets = MirroredSecrets(local: KeychainCredentialStore(), cloud: CloudKitSecretCloud())
+        let trust = TrustCenter()
+        self.secrets = secrets
+        self.trust = trust
+        self.sourceFactory = SourceFactory(secrets: secrets, ledger: ledger, trust: trust, deviceID: deviceID)
+        self.connector = LiveSourceConnector(deviceID: deviceID)
+        // ARTWORK: online lookups and the ledger sync. The saved ledger file replaces what the essentials copy restored above
+        // (it is newer); when it is missing or damaged the essentials copy stays and the bootstrap rebuilds from the database.
+        let sqliteStore = self.sqlite
+        let factory = self.sourceFactory
+        let reader = SourceSidecarReader(sourceFor: { [ledger, factory] sourceID in
+            guard let definition = ledger.sourceDefinitions().first(where: { $0.id == sourceID }) else { return nil }
+            return factory.makeSource(definition)
+        })
+        self.online = OnlineServices(keys: OnlineKeyStore(secrets: secrets), store: sqliteStore, reader: reader)
+        let engine = UserDataSyncEngine(ledger: ledger, cloud: self.cloud)
+        self.syncEngine = engine
+        let host = CloudSyncHost(ledger: ledger, engine: engine)
+        self.ledgerWasLost = host.loadLedgerFile()
+        self.sync = host
+        sqliteStore.setRecorder(LedgerRecorder(ledger: ledger))
+    }
+
+    // MARK: Sources
+
+    var definitions: [UDSourceDefinition] { ledger.sourceDefinitions() }
+
+    var definitionSaver: any SourceDefinitionSaving { LedgerSourceDefinitions(ledger: ledger, essentials: essentials) }
+
+    func makeSource(_ definition: UDSourceDefinition) -> (any MediaSource)? { sourceFactory.makeSource(definition) }
+
+    func sourceAdded() {
+        libraryRevision += 1
+        Task { await scanAll() }
+    }
+
+    func scanAll() async {
+        guard !isScanning else { return }
+        isScanning = true
+        for definition in definitions {
+            guard let source = makeSource(definition) else { continue }
+            let syncer = LibrarySyncer(store: sqlite, source: source, sourceID: definition.id)
+            _ = try? await syncer.sync()
+        }
+        isScanning = false
+        libraryRevision += 1
+        await writeTopShelf()
+    }
+
+    func removeSource(id: String) async {
+        try? await store.removeSource(id: id)
+        ledger.removeSource(id: id)
+        try? essentials.save(from: ledger)
+        _ = try? await secrets.remove(sourceID: id)
+        trust.clear(sourceID: id)
+        libraryRevision += 1
+        await writeTopShelf()
+    }
+
+    // MARK: Cloud status
+
+    func refreshCloudStatus() async {
+        accountStatus = await cloud.accountStatus()
+        let report = await secrets.reconcile(sourceIDs: definitions.map(\.id))
+        secretState = report.state
+        passwordsNeeded = CredentialGap.sourcesNeedingPassword(definitions, store: secrets.local).count
+    }
+
+    // MARK: Top Shelf
+
+    /// Writes the snapshot the Top Shelf extension reads, and the picture files it names (ARTWORK). A picture comes from a file
+    /// next to the video first, then from the matched online poster when a key is entered; an item with no picture is left out
+    /// by the extension. The folder is not durable storage (the system may delete it); it is written again after every scan.
+    func writeTopShelf() async {
+        guard let folder = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.liamp.videoplayer") else { return }
+        let days = UserDefaults.standard.integer(forKey: SettingsKey.continueWatchingDays.rawValue)
+        let builder = TopShelfBuilder(store: store)
+        guard let result = try? await builder.build(retentionDays: days > 0 ? days : SettingsKey.defaultContinueWatchingDays) else { return }
+        let shelf = folder.appendingPathComponent("TopShelf", isDirectory: true)
+        try? FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
+        var written = Set<String>()
+        for art in result.artwork {
+            guard let bytes = await online.artworkBytes(key: art.key) else { continue }
+            if (try? bytes.write(to: shelf.appendingPathComponent(art.file), options: .atomic)) != nil { written.insert(art.file) }
+        }
+        // Items whose picture could not be found are left out, so the shelf never names a file that is not there.
+        var snapshot = result.snapshot
+        snapshot.items = snapshot.items.filter { written.contains($0.imageFile) }
+        try? TopShelfSnapshotStore.write(snapshot, to: shelf)
+        // Pictures of items no longer on the shelf are removed.
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: shelf.path)) ?? []
+        for name in names where name.hasSuffix(".jpg") && !written.contains(name) {
+            try? FileManager.default.removeItem(at: shelf.appendingPathComponent(name))
+        }
+    }
+
+    // MARK: Cloud sync of the ledger
+
+    /// Runs the start-up sequence once (restore after a cleanup, rebuild a lost ledger, merge with the cloud), then keeps syncing.
+    /// Safe to call on every launch of the root screen; later calls do nothing.
+    func startCloudSync() async {
+        await online.reconcileKeys()
+        let target = LibraryRestoreAdapter(store: sqlite, deviceID: ledger.deviceID, scan: { [weak self] in await self?.scanAll() })
+        let bootstrap = LibraryBootstrap(ledger: ledger, engine: syncEngine, essentials: essentials, credentials: secrets.local)
+        let lost = ledgerWasLost
+        let health: UDDatabaseHealth = databaseWasRebuilt ? .missing : .ok
+        await sync.start(startupSync: {
+            if let report = try? await bootstrap.run(health: health, ledgerWasLost: lost, target: target) { return report }
+            var failed = UDSyncReport()
+            failed.status = .failed("The start-up sync did not finish.")
+            return failed
+        })
+    }
+
+    // MARK: Playback
+
+    func resolvePlayback(itemID: Int64, fromStart: Bool) async throws -> ResolvedPlayback {
+        guard let item = try await store.item(id: itemID) else { throw PlaybackError.noFile }
+        let files = try await store.versions(of: itemID)
+        guard let file = files.first(where: { $0.id == item.preferredFileID }) ?? files.first else { throw PlaybackError.noFile }
+        // MKV and the other containers the converting player opens go through it (PLAYBACK); the rest is refused with the reason.
+        let route = PlaybackRoute.route(fileName: file.name)
+        if case .unsupported(let failure) = route { throw failure }
+        let location: URL
+        var headers: [String: String] = [:]
+        var remux: RemuxPlayback?
+        if route == .remux {
+            let opened = try await RemuxPlayback.open(reader: try await sourceFactory.byteReader(for: file))
+            remux = opened
+            location = opened.url
+        } else {
+            guard let definition = definitions.first(where: { $0.id == file.sourceID }), let source = makeSource(definition) else {
+                throw PlaybackError.sourceUnavailable
+            }
+            let access = try await source.playbackAccess(for: file.path)
+            guard case .url(let url, let accessHeaders) = access else { throw PlaybackError.notReadable }
+            location = url
+            headers = accessHeaders
+        }
+        let card = CardBuilder.card(item)
+        let content = NowPlayingContent(kind: item.kind == .movie ? .movie : .episode, title: card.title, seriesTitle: item.seriesTitle,
+                                        season: item.season, episode: item.episode, year: item.year, artworkKey: card.artworkKey)
+        let resume = fromStart || item.watch.watched ? 0 : item.watch.position
+        let segments = await segmentService.segments(forItem: itemID)
+        var resolved = ResolvedPlayback(url: location, headers: headers, title: card.title, subtitle: item.seriesTitle, startAt: resume,
+                                        duration: item.runtime ?? item.watch.duration, content: content)
+        resolved.segments = segments
+        resolved.remux = remux
+        return resolved
+    }
+}
+
+// MARK: Library actions used by context menus
+
+extension AppServices {
+    func setWatched(_ itemID: Int64, _ watched: Bool) async {
+        try? await store.markWatched(itemIDs: [itemID], watched: watched, at: Date())
+        libraryRevision += 1
+    }
+
+    func setFavorite(_ itemID: Int64, _ favorite: Bool) async {
+        try? await store.setFavorite(itemID: itemID, favorite: favorite)
+        libraryRevision += 1
+    }
+
+    func hideFromContinue(_ itemID: Int64) async {
+        try? await store.hideFromContinue(itemID: itemID, hidden: true)
+        libraryRevision += 1
+    }
+}
+
+// MARK: Playback progress
+
+extension AppServices {
+    func saveProgress(itemID: Int64, position: Double, duration: Double?) async {
+        try? await store.updateProgress(itemID: itemID, position: position, duration: duration, at: Date())
+    }
+}

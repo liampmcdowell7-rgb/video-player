@@ -1,0 +1,26 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "About" : {},
+    "Add a server in Settings to browse its folders." : {},
+    "Add a server in Settings to see your videos here." : {},
+    "Discover" : {},
+    "Files" : {},
+    "Home" : {},
+    "Missing episodes, collection gaps and similar titles appear here once your library is set up." : {},
+    "Movies" : {},
+    "Movies from your servers appear here." : {},
+    "No Movies" : {},
+    "No Servers" : {},
+    "No Shows" : {},
+    "Nothing to Discover Yet" : {},
+    "Search" : {},
+    "Search for movies, shows and files." : {},
+    "Settings" : {},
+    "Show Discover" : {},
+    "Shows" : {},
+    "Shows from your servers appear here." : {},
+    "Version" : {}
+  },
+  "version" : "1.0"
+}

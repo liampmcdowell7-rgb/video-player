@@ -1,0 +1,31 @@
+import SwiftUI
+import AppLogic
+import LibraryIndex
+
+/// The row above a grid: sort, filter and saved-view menus, the count, and one button per active filter.
+struct GridControls: View {
+    let model: ScreenModel<ItemGridViewModel>
+    var onSave: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            HStack {
+                SortMenu(model: model)
+                FilterMenu(model: model)
+                SavedViewsMenu(model: model, onSave: onSave)
+                if case .loaded(let grid) = model.screen.state, !grid.alphabet.isEmpty {
+                    AlphabetJumpMenu(letters: grid.alphabet.map { AlphabetJumpEntry(letter: $0.letter, count: $0.count) }) { letter in
+                        Task { await model.run { await $0.jump(to: letter) } }
+                    }
+                }
+                if let count = model.screen.countText {
+                    Text(count)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            if !model.screen.chips.isEmpty {
+                FilterChipsRow(model: model)
+            }
+        }
+    }
+}

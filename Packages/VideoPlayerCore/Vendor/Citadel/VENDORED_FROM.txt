@@ -1,0 +1,1 @@
+ae8562f895de06ccb86fdb1cbb65fd99c8976e12  https://github.com/orlandos-nl/Citadel.git  (vendored by scripts/setup-citadel.sh)
