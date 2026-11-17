@@ -12,7 +12,7 @@ Target `AppLogic` in `Packages/VideoPlayerCore`. It is the glue between the feat
 | Cards, filters, sorts (`LibraryCards.swift`) | yes | yes, through the library tests | no |
 | Library screens (`LibraryScreens.swift`): Home, grid/Movies, Shows, Seasons, Files, Search | yes | yes, 25 tests on a real in-memory `SQLiteLibraryStore` plus a failing wrapper store | no |
 | Shared states and text (`Presentation.swift`) | yes | yes | no |
-| Apple wrappers (`Apple/NowPlayingCenterPublisher.swift`, `Apple/ContentProposalPresenter.swift`) | yes | **no, cannot be built on Linux** | **no** |
+| Apple wrappers: only in the app now (`App/Features/Player/NowPlayingCenterPublisher.swift`, `ProposalPresenter.swift`, `SkipButtonPresenter.swift`); the unused package copies were deleted after the first compile, 2026-11-17 (R76, R154) | n/a | **no, cannot be built on Linux** | **no** |
 
 Run: `swift test` in a manifest that has the AppLogic targets: 62 tests, 0 skipped, 0 failed (last run in a private trimmed copy, debug, Swift 6.4.2 on WSL). The test target needs only `AppLogic` and `VideoPlayerCore` in the manifest as written.
 
@@ -35,14 +35,14 @@ Run: `swift test` in a manifest that has the AppLogic targets: 62 tests, 0 skipp
 8. The Up Next presenter turns Apple's own countdown off (NaN) and shows ours, because AVKit counts from the end of playback (see below).
 9. Series list: `LibraryStore` has no "list series" call, so `EpisodeGroupingCatalog` reads all episodes page by page and groups them. Fine for tests and a mid-size library, O(episodes) for a big one. **Gap for the parent:** add a `series()` query to `LibraryIndex` and a `SeriesCatalog` that uses it; the Shows view model already takes the catalog as a parameter.
 
-## Apple wrappers (never compiled)
+## Apple wrappers (in the app)
 
-Written from Apple's documentation without a Mac; no decisions in them.
+Written from Apple's documentation without a Mac; no decisions in them. They live in `App/Features/Player/`. The package once held a second, unused copy; the first compile built it without an error, and it was deleted afterwards as dead code (R76, R154). The names below are the ones those package copies used; the app's files are `NowPlayingCenterPublisher`, `ProposalPresenter` and `SkipButtonPresenter`. None of the three app files has had its body compiled yet: the first compile type-checked only their declarations (R155).
 
 - `NowPlayingCenterPublisher` (`MPNowPlayingInfoCenter`, `MPRemoteCommandCenter`): copies a snapshot into the system dictionary and the command state into the command center, and forwards system commands (`play`, `pause`, `skip(by:)`, `seek(to:)`, `nextTrack`) to a closure. Set `updatesNowPlayingInfoCenter = false` on the player.
 - `ContentProposalPresenter` (`AVContentProposal`, `AVPlayerViewControllerDelegate`, an `AVContentProposalViewController` subclass) and `ContextualActionSkipPresenter` (`AVPlayerViewController.contextualActions`).
 - Known difference from Apple's model, found by reading "Presenting content proposals in tvOS": AVKit presents a proposal when the item reaches `contentTimeForTransition` and counts `automaticAcceptanceInterval` from the end of playback. Our machine picks the moment (credits start) and runs its own countdown. The wrapper sets the transition time to the current playhead and the interval to NaN. Whether AVKit then shows the proposal at once is **unverified**; it is on the Apple TV checklist.
-- The wrapper files are inside `#if os(tvOS) && canImport(...)`, so Linux and macOS builds skip them.
+- The wrapper files are built only in the tvOS app target, so the package's Linux tests never see them.
 
 ## Not covered by these tests
 

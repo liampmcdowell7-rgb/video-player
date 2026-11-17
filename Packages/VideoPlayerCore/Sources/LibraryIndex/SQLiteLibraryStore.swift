@@ -27,8 +27,12 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
     var pendingWatch: [String: UDWatchValue] = [:]
 
     /// Opens or creates the database at `path` (":memory:" for a throwaway one) and upgrades its schema.
-    public init(path: String) throws {
+    /// `recorder` is where every watch-state and saved-view change is written through from the first call on. Passing it here
+    /// (rather than calling `setRecorder` afterwards) is how a synchronous caller, such as the app's main-actor start-up, makes
+    /// sure no change happens before the recorder is in place: `setRecorder` is actor-isolated and needs an `await`.
+    public init(path: String, recorder: (any UserDataRecording)? = nil) throws {
         self.path = path
+        self.recorder = recorder
         self.db = try SQLiteDatabase(path: path)
         try db.prepareLibrarySchema()
     }

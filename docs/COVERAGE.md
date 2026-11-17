@@ -4,13 +4,29 @@ Written 2026-11-17 by reading the code and docs as they are during build batch 3
 The AUDIO and DOLBY VISION rows were finalised by the lead on 2026-11-17 after those agents finished: built and tested in WSL, never compiled for tvOS, device-unverified.
 
 Status words:
-- **built and tested**: the logic is written and its tests ran in WSL (Linux). Nothing in App/ has ever been compiled.
+- **built and tested**: the logic is written and its tests ran in WSL (Linux); since the first compile (R155) the package also compiles for tvOS. App/ has not fully compiled yet (see below).
 - **built, device-only**: written (App/ screens and Apple wrappers, syntax-checked only) on top of tested logic; it can only be proven on an Apple TV.
 - **partly**: some of the item exists; the "missing" column says what does not.
 - **not started**: no code.
 - **cut**: on the "Considered and cut" list (kept visible, reversible).
 
-Because no App/ file has been compiled, **every** row that reaches the screen is at most "built, device-only" until the first compile check and a device run.
+Because no device run exists, **every** row that reaches the screen is at most "built, device-only".
+
+### First compile, 2026-11-17 (R155)
+
+GitHub Actions, xcode-27 runner, Xcode 27.2, tvOS Simulator (x86_64 and arm64), run 44199971478 on commit 5703a92. **Build failed with 3 errors**, all in App/Support/AppServices.swift; fixed in the next commit, which has not been compiled yet.
+
+| Part | Result of the first compile |
+|---|---|
+| XcodeGen project, package resolution, vendored packages, the 7 prebuilt xcframeworks | worked (one SwiftPM identity warning for swift-nio-ssh, fixed since) |
+| Every package target (VideoPlayerCore and all Source*, LibraryIndex, UserData, AppLogic, PlaybackLogic, RemuxEngine, AudioDecode, DolbyVisionRPU, …), including the Apple-only `#if canImport` code | **compiled** for both architectures |
+| Top Shelf extension | **compiled and linked** for both architectures; never run |
+| App declarations (types, signatures, conformances of all 92 App files) | type-checked (the x86_64 module was emitted) |
+| App function bodies | 24 files checked, 3 errors (fixed); **the other 68 are unconfirmed**: 23 in a batch that started with no result in the log, 45 never started |
+| App link, embedding the dynamic frameworks (5 audio codec frameworks, AMSMB2), copying the extension into the app, signing | **never reached** |
+| Running anything (Simulator or Apple TV) | never done |
+
+So "built" for an App/ row still means "syntax-checked and declarations type-checked", not "compiled", until the next compile passes.
 
 ## 1. What the first TestFlight build would NOT have that you asked for (gaps first)
 
@@ -178,7 +194,7 @@ Tests: `TMDBClientTests.testConfigurationAndImageURLs`, `testImageBuilderFallsBa
 
 ## 5. Recommended order for the rest
 
-1. First compile check (manual GitHub Actions, R105) and fix what it finds: everything above is "device-only" until then.
+1. Next compile check (manual GitHub Actions, R105) on the commit that fixes the first compile's 3 errors (R155), and fix what it finds, until the app links: everything above is "device-only" until then.
 2. Play the hard requirements built this batch (G13 audio, G14 Dolby Vision 7) on a device, and fix what the device shows.
 3. G19 long-press actions and G20 language preferences: small, daily-use, logic already tested.
 4. G4 collections and Favorites on Home, G17 Upcoming Episodes: library-only rows from data the index already has.

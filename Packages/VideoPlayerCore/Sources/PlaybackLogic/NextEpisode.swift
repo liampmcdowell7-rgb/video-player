@@ -435,7 +435,7 @@ public struct NextEpisodeMachine: Sendable {
     private mutating func present(_ kind: PlayheadKind) -> [NextEpisodeAction] {
         guard case .next(let episode) = next, !dismissed, !visible else { return [] }
         visible = true
-        var out: [NextEpisodeAction] = [.presentProposal(episode)]
+        let out: [NextEpisodeAction] = [.presentProposal(episode)]
         // The countdown starts only when playback reaches the proposal by itself: not after a seek and not when
         // resuming inside the credits. Ask never counts down.
         if policy.mode.countsDown, kind == .natural {

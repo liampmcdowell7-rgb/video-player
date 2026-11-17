@@ -6,7 +6,7 @@ import PlaybackLogic
 // `PlaybackSession`; every decision about WHEN things happen is made there (docs/PLAYBACK_LOGIC.md). This file only
 // turns its output into what is drawn.
 //
-// Apple side (never compiled, Apple/ContentProposalPresenter.swift): AVContentProposal presented through
+// Apple side (in the app: App/Features/Player/ProposalPresenter.swift and SkipButtonPresenter.swift): AVContentProposal presented through
 // AVPlayerViewController, and the skip button as an AVPlayerViewController contextual action. Both sit behind
 // `UpNextProposalPresenting` and `SkipButtonPresenting` below.
 

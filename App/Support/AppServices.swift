@@ -48,21 +48,9 @@ final class AppServices {
     var store: any LibraryStore { sqlite }
 
     init() {
-        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        let databaseURL = caches.appendingPathComponent("library.sqlite")
-        var rebuilt = false
-        var opened: SQLiteLibraryStore?
-        do {
-            opened = try SQLiteLibraryStore(path: databaseURL.path)
-        } catch {
-            for suffix in ["", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: databaseURL.path + suffix) }
-            rebuilt = true
-            opened = try? SQLiteLibraryStore(path: databaseURL.path)
-        }
-        // An in-memory database only fails to open if SQLite itself is broken; there is nothing better to fall back to.
-        self.sqlite = opened ?? (try! SQLiteLibraryStore(path: ":memory:"))
-        self.databaseWasRebuilt = rebuilt
-
+        // The ledger comes first: the library store is opened with its recorder already in place (below), so not one
+        // watch-state or saved-view change can happen before it is recorded. (`setRecorder` is actor-isolated and cannot be
+        // called from this synchronous main-actor init; first compile, 2026-11-17.)
         let defaults = UserDefaults.standard
         let deviceKey = "vp.deviceID"
         let deviceID = defaults.string(forKey: deviceKey) ?? UUID().uuidString.lowercased()
@@ -70,6 +58,23 @@ final class AppServices {
         let ledger = UserDataLedger(deviceID: deviceID)
         let essentials = UDEssentialsStore(store: UserDefaultsKeyValueStore())
         essentials.restore(into: ledger)
+        let recorder = LedgerRecorder(ledger: ledger)
+
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        let databaseURL = caches.appendingPathComponent("library.sqlite")
+        var rebuilt = false
+        var opened: SQLiteLibraryStore?
+        do {
+            opened = try SQLiteLibraryStore(path: databaseURL.path, recorder: recorder)
+        } catch {
+            for suffix in ["", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: databaseURL.path + suffix) }
+            rebuilt = true
+            opened = try? SQLiteLibraryStore(path: databaseURL.path, recorder: recorder)
+        }
+        // An in-memory database only fails to open if SQLite itself is broken; there is nothing better to fall back to.
+        self.sqlite = opened ?? (try! SQLiteLibraryStore(path: ":memory:", recorder: recorder))
+        self.databaseWasRebuilt = rebuilt
+
         self.ledger = ledger
         self.essentials = essentials
         self.cloud = CloudKitUserDataCloud()
@@ -83,9 +88,11 @@ final class AppServices {
         // (it is newer); when it is missing or damaged the essentials copy stays and the bootstrap rebuilds from the database.
         let sqliteStore = self.sqlite
         let factory = self.sourceFactory
-        let reader = SourceSidecarReader(sourceFor: { [ledger, factory] sourceID in
+        // `SourceFactory` is main-actor isolated (it reads the secrets and the trust list), and this closure is a plain
+        // `@Sendable async` one, so the call hops to the main actor with `await` (first compile, 2026-11-17).
+        let reader = SourceSidecarReader(sourceFor: { @Sendable [ledger, factory] (sourceID: String) async -> (any MediaSource)? in
             guard let definition = ledger.sourceDefinitions().first(where: { $0.id == sourceID }) else { return nil }
-            return factory.makeSource(definition)
+            return await factory.makeSource(definition)
         })
         self.online = OnlineServices(keys: OnlineKeyStore(secrets: secrets), store: sqliteStore, reader: reader)
         let engine = UserDataSyncEngine(ledger: ledger, cloud: self.cloud)
@@ -93,7 +100,6 @@ final class AppServices {
         let host = CloudSyncHost(ledger: ledger, engine: engine)
         self.ledgerWasLost = host.loadLedgerFile()
         self.sync = host
-        sqliteStore.setRecorder(LedgerRecorder(ledger: ledger))
     }
 
     // MARK: Sources

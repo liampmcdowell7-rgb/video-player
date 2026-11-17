@@ -24,6 +24,21 @@ public struct UDSyncReport: Equatable, Sendable {
     /// Records that could not be uploaded because they are over the size limit (their keys).
     public var oversize: [String] = []
     public var remainingDirty = 0
+
+    /// Explicit because a public struct's implicit initializers are internal: the app builds a report too (first compile,
+    /// 2026-11-17: "'UDSyncReport' initializer is inaccessible due to 'internal' protection level"). Same defaults as above.
+    public init(status: UDSyncStatus = .synced, pulled: Int = 0, pushed: Int = 0, conflictsMerged: Int = 0, splits: Int = 0,
+                rateLimitWaits: Int = 0, fullRefetches: Int = 0, oversize: [String] = [], remainingDirty: Int = 0) {
+        self.status = status
+        self.pulled = pulled
+        self.pushed = pushed
+        self.conflictsMerged = conflictsMerged
+        self.splits = splits
+        self.rateLimitWaits = rateLimitWaits
+        self.fullRefetches = fullRefetches
+        self.oversize = oversize
+        self.remainingDirty = remainingDirty
+    }
 }
 
 /// Pulls changes, merges them into the ledger, pushes what is dirty. One `sync()` at a time (it is an actor).
