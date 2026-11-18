@@ -70,3 +70,86 @@ Status of every row: **not yet seen on a screen.** The view model behind it is t
 2. Loading spinner delay and picker focus order are view concerns, not covered by WSL tests.
 3. No view in `App/Features` uses these view models yet.
 4. Hide-able Discover tab vs HIG "don't hide tab bar buttons" (D-DS6).
+
+## Design check per screen
+
+Rules 1–20 and the Apple page behind each are in docs/DESIGN_REFERENCES.md. **pass** = seen correct in a CI screenshot or
+on a device; **fail** = seen wrong, or known wrong from the code; **unproven** = not yet seen. The first screenshots ever
+taken (CI run 44401030622, simulator, fixture library, 16 screens) showed the faults listed as "fail (run 44401030622)";
+each has a code change that is **not yet seen in a screenshot**, so it stays unproven until the next run. Nothing has been
+seen on an Apple TV. Rule 17 (Larger Text, Bold Text, Reduce Transparency, Increase Contrast, Reduce Motion) has not been
+tested on any screen: **unproven everywhere**, and nothing was run with those settings.
+
+### App shell and tab bar
+- 1 Back/Menu: unproven (Remotes; Tab bars: Menu returns focus to the bar).
+- 2 Focus: unproven.
+- 3, 9 System focus and glass: unproven; no custom bar background (Adopting Liquid Glass).
+- 12 Layout: **fail (run 44401030622)**: seven tabs do not fit; the system fades Settings on the right and the first tab
+  scrolls off on Settings. This is the system's documented overflow (Tab bars, tvOS); not fixed, owner decision R167.
+- 19 Wording: unproven. Hideable Discover tab vs "don't hide tabs" (Tab bars): D-DS6, open.
+
+### Top-level titles (Home, Search, Movies, Shows, Files, Discover, Settings)
+- 10, 12 Typography/consistency: **fail (run 44401030622)**: large centred dim titles on five tabs, none on Home and
+  Search. Changed: no visible title on any tab root, title kept as an accessibility header (R166, PROVISIONAL). No Apple
+  page states the tvOS rule. Unproven.
+- 16 VoiceOver header: unproven (VoiceOver: use headings).
+
+### Home
+- 2 Initial focus on the first shelf: unproven.
+- 5 Empty / no sources: unproven (ContentUnavailableView).
+- 12 Equal cards: **fail (run 44401030622)**: Recently Added mixed tall posters and wide 16:9 cards (unclipped
+  artwork). Changed: every card artwork is a clipped 2:3 frame. Unproven.
+- 13 Short texts: **fail (run 44401030622)**: subtitles cut with "…". Changed: R165 one-line fitting. Unproven.
+- 19 Wording: episode cards titled with the episode code. Changed: show name as title, "S2 E1 · Title" or "S2 E1"
+  underneath (unit-tested in WSL; unproven on screen).
+- 18 Real names as text ("Dolby Vision", "Dolby Atmos"): pass in code (unit test); unproven on screen.
+
+### Movies and Shows grids
+- 12 Equal and aligned: **fail (run 44401030622)**: posters at different heights. Changed: grid cells top-aligned
+  (`GridItem(alignment: .top)`), every card reserves the same text lines, artwork clipped 2:3 (Layout; Collections).
+  Unproven. Shows grid uses the same layout and card frame.
+- 13 Short texts: changed (R165). Unproven.
+- 5 No artwork: the grey film / tv symbol on a quaternary fill is the designed placeholder (one function in
+  ArtworkView). Unproven.
+- 14 SF Symbols: pass in code (`film`, `tv`); unproven on screen.
+
+### Show page and movie detail page
+- 1, 2 Push and Back: **fail (run 44401030622)**: not reached. Cause found in code: route destinations attached
+  outside the NavigationStack (R168). Fixed in code; unproven.
+- 13 Title, facts and badges on one line: changed (R165). Unproven.
+- 8 Playback (resume, skip, next episode, system pickers, errors): unproven (Playing video; AVKit). No player
+  screenshot exists by design (R161).
+
+### Files (sources and folders)
+- 12 Icon against label: **fail (run 44401030622)**: the drive symbol touched the text. The row was already a system
+  `Label`; the cause is not proven. Changed: every Files and source row uses one `RowLabel` (system `Label`, primary
+  tint). Unproven.
+- 1, 2 Folder push and Back to the parent: not reached in run 44401030622 (R168). Unproven.
+- 5 Empty / offline / error: unproven.
+
+### Add a Source sheet
+- 11 Contrast: **fail (run 44401030622)**: the focused "Search Your Network" symbol disappeared into the focused row.
+  Changed: symbol drawn in the primary style so it follows the focused text colour (Lists and tables). Unproven.
+- 10 Section headers and sheet title: system `Section` and `navigationTitle`, no custom style; no change (Sheets).
+  Unproven.
+- 20 Honesty lines: unchanged, as written.
+
+### Search
+- 7 System keyboard: unproven. The UI test could not type with `typeText` in run 44401030622 (a test problem, not an
+  app one); the test now presses the keyboard keys.
+- 5 Three non-result states: unproven (ContentUnavailableView.search).
+
+### Discover
+- 5 No key / offline states: unproven.
+- 13 Title, year and reason: changed (R165). The "where to watch" sentence keeps wrapping (a sentence, not a short
+  text). Unproven.
+- 18 TMDB logo only in Settings > About > Data Sources: pass in code (design-lint); unproven on screen.
+
+### Settings
+- 2 Focus: not reached past the first row in run 44401030622. Cause: the UI-test focus helper, not the app (the rows are
+  buttons; the log found the "Playback" button). Helper fixed; unproven.
+- 4 Controls: system `Form`, `Toggle`, `NavigationLink` (Lists and tables). Unproven.
+- 6 Destructive actions confirmed with the system alert: unproven (Alerts).
+
+### Top Shelf
+- 18, 12: unproven (Top Shelf). Not reachable from UI tests (R161).
