@@ -1,5 +1,6 @@
 #if DEBUG
 import Foundation
+import SwiftUI
 import VideoPlayerCore
 import LibraryIndex
 import UserData
@@ -56,6 +57,24 @@ enum UITestMode {
         if let episode = items.first(where: { $0.seriesTitle == title }), let series = episode.seriesID { return .series(series) }
         return nil
     }
+
+    /// `-UITestTextSize` as a SwiftUI size (rule 17 screenshots); nil when not asked for.
+    static var dynamicTypeSize: DynamicTypeSize? {
+        switch UITestLaunch.textSize(arguments: ProcessInfo.processInfo.arguments, mode: current) {
+        case "xLarge": return .xLarge
+        case "xxLarge": return .xxLarge
+        case "xxxLarge": return .xxxLarge
+        case "accessibility1": return .accessibility1
+        case "accessibility2": return .accessibility2
+        case "accessibility3": return .accessibility3
+        case "accessibility4": return .accessibility4
+        case "accessibility5": return .accessibility5
+        default: return nil
+        }
+    }
+
+    /// `-UITestBoldText` (rule 17 screenshots).
+    static var boldText: Bool { UITestLaunch.boldText(arguments: ProcessInfo.processInfo.arguments, mode: current) }
 
     static func tab(named name: String?) -> AppTab? {
         switch name {

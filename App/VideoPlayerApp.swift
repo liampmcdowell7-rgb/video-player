@@ -10,6 +10,7 @@ struct VideoPlayerApp: App {
         WindowGroup {
             RootView()
                 .environment(services)
+                .uiTestAccessibilityOverrides()
         }
     }
 }

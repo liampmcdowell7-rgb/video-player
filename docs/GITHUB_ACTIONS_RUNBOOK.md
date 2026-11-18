@@ -312,7 +312,10 @@ the app is in front; otherwise the test fails and `index.md` lists the screen as
 1. Open the run. Scroll to **Artifacts** at the bottom.
 2. Click each of the five names above to download a zip file (`screenshots-logs` only matters if the screenshots job is red).
 3. Make a new folder `Downloads\run-3` and unzip each zip into its own subfolder there. Do not unzip into the project folder.
-4. Open `screenshots\index.md` (any text editor) and look at the pictures in number order.
+4. Open `screenshots\index.md` (any text editor) and look at the pictures in number order. Pictures 80–84 are drawn with
+   Larger Text and 85–89 with Bold Text. The folders `screenshots\a11y-contrast`, `a11y-transparency` and `a11y-motion`
+   (each with its own `index.md`) hold the same five screens with Increase Contrast, Reduce Transparency or Reduce Motion
+   turned on in the simulator; `screenshots\a11y-settings.txt` says which of these were really applied (OPEN_QUESTIONS R170).
 5. Send back, in this order of importance:
    - `compile-check-results\errors.txt` and `device-build-results\errors.txt` (even if empty);
    - `device-build-results\embedded-frameworks.txt`, `static-libraries.txt` and `release-strings.txt`;

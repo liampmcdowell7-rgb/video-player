@@ -20,6 +20,14 @@ public enum UITestLaunch: Equatable, Sendable {
     public static let tabArgument = "-UITestTab"
     /// `-UITestOpen <title>`: opens the detail page of the movie, or the page of the show, with exactly this title.
     public static let openArgument = "-UITestOpen"
+    /// `-UITestTextSize <name>`: draws the app at this text size (rule 17, Larger Text), one of `textSizes`. Only the app's
+    /// own SwiftUI views follow it; the simulator's system setting is not changed.
+    public static let textSizeArgument = "-UITestTextSize"
+    /// `-UITestBoldText`: draws the app's text bold (rule 17, Bold Text), as the system Bold Text setting would.
+    public static let boldTextArgument = "-UITestBoldText"
+    /// The sizes `-UITestTextSize` accepts: the larger standard sizes and the accessibility sizes (SwiftUI `DynamicTypeSize`).
+    public static let textSizes = ["xLarge", "xxLarge", "xxxLarge", "accessibility1", "accessibility2", "accessibility3",
+                                   "accessibility4", "accessibility5"]
 
     /// The mode the arguments ask for. Always `.off` when the build does not allow it (`buildAllowsUITestModes` is false in
     /// every Release build: the app passes `true` only inside `#if DEBUG`).
@@ -35,6 +43,17 @@ public enum UITestLaunch: Equatable, Sendable {
         guard mode != .off, let index = arguments.firstIndex(of: name), index + 1 < arguments.count else { return nil }
         let value = arguments[index + 1]
         return value.hasPrefix("-") ? nil : value
+    }
+
+    /// The text size asked for with `-UITestTextSize`, only when it is one of `textSizes` and a UI-test mode is on.
+    public static func textSize(arguments: [String], mode: UITestLaunch) -> String? {
+        guard let name = value(of: textSizeArgument, arguments: arguments, mode: mode), textSizes.contains(name) else { return nil }
+        return name
+    }
+
+    /// True when `-UITestBoldText` is given and a UI-test mode is on.
+    public static func boldText(arguments: [String], mode: UITestLaunch) -> Bool {
+        mode != .off && arguments.contains(boldTextArgument)
     }
 }
 #endif

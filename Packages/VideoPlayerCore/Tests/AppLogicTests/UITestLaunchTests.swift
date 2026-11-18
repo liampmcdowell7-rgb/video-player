@@ -28,6 +28,17 @@ final class UITestLaunchTests: XCTestCase {
         XCTAssertNil(UITestLaunch.value(of: UITestLaunch.tabArgument, arguments: ["app", "-UITestTab"], mode: .fixtures))
         XCTAssertNil(UITestLaunch.value(of: UITestLaunch.tabArgument, arguments: ["app", "-UITestTab", "-UITestEmpty"], mode: .empty))
     }
+
+    /// Rule 17 screenshots: Larger Text and Bold Text are drawn by the app itself in UI-test mode, and only there.
+    func testTheAccessibilityVariantsAreReadOnlyInAUITestMode() {
+        let args = ["app", "-UITestFixtures", "-UITestTextSize", "accessibility3", "-UITestBoldText"]
+        XCTAssertEqual(UITestLaunch.textSize(arguments: args, mode: .fixtures), "accessibility3")
+        XCTAssertTrue(UITestLaunch.boldText(arguments: args, mode: .fixtures))
+        XCTAssertNil(UITestLaunch.textSize(arguments: args, mode: .off))
+        XCTAssertFalse(UITestLaunch.boldText(arguments: args, mode: .off))
+        XCTAssertNil(UITestLaunch.textSize(arguments: ["app", "-UITestEmpty", "-UITestTextSize", "huge"], mode: .empty), "unknown size")
+        XCTAssertFalse(UITestLaunch.boldText(arguments: ["app", "-UITestEmpty"], mode: .empty))
+    }
     #endif
 
     /// Every file that holds sample data, the launch-argument texts or reads the switch starts with `#if DEBUG` and ends with `#endif`, so a Release build

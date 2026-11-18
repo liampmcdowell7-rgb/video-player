@@ -468,7 +468,36 @@ jobs:
             -derivedDataPath build/DerivedData \
             -resultBundlePath "$OUT/Screenshots.xcresult" \
             -parallel-testing-enabled NO \
+            -skip-testing:VideoPlayerUITests/ScreenshotTests/test07_IncreaseContrast \
+            -skip-testing:VideoPlayerUITests/ScreenshotTests/test08_ReduceTransparency \
+            -skip-testing:VideoPlayerUITests/ScreenshotTests/test09_ReduceMotion \
             2>&1 | tee -a "$OUT/test.log"
+
+      # Rule 17 (docs/DESIGN_REFERENCES.md). Larger Text and Bold Text are drawn by the app in the main run (test06, 80-89).
+      # Increase Contrast, Reduce Transparency and Reduce Motion cannot be set by the app (read-only in SwiftUI), so each is
+      # turned on in the simulator (scripts/ci-a11y-setting.sh reads `xcrun simctl help ui` for the option name), its test runs
+      # on its own into its own result bundle, and the setting is turned off again. A setting simctl does not offer is
+      # written down as NOT APPLIED and its screenshots are not taken: never a normal screen under that setting's name.
+      - name: Screenshots under Increase Contrast, Reduce Transparency, Reduce Motion (simulator settings)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          set -uo pipefail
+          xcrun simctl help ui 2>&1 | tee "$OUT/simctl-ui-help.txt" || true
+          : > "$OUT/a11y-settings.txt"
+          for pair in contrast:test07_IncreaseContrast transparency:test08_ReduceTransparency motion:test09_ReduceMotion; do
+            word="${pair%%:*}"; test="${pair#*:}"
+            if bash scripts/ci-a11y-setting.sh "$SIM_UDID" "$word" on 2>&1 | tee -a "$OUT/a11y-settings.txt"; then
+              xcodebuild test-without-building \
+                -project VideoPlayer.xcodeproj -scheme VideoPlayerUITests -configuration Debug \
+                -destination "platform=tvOS Simulator,id=$SIM_UDID" \
+                -clonedSourcePackagesDirPath build/SourcePackages -derivedDataPath build/DerivedData \
+                -resultBundlePath "$OUT/A11y-$word.xcresult" -parallel-testing-enabled NO \
+                -only-testing:VideoPlayerUITests/ScreenshotTests/$test \
+                2>&1 | tee -a "$OUT/test.log" || echo "::warning::$test failed under the $word setting (see the log)"
+              bash scripts/ci-a11y-setting.sh "$SIM_UDID" "$word" off 2>&1 | tee -a "$OUT/a11y-settings.txt" || true
+            fi
+          done
+          { echo "## Accessibility settings in the simulator"; echo; sed 's/^/    /' "$OUT/a11y-settings.txt"; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summarise errors (file, line, message)
         if: always()
@@ -488,6 +517,17 @@ jobs:
           xcrun xcresulttool export attachments --path "$OUT/Screenshots.xcresult" --output-path "$RUNNER_TEMP/attachments" 2>&1 | tee "$OUT/export.log"
           python3 scripts/ci-screenshots-index.py "$RUNNER_TEMP/attachments" screenshots
           status=$?
+          # One folder per simulator accessibility setting that was applied (screenshots/a11y-contrast/, ...), each with
+          # its own index.md; the settings log says which were applied.
+          for r in "$OUT"/A11y-*.xcresult; do
+            [ -d "$r" ] || continue
+            word="$(basename "$r" .xcresult)"; word="${word#A11y-}"
+            mkdir -p "$RUNNER_TEMP/attachments-$word" "screenshots/a11y-$word" "$OUT/attachments"
+            xcrun xcresulttool export attachments --path "$r" --output-path "$RUNNER_TEMP/attachments-$word" 2>&1 | tee -a "$OUT/export.log"
+            python3 scripts/ci-screenshots-index.py "$RUNNER_TEMP/attachments-$word" "screenshots/a11y-$word" || echo "::warning::no screenshots for $word"
+            find "$RUNNER_TEMP/attachments-$word" -type f \( -name '*.ips' -o -name '*.txt' \) -exec cp {} "$OUT/attachments/" \; 2>/dev/null || true
+          done
+          [ -f "$OUT/a11y-settings.txt" ] && cp "$OUT/a11y-settings.txt" screenshots/a11y-settings.txt
           # Crash evidence for next time: every crash report (.ips), screen recording (.mp4) and text attachment from the
           # xcresult goes into the screenshots-logs artifact (the PNGs stay in the screenshots artifact), and the first 60
           # lines of every crash report go into this log.
@@ -504,8 +544,8 @@ jobs:
           size=$(du -sm screenshots | cut -f1)
           echo "screenshots folder: ${size} MB"
           if [ "$size" -gt 45 ]; then
-            for f in screenshots/*.png; do sips -s format jpeg -s formatOptions 80 "$f" --out "${f%.png}.jpg" >/dev/null && rm "$f"; done
-            sed -i '' 's/\.png)/.jpg)/g' screenshots/index.md
+            find screenshots -name '*.png' | while read -r f; do sips -s format jpeg -s formatOptions 80 "$f" --out "${f%.png}.jpg" >/dev/null && rm "$f"; done
+            find screenshots -name index.md -exec sed -i '' 's/\.png)/.jpg)/g' {} \;
             echo "Converted to JPEG: now $(du -sm screenshots | cut -f1) MB" | tee -a screenshots/index.md
           fi
           { echo "## Screenshots"; echo; sed -n '1,200p' screenshots/index.md; } >> "$GITHUB_STEP_SUMMARY"

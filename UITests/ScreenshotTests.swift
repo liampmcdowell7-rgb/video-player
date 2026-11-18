@@ -21,16 +21,17 @@ final class ScreenshotTests: XCTestCase {
     // MARK: Helpers
 
     @discardableResult
-    func launch(_ mode: String, tab: String? = nil, open: String? = nil) -> XCUIApplication {
+    func launch(_ mode: String, tab: String? = nil, open: String? = nil, extra: [String] = [],
+                launchTimeout: TimeInterval = 20) -> XCUIApplication {
         let app = XCUIApplication()
-        var args = [mode]
+        var args = [mode] + extra
         if let tab { args += ["-UITestTab", tab] }
         if let open { args += ["-UITestOpen", open] }
         app.launchArguments = args
         app.launch()
         current = app
         // Fourth CI run: the app died at launch and every "screenshot" showed the system Home Screen. Say so at once.
-        if !appIsInFront(app, timeout: 20) {
+        if !appIsInFront(app, timeout: launchTimeout) {
             XCTFail("The app is not in the foreground after launch \(args) (state \(app.state.rawValue)); it probably crashed.")
         }
         return app
@@ -334,4 +335,48 @@ final class ScreenshotTests: XCTestCase {
         notReached("79-top-shelf", "The Top Shelf is part of the Home Screen, not the app; a UI test of this app cannot open it.")
         app.terminate()
     }
+
+    // MARK: Accessibility settings (rule 17, docs/DESIGN_REFERENCES.md)
+
+    /// The five main screens (Home, Movies, Settings, a Files folder, a movie page) under one accessibility setting, numbered
+    /// from `first` and named "NN-<variant>-<screen>". Every wait is at most 10 s; a screen that does not appear in time is a
+    /// NOT-REACHED note, never a long wait.
+    func accessibilityShots(_ variant: String, first: Int, extra: [String] = []) {
+        let wait: TimeInterval = 10
+        func name(_ offset: Int, _ screen: String) -> String { String(format: "%02d", first + offset) + "-\(variant)-\(screen)" }
+        for (offset, tab, ready) in [(0, "home", "Sample"), (1, "movies", "Sample"), (2, "settings", "Playback")] {
+            let app = launch("-UITestFixtures", tab: tab, extra: extra, launchTimeout: wait)
+            if waitForScreen("screen.\(tab)", in: app, timeout: wait), waitFor(ready, in: app, timeout: wait) { settle(); shot(name(offset, tab)) }
+            else { notReached(name(offset, tab), "The \(tab) screen with “\(ready)” did not appear within \(Int(wait)) s.") }
+            app.terminate()
+        }
+        var app = launch("-UITestFixtures", tab: "files", extra: extra, launchTimeout: wait)
+        if waitForScreen("screen.files", in: app, timeout: wait), waitFor("Sample Library", in: app, timeout: wait) {
+            // `open` writes its own NOT-REACHED note when the row cannot be focused.
+            if open("Sample Library", in: app, name: name(3, "files-root")) { settle(); shot(name(3, "files-root")) }
+        } else { notReached(name(3, "files-root"), "The sample source did not appear in Files within \(Int(wait)) s.") }
+        app.terminate()
+        app = launch("-UITestFixtures", open: "Sample Movie 1", extra: extra, launchTimeout: wait)
+        if waitForScreen("screen.item", in: app, timeout: wait), waitFor("Sample Movie 1", in: app, timeout: wait) {
+            settle(); shot(name(4, "movie-detail"))
+        } else { notReached(name(4, "movie-detail"), "The movie page did not open within \(Int(wait)) s.") }
+        app.terminate()
+    }
+
+    /// Larger Text and Bold Text, drawn by the app itself in UI-test mode (App/Support/UITestAccessibility.swift): SwiftUI lets
+    /// an app set these two. The system's own parts (the tab bar) keep the simulator's setting, so they do NOT grow here.
+    func test06_LargerTextAndBoldText() {
+        accessibilityShots("larger-text", first: 80, extra: ["-UITestTextSize", "accessibility3"])
+        accessibilityShots("bold-text", first: 85, extra: ["-UITestBoldText"])
+    }
+
+    // The next three are run only by the CI job, each on its own, AFTER it has turned the setting on in the simulator
+    // (scripts/ci-a11y-setting.sh). In the main run they are skipped (-skip-testing), because there they would only repeat
+    // the normal screens under a misleading name.
+
+    func test07_IncreaseContrast() { accessibilityShots("increase-contrast", first: 90) }
+
+    func test08_ReduceTransparency() { accessibilityShots("reduce-transparency", first: 90) }
+
+    func test09_ReduceMotion() { accessibilityShots("reduce-motion", first: 90) }
 }
