@@ -1,5 +1,5 @@
-import Foundation
+import AppLogic
 
-enum AppTab: Hashable {
-    case home, movies, shows, files, discover, search, settings
-}
+/// The tabs, in tab-bar order: Home, Movies, Shows, Files, Search, Settings (AppLogic `AppTabID`; OPEN_QUESTIONS R167,
+/// option (c), PROVISIONAL). Discover is part of the Search tab.
+typealias AppTab = AppTabID

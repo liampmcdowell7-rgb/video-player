@@ -24,8 +24,12 @@ struct HomeScreenSettingsView: View {
             } footer: {
                 Text("The same titles appear in the Top Shelf row on the Apple TV Home Screen once artwork is available for them.")
             }
-            Section("Discover") {
+            Section {
                 Toggle("Show Discover", isOn: $showDiscover)
+            } header: {
+                Text("Discover")
+            } footer: {
+                Text("Discover appears in the Search tab while the search field is empty. When it is off, nothing is looked up for it.")
             }
         }
         .navigationTitle("Home Screen")

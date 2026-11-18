@@ -5,27 +5,45 @@ import MetadataOnline
 /// Discover: titles the user does not own yet. Missing episodes of shows they have, the rest of a collection, titles similar to
 /// what they watch, and their watchlist, each with where to watch in their region. Works only with the user's own key: with
 /// none, it says exactly what is needed and sends nothing (docs/ARTWORK_DISCOVER.md).
+///
+/// Shown in the Search tab below the search field while the field is empty (OPEN_QUESTIONS R167, option (c), PROVISIONAL;
+/// AppLogic `SearchTabContent`). The Search tab owns the model (`DiscoverLoader`), so typing and clearing the field does
+/// not load Discover again.
 struct DiscoverView: View {
-    @Environment(AppServices.self) private var services
-    @State private var model: ScreenModel<DiscoverViewModel>?
+    let loader: DiscoverLoader
 
     var body: some View {
-        Group {
-            if let model {
-                ScreenStateView(state: model.screen.state, onRetry: { Task { await reload() } }) { content in
-                    DiscoverContentView(content: content, onToggle: { title in
-                        Task { await model.run { $0.toggleWatchlist(title) } }
-                    })
-                }
-            } else {
-                LoadingView()
+        if let model = loader.model {
+            ScreenStateView(state: model.screen.state, onRetry: { Task { await loader.reload() } }) { content in
+                DiscoverContentView(content: content, onToggle: { title in
+                    Task { await model.run { $0.toggleWatchlist(title) } }
+                })
             }
+        } else {
+            LoadingView()
         }
-        .navigationTitle("Discover")
-        .task(id: "\(services.libraryRevision)|\(services.online.keyRevision)") { await reload() }
+    }
+}
+
+/// Discover's model, kept by the Search tab. Loads only when asked (the Search field is empty and Discover is on), and again
+/// only when the library or the key changed since the last load.
+@MainActor @Observable
+final class DiscoverLoader {
+    private(set) var model: ScreenModel<DiscoverViewModel>?
+    @ObservationIgnored private var loadedFor: String?
+    @ObservationIgnored private weak var services: AppServices?
+
+    /// Loads when `stamp` (library and key revision) differs from the last load.
+    func loadIfNeeded(services: AppServices) async {
+        self.services = services
+        let stamp = "\(services.libraryRevision)|\(services.online.keyRevision)"
+        guard stamp != loadedFor else { return }
+        loadedFor = stamp
+        await reload()
     }
 
-    private func reload() async {
+    func reload() async {
+        guard let services else { return }
         let screen = DiscoverViewModel(source: services.online.discoverSource, library: StoreDiscoverLibrary(store: services.store),
                                        watchlist: LedgerWatchlist(ledger: services.ledger), region: services.online.region)
         if model == nil { model = ScreenModel(screen) }

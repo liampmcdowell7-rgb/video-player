@@ -1,6 +1,6 @@
 import Foundation
 
-// The watchlist: titles the user chose to remember on the Discover tab (titles they do NOT own yet). A user list, so it is
+// The watchlist: titles the user chose to remember in Discover (Search tab, empty field) (titles they do NOT own yet). A user list, so it is
 // user data (docs/STORAGE_MODEL.md section 2): one record per title, record type "watchlist", synced like every other record.
 //
 // Version safety: a plain field-by-field record with no special merge rule (`UDSchema.schema(for:)` falls back to "later

@@ -7,13 +7,13 @@ import AppLogic
 /// NavigationStack" (https://developer.apple.com/documentation/swiftui/view/navigationdestination(for:destination:)).
 /// Until run 44401030622 it was attached to the NavigationStack itself (outside), so no `Route` destination was registered:
 /// posters, show cards, Files folders and the Top Shelf link could not open their page (screens 55, 57, 60, 71 not reached;
-/// OPEN_QUESTIONS R168). Discover and Settings push nothing of type `Route`, so they have none.
+/// OPEN_QUESTIONS R168). Settings pushes nothing of type `Route`, so it has none.
 ///
-/// The Search tab uses the system search role, so the system places it at the trailing end. No custom bar, background or tint (docs/DESIGN_SYSTEM.md, row "Tab bar").
+/// Six tabs (AppLogic `AppTabID`; OPEN_QUESTIONS R167, option (c), PROVISIONAL): Home, Movies, Shows, Files, Search,
+/// Settings. There is no Discover tab: Discover is shown in the Search tab while its field is empty (SearchView). The Search
+/// tab uses the system search role. No custom bar, background or tint (docs/DESIGN_SYSTEM.md, row "Tab bar").
 struct RootView: View {
     @Environment(AppServices.self) private var services
-    /// Settings > Home Screen > Show Discover. When off, the tab is removed and no discovery requests are made.
-    @AppStorage(SettingsKey.showDiscover.rawValue) private var showDiscover = true
     @AppStorage(SettingsKey.scanOnLaunch.rawValue) private var scanOnLaunch = true
     @Environment(\.scenePhase) private var scenePhase
     @State private var selection: AppTab = .home
@@ -33,11 +33,6 @@ struct RootView: View {
             }
             Tab("Files", systemImage: "folder", value: AppTab.files) {
                 NavigationStack { FilesView().tabRootScreen("Files", identifier: "screen.files").routeDestinations() }
-            }
-            if showDiscover {
-                Tab("Discover", systemImage: "sparkles", value: AppTab.discover) {
-                    NavigationStack { DiscoverView().tabRootScreen("Discover", identifier: "screen.discover") }
-                }
             }
             Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
                 NavigationStack { SearchView().screenIdentifier("screen.search").screenHeader("Search").routeDestinations() }

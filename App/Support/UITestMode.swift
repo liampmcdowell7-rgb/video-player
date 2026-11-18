@@ -76,17 +76,9 @@ enum UITestMode {
     /// `-UITestBoldText` (rule 17 screenshots).
     static var boldText: Bool { UITestLaunch.boldText(arguments: ProcessInfo.processInfo.arguments, mode: current) }
 
+    /// `-UITestTab` names are the `AppTabID` raw values (home, movies, shows, files, search, settings).
     static func tab(named name: String?) -> AppTab? {
-        switch name {
-        case "home": return .home
-        case "movies": return .movies
-        case "shows": return .shows
-        case "files": return .files
-        case "discover": return .discover
-        case "search": return .search
-        case "settings": return .settings
-        default: return nil
-        }
+        name.flatMap(AppTabID.init(rawValue:))
     }
 }
 #endif
