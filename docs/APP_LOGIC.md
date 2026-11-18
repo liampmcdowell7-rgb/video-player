@@ -12,6 +12,7 @@ Target `AppLogic` in `Packages/VideoPlayerCore`. It is the glue between the feat
 | Cards, filters, sorts (`LibraryCards.swift`) | yes | yes, through the library tests | no |
 | Library screens (`LibraryScreens.swift`): Home, grid/Movies, Shows, Seasons, Files, Search | yes | yes, 25 tests on a real in-memory `SQLiteLibraryStore` plus a failing wrapper store | no |
 | Shared states and text (`Presentation.swift`) | yes | yes | no |
+| Tabs and the Search tab (`AppTabs.swift`): the six tabs and what Search shows (R167 (c), PROVISIONAL) | yes | yes, 8 tests (`AppTabsTests`) | no |
 | Apple wrappers: only in the app now (`App/Features/Player/ProposalPresenter.swift`, `SkipButtonPresenter.swift`); the unused package copies were deleted after the first compile, 2026-11-17 (R76, R154); the app's `NowPlayingCenterPublisher.swift` was deleted after the second compile, 2026-11-17 (R157) | n/a | **no, cannot be built on Linux** | **no** |
 
 Run: `swift test` in a manifest that has the AppLogic targets: 62 tests, 0 skipped, 0 failed (last run in a private trimmed copy, debug, Swift 6.4.2 on WSL). The test target needs only `AppLogic` and `VideoPlayerCore` in the manifest as written.
@@ -21,6 +22,13 @@ Run: `swift test` in a manifest that has the AppLogic targets: 62 tests, 0 skipp
 - **Track pickers.** `TrackPickerModel` takes the file's tracks and the user's preferences, selects through `Subtitles.TrackSelector` (first selection and "same as last episode" memory are those tested rules), and exposes `audioPicker` and `subtitlePicker` as rows with title, content line and badges. A pick returns a `TrackChange` carrying the `SeriesTrackChoice` to remember. Delay rows: 50 ms steps, limit from `SyncModel`.
 - **Now Playing.** `NowPlayingMapper` builds the field dictionary, `RemoteCommandPlanner` decides which remote commands are on, `NowPlayingSession` sends a new snapshot only on a rate change, a jump of more than 1.5 s, or after 30 s (the system extrapolates in between).
 - **Skip and Up Next.** `PlayerOverlayController` wraps `PlaybackSession` and turns its output into `PlayerOverlayState` (skip button, Up Next with countdown text), calls to the two presenter protocols, and a list of effects the player carries out (`seek`, `markWatched`, `advance`, `prefetch`, `cancelPrefetch`, `playbackEnded`). All timing decisions are PlaybackLogic's (docs/PLAYBACK_LOGIC.md, R49). Menu on a visible proposal is `handled`, so the player does not exit.
+- **Tabs and Search.** `AppTabID` lists the tabs in bar order: Home, Movies, Shows, Files, Search, Settings (no Discover tab;
+  OPEN_QUESTIONS R167, option (c), PROVISIONAL). Its raw values are the `-UITestTab` names. `SearchTabContent.forQuery`
+  decides what the Search tab shows under the system search field: an empty field (spaces count as empty) shows Discover when
+  Settings > Home Screen > Show Discover is on, otherwise the "Search Your Library" prompt; any typed text shows library
+  results only, and clearing the field brings Discover back. Library results and Discover are never in one list. Only the
+  Discover state loads Discover (`loadsDiscover`), so typing or turning Discover off sends no discovery request. The view
+  keeps Discover's model while the person types, so clearing the field does not load it again.
 - **Library screens.** Each is a value type with `async mutating` methods and a `state` of `idle / loading / loaded / empty / failed`. Empty and error wording is final text in `Presentation.swift` and `LibraryScreens.swift`.
 
 ## Interpretations (all PROVISIONAL, none has spec text; listed in OPEN_QUESTIONS under item E)

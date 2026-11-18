@@ -11,7 +11,7 @@ Write a result next to each item: **Pass**, **Fail** (what you saw), or **Not te
 - V-04 Static Top Shelf image shows when the app sits in the top row and is focused; it does not look clickable.
 
 ## Tab bar and navigation
-- V-05 The tab bar looks like the standard system tab bar (as in Settings): translucent, only the selected tab solid, selected tab has a shadow when focused. Seven tabs fit; Search is at the right end. Does Discover's removal in Settings look odd?
+- V-05 The tab bar looks like the standard system tab bar (as in Settings): translucent, only the selected tab solid, selected tab has a shadow when focused. Six tabs (Home, Movies, Shows, Files, Search, Settings; no Discover tab, R167 (c)) all fit with no fade at either edge; record where Search sits.
 - V-06 Move focus into content and press Menu: focus returns to the tab bar. Press Menu on the tab bar: you go to the Home Screen. In Settings, push a page and press Menu: you go back one level.
 - V-07 Focus is always visible; nothing is focusable that should not be; nothing needs a pointer.
 

@@ -9,11 +9,11 @@ Standard: native tvOS 27 with Liquid Glass, indistinguishable from the system ap
 | Screen / control | Apple component | Deviation from stock | Reason | Status |
 |---|---|---|---|---|
 | App shell | `TabView` with `Tab` | None | Standard top tab bar; the SDK applies the material. Height 68 pt and top offset 46 pt are fixed by the system (HIG Tab bars) | not yet seen on a screen |
-| Tabs | Home, Movies, Shows, Files, Discover, Search, Settings | None (names provisional, OPEN_QUESTIONS 7 and 8) | Single-word names with SF Symbols | not yet seen on a screen |
-| Discover tab visibility | `if` inside `TabView` driven by `@AppStorage` | **Possible deviation**: HIG says not to hide tabs | Interpretation D-DS6 (user setting, not unavailable content); alternative: always show | not yet seen on a screen |
-| Search tab | `Tab(role: .search)` | None | System search tab, placed at the trailing end by the system | not yet seen on a screen |
+| Tabs | Home, Movies, Shows, Files, Search, Settings (six; OPEN_QUESTIONS R167 option (c), PROVISIONAL) | None (names provisional, OPEN_QUESTIONS 7 and 8) | Single-word names with SF Symbols. The Discover tab is removed; Discover is in Search | fixed in code, verify in next screenshots |
+| Discover tab visibility | Removed: there is no Discover tab to hide | None (the D-DS6 deviation is gone) | Show Discover now only decides whether Search shows Discover under an empty field; no tab appears or disappears | fixed in code, verify in next screenshots |
+| Search tab | `Tab(role: .search)` + `.searchable`; Discover below the field while it is empty, library results once something is typed | None | Apple: "In apps that use Tab bars, like Photos and Apple TV, search is a dedicated tab"; "display a personʼs recent searches before they start typing" (Searching, https://developer.apple.com/design/human-interface-guidelines/searching). Discover is content under the empty field, not `searchSuggestions` (those are completions of what is typed). Where the system places a search-role tab on tvOS is not stated on Apple's pages; the screenshot job's tab-bar check reports the order | fixed in code, verify in next screenshots |
 | Per-tab navigation | `NavigationStack` | None | Menu goes back one level; at the top level it goes Home (HIG Remotes) | not yet seen on a screen |
-| Home, Movies, Shows, Files, Discover (empty) | `ContentUnavailableView` (tvOS 17.0+) | None | Standard empty state | not yet seen on a screen |
+| Home, Movies, Shows, Files, Discover in Search (empty) | `ContentUnavailableView` (tvOS 17.0+) | None | Standard empty state; Discover's "Discover Needs a Key" wording unchanged | not yet seen on a screen |
 | Search | `ContentUnavailableView` + `.searchable` | None | Standard search field | not yet seen on a screen |
 | Settings | `Form`, `Section`, `Toggle`, `LabeledContent` | None | Grouped like the system settings; section headers in title case | not yet seen on a screen |
 | Launch screen | Empty `UILaunchScreen` | None | System background | not yet seen on a screen |
@@ -28,7 +28,7 @@ Standard: native tvOS 27 with Liquid Glass, indistinguishable from the system ap
 ## Needs approval
 
 Recorded as provisional decisions in DESIGN_SYSTEM section 1 (D-DS1 to D-DS12):
-1. Seven tabs including a hideable Discover tab (D-DS6).
+1. Six tabs, Discover inside Search (R167 option (c), PROVISIONAL; replaces "seven tabs including a hideable Discover tab", D-DS6).
 2. Minimum tvOS 27.0 (was 18). Alternative tvOS 18 with availability checks.
 3. Two extra icon slots (1280x768 large icon, 1920x720 Top Shelf) that Apple's current HIG page does not list.
 
@@ -69,7 +69,7 @@ Status of every row: **not yet seen on a screen.** The view model behind it is t
 1. AVKit presents a proposal at `contentTimeForTransition` and counts from the end of playback; our design presents at the credits start with its own countdown. Unverified whether the workaround presents at once.
 2. Loading spinner delay and picker focus order are view concerns, not covered by WSL tests.
 3. No view in `App/Features` uses these view models yet.
-4. Hide-able Discover tab vs HIG "don't hide tab bar buttons" (D-DS6).
+4. ~~Hide-able Discover tab vs HIG "don't hide tab bar buttons" (D-DS6).~~ Gone with R167 (c): no Discover tab.
 
 ## Design check per screen
 
@@ -85,10 +85,21 @@ tested on any screen: **unproven everywhere**, and nothing was run with those se
 - 2 Focus: unproven.
 - 3, 9 System focus and glass: unproven; no custom bar background (Adopting Liquid Glass).
 - 12 Layout: **fail (run 44401030622)**: seven tabs do not fit; the system fades Settings on the right and the first tab
-  scrolls off on Settings. This is the system's documented overflow (Tab bars, tvOS); not fixed, owner decision R167.
-- 19 Wording: unproven. Hideable Discover tab vs "don't hide tabs" (Tab bars): D-DS6, open.
+  scrolls off on Settings. This is the system's documented overflow (Tab bars, tvOS). Changed (R167 option (c),
+  PROVISIONAL): six tabs, Discover folded into Search. Fixed in code, verify in next screenshots: screenshot 02 and the
+  "02-home-empty-TABBAR" note (each tab's frame, "TAB BAR OK" or "TAB BAR PROBLEM") show whether all six fit.
+- 19 Wording: unproven. The hideable-tab question (D-DS6) is gone: there is no Discover tab.
 
-### Top-level titles (Home, Search, Movies, Shows, Files, Discover, Settings)
+### Search tab with Discover (R167 option (c), PROVISIONAL)
+- Layout: the system search field and keyboard of `.searchable` at the top; below, Discover while the field is empty, library
+  results once something is typed (AppLogic `SearchTabContent`, never mixed). No custom search screen. Fixed in code,
+  verify in next screenshots (06, 75, 76).
+- 1 Back/Menu: Discover has no detail pages (choosing a poster adds it to the watchlist or removes it), so there is no
+  Discover page to come back from; Menu at the Search root is the system's (focus to the tab bar). Unproven on a device.
+- Library-only rule: Home, Movies, Shows and Files unchanged; Discover's titles appear only here, with "Where to watch" and
+  the watchlist marks as before.
+
+### Top-level titles (Home, Movies, Shows, Files, Search, Settings)
 - 10, 12 Typography/consistency: **fail (run 44401030622)**: large centred dim titles on five tabs, none on Home and
   Search. Changed: no visible title on any tab root, title kept as an accessibility header (R166, PROVISIONAL). No Apple
   page states the tvOS rule. Unproven.

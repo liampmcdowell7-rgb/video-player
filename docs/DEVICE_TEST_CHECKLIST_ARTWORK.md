@@ -4,7 +4,7 @@ New items from docs/ARTWORK_DISCOVER.md. The parent merges them into the main ch
 
 ## Keys and the no-key states
 
-- A1. Fresh install, no keys. Open Discover. Pass: it says "Discover Needs a Key" and where to enter it; nothing else.
+- A1. Fresh install, no keys. Open the Search tab and leave the field empty (Discover lives there, R167 (c)). Pass: it says "Discover Needs a Key" and where to enter it; nothing else.
 - A2. Open any item, choose Fix Match. Pass: it says Fix Match needs your own key and where; there is no search box.
 - A3. With no key, watch the network (router or proxy log) while browsing, scanning and opening Discover. Pass: no request to any online service.
 - A4. Settings > Online Lookup: read the text. Pass: it states what is sent and where, and that nothing is sent until a key is entered.
@@ -35,7 +35,9 @@ New items from docs/ARTWORK_DISCOVER.md. The parent merges them into the main ch
 - A20. Press a poster to add to the watchlist, press again to remove. Pass: the label changes at once; the watchlist shelf follows; it survives a restart and appears on the second device.
 - A21. Where to watch: for a title streaming in your region, the line lists services; for others it says not listed. Change the region in Settings. Pass: the lists change after reload. Record any wrong service names.
 - A22. The attribution text is at the bottom of Discover and in About. Record whether the required logo is missing (it is not included).
-- A23. Settings > Home Screen > Show Discover off. Pass: the tab goes and no request is sent.
+- A23. Settings > Home Screen > Show Discover off. Pass: the Search tab with an empty field shows only "Search Your Library", and no request is sent.
+- A24. Search tab with a key set: empty field shows Discover; type a letter. Pass: only library results, no Discover row among them. Clear the field. Pass: Discover is back at once, with no new loading (it was not reloaded).
+- A25. Search tab, empty field: press Menu. Pass: focus goes to the tab bar. Six tabs in the bar, in this order: Home, Movies, Shows, Files, Search, Settings, none faded or cut off (record where the system puts Search if it differs).
 
 ## Letter jump list
 

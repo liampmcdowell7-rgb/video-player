@@ -108,7 +108,7 @@ these is available, and every screen it can reach looks as the screenshots show.
 | Item | Status | Missing / note | Evidence |
 |---|---|---|---|
 | Binding rule: your library only | built and tested | Home/Movies/Shows/Files/Search read only the library | MetadataOnline `LibraryOnlyTests`, docs/METADATA.md section 2 |
-| Discover tab (sections, Show Discover setting) | partly | see G18 | docs/ARTWORK_DISCOVER.md |
+| Discover, inside the Search tab while the field is empty (sections, Show Discover setting; R167 option (c), PROVISIONAL) | partly | see G18; the move is fixed in code, verify in next screenshots (06, 75) | docs/ARTWORK_DISCOVER.md, AppLogic/AppTabs.swift |
 | 1 Instant, scalable library | built and tested (logic); UI built, device-only | scheduled refresh (G21); cold-launch time unmeasured on a device | docs/LIBRARY_INDEX.md, App/Features/Movies/AlphabetJumpMenu.swift |
 | 2 Combined sort and filter, saved views | built, device-only | | App/Features/Movies/{FilterMenu,SortMenu,SavedViewsMenu}.swift |
 | 3 Direct file browsing | built, device-only | | App/Features/Files/ |

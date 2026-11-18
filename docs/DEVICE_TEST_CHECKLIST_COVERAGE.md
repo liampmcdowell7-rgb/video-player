@@ -4,7 +4,7 @@ Nothing here has been seen on an Apple TV. Each line is a check for the first de
 
 | # | Check | Expected |
 |---|---|---|
-| CV1 | Discover with a TMDB key, scroll to the end | The two notices show as plain secondary caption text under the shelves: the "uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB" sentence and "Where-to-watch data is provided by JustWatch." No logo |
+| CV1 | Discover (Search tab, empty field) with a TMDB key, scroll to the end | The two notices show as plain secondary caption text under the shelves: the "uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB" sentence and "Where-to-watch data is provided by JustWatch." No logo |
 | CV2 | Settings > Online Lookup | Footer under the status reads the full "Nothing is sent ..." text; key rows are labelled "TMDB key" and "OMDb key", and the OMDb help says it is not used yet; a "Data Sources" section at the bottom shows the same two notices |
 | CV3 | Settings > About > Data Sources | The about note and the same two notices; no ratings sentence |
 | CV4 | Settings > Online Lookup with only the OMDb key | Status: "Only an OMDb key is entered. Pictures, Fix Match and Discover need a TMDB key, so online lookup is off." Nothing is sent (watch with a network log on the router if possible) |
