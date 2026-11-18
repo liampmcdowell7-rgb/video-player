@@ -356,6 +356,7 @@ final class BackupEngineTests: XCTestCase {
         XCTAssertTrue(seen.contains(.backingUp(BackupProgress(set: .library, done: 2, total: 2))))
         XCTAssertEqual(seen.last, .idle)
         XCTAssertTrue(BackupStatusText.storageNote.contains("iCloud"))
+        XCTAssertTrue(BackupStatusText.storageNote.contains("CloudKit"))
         XCTAssertTrue(BackupStatusText.line(.signedOut).contains("iCloud"))
         XCTAssertEqual(BackupStatusText.size(1_500_000), "1.5 MB")
         XCTAssertEqual(BackupStatusText.size(999), "999 bytes")

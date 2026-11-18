@@ -151,6 +151,12 @@ public actor ArtworkEngine {
 
     // MARK: Helpers
 
+    /// The artwork cache key of a picture read from a source. The iCloud backup uses the same function to tell which cached
+    /// pictures belong to files the index still holds (docs/BACKUP.md), so the two can never disagree.
+    public static func sidecarCacheKey(sourceID: String, path: String, size: Int64?, modified: Date?, etag: String?) -> String {
+        "sidecar|\(sourceID)|\(path)|\(size ?? -1)|\(Int(modified?.timeIntervalSince1970 ?? 0))|\(etag ?? "")"
+    }
+
     static func parent(of path: String) -> String {
         let parts = path.split(separator: "/").dropLast()
         return parts.isEmpty ? "/" : "/" + parts.joined(separator: "/")
@@ -164,7 +170,7 @@ public actor ArtworkEngine {
     /// The cached copy of a sidecar picture, reading it from the source when it is not cached yet. A changed file (size or date)
     /// has a different cache key, so a replaced poster shows up; the old copy ages out of the size-limited cache.
     private func cached(_ entry: SourceEntry, _ sourceID: String) async -> ArtworkResult? {
-        let key = "sidecar|\(sourceID)|\(entry.path)|\(entry.size ?? -1)|\(Int(entry.modified?.timeIntervalSince1970 ?? 0))|\(entry.etag ?? "")"
+        let key = Self.sidecarCacheKey(sourceID: sourceID, path: entry.path, size: entry.size, modified: entry.modified, etag: entry.etag)
         if let url = cache.url(forKey: key) { return .file(url) }
         if let size = entry.size, size > Self.maxSidecarBytes { return nil }
         guard let data = try? await reader.read(sourceID: sourceID, path: entry.path, maxBytes: Self.maxSidecarBytes), !data.isEmpty,

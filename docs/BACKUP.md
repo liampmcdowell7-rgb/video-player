@@ -143,3 +143,16 @@ ledger already in place.
 - 2026-11-17, commit A (package core): models, chunking, versioning, merge rule, the in-memory fake store and the Linux
   tests. 16 tests in LibraryBackupTests and 2 new purge-simulator tests (purge, then restore with no rescan; a library with
   items is never replaced unless the user asks). Not yet wired into the app.
+- 2026-11-17, commit B (Apple side and wiring): `CloudKitBackupCloud` (zone `LibraryBackup`; same CKError mapping as the
+  user-data sync; a deleted zone is created again), `App/Support/BackupHost.swift` (switches stored per Apple TV in
+  UserDefaults, schedule, status, LZFSE compression), Settings > Backup (`App/Features/Settings/BackupSettingsView.swift`),
+  the automatic restore in `AppServices.startCloudSync()` BEFORE the bootstrap (the restored index counts as healthy, so
+  the ledger is merged on top instead of a rebuild), the "Restoring your library from iCloud" progress at the bottom of
+  the root view, a backup scheduled after each scan and source removal, and after a manual restore the ledger's watch
+  state and views are applied again (`reapplyUserData`). "Only artwork for items in your library" keeps the cached copies
+  of picture files the index still holds: the cache key comes from one shared function, `ArtworkEngine.sidecarCacheKey`
+  (WSL tests: ArtworkEngineTests checks the name equals the file the engine wrote; PurgeSimulatorTests checks the filter).
+  The Home-row pictures restored first are the cached pictures of the folders that hold the Home rows' videos.
+  NOT COMPILED for tvOS yet (next CI run) and never run on a device: nothing in this commit is claimed to work.
+  Known limits: the launch scan (Settings > Library, scan on launch) still runs after a restore, as an incremental scan;
+  a slow or offline iCloud delays the start-up sync until the account check or the first request fails (device item B11/B16).

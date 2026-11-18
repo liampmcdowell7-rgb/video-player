@@ -56,7 +56,7 @@ public actor BackupScheduler {
 /// The sentences the Backup screen shows. English placeholders until localisation, like `UDStatusText`.
 public enum BackupStatusText {
     public static let intro = "Back up what Video Player has built from your videos (the library, details, matches and pictures) to your own iCloud storage, so the library comes back in seconds after a cleanup, a reinstall or on a new Apple TV. Your videos themselves are never uploaded."
-    public static let storageNote = "This uses your own iCloud storage, which other iCloud features share. Only you can read it: it is stored in your private iCloud database, not on a server of the developer."
+    public static let storageNote = "This uses your own iCloud storage, which other iCloud features share. It is stored in your private iCloud database through Apple's CloudKit, not on a server of the developer."
     public static let libraryDetail = "The library index, details and ratings found online, your Fix Match choices and the files read next to your videos."
     public static let artworkDetail = "Posters, backgrounds and other pictures read from your sources. A picture used twice is stored once."
     public static let userDataDetail = "Watch history, saved views, your sources (without passwords) and settings. These are kept in iCloud by Video Player's iCloud sync."

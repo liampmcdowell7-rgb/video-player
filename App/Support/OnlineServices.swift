@@ -41,10 +41,13 @@ final class OnlineServices {
 
     /// Fix Match choices are the user's own decisions, so they are kept in Application Support, not in Caches.
     /// PROVISIONAL: kept on this device only; alternative: a ledger record so they sync (needs a Schema.swift record type).
-    private var matchFile: URL {
+    /// Also read by the iCloud backup (docs/BACKUP.md), so a reinstall gets the choices back.
+    static var matchFileURL: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return base.appendingPathComponent("matches.json")
     }
+
+    private var matchFile: URL { Self.matchFileURL }
 
     /// Rebuilds every piece from the keys currently stored. Call after a key is saved or removed.
     func rebuild() {

@@ -82,6 +82,40 @@ extension PurgeSimulatorTests {
         XCTAssertEqual(try Data(contentsOf: matches), Data("{\"fix\":1}".utf8))
     }
 
+    /// "Only artwork for items in your library": the index lists its picture files (with the size and date the artwork
+    /// cache puts in its key); a cached picture that is not one of them (an old copy, a removed source) is left out and
+    /// reported, not uploaded. The app maps each file through ArtworkEngine.sidecarCacheKey; here the path is the name.
+    func testOnlyArtworkForItemsInTheLibraryLeavesOutPicturesOfNothing() async throws {
+        let a = try Harness.make()
+        defer { a.cleanup() }
+        try await a.registerSource()
+        basicLibrary(a.source)
+        a.source.put("/Movies/Heat (1995)/poster.jpg", size: 20, modified: day(1))
+        _ = try await a.syncer.sync()
+        let images = try await a.store.indexedImageFiles()
+        XCTAssertEqual(images.map(\.path), ["/Movies/Heat (1995)/poster.jpg"])
+        XCTAssertEqual(images.first?.parent, "/Movies/Heat (1995)")
+        XCTAssertEqual(images.first?.size, 20)
+        XCTAssertEqual(images.first?.modified, day(1))
+
+        let artworkDir = a.dir.appendingPathComponent("artwork", isDirectory: true)
+        try FileManager.default.createDirectory(at: artworkDir, withIntermediateDirectories: true)
+        try Data([1, 2, 3]).write(to: artworkDir.appendingPathComponent("poster.jpg"))
+        try Data([4, 5, 6]).write(to: artworkDir.appendingPathComponent("old-copy.jpg"))
+        let store = a.store
+        let content = LibraryBackupFiles(store: store, workDir: a.dir.appendingPathComponent("work"), libraryFolders: [], libraryFiles: [:],
+                                         artwork: FolderBackupStore(root: artworkDir, prefix: "artwork"),
+                                         artworkNamesInLibrary: {
+                                             Set(((try? await store.indexedImageFiles()) ?? []).map { "artwork/" + ($0.path as NSString).lastPathComponent })
+                                         })
+        let only = try await content.files(for: .artwork, settings: BackupSettings(artworkLibraryOnly: true))
+        XCTAssertEqual(only.files.map(\.name), ["artwork/poster.jpg"])
+        XCTAssertEqual(only.skipped, [BackupSkip(name: "artwork/old-copy.jpg", size: 3, reason: .notInLibrary)])
+        let all = try await content.files(for: .artwork, settings: BackupSettings(artworkLibraryOnly: false))
+        XCTAssertEqual(all.files.count, 2)
+        XCTAssertTrue(all.skipped.isEmpty)
+    }
+
     func testARestoreNeverReplacesALibraryThatIsNotEmptyUnlessTheUserAsks() async throws {
         let backupCloud = InMemoryBackupCloud()
         let a = try Harness.make()

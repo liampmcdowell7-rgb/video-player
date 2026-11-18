@@ -30,8 +30,33 @@ extension SQLiteLibraryStore {
         pendingWatch = [:]
     }
 
+    /// Every picture file the index knows on a source (kind image, not removed), with the size and date the artwork cache
+    /// puts in its key. The backup's "Only artwork for items in your library" keeps only the cached pictures of these
+    /// files, so old copies of replaced posters and pictures of removed sources are left out.
+    public func indexedImageFiles() throws -> [IndexedImageFile] {
+        try db.rows("SELECT source_id, path, parent, size, modified FROM files WHERE kind = 2 AND removed_at IS NULL", cached: false) {
+            IndexedImageFile(sourceID: $0.text(0), path: $0.text(1), parent: $0.text(2), size: $0.optInt64(3), modified: $0.optDate(4))
+        }
+    }
+
     /// True when the index holds no film or episode.
     public func isEmptyLibrary() throws -> Bool {
         try db.scalarInt("SELECT COUNT(*) FROM items") == 0
+    }
+}
+
+/// A picture file as the index stores it (for the backup's artwork filter and restore order).
+public struct IndexedImageFile: Equatable, Sendable {
+    public var sourceID: String
+    public var path: String
+    public var parent: String
+    public var size: Int64?
+    public var modified: Date?
+    public init(sourceID: String, path: String, parent: String, size: Int64?, modified: Date?) {
+        self.sourceID = sourceID
+        self.path = path
+        self.parent = parent
+        self.size = size
+        self.modified = modified
     }
 }

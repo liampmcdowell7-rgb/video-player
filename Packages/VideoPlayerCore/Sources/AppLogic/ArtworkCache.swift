@@ -25,7 +25,7 @@ public final class ArtworkDiskCache: @unchecked Sendable {
     }
 
     /// FNV-1a, 64 bit, as 16 hex digits. A file name, not a security feature.
-    static func name(forKey key: String) -> String {
+    public static func name(forKey key: String) -> String {
         var h: UInt64 = 0xcbf29ce484222325
         for b in key.utf8 { h = (h ^ UInt64(b)) &* 0x100000001b3 }
         let hex = String(h, radix: 16)

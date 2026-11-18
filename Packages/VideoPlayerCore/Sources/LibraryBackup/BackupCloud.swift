@@ -1,7 +1,7 @@
 import Foundation
 import UserData
 
-/// The cloud as the backup engine sees it. `CloudKitBackupCloud` (App/, Apple only) implements it over the user's PRIVATE
+/// The cloud as the backup engine sees it. `CloudKitBackupCloud` (Sources/LibraryBackup/Apple, CloudKit only) implements it over the user's PRIVATE
 /// CloudKit database in its own zone; `InMemoryBackupCloud` implements it for tests. Errors are the same `UDCloudError`
 /// cases the user-data sync already maps from `CKError` (quotaExceeded, notAuthenticated, networkUnavailable, …).
 ///

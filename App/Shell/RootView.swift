@@ -44,6 +44,13 @@ struct RootView: View {
                 NavigationStack { SettingsView() }
             }
         }
+        .overlay(alignment: .bottom) {
+            // The automatic restore after a cleanup or on a new Apple TV (docs/BACKUP.md). Standard progress view, no custom style.
+            if services.backup.isAutoRestoring {
+                RestoreBanner(status: services.backup.status)
+                    .padding()
+            }
+        }
         .fullScreenCover(item: $services.playRequest) { request in
             PlayerScreen(request: request)
         }

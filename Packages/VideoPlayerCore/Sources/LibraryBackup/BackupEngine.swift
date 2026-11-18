@@ -53,7 +53,8 @@ public actor BackupEngine {
 
     // MARK: Status mapping
 
-    static func status(for error: Error) -> BackupStatus {
+    /// The status the Backup screen shows for an error (also used by the app for restore errors).
+    public static func status(for error: Error) -> BackupStatus {
         switch error {
         case BackupError.cloud(let e), let e as UDCloudError:
             switch e {

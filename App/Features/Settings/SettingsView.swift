@@ -11,6 +11,7 @@ struct SettingsView: View {
             NavigationLink("Library", destination: LibrarySettingsView())
             NavigationLink(OnlineLookupText.settingsTitle, destination: OnlineLookupSettingsView())
             NavigationLink("Storage and iCloud", destination: StorageSettingsView())
+            NavigationLink("Backup", destination: BackupSettingsView())
             NavigationLink("Accessibility", destination: AccessibilitySettingsView())
             NavigationLink("About", destination: AboutView())
         }

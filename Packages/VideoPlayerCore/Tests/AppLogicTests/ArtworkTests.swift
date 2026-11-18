@@ -131,6 +131,19 @@ final class ArtworkEngineTests: XCTestCase {
         XCTAssertEqual(r.online.itemCalls, 0, "local pictures win over online ones")
     }
 
+    /// The iCloud backup's "Only artwork for items in your library" (docs/BACKUP.md) names a cached picture from the index's
+    /// own row for the picture file. That must be exactly the file the engine wrote, or every picture would be left out.
+    func testTheBackupNamesTheCachedPosterExactlyAsTheEngineStoredIt() async throws {
+        let r = try await rig([("/Movies/Heat (1995)/Heat (1995).mkv", 10_000), ("/Movies/Heat (1995)/poster.jpg", 5)])
+        r.reader.files["/Movies/Heat (1995)/poster.jpg"] = Data([1, 2, 3, 4, 5])
+        let id = try await r.lib.movieID("Heat")
+        guard case .file(let url) = await r.engine().resolve(key: "item-\(id)") else { return XCTFail("no file") }
+        let images = try await r.lib.store.indexedImageFiles()
+        let image = try XCTUnwrap(images.first)
+        let key = ArtworkEngine.sidecarCacheKey(sourceID: image.sourceID, path: image.path, size: image.size, modified: image.modified, etag: nil)
+        XCTAssertEqual(url.lastPathComponent, ArtworkDiskCache.name(forKey: key))
+    }
+
     func testWithoutASidecarTheMatchedOnlinePosterIsUsedAsAnAddress() async throws {
         let r = try await rig([("/Movies/Alien (1979)/Alien (1979).mkv", 9_000)])
         let id = try await r.lib.movieID("Alien")

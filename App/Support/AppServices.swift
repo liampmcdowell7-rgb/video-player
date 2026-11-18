@@ -4,6 +4,7 @@ import VideoPlayerCore
 import LibraryIndex
 import UserData
 import AppLogic
+import LibraryBackup
 
 /// What the player is asked to start (an item, from the beginning or from its saved place).
 struct PlayRequest: Identifiable, Equatable {
@@ -36,6 +37,8 @@ final class AppServices {
     let syncEngine: UserDataSyncEngine
     /// True when the library database could not be opened and was created again (shown as "Rebuilding").
     let databaseWasRebuilt: Bool
+    /// iCloud backup of the generated data (Settings > Backup, docs/BACKUP.md).
+    let backup: BackupHost
 
     var libraryRevision = 0
     var pendingLink: DeepLink?
@@ -99,6 +102,12 @@ final class AppServices {
             return await factory.makeSource(definition)
         })
         self.online = OnlineServices(keys: OnlineKeyStore(secrets: secrets), store: sqliteStore, reader: reader)
+        // The backup refuses any file that holds one of these: every source password or token and every API key, read
+        // from protected storage at the time of each backup and never written anywhere (docs/BACKUP.md "Secrets").
+        self.backup = BackupHost(store: sqliteStore, matchFile: OnlineServices.matchFileURL, forbidden: { [ledger, secrets] in
+            let keys = OnlineKeyStore(secrets: secrets)
+            return ledger.sourceDefinitions().compactMap { secrets.secret(for: $0.id) } + OnlineKeyKind.allCases.compactMap { keys.key($0) }
+        })
         let engine = UserDataSyncEngine(ledger: ledger, cloud: self.cloud)
         self.syncEngine = engine
         let host = CloudSyncHost(ledger: ledger, engine: engine)
@@ -129,6 +138,7 @@ final class AppServices {
         }
         isScanning = false
         libraryRevision += 1
+        backup.libraryChanged()
         await writeTopShelf()
     }
 
@@ -139,6 +149,7 @@ final class AppServices {
         _ = try? await secrets.remove(sourceID: id)
         trust.clear(sourceID: id)
         libraryRevision += 1
+        backup.libraryChanged()
         await writeTopShelf()
     }
 
@@ -188,13 +199,29 @@ final class AppServices {
         let target = LibraryRestoreAdapter(store: sqlite, deviceID: ledger.deviceID, scan: { [weak self] in await self?.scanAll() })
         let bootstrap = LibraryBootstrap(ledger: ledger, engine: syncEngine, essentials: essentials, credentials: secrets.local)
         let lost = ledgerWasLost
-        let health: UDDatabaseHealth = databaseWasRebuilt ? .missing : .ok
+        var health: UDDatabaseHealth = databaseWasRebuilt ? .missing : .ok
+        // An empty index (a cleanup, a reinstall, a new Apple TV) comes back from the iCloud backup BEFORE the user-data
+        // merge, so the newest watch state is applied on top of it and no rebuild is needed (docs/BACKUP.md "Merge rule").
+        if await backup.restoreIfLibraryIsEmpty() {
+            health = .ok
+            libraryRevision += 1
+        }
+        backup.appLaunched()
         await sync.start(startupSync: {
             if let report = try? await bootstrap.run(health: health, ledgerWasLost: lost, target: target) { return report }
             var failed = UDSyncReport()
             failed.status = .failed("The start-up sync did not finish.")
             return failed
         })
+    }
+
+    /// After "Restore from iCloud" replaced the index: merges with iCloud and loads the ledger's watch state and saved views
+    /// into the restored index again (the healthy-database path of the bootstrap, which is idempotent), then reloads screens.
+    func reapplyUserData() async {
+        let target = LibraryRestoreAdapter(store: sqlite, deviceID: ledger.deviceID, scan: { [weak self] in await self?.scanAll() })
+        let bootstrap = LibraryBootstrap(ledger: ledger, engine: syncEngine, essentials: essentials, credentials: secrets.local)
+        _ = try? await bootstrap.run(health: .ok, ledgerWasLost: false, target: target)
+        libraryRevision += 1
     }
 
     // MARK: Playback

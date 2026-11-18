@@ -14,17 +14,18 @@ public struct LibraryBackupFiles: BackupContent, BackupRestoreTarget {
     /// Single files: name inside the set -> location (for example "matches.json" in Application Support).
     public let libraryFiles: [String: URL]
     public let artwork: FolderBackupStore?
-    /// For "Only artwork for items in your library": whether a picture (by its name in the set) belongs to an item.
-    public let artworkBelongsToLibrary: @Sendable (String) async -> Bool
+    /// For "Only artwork for items in your library": the names (in the set) of the pictures that belong to an item or a
+    /// series of the library, read once per backup. nil = cannot tell, so every picture is kept.
+    public let artworkNamesInLibrary: @Sendable () async -> Set<String>?
 
     public init(store: SQLiteLibraryStore, workDir: URL, libraryFolders: [FolderBackupStore], libraryFiles: [String: URL],
-                artwork: FolderBackupStore?, artworkBelongsToLibrary: @escaping @Sendable (String) async -> Bool = { _ in true }) {
+                artwork: FolderBackupStore?, artworkNamesInLibrary: @escaping @Sendable () async -> Set<String>? = { nil }) {
         self.store = store
         self.workDir = workDir
         self.libraryFolders = libraryFolders
         self.libraryFiles = libraryFiles
         self.artwork = artwork
-        self.artworkBelongsToLibrary = artworkBelongsToLibrary
+        self.artworkNamesInLibrary = artworkNamesInLibrary
     }
 
     // MARK: BackupContent
@@ -50,8 +51,9 @@ public struct LibraryBackupFiles: BackupContent, BackupRestoreTarget {
             guard let artwork else { return ([], []) }
             var keep: [BackupFile] = []
             var skipped: [BackupSkip] = []
+            let inLibrary = settings.artworkLibraryOnly ? await artworkNamesInLibrary() : nil
             for f in artwork.files() {
-                if settings.artworkLibraryOnly, !(await artworkBelongsToLibrary(f.name)) {
+                if let inLibrary, !inLibrary.contains(f.name) {
                     skipped.append(BackupSkip(name: f.name, size: f.size, reason: .notInLibrary))
                 } else {
                     keep.append(f)
