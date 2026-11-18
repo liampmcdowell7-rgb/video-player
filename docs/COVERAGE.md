@@ -37,7 +37,36 @@ So "built" for an App/ row still means "syntax-checked and declarations type-che
 | 3. Simulator package tests (new) | The package unit tests build for tvOS and pass on the Simulator (server, iCloud and tool tests skip) | Device hardware paths (decoders, HDR, network to real servers) |
 | 4. Screenshots (new) | The app launches on the Simulator, every listed screen is reachable with the remote, and how each looks with sample data | Focus feel, HDR and colour on a TV, real servers, playback (no real video in the sample data) |
 
-None of jobs 2 to 4 has run yet: until a run is green they prove nothing.
+Jobs 2 to 4 first ran in run 44401030622 (commit 92f7724): launch OK, device-build inspection clean, 5 package-test
+failures (fixed in ccf88b1), screenshots of 16 screens. A job proves nothing until a run of it is green.
+
+### What the ad-hoc signed simulator build cannot prove (stays unproven until a signed build runs on an Apple TV)
+
+The screenshots job (job 4) signs the simulator app ad hoc: identity "-", no team, no provisioning profile, no certificate
+(R164). **What run 44401030622 showed:** the ad-hoc build succeeded, but `codesign --display --entitlements` printed an
+EMPTY dictionary, so the app carried none of the entitlements in project.yml. The app stayed up only because of the
+launch-safety code (iCloud reported as not available, App Group checked before use). On top of that, every UI-test launch
+(`-UITestEmpty`, `-UITestFixtures`) replaces iCloud with in-memory stand-ins, so the screenshots never touch CloudKit at
+all. Apple does not say on any page whether the simulator applies entitlements from an ad-hoc signature (R164).
+
+So everything below is **unproven** in every CI job and stays unproven until a build signed with the real team and a
+provisioning profile runs on a real Apple TV (a development build first, then TestFlight):
+
+| Area | What the app relies on | Why the simulator build cannot show it |
+|---|---|---|
+| **Entitlements and signing** | The four entitlements in project.yml (`icloud-container-identifiers` iCloud.com.liamp.videoplayer, `icloud-services` CloudKit, `keychain-access-groups`, `application-groups` group.com.liamp.videoplayer) and the Top Shelf extension's App Group | Nothing was embedded (run 44401030622). Whether the identifiers exist in the Apple Developer account, the profile matches them, the distribution certificate signs, and App Store processing accepts the build: none of it is exercised without a team and a profile (docs/CODEMAGIC_SETUP.md) |
+| **CloudKit: the container** | `CKContainer(identifier:)` made lazily on first use (launch safety, R164) | Only the FAILURE path ran (no entitlement: "iCloud is not available"). The success path, a container that really opens, has never run |
+| **CloudKit: account and data** | Account status, the private database, the `LibraryBackup` zone, `BKManifest` / `BKChunk` records and assets (docs/BACKUP.md), the user-data sync records, the iCloud copy of secrets the app mirrors | Needs a signed app, a signed-in iCloud account and the container's schema. Unknown: first-run zone creation, record size and quota limits, upload/download speed, the schema deployed to production, conflicts between two Apple TVs |
+| **CloudKit: change notices** | `CKAccountChangedNotification` (name used as text, PROVISIONAL), any push that wakes the sync | Not delivered without the entitlement and a real account |
+| **Backup restore at start-up** | Restore of an empty library before the start-up sync; the launch time-box (R169) | The time-box is unit-tested with a fake clock; the real timing with a slow or offline iCloud on a device is not |
+| **App Group** | `containerURL(forSecurityApplicationGroupIdentifier:)` returns the shared folder; the app writes the Top Shelf snapshot and pictures there; the extension reads them | Without the entitlement the call returns nil (Apple's page for that method), so the app skips the Top Shelf write. Never seen: the folder existing, the extension reading it, the system purging it |
+| **Top Shelf extension** | Loaded by the Home Screen when the app is in the top row | Not part of the app; UI tests cannot open the Home Screen (R161). Needs a device |
+| **Keychain** | Source passwords and API keys stored per device (`KeychainCredentialStore`, not synchronised on tvOS per Apple's `kSecAttrSynchronizable` page), the shared access group for the extension | The simulator keychain is not the device keychain; with no `keychain-access-groups` embedded the items go to the app's default group. Unproven: the shared group, persistence across reinstall and updates, behaviour after a restore to a new Apple TV |
+| **Local network** | Bonjour browsing (`NSBonjourServices`), the local-network permission prompt, SMB/NFS/WebDAV/SFTP to real servers | UI-test mode makes no network calls; the prompt is not answered in CI. Device checklists: docs/DEVICE_TEST_CHECKLIST_SOURCES.md |
+| **Launch with everything present** | The normal launch path with iCloud, App Group and Keychain all available | CI only ever launched the app with all three missing or replaced |
+
+What the simulator build DOES prove (when green): the app compiles, links and launches without crashing when none of
+these is available, and every screen it can reach looks as the screenshots show.
 
 ## 1. What the first TestFlight build would NOT have that you asked for (gaps first)
 
