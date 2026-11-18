@@ -61,7 +61,10 @@ final class FTPControlChannel {
     }
 
     func send(_ line: String) async throws {
-        guard !line.contains("\r"), !line.contains("\n") else { throw SourceError.invalidURL }
+        // Checked on the BYTES. "\r\n" is one Character in Swift, so the Character-based `contains("\r")` (the one chosen on
+        // Apple platforms) is false for "/a\r\nDELE x" and the injected command would reach the server. Linux picked
+        // Foundation's substring search, so only the tvOS run of testPathWithLineBreakIsRejected showed it (run 44401030622).
+        guard !line.utf8.contains(13), !line.utf8.contains(10) else { throw SourceError.invalidURL }
         try await stream.send(Data((line + "\r\n").utf8))
     }
 

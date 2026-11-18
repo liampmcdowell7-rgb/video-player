@@ -10,15 +10,19 @@ final class TranscoderTests: XCTestCase {
 
     private let auNs: Int64 = 833_333    // one TrueHD access unit at 48 kHz (40 samples)
 
+    // The path is fetched OUTSIDE XCTUnwrap: AudioMedia.path throws XCTSkip when the media is absent, and inside XCTUnwrap's
+    // autoclosure that skip was reported as a failure ("XCTUnwrap failed: threw error XCTSkip", tvOS run 44401030622).
     private func trueHDUnits() throws -> [ArraySlice<UInt8>] {
-        let raw = try XCTUnwrap(FileManager.default.contents(atPath: try AudioMedia.path("raw_truehd_51.thd")))
+        let path = try AudioMedia.path("raw_truehd_51.thd")
+        let raw = try XCTUnwrap(FileManager.default.contents(atPath: path))
         let units = TrueHDCoreSplitter.split([UInt8](raw)[...]).trueHD
         XCTAssertGreaterThan(units.count, 1000)
         return units
     }
 
     private func ac3Frames() throws -> [ArraySlice<UInt8>] {
-        let raw = [UInt8](try XCTUnwrap(FileManager.default.contents(atPath: try AudioMedia.path("raw_ac3_51.ac3"))))
+        let path = try AudioMedia.path("raw_ac3_51.ac3")
+        let raw = [UInt8](try XCTUnwrap(FileManager.default.contents(atPath: path)))
         var out: [ArraySlice<UInt8>] = []
         var p = 0
         let all = raw[...]

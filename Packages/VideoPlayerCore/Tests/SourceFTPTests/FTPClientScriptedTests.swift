@@ -309,6 +309,17 @@ final class FTPClientScriptedTests: XCTestCase {
         do { _ = try await c.list("/a\r\nDELE x"); XCTFail("expected an error") }
         catch { XCTAssertEqual(error as? SourceError, .invalidURL) }
     }
+
+    /// A lone CR, a lone LF and CR LF (one Character in Swift) are all refused before anything is sent.
+    func testEveryLineBreakFormIsRejectedBeforeSending() async {
+        for path in ["/a\rDELE x", "/a\nDELE x", "/a\r\nDELE x", "/\r\n"] {
+            let server = makeServer()
+            let c = client(server)
+            do { _ = try await c.list(path); XCTFail("expected an error for \(path.debugDescription)") }
+            catch { XCTAssertEqual(error as? SourceError, .invalidURL, path.debugDescription) }
+            XCTAssertFalse(server.commands.contains { $0.hasPrefix("DELE") }, "nothing injected for \(path.debugDescription)")
+        }
+    }
 }
 
 private struct NoTLSConnector: FTPConnector {
