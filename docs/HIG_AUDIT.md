@@ -62,7 +62,7 @@ Status of every row: **not yet seen on a screen.** The view model behind it is t
 | Up Next | `AVContentProposal` + player delegate | Own countdown text | AVKit counts from the end of playback; ours from the credits start | not yet seen on a screen |
 | Playback Stats overlay | `contentOverlayView` / `customOverlayViewController`, standard material, system text styles | **Custom** (no Apple equivalent) | Small, translucent, off by default; legibility over bright video and image retention unverified | not yet seen on a screen |
 | Honest audio / HDR status | `LabeledContent` rows in the overlay and the Info tab | None | Wording from `PlaybackStatus`; format names open (D-DS7) | not yet seen on a screen |
-| Now Playing / Control Center | `MPNowPlayingInfoCenter`, `MPRemoteCommandCenter` | None | `updatesNowPlayingInfoCenter = false` so only one publisher writes | not yet seen on a screen |
+| Now Playing / Control Center | `AVPlayerViewController` publishes it from `AVPlayerItem.externalMetadata` (title, episode line, poster) | None | The app writes neither `MPNowPlayingInfoCenter` nor `MPRemoteCommandCenter`, so there is exactly one entry, the system player's (`updatesNowPlayingInfoCenter` does not exist on tvOS; R157, docs/API_USAGE.md) | not yet seen on a screen (device check P10) |
 | Exiting playback | Detail screen of the title just watched | Not written | HIG: show a contextually relevant screen | not yet seen on a screen |
 
 ### Findings (open)

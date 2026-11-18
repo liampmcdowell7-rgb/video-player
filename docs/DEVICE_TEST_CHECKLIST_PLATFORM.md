@@ -12,7 +12,7 @@ New items from docs/PLATFORM_AUDIT.md. The parent merges them into the main chec
 - P7. Connect a Bluetooth keyboard; press Space during playback. Pass: pauses and resumes.
 - P8. iPhone Remote (Control Center) controls playback and navigation. Pass: play, pause, skip, directional navigation work.
 - P9. Connect a game controller. Pass: A selects, B goes back in menus; record what the controller does during playback.
-- P10. Now Playing info (title, artwork, position) is shown in the system, and updates after skipping.
+- P10. Now Playing entry (OPEN_QUESTIONS R157: published by the system player from `externalMetadata`; the app writes no Now Playing info of its own). Play an episode that has a poster, once as a direct file and once through the converting player. (a) Open Control Center / the Now Playing view from the Home Screen (hold the TV button). Pass: the title and the episode line (second line) are ours, the poster is shown, the position matches the player and moves. (b) In that view, press Play/Pause on the Siri Remote and use the on-screen play/pause. Pass: playback pauses and resumes and the position stops and restarts. (c) Skip 10 s forward and back with the Siri Remote, then look again. Pass: the position follows. (d) A poster that appears a few seconds after playback starts (artwork added after start): record whether it shows at all; if not, artwork must be set before the item is handed to the player. (e) Stop playback. Pass: the entry goes away or shows paused, and no second, stale entry from our app remains.
 - P11. Skip Intro / Credits button and Next Episode proposal appear in the system player at the right times and the Siri Remote Select activates them.
 
 ## Picture in Picture

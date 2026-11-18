@@ -133,7 +133,7 @@ One row per UI element. "Custom?" says whether anything is built by hand and why
 | Chapters | `AVNavigationMarkersGroup` on the item (`navigationMarkerGroups`) | AVPlayerViewController page [V] | system chapter UI | No. |
 | Playback Stats overlay | `contentOverlayView` (between video and controls) or `customOverlayViewController` hosting a SwiftUI view | AVPlayerViewController page [V]; Playing video, tvOS overlays [V] | small, unobtrusive; translucent SDR, not bright opaque; image-retention risk | **Custom, reason: Apple has no stats overlay.** Uses a standard material (`.regularMaterial` is flagged by the lint, so it needs `design-lint:allow` citing HIG Playing video) and `.secondary`/`.primary` text styles. Toggled by a transport-bar action, off by default. |
 | Honest audio / HDR status | Text in the Playback Stats overlay and in the Info tab (`LabeledContent` rows); wording from `PlaybackStatus` | same | numbers and labels come from the tested model | No custom control. Format names: open question (D-DS7). |
-| Now Playing | `updatesNowPlayingInfoCenter = false` on the player and one publisher (HIG_AUDIT) | Playing video [V] | none | No. |
+| Now Playing | the system player publishes it from `externalMetadata`; the app does not write Now Playing itself (HIG_AUDIT, R157) | Playing video [V] | none | No. |
 | Exiting playback | Detail page of the title just watched | Playing video [V] ("Show a contextually relevant screen") | none | Needs the detail page (not written). |
 | Settings: Discover toggle | `Toggle` in a `Form` | Toggles [L] https://developer.apple.com/design/human-interface-guidelines/toggles | none | No. |
 

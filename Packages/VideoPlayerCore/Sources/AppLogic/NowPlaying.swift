@@ -2,9 +2,10 @@ import Foundation
 import PlaybackLogic
 
 // Now Playing: what the Apple TV's system UI (Control Center, the Siri Remote, the TV app's "now playing" tile) shows,
-// and which remote commands are on. This file is the pure mapping. The Apple wrapper (the app's
-// App/Features/Player/NowPlayingCenterPublisher.swift) turns a `NowPlayingSnapshot` into MPNowPlayingInfoCenter keys and a `RemoteCommandState` into
-// MPRemoteCommandCenter commands, one switch each, no logic.
+// and which remote commands are on. This file is the pure mapping. It is NOT used by the AVPlayerViewController player: on tvOS
+// that player publishes Now Playing itself from `AVPlayerItem.externalMetadata` (docs/API_USAGE.md, OPEN_QUESTIONS R157), so
+// the app's MPNowPlayingInfoCenter wrapper was removed on 2026-11-17. Kept, tested, for a later player that is not
+// AVPlayerViewController (it would publish through MPNowPlayingSession, PLATFORM_AUDIT item 2).
 
 // MARK: Snapshot
 

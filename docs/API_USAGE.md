@@ -43,6 +43,39 @@ Rows marked **NOT CHECKED** are listed so nothing is hidden; they are the first 
 - **F-5 (note).** `Tab(... value:, role:)` has `role` without a default in the page's overload; the plain tabs use the overload without `role:`; the
   search tab passes `role: .search`.
 
+## Now Playing on tvOS (checked 2026-11-17 after the second compile; decision R157)
+
+The second compile failed with `PlayerCoordinator.swift:78:20: error: 'updatesNowPlayingInfoCenter' is unavailable in tvOS`. Pages read:
+
+| API | Available on (from the page) | What the page says that matters here | Page |
+|---|---|---|---|
+| `AVPlayerViewController.updatesNowPlayingInfoCenter` | iOS 10.0+, iPadOS 10.0+, Mac Catalyst 13.1+, visionOS 1.0+. **No tvOS** | A Boolean that says whether the player updates the Now Playing info center; default true. Not on tvOS, so it cannot be set (the compile error) | https://developer.apple.com/documentation/avkit/avplayerviewcontroller/updatesnowplayinginfocenter |
+| `AVPlayerItem.externalMetadata` | tvOS listed (no version shown) | Metadata the app supplies for display; the identifiers the player shows are `commonKeyTitle`, `iTunesMetadataTrackSubTitle`, `commonIdentifierArtwork`, `commonKeyDescription`, `iTunesMetadataKeyContentRating`, `quickTimeMetadataKeyGenre` | https://developer.apple.com/documentation/avfoundation/avplayeritem/externalmetadata |
+| `MPNowPlayingSession` | tvOS 14.0+ | "An AVPlayerViewController manages its own player and Now Playing session, so you can't add your own Now Playing session." Do not use a session with the AVPlayer an AVPlayerViewController presents | https://developer.apple.com/documentation/mediaplayer/mpnowplayingsession |
+| `MPNowPlayingInfoCenter` | tvOS 5.0+ | The system-wide Now Playing dictionary; lists `MPNowPlayingSession` under Now Playing information | https://developer.apple.com/documentation/mediaplayer/mpnowplayinginfocenter |
+| `MPRemoteCommandCenter` | tvOS 7.1+ | Remote command targets, through `shared()` | https://developer.apple.com/documentation/mediaplayer/mpremotecommandcenter |
+| WWDC17 session 251, "Now Playing and Remote Commands on tvOS" | n/a (video) | With AVKit, give Now Playing information as `AVMutableMetadataItem`s in the player item's `externalMetadata` (identifier, value, `extendedLanguageTag` "und", and a `dataType` for JPEG/PNG artwork). Use `MPNowPlayingInfoCenter` only when playing with some other technology | https://developer.apple.com/videos/play/wwdc2017/251/ |
+
+**What the app does now:** title (`commonIdentifierTitle`) and the episode line (`iTunesMetadataTrackSubTitle`) are set before the item is handed
+to the player; the poster (`commonIdentifierArtwork`, data type `kCMMetadataBaseDataType_JPEG` or `_PNG` chosen from the file's first bytes, other
+formats left out) is appended when it has been read, a moment after playback starts. The app writes neither `MPNowPlayingInfoCenter` nor
+`MPRemoteCommandCenter`; the system player handles position and play/pause. **Not verified on a device** (checklist P10; P10 (d) is whether a
+poster added after start is shown). `kCMMetadataBaseDataType_JPEG/PNG` pages were not fetched; the compile run will report them if they are wrong.
+
+## Availability audit: replaced by the compiler (R158)
+
+A page-by-page tvOS availability audit of every Apple symbol was started and then dropped. The compiler reports every API that is unavailable on
+tvOS as an error, and the compile check now compiles whole modules and continues after errors (R158), so the next run lists them all. What the
+compiler cannot catch is behaviour that differs on tvOS. Those get a row here, with the page, only when that area is worked on:
+
+- Focus and Siri Remote handling (focus order, focus on custom views, touch-surface gestures).
+- Menu button behaviour (back, exit to the Home Screen, dismissing sheets and the player).
+- AVPlayerViewController's own UI (transport bar, info panel, subtitle and audio menus, content proposals, contextual actions).
+- Permission prompts (local network for Bonjour and SSDP).
+- Keychain and iCloud behaviour (synchronisable items, CloudKit account changes, multiple users).
+- Background limits (what keeps running after the Home button: loopback server, sync).
+- File access (no user Documents folder; caches can be removed by the system; App Group container for Top Shelf).
+
 ## NOT CHECKED against a page (names used by the app)
 
 - SwiftUI: `TabView(selection:)`, `NavigationStack(path:)`, `navigationDestination(for:)`, `fullScreenCover(item:)`, `onOpenURL`, `searchable`,

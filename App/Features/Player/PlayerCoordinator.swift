@@ -1,6 +1,7 @@
 import Foundation
 import AVKit
 import AVFoundation
+import CoreMedia
 import UIKit
 import SwiftUI
 import AppLogic
@@ -21,8 +22,6 @@ final class PlayerCoordinator: NSObject, AVPlayerViewControllerDelegate {
     private let item: AVPlayerItem
     private let probe: PlaybackProbe
     private let stats = StatsOverlayModel()
-    private let publisher: NowPlayingCenterPublisher
-    private let nowPlaying: NowPlayingSession
     private let skipPresenter = SkipButtonPresenter()
     private let proposalPresenter = ProposalPresenter()
     /// Created when the length of the file is known; nil before that (and when there is nothing to show).
@@ -54,12 +53,9 @@ final class PlayerCoordinator: NSObject, AVPlayerViewControllerDelegate {
         let playerItem = AVPlayerItem(asset: asset)
         playerItem.externalMetadata = Self.metadata(for: resolved)
         let avPlayer = AVPlayer(playerItem: playerItem)
-        let centerPublisher = NowPlayingCenterPublisher(player: avPlayer)
         self.item = playerItem
         self.player = avPlayer
         self.probe = PlaybackProbe(item: playerItem, remux: resolved.remux)
-        self.publisher = centerPublisher
-        self.nowPlaying = NowPlayingSession(publisher: centerPublisher, clock: MonotonicClock())
         super.init()
         skipPresenter.controllerProvider = { [weak self] in self?.controller }
         proposalPresenter.item = playerItem
@@ -74,8 +70,9 @@ final class PlayerCoordinator: NSObject, AVPlayerViewControllerDelegate {
         self.controller = controller
         controller.player = player
         controller.delegate = self
-        // One publisher owns the Now Playing entry (docs/HIG_AUDIT.md), so the system player must not also write it.
-        controller.updatesNowPlayingInfoCenter = false
+        // Now Playing: on tvOS the system player publishes the entry itself from `item.externalMetadata` and manages its own
+        // Now Playing session and remote commands, so the app writes neither MPNowPlayingInfoCenter nor MPRemoteCommandCenter
+        // (docs/API_USAGE.md "Now Playing on tvOS", OPEN_QUESTIONS R157). `updatesNowPlayingInfoCenter` does not exist on tvOS.
         // The display follows the file: the system matches dynamic range and frame rate to the stream (when the person has those
         // settings on) before the first frame. Set explicitly so a later default change cannot switch it off.
         controller.appliesPreferredDisplayCriteriaAutomatically = true
@@ -117,7 +114,8 @@ final class PlayerCoordinator: NSObject, AVPlayerViewControllerDelegate {
                 _ = await self.player.seek(to: CMTime(seconds: start, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
             }
             self.player.play()
-            self.nowPlaying.start(self.resolved.content, duration: self.resolved.duration, hasNextEpisode: false, position: start, rate: 1)
+            // The poster may need a download; it runs on its own so the skip button and Up Next set-up below never wait for it.
+            Task { @MainActor [weak self] in await self?.addArtworkToMetadata() }
             await self.probe.load()
             await self.probe.refreshAudioSelection()
             self.reloadOverlay()
@@ -144,7 +142,6 @@ final class PlayerCoordinator: NSObject, AVPlayerViewControllerDelegate {
         if let timeObserver { player.removeTimeObserver(timeObserver) }
         for token in [endObserver, jumpObserver, selectionObserver] { if let token { NotificationCenter.default.removeObserver(token) } }
         player.pause()
-        nowPlaying.stop()
         _ = overlay?.stopped()
         markController?.end()
         pictureOverlay?.hide()
@@ -163,7 +160,6 @@ final class PlayerCoordinator: NSObject, AVPlayerViewControllerDelegate {
         showImportantNoticeIfNeeded()
         // Everything below runs once a second, as before the quarter-second clock was needed for picture subtitles.
         guard Int(seconds) != wholeSecondBefore else { return }
-        nowPlaying.update(position: seconds, rate: Double(player.rate))
         if let overlay { handle(overlay.playhead(seconds, kind: .natural)) }
         if seconds - lastSaved >= 15 {
             lastSaved = seconds
@@ -380,8 +376,10 @@ final class PlayerCoordinator: NSObject, AVPlayerViewControllerDelegate {
         proposalPresenter.handler?.proposalRejected()
     }
 
-    // MARK: Metadata
+    // MARK: Metadata (also the Now Playing entry on tvOS)
 
+    /// Title and second line. The system player shows these in its info panel and publishes them as the Now Playing entry
+    /// (WWDC17 session 251; `AVPlayerItem.externalMetadata` lists the identifiers it shows).
     private static func metadata(for resolved: ResolvedPlayback) -> [AVMetadataItem] {
         var items: [AVMetadataItem] = []
         func add(_ identifier: AVMetadataIdentifier, _ value: String) {
@@ -394,6 +392,27 @@ final class PlayerCoordinator: NSObject, AVPlayerViewControllerDelegate {
         add(.commonIdentifierTitle, resolved.title)
         if let subtitle = resolved.subtitle { add(.iTunesMetadataTrackSubTitle, subtitle) }
         return items
+    }
+
+    /// Adds the poster (when one is found) as `commonIdentifierArtwork`, with the data type WWDC17 session 251 asks for (JPEG or
+    /// PNG). Bytes that are neither are left out rather than sent with a wrong type. Whether the system picks up metadata added
+    /// after playback started is a device check (docs/DEVICE_TEST_CHECKLIST_PLATFORM.md, P10 (d)).
+    private func addArtworkToMetadata() async {
+        guard let key = resolved.content.artworkKey, let bytes = await services.online.artworkBytes(key: key), !stopped else { return }
+        let type: String
+        if bytes.starts(with: [0xFF, 0xD8, 0xFF]) {
+            type = kCMMetadataBaseDataType_JPEG as String
+        } else if bytes.starts(with: [0x89, 0x50, 0x4E, 0x47]) {
+            type = kCMMetadataBaseDataType_PNG as String
+        } else {
+            return
+        }
+        let entry = AVMutableMetadataItem()
+        entry.identifier = .commonIdentifierArtwork
+        entry.value = bytes as NSData
+        entry.dataType = type
+        entry.extendedLanguageTag = "und"
+        item.externalMetadata.append(entry)
     }
 }
 
