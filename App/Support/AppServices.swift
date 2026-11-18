@@ -152,18 +152,52 @@ final class AppServices {
         Task { await scanAll() }
     }
 
+    /// Scans every source. A call while a scan runs waits for that scan instead of returning at once, so a caller that needs
+    /// the finished index (the start-up rebuild of a lost database, R169) never goes on with a half-scanned one.
     func scanAll() async {
-        guard !isScanning else { return }
-        isScanning = true
-        for definition in definitions {
-            guard let source = makeSource(definition) else { continue }
-            let syncer = LibrarySyncer(store: sqlite, source: source, sourceID: definition.id)
-            _ = try? await syncer.sync()
+        if let running = scanTask { await running.value; return }
+        let task = Task { @MainActor in
+            isScanning = true
+            for definition in definitions {
+                guard let source = makeSource(definition) else { continue }
+                let syncer = LibrarySyncer(store: sqlite, source: source, sourceID: definition.id)
+                _ = try? await syncer.sync()
+            }
+            isScanning = false
+            libraryRevision += 1
+            backup.libraryChanged()
+            await writeTopShelf()
         }
-        isScanning = false
-        libraryRevision += 1
-        backup.libraryChanged()
-        await writeTopShelf()
+        scanTask = task
+        await task.value
+        scanTask = nil
+    }
+
+    @ObservationIgnored private var scanTask: Task<Void, Never>?
+
+    // MARK: Launch (time-boxed, OPEN_QUESTIONS R169)
+
+    /// Everything a normal launch does after the first frame. The screens already show the library from the database on this
+    /// Apple TV; nothing here holds them up. The iCloud part (account status, the restore of an empty library, the start-up
+    /// sync) runs in the background; the launch scan waits for it at most `TimeBox.launchWait` seconds and then starts anyway,
+    /// while the iCloud part finishes on its own. One exception: while a restore is writing the (empty) library database, the
+    /// scan waits for that part of the restore only, because both would write the same database; the restore banner is on
+    /// screen meanwhile. If the restore has not started when the box runs out, it is not started at all (Settings > Restore).
+    func launch(scanOnLaunch: Bool) async {
+        Task { await refreshCloudStatus() }
+        let cloud = Task { await startCloudSync() }
+        let finishedInTime = await TimeBox.wait(atMost: TimeBox.launchWait) { await cloud.value } != nil
+        guard scanOnLaunch else { return }
+        if !finishedInTime {
+            if backup.isRestoringLibraryDatabase {
+                // Only the database part is waited for, not the pictures and not the start-up sync after it.
+                await backup.libraryDatabaseRestoreFinished()
+            } else {
+                // The restore has not started: it must not start later under the scan (it would replace the database).
+                backup.automaticRestoreAllowed = false
+            }
+        }
+        await scanAll()
     }
 
     func removeSource(id: String) async {

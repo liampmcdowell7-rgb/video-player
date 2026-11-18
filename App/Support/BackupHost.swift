@@ -21,6 +21,21 @@ final class BackupHost {
     private(set) var isWorking = false
     /// Set when iCloud cannot be used at all by this copy of the app; the screen shows it and nothing is backed up or restored.
     private(set) var unavailableReason: String?
+    /// False once the launch scan has started without waiting for iCloud (launch time-box, OPEN_QUESTIONS R169): from then
+    /// on the automatic restore of an empty library is not started, so it never writes the database under a running scan.
+    /// "Restore from iCloud" in Settings still works.
+    @ObservationIgnored var automaticRestoreAllowed = true
+    /// The automatic restore of the library DATABASE while it runs (the pictures that follow are not part of it).
+    @ObservationIgnored private var libraryRestore: Task<Bool, Never>?
+
+    /// True while the automatic restore is writing the library database.
+    var isRestoringLibraryDatabase: Bool { libraryRestore != nil }
+
+    /// Returns when the automatic restore of the library database has finished (at once when none runs). The pictures may
+    /// still be arriving; they do not touch the database.
+    func libraryDatabaseRestoreFinished() async {
+        _ = await libraryRestore?.value
+    }
 
     var settings: BackupSettings {
         didSet { Self.save(settings) }
@@ -127,8 +142,13 @@ final class BackupHost {
             }
             return false
         }
+        // Checked after the await above and set by the launch on the main actor too, so the two cannot interleave.
+        guard automaticRestoreAllowed else { return false }
         isAutoRestoring = true
-        let restored = await restoreLibrary(replace: false)
+        let databaseRestore = Task { await restoreLibrary(replace: false) }
+        libraryRestore = databaseRestore
+        let restored = await databaseRestore.value
+        libraryRestore = nil
         if restored, settings.artwork {
             Task(priority: .utility) {
                 await restoreArtwork()

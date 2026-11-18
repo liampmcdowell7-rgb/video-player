@@ -70,9 +70,8 @@ struct RootView: View {
                 return
             }
             #endif
-            await services.refreshCloudStatus()
-            await services.startCloudSync()
-            if scanOnLaunch { await services.scanAll() }
+            // Time-boxed (R169): the library is on screen from the local database; iCloud never delays the launch.
+            await services.launch(scanOnLaunch: scanOnLaunch)
         }
         .onChange(of: scenePhase) {
             if scenePhase == .active { services.sync.request(.becameActive) }
