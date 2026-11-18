@@ -158,6 +158,28 @@ final class ScreenshotTests: XCTestCase {
         return true
     }
 
+    /// The tab bar from the accessibility tree (OPEN_QUESTIONS R167 (c)): six tabs Home, Movies, Shows, Files, Search,
+    /// Settings, each whole inside the window and not overlapping the next. Written as "NN-name-TABBAR" (in the
+    /// screenshots-logs artifact) with every tab's label and frame and a final "TAB BAR OK" or "TAB BAR PROBLEM: ...".
+    /// A fade at the bar's edge is drawn, not reported in the tree; the screenshot shows that.
+    func tabBarCheck(_ name: String, in app: XCUIApplication) {
+        let expected = ["Home", "Movies", "Shows", "Files", "Search", "Settings"]
+        let window = app.windows.firstMatch.frame
+        let buttons = app.tabBars.firstMatch.buttons.allElementsBoundByIndex
+        var lines = buttons.map { "\($0.label)\t\(String(describing: $0.frame))" }
+        var problems: [String] = []
+        let labels = buttons.map(\.label)
+        if labels != expected { problems.append("tabs are \(labels), expected \(expected)") }
+        for b in buttons where b.frame.isEmpty || !window.contains(b.frame) {
+            problems.append("“\(b.label)” is not whole inside the window \(String(describing: window))")
+        }
+        for (a, b) in zip(buttons, buttons.dropFirst()) where a.frame.maxX > b.frame.minX + 1 {
+            problems.append("“\(a.label)” overlaps “\(b.label)”")
+        }
+        lines.append(problems.isEmpty ? "TAB BAR OK" : "TAB BAR PROBLEM: " + problems.joined(separator: "; "))
+        note(name + "-TABBAR", lines.joined(separator: "\n"))
+    }
+
     func back() { XCUIRemote.shared.press(.menu); sleep(1) }
 
     func settle() { sleep(2) }
@@ -170,13 +192,17 @@ final class ScreenshotTests: XCTestCase {
         if waitForScreen("screen.home", in: app) {
             _ = waitFor("Add a Source", in: app, timeout: 10)
             settle(); shot("02-home-empty")
+            tabBarCheck("02-home-empty", in: app)
         } else { notReached("02-home-empty", "The Home screen (screen.home) did not appear within 30 s.") }
         app.terminate()
 
-        for (n, tab) in [("03", "movies"), ("04", "shows"), ("05", "files"), ("06", "discover"), ("07", "search")] {
+        // 06: the Search tab with an empty field shows Discover (here its "needs a key" state); OPEN_QUESTIONS R167 (c).
+        // There is no Discover tab any more, so the former 06 (discover) and 07 (search) are this one screen.
+        for (n, tab, name) in [("03", "movies", "movies-empty"), ("04", "shows", "shows-empty"), ("05", "files", "files-empty"),
+                               ("06", "search", "search-empty-discover")] {
             let a = launch("-UITestEmpty", tab: tab)
-            if waitForScreen("screen.\(tab)", in: a) { settle(); shot("\(n)-\(tab)-empty") }
-            else { notReached("\(n)-\(tab)-empty", "The \(tab) screen (screen.\(tab)) did not appear within 30 s.") }
+            if waitForScreen("screen.\(tab)", in: a) { settle(); shot("\(n)-\(name)") }
+            else { notReached("\(n)-\(name)", "The \(tab) screen (screen.\(tab)) did not appear within 30 s.") }
             a.terminate()
         }
     }
@@ -306,8 +332,9 @@ final class ScreenshotTests: XCTestCase {
         app.terminate()
 
         app = launch("-UITestFixtures", tab: "search")
-        if waitForScreen("screen.search", in: app) { settle(); shot("75-search-prompt") }
-        else { notReached("75-search-prompt", "The Search screen (screen.search) did not appear within 30 s.") }
+        // Empty field: Discover below the search field (no key in UI-test mode, so its "Discover Needs a Key" state).
+        if waitForScreen("screen.search", in: app) { settle(); shot("75-search-discover-no-key") }
+        else { notReached("75-search-discover-no-key", "The Search screen (screen.search) did not appear within 30 s.") }
         // The search field of `.searchable` on tvOS: a search field, a text field, or only the on-screen keyboard (which
         // takes typed text directly). Whichever exists is used; the keyboard must be up before typing.
         let field = [app.searchFields.firstMatch, app.textFields.firstMatch].first { $0.waitForExistence(timeout: 5) }
@@ -328,12 +355,9 @@ final class ScreenshotTests: XCTestCase {
         }
         app.terminate()
 
-        app = launch("-UITestFixtures", tab: "discover")
-        if waitForScreen("screen.discover", in: app) { settle(); shot("77-discover-no-key") }
-        else { notReached("77-discover-no-key", "The Discover screen (screen.discover) did not appear within 30 s.") }
+        notReached("77-discover-no-key", "Discover is now part of the Search tab (OPEN_QUESTIONS R167 (c)); its no-key state is screen 75.")
         notReached("78-discover-results", "Discover results need an online lookup key and the network; UI-test mode makes no network calls.")
         notReached("79-top-shelf", "The Top Shelf is part of the Home Screen, not the app; a UI test of this app cannot open it.")
-        app.terminate()
     }
 
     // MARK: Accessibility settings (rule 17, docs/DESIGN_REFERENCES.md)
