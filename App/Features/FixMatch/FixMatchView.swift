@@ -82,7 +82,7 @@ struct FixMatchView: View {
                         Task { await choose(candidate) }
                     } label: {
                         VStack(alignment: .leading) {
-                            Text(candidate.title)
+                            FittingText(candidate.title)
                             if !candidate.subtitle.isEmpty {
                                 Text(candidate.subtitle)
                                     .font(.caption)

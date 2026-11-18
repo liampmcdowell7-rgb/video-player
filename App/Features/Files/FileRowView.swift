@@ -11,17 +11,15 @@ struct FileRowView: View {
     var body: some View {
         if row.isDirectory {
             NavigationLink(value: Route.folder(sourceID: sourceID, sourceName: sourceName, path: row.id)) {
-                Label(row.name, systemImage: "folder")
+                RowLabel(row.name, systemImage: "folder")
             }
         } else {
             Button(action: onSelectFile) {
-                HStack {
-                    Label(row.name, systemImage: symbol)
-                    Spacer()
-                    if let size = row.sizeText {
-                        Text(size)
-                            .foregroundStyle(.secondary)
-                    }
+                // The standard title-and-value row: the system places and spaces the size (rule S3).
+                LabeledContent {
+                    if let size = row.sizeText { Text(size) }
+                } label: {
+                    RowLabel(row.name, systemImage: symbol)
                 }
             }
         }

@@ -16,7 +16,7 @@ struct FilesView: View {
                 } else {
                     List(sources, id: \.id) { source in
                         NavigationLink(value: Route.folder(sourceID: source.id, sourceName: source.name, path: "/")) {
-                            Label(source.name, systemImage: "externaldrive")
+                            RowLabel(source.name, systemImage: "externaldrive")
                         }
                     }
                 }

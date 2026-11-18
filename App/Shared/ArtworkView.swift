@@ -11,8 +11,13 @@ struct ArtworkView: View {
     @State private var result: ArtworkResult = .none
 
     var body: some View {
-        content
+        // One shape for every card (screenshot review item 3c): a 2:3 frame that the picture FILLS and is clipped to. Before,
+        // the filled picture was the frame's child without a clip, so a 16:9 picture (an episode still or a fan-art image)
+        // reported its own wider size and its card came out wider than the posters next to it.
+        Color.clear
             .aspectRatio(2.0 / 3.0, contentMode: .fit)
+            .overlay { content }
+            .clipped()
             .task(id: "\(key)|\(services.online.keyRevision)") {
                 result = await services.online.resolveArtwork(key: key)
             }

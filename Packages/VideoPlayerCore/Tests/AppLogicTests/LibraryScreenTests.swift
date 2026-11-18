@@ -58,7 +58,10 @@ final class LibraryScreenTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(cont.progress), 0.3, accuracy: 0.001)
         let next = rows[1].cards[0]
         XCTAssertEqual(next.kind, .episode)
-        XCTAssertEqual(next.subtitle, "Show One · S1 E2")
+        // Screenshot review item 3b: an episode card is titled with its show, the second line names the episode.
+        XCTAssertEqual(next.title, "Show One")
+        XCTAssertTrue(next.subtitle?.hasPrefix("S1 E2") == true, next.subtitle ?? "nil")
+        XCTAssertFalse(next.subtitle?.contains("Show One") == true, "the show name is not repeated")
         XCTAssertNil(next.progress)
     }
 

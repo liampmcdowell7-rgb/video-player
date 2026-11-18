@@ -11,7 +11,7 @@ struct SourceKindListView: View {
         List {
             Section("Find on Your Network") {
                 NavigationLink(value: SetupRoute.discovery) {
-                    Label("Search Your Network", systemImage: "wifi")
+                    RowLabel("Search Your Network", systemImage: "wifi")
                 }
             }
             Section("Type an Address") {

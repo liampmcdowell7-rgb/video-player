@@ -19,6 +19,10 @@ public struct ItemCard: Equatable, Sendable, Identifiable {
     public var badges: [String]
     /// Key the app resolves to a poster or still ("item-42").
     public var artworkKey: String
+    /// The second line as prioritised segments (rule S1): `subtitle` is its full text.
+    public var subtitleLine = ShortLine([])
+    /// The badges as one line; the last badge is left out first when even the scaled line does not fit (rule S1).
+    public var badgeLine = ShortLine([])
 }
 
 public enum CardStyle: Sendable {
@@ -36,23 +40,43 @@ public enum CardBuilder {
 
     public static func card(_ item: LibraryItem, style: CardStyle = .standard) -> ItemCard {
         let code = DisplayText.episodeCode(season: item.season, episode: item.episode, episodeEnd: item.episodeEnd)
-        var parts: [String] = []
+        // Second-line segments; the priority says what stays longest when the line is too long (rule S1).
+        var parts: [ShortLine.Segment] = []
+        var title = item.title
         switch item.kind {
         case .movie:
-            if style == .standard, let year = item.year, year > 0 { parts.append(String(year)) }
+            if style == .standard, let year = item.year, year > 0 { parts.append(.init(String(year), priority: 2)) }
         case .episode:
-            if let s = item.seriesTitle, !s.isEmpty { parts.append(s) }
-            if let code { parts.append(code) }
+            // An episode card is titled with its show; the second line says which episode (screenshot review item 3b:
+            // the card showed "S02E01" over "Sample Show 1 · S2 E1 · …"). "S2 E1 · Pilot", or "S2 E1" without a real title.
+            let episodeTitle = episodeTitleIsReal(item) ? item.title : nil
+            if let series = item.seriesTitle, !series.isEmpty { title = series } else if episodeTitle == nil, let code { title = code }
+            if let code, title != code { parts.append(.init(code, priority: 3)) }
+            if let episodeTitle, episodeTitle != title { parts.append(.init(episodeTitle, priority: 2)) }
         }
         let progress = progressFraction(item)
         if style == .continueWatching, let progress, let duration = item.watch.duration ?? item.runtime, duration > 0 {
-            parts.append(DisplayText.remaining(duration * (1 - progress)))
+            // Movies: the time left is the whole second line. Episodes: it goes first when the line is too long (the
+            // progress bar under the poster shows the same thing).
+            parts.append(.init(DisplayText.remaining(duration * (1 - progress)), priority: item.kind == .movie ? 3 : 1))
         }
+        let subtitleLine = ShortLine(parts)
+        let badgeList = badges(item)
         return ItemCard(
-            id: item.id, kind: item.kind, title: item.title.isEmpty ? "Untitled" : item.title,
-            subtitle: parts.isEmpty ? nil : parts.joined(separator: " · "),
+            id: item.id, kind: item.kind, title: title.isEmpty ? "Untitled" : title,
+            subtitle: subtitleLine.isEmpty ? nil : subtitleLine.full,
             progress: style == .nextUp ? nil : progress, isWatched: item.watch.watched, isFavorite: item.watch.favorite,
-            badges: badges(item), artworkKey: "item-\(item.id)")
+            badges: badgeList, artworkKey: "item-\(item.id)", subtitleLine: subtitleLine, badgeLine: ShortLine(ordered: badgeList))
+    }
+
+    /// False when an episode has no title of its own: empty, the same as its show, or only an episode code taken from the
+    /// file name ("S02E01", "s2e1", "2x01", "Episode 3").
+    static func episodeTitleIsReal(_ item: LibraryItem) -> Bool {
+        let t = item.title.trimmingCharacters(in: .whitespaces)
+        guard !t.isEmpty else { return false }
+        if let series = item.seriesTitle, series.trimmingCharacters(in: .whitespaces).compare(t, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame { return false }
+        let codeOnly = #"^(s\d{1,3}\s*e\d{1,4}(\s*-?\s*e?\d{1,4})?|\d{1,2}x\d{1,4}|e(p(isode)?)?\.?\s*\d{1,4})$"#
+        return t.range(of: codeOnly, options: [.regularExpression, .caseInsensitive]) == nil
     }
 
     static func progressFraction(_ item: LibraryItem) -> Double? {

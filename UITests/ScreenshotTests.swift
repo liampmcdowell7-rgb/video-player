@@ -97,21 +97,49 @@ final class ScreenshotTests: XCTestCase {
     }
 
     /// Moves the focus with the remote's arrows until `target` has it. Direction comes from where the target is relative to
-    /// the focused element. Gives up after `maxPresses`.
+    /// the focused element. Run 44401030622 pressed Left 311 times on Settings: the focused element was the ROW (a cell)
+    /// around the target button, so `target.hasFocus` stayed false and the frames overlapped. Now a focused element that
+    /// contains the target's centre (or lies inside the target) counts as the target, and the loop stops when three
+    /// presses in a row leave the focus where it was.
     func focus(_ target: XCUIElement, in app: XCUIApplication, maxPresses: Int = 30) -> Bool {
         let remote = XCUIRemote.shared
+        var lastFrame: CGRect?
+        var unmoved = 0
         for _ in 0..<maxPresses {
             guard target.exists else { remote.press(.down); continue }
             if target.hasFocus { return true }
             let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
             guard focused.exists else { remote.press(.down); continue }
             let f = focused.frame, t = target.frame
+            if f.contains(CGPoint(x: t.midX, y: t.midY)) || t.contains(CGPoint(x: f.midX, y: f.midY)) { return true }
+            if f == lastFrame { unmoved += 1; if unmoved >= 3 { return false } } else { unmoved = 0 }
+            lastFrame = f
             if t.minY >= f.maxY - 2 { remote.press(.down) }
             else if t.maxY <= f.minY + 2 { remote.press(.up) }
             else if t.midX > f.midX { remote.press(.right) }
             else { remote.press(.left) }
         }
         return target.exists && target.hasFocus
+    }
+
+    /// The accessibility hierarchy right after a screen opened (screenshot review item 7): are the rows buttons or cells,
+    /// with labels? Kept as a text attachment "NN-name-HIERARCHY" in the screenshots-logs artifact.
+    func hierarchy(_ name: String, of app: XCUIApplication) {
+        note(name + "-HIERARCHY", app.debugDescription)
+    }
+
+    /// Types `text` on the tvOS on-screen keyboard by moving to each key and pressing Select (run 44401030622: `typeText`
+    /// failed with "Neither element nor any descendant has keyboard focus" on the search keyboard). False when a key is not
+    /// found or cannot be focused.
+    func typeOnKeyboard(_ text: String, in app: XCUIApplication) -> Bool {
+        let keyboard = app.keyboards.firstMatch
+        for character in text {
+            let label = String(character)
+            let candidates = [keyboard.keys[label], keyboard.buttons[label], keyboard.keys[label.uppercased()], keyboard.buttons[label.uppercased()]]
+            guard let key = candidates.first(where: { $0.exists }), focus(key, in: app, maxPresses: 40) else { return false }
+            XCUIRemote.shared.press(.select)
+        }
+        return true
     }
 
     /// Focuses the control labelled `text` and presses Select. False (with a NOT-REACHED note for `name`) when it cannot.
@@ -181,6 +209,7 @@ final class ScreenshotTests: XCTestCase {
         guard waitForScreen("screen.settings", in: app), waitFor("Playback", in: app) else { return notReached("30-settings", "Settings did not open.") }
         settle()
         shot("30-settings")
+        hierarchy("30-settings", of: app)
         let pages = [("31", "Playback"), ("32", "Home Screen"), ("33", "Sources"), ("35", "Library"), ("36", "Online Lookup"),
                      ("37", "Storage and iCloud"), ("38", "Accessibility")]
         for (n, page) in pages {
@@ -227,19 +256,19 @@ final class ScreenshotTests: XCTestCase {
 
         app = launch("-UITestFixtures", open: "Sample Show 1")
         if waitForScreen("screen.series", in: app, timeout: 60), waitFor("Season 1", in: app, timeout: 20) {
-            settle(); shot("55-show-page")
+            settle(); shot("55-show-page"); hierarchy("55-show-page", of: app)
             // Seasons are sections of the show page (there is no separate season page); move down to season 2.
             if focus(control("S2", in: app), in: app) || focus(control("Season 2", in: app), in: app) { settle(); shot("56-show-season-2-episode-row") }
             else { notReached("56-show-season-2-episode-row", "Could not move the focus to a season 2 episode row.") }
-        } else { notReached("55-show-page", "The show page did not open.") }
+        } else { hierarchy("55-show-page", of: app); notReached("55-show-page", "The show page did not open.") }
         app.terminate()
 
         app = launch("-UITestFixtures", open: "Sample Movie 1")
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 1", in: app) {
-            settle(); shot("57-movie-detail")
+            settle(); shot("57-movie-detail"); hierarchy("57-movie-detail", of: app)
             for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); shot("58-movie-detail-scrolled-\(step)") }
             if open("Fix Match", in: app, name: "59-fix-match") { settle(); shot("59-fix-match"); back() }
-        } else { notReached("57-movie-detail", "The movie detail page did not open.") }
+        } else { hierarchy("57-movie-detail", of: app); notReached("57-movie-detail", "The movie detail page did not open.") }
         app.terminate()
 
         app = launch("-UITestFixtures", open: "Sample Movie 2")
@@ -261,8 +290,9 @@ final class ScreenshotTests: XCTestCase {
         var app = launch("-UITestFixtures", tab: "files")
         if waitForScreen("screen.files", in: app), waitFor("Sample Library", in: app, timeout: 60) {
             settle(); shot("70-files-sources")
+            hierarchy("70-files-sources", of: app)
             if open("Sample Library", in: app, name: "71-files-root") {
-                settle(); shot("71-files-root")
+                settle(); shot("71-files-root"); hierarchy("71-files-root", of: app)
                 if open("Movies", in: app, name: "72-files-folder") {
                     settle(); shot("72-files-folder")
                     if open("Sample Movie 1 (2021)", in: app, name: "73-files-movie-folder") {
@@ -285,9 +315,13 @@ final class ScreenshotTests: XCTestCase {
             XCUIRemote.shared.press(.select)
         }
         if app.keyboards.firstMatch.waitForExistence(timeout: 10) {
-            app.typeText("Sample")
-            sleep(3)
-            shot("76-search-results")
+            if typeOnKeyboard("sam", in: app) {
+                sleep(3)
+                shot("76-search-results")
+            } else {
+                hierarchy("76-search-results", of: app)
+                notReached("76-search-results", "The keys of the on-screen keyboard could not be reached with the remote.")
+            }
         } else {
             notReached("76-search-results", "No on-screen keyboard appeared (search field found: \(field != nil)).")
         }

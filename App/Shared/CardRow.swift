@@ -7,8 +7,8 @@ struct CardRow: View {
 
     var body: some View {
         VStack(alignment: .leading) {
-            Text(row.title)
-                .font(.title3)
+            FittingText(row.title, style: .title3)
+                .accessibilityAddTraits(.isHeader)
             ScrollView(.horizontal) {
                 // design-lint:allow HIG Layout, 40 pt horizontal spacing between posters (docs/DESIGN_SYSTEM.md section 4)
                 LazyHStack(alignment: .top, spacing: 40) {

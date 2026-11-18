@@ -1,6 +1,7 @@
 import SwiftUI
 import AppLogic
 
+/// One show in the Shows grid: the same parts and sizes as `PosterCard`, text under rule S1 (`FittingLine`).
 struct SeriesCard: View {
     let series: SeriesSummary
 
@@ -11,17 +12,15 @@ struct SeriesCard: View {
             }
             .buttonStyle(.card)
             .accessibilityLabel(series.title)
-            Text(series.title)
-                .font(.caption)
-                .lineLimit(1)
-            Text(detail)
-                .font(.caption2)
+            .accessibilityValue(detail.full)
+            FittingText(series.title, style: .caption)
+            // "3 seasons · 4 unwatched": the unwatched count goes first when the line is too long.
+            FittingLine(line: detail, style: .caption2)
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
         }
     }
 
-    private var detail: String {
-        series.unwatchedCount > 0 ? "\(series.seasonsText) · \(series.unwatchedCount) unwatched" : series.seasonsText
+    private var detail: ShortLine {
+        ShortLine(ordered: series.unwatchedCount > 0 ? [series.seasonsText, "\(series.unwatchedCount) unwatched"] : [series.seasonsText])
     }
 }

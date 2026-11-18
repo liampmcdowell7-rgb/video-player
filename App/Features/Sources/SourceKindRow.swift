@@ -7,7 +7,7 @@ struct SourceKindRow: View {
 
     var body: some View {
         VStack(alignment: .leading) {
-            Text(info.title)
+            FittingText(info.title)
             Text(info.summary)
                 .font(.caption)
                 .foregroundStyle(.secondary)

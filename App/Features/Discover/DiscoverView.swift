@@ -109,13 +109,11 @@ private struct DiscoverCard: View {
             .buttonStyle(.card)
             .accessibilityLabel(title.title)
             .accessibilityHint(title.onWatchlist ? "Removes it from your watchlist" : "Adds it to your watchlist")
-            Text(title.title)
-                .font(.caption)
-                .lineLimit(1)
-            Text(title.year.map { "\($0) · \(title.reason)" } ?? title.reason)
-                .font(.caption2)
+            FittingText(title.title, style: .caption)
+            // Rule S1: "2021 · Because you watched …" on one line; the year goes first when it does not fit.
+            FittingLine(line: ShortLine([.init(title.year.map(String.init) ?? "", priority: 1), .init(title.reason, priority: 2)]),
+                        style: .caption2)
                 .foregroundStyle(.secondary)
-                .lineLimit(2)
             if title.onWatchlist {
                 Label("On Your Watchlist", systemImage: "checkmark")
                     .font(.caption2)
