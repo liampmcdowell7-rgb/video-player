@@ -16,7 +16,7 @@ public enum UITestLaunch: Equatable, Sendable {
 
     public static let emptyArgument = "-UITestEmpty"
     public static let fixturesArgument = "-UITestFixtures"
-    /// `-UITestTab <home|movies|shows|files|discover|search|settings>`: the tab selected at start.
+    /// `-UITestTab <home|movies|shows|files|search|settings>` (`AppTabID` raw values): the tab selected at start.
     public static let tabArgument = "-UITestTab"
     /// `-UITestOpen <title>`: opens the detail page of the movie, or the page of the show, with exactly this title.
     public static let openArgument = "-UITestOpen"
