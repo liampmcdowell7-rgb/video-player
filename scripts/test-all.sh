@@ -57,6 +57,11 @@ if bash "$HERE/scripts/test-counts-tests.sh" >"$LOG/test-counts-tests.log" 2>&1;
 SUMMARY="$SUMMARY
 test-counts tests ($TCT): $(tail -1 "$LOG/test-counts-tests.log")"
 
+# 0b3. The device-build inspection checks on fake nm/strings output (scripts/ci-inspect-lib.sh; fourth CI run false alarm).
+if bash "$HERE/scripts/test-ci-inspect.sh" >"$LOG/ci-inspect-tests.log" 2>&1; then CIT=ok; else CIT=bad; fi
+SUMMARY="$SUMMARY
+ci-inspect self-test ($CIT): $(tail -1 "$LOG/ci-inspect-tests.log")"
+
 # 0c. Syntax check of the app and extension sources (swiftc -parse). SYNTAX ONLY: it cannot see missing imports, wrong
 # labels or unknown names, because the Apple frameworks do not exist here. A pass is never "it compiles".
 if bash "$HERE/scripts/parse-app.sh" >"$LOG/parse-app.log" 2>&1; then PA=ok; else PA=bad; fi

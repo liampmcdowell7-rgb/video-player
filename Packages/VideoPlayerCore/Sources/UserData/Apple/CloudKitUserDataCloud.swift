@@ -15,21 +15,28 @@ public final class CloudKitUserDataCloud: UserDataCloud, @unchecked Sendable {
     public static let recordType = "UDRecord"
     static let payloadKey = "payload"
 
-    private let container: CKContainer
-    private let database: CKDatabase
+    /// Created on first use, never in `init` (launch safety, docs/API_USAGE.md): `CloudKitContainers.make` or the app's guarded maker.
+    private let containers: LazyCloudResource<CKContainer>
     private let zoneID: CKRecordZone.ID
     private let lock = NSLock()
     private var zoneReady = false
 
-    public init(containerIdentifier: String = UserDataModule.cloudKitContainerIdentifier) {
-        container = CKContainer(identifier: containerIdentifier)
-        database = container.privateCloudDatabase
+    public init(containers: LazyCloudResource<CKContainer> = CloudKitContainers.make()) {
+        self.containers = containers
         zoneID = CKRecordZone.ID(zoneName: UserDataModule.zoneName, ownerName: CKCurrentUserDefaultName)
     }
 
     // MARK: UserDataCloud
 
+    /// The private database, or `UDCloudError.other` with the reason when the container cannot be made.
+    private var database: CKDatabase {
+        get throws { try containers.value().privateCloudDatabase }
+    }
+
     public func accountStatus() async -> UDAccountStatus {
+        // No container (no iCloud capability in this build): reported as "could not determine"; the app shows the reason
+        // from the same gate (AppServices.cloudUnavailable) instead of "signed out".
+        guard let container = try? containers.value() else { return .unknown }
         do {
             switch try await container.accountStatus() {
             case .available: return .available
@@ -133,6 +140,7 @@ public final class CloudKitUserDataCloud: UserDataCloud, @unchecked Sendable {
 
     static func map(_ error: Error) -> UDCloudError {
         if let known = error as? UDCloudError { return known }
+        if let missing = error as? CloudUnavailable { return .other(missing.reason) }
         guard let ck = error as? CKError else { return .other("\(error)") }
         switch ck.code {
         case .limitExceeded: return .limitExceeded

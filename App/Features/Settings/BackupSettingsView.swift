@@ -61,9 +61,9 @@ struct BackupSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 Button("Back Up Now") { backup.backUpNow() }
-                    .disabled(backup.isWorking || !(backup.settings.library || backup.settings.artwork))
+                    .disabled(backup.isWorking || backup.unavailableReason != nil || !(backup.settings.library || backup.settings.artwork))
                 Button("Restore from iCloud", role: .destructive) { confirmRestore = true }
-                    .disabled(backup.isWorking)
+                    .disabled(backup.isWorking || backup.unavailableReason != nil)
             }
         }
         .navigationTitle("Backup")
@@ -83,6 +83,8 @@ struct BackupSettingsView: View {
 
     /// Signed out first (from the account check), then the backup's own state, then the last problem.
     private func statusLine(_ backup: BackupHost) -> String? {
+        // iCloud cannot be used at all by this copy of the app (no iCloud capability): say so, never "signed out".
+        if let reason = backup.unavailableReason { return reason }
         switch services.accountStatus {
         case .noAccount, .restricted: return BackupStatusText.line(.signedOut)
         default: break

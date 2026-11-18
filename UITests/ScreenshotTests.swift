@@ -6,9 +6,13 @@ import XCTest
 /// a clean start, no network, and in fixtures mode a synthetic sample library. Every screenshot is an attachment kept
 /// always, named "NN-name"; the workflow exports them as NN-name.png in that order.
 ///
-/// A screen that cannot be reached does not stop the run: a text attachment "NN-name-NOT-REACHED" says why, and the test
-/// goes on. Remote API: XCUIRemote (https://developer.apple.com/documentation/xcuiautomation/xcuiremote).
+/// A screen that cannot be reached does not stop the run: a text attachment "NN-name-NOT-REACHED" says why (with a screenshot
+/// of what is shown instead), and the test goes on. No screenshot is ever taken while the app is not in front (the fourth CI
+/// run saved the system Home Screen under the app's screen names after a crash at launch); that is a test failure instead. Remote API: XCUIRemote (https://developer.apple.com/documentation/xcuiautomation/xcuiremote).
 final class ScreenshotTests: XCTestCase {
+    /// The app launched last; every screenshot is of it, and only while it is in front.
+    private var current: XCUIApplication?
+
     override func setUp() {
         super.setUp()
         continueAfterFailure = true
@@ -24,21 +28,59 @@ final class ScreenshotTests: XCTestCase {
         if let open { args += ["-UITestOpen", open] }
         app.launchArguments = args
         app.launch()
+        current = app
+        // Fourth CI run: the app died at launch and every "screenshot" showed the system Home Screen. Say so at once.
+        if !appIsInFront(app, timeout: 20) {
+            XCTFail("The app is not in the foreground after launch \(args) (state \(app.state.rawValue)); it probably crashed.")
+        }
         return app
     }
 
+    /// True when this app, not the system Home Screen, is in front: running in the foreground with one of its own screens
+    /// (accessibility identifier "screen.<name>", App/Shell/RootView.swift) or its tab bar present.
+    func appIsInFront(_ app: XCUIApplication, timeout: TimeInterval = 5) -> Bool {
+        guard app.wait(for: .runningForeground, timeout: timeout) else { return false }
+        let screen = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "screen.")).firstMatch
+        return screen.waitForExistence(timeout: timeout) || app.tabBars.firstMatch.exists
+    }
+
+    /// Waits for the screen with the accessibility identifier `id` ("screen.home", "screen.item", ...).
+    func waitForScreen(_ id: String, in app: XCUIApplication, timeout: TimeInterval = 30) -> Bool {
+        app.descendants(matching: .any).matching(identifier: id).firstMatch.waitForExistence(timeout: timeout)
+    }
+
+    /// A screenshot named `name`, taken only while the app is in front. Otherwise a failure and a text note, never a picture
+    /// of the system Home Screen saved under the name of one of the app's screens.
     func shot(_ name: String) {
+        guard let app = current, appIsInFront(app, timeout: 2) else {
+            let state = current.map { "\($0.state.rawValue)" } ?? "not launched"
+            XCTFail("\(name): the app is not in the foreground (state \(state)); no screenshot taken.")
+            note(name + "-APP-NOT-IN-FRONT", "The app was not in the foreground (state \(state)), so no screenshot was taken.")
+            return
+        }
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
     }
 
-    func notReached(_ name: String, _ reason: String) {
-        let attachment = XCTAttachment(string: reason)
-        attachment.name = name + "-NOT-REACHED"
+    private func note(_ name: String, _ text: String) {
+        let attachment = XCTAttachment(string: text)
+        attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    /// A screen that was not reached: a note with the reason, and a screenshot of what IS on screen instead (when the app
+    /// is in front), named "NN-name-NOT-REACHED", so the reason can be seen.
+    func notReached(_ name: String, _ reason: String) {
+        note(name + "-NOT-REACHED", reason)
+        if let app = current, appIsInFront(app, timeout: 2) {
+            let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            attachment.name = name + "-NOT-REACHED"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
     }
 
     /// Waits for text containing `text` anywhere on screen.
@@ -95,22 +137,25 @@ final class ScreenshotTests: XCTestCase {
 
     func test01_FirstLaunchAndEmptyScreens() {
         let app = launch("-UITestEmpty")
-        sleep(1)
         shot("01-first-launch")
-        if waitFor("Add a Source", in: app) { settle(); shot("02-home-empty") } else { notReached("02-home-empty", "The empty Home screen text did not appear.") }
+        if waitForScreen("screen.home", in: app) {
+            _ = waitFor("Add a Source", in: app, timeout: 10)
+            settle(); shot("02-home-empty")
+        } else { notReached("02-home-empty", "The Home screen (screen.home) did not appear within 30 s.") }
         app.terminate()
 
         for (n, tab) in [("03", "movies"), ("04", "shows"), ("05", "files"), ("06", "discover"), ("07", "search")] {
             let a = launch("-UITestEmpty", tab: tab)
-            sleep(4)
-            shot("\(n)-\(tab)-empty")
+            if waitForScreen("screen.\(tab)", in: a) { settle(); shot("\(n)-\(tab)-empty") }
+            else { notReached("\(n)-\(tab)-empty", "The \(tab) screen (screen.\(tab)) did not appear within 30 s.") }
             a.terminate()
         }
     }
 
     func test02_AddASource() {
         let app = launch("-UITestEmpty")
-        guard waitFor("Add a Source", in: app), open("Add a Source", in: app, name: "10-add-source-types") else { return }
+        guard waitForScreen("screen.home", in: app), waitFor("Add a Source", in: app),
+              open("Add a Source", in: app, name: "10-add-source-types") else { return }
         guard waitFor("Type an Address", in: app) else { return notReached("10-add-source-types", "The source type list did not open.") }
         settle()
         shot("10-add-source-types")
@@ -133,7 +178,7 @@ final class ScreenshotTests: XCTestCase {
 
     func test03_Settings() {
         let app = launch("-UITestFixtures", tab: "settings")
-        guard waitFor("Playback", in: app) else { return notReached("30-settings", "Settings did not open.") }
+        guard waitForScreen("screen.settings", in: app), waitFor("Playback", in: app) else { return notReached("30-settings", "Settings did not open.") }
         settle()
         shot("30-settings")
         let pages = [("31", "Playback"), ("32", "Home Screen"), ("33", "Sources"), ("35", "Library"), ("36", "Online Lookup"),
@@ -166,7 +211,7 @@ final class ScreenshotTests: XCTestCase {
 
     func test04_LibraryScreens() {
         var app = launch("-UITestFixtures", tab: "home")
-        if waitFor("Sample", in: app, timeout: 60) { settle(); shot("50-home-rows"); XCUIRemote.shared.press(.down); sleep(1); shot("51-home-rows-lower") }
+        if waitForScreen("screen.home", in: app), waitFor("Sample", in: app, timeout: 60) { settle(); shot("50-home-rows"); XCUIRemote.shared.press(.down); sleep(1); shot("51-home-rows-lower") }
         else { notReached("50-home-rows", "No sample title appeared on Home within 60 s (the sample library did not load).") }
         // The card long-press menu on the focused Home card.
         XCUIRemote.shared.press(.select, forDuration: 1.5)
@@ -176,12 +221,12 @@ final class ScreenshotTests: XCTestCase {
 
         for (n, tab) in [("53", "movies"), ("54", "shows")] {
             app = launch("-UITestFixtures", tab: tab)
-            if waitFor("Sample", in: app, timeout: 60) { settle(); shot("\(n)-\(tab)") } else { notReached("\(n)-\(tab)", "No sample title appeared.") }
+            if waitForScreen("screen.\(tab)", in: app), waitFor("Sample", in: app, timeout: 60) { settle(); shot("\(n)-\(tab)") } else { notReached("\(n)-\(tab)", "No sample title appeared.") }
             app.terminate()
         }
 
         app = launch("-UITestFixtures", open: "Sample Show 1")
-        if waitFor("Season 1", in: app, timeout: 60) {
+        if waitForScreen("screen.series", in: app, timeout: 60), waitFor("Season 1", in: app, timeout: 20) {
             settle(); shot("55-show-page")
             // Seasons are sections of the show page (there is no separate season page); move down to season 2.
             if focus(control("S2", in: app), in: app) || focus(control("Season 2", in: app), in: app) { settle(); shot("56-show-season-2-episode-row") }
@@ -190,7 +235,7 @@ final class ScreenshotTests: XCTestCase {
         app.terminate()
 
         app = launch("-UITestFixtures", open: "Sample Movie 1")
-        if waitFor("Sample Movie 1", in: app, timeout: 60) {
+        if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 1", in: app) {
             settle(); shot("57-movie-detail")
             for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); shot("58-movie-detail-scrolled-\(step)") }
             if open("Fix Match", in: app, name: "59-fix-match") { settle(); shot("59-fix-match"); back() }
@@ -198,7 +243,7 @@ final class ScreenshotTests: XCTestCase {
         app.terminate()
 
         app = launch("-UITestFixtures", open: "Sample Movie 2")
-        if waitFor("Sample Movie 2", in: app, timeout: 60) {
+        if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 2", in: app) {
             settle(); shot("60-movie-detail-two-versions")
             for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); shot("61-movie-detail-two-versions-scrolled-\(step)") }
         } else { notReached("60-movie-detail-two-versions", "The detail page did not open.") }
@@ -206,7 +251,7 @@ final class ScreenshotTests: XCTestCase {
 
         // Pressing Play on a sample file shows the playback error screen (sample files have no video).
         app = launch("-UITestFixtures", open: "Sample Movie 5")
-        if waitFor("Sample Movie 5", in: app, timeout: 60), open("Play", in: app, name: "62-playback-error") {
+        if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 5", in: app), open("Play", in: app, name: "62-playback-error") {
             sleep(5); shot("62-playback-error")
         }
         app.terminate()
@@ -214,7 +259,7 @@ final class ScreenshotTests: XCTestCase {
 
     func test05_FilesSearchDiscover() {
         var app = launch("-UITestFixtures", tab: "files")
-        if waitFor("Sample Library", in: app, timeout: 60) {
+        if waitForScreen("screen.files", in: app), waitFor("Sample Library", in: app, timeout: 60) {
             settle(); shot("70-files-sources")
             if open("Sample Library", in: app, name: "71-files-root") {
                 settle(); shot("71-files-root")
@@ -230,24 +275,27 @@ final class ScreenshotTests: XCTestCase {
         app.terminate()
 
         app = launch("-UITestFixtures", tab: "search")
-        sleep(4)
-        shot("75-search-prompt")
-        let field = app.searchFields.firstMatch
-        if field.waitForExistence(timeout: 10), focus(field, in: app) {
-            // Select opens the on-screen keyboard; typing then goes to the field that has keyboard focus.
+        if waitForScreen("screen.search", in: app) { settle(); shot("75-search-prompt") }
+        else { notReached("75-search-prompt", "The Search screen (screen.search) did not appear within 30 s.") }
+        // The search field of `.searchable` on tvOS: a search field, a text field, or only the on-screen keyboard (which
+        // takes typed text directly). Whichever exists is used; the keyboard must be up before typing.
+        let field = [app.searchFields.firstMatch, app.textFields.firstMatch].first { $0.waitForExistence(timeout: 5) }
+        if let field, !app.keyboards.firstMatch.exists {
+            _ = focus(field, in: app)
             XCUIRemote.shared.press(.select)
-            sleep(2)
+        }
+        if app.keyboards.firstMatch.waitForExistence(timeout: 10) {
             app.typeText("Sample")
             sleep(3)
             shot("76-search-results")
         } else {
-            notReached("76-search-results", "No search field was found to type into.")
+            notReached("76-search-results", "No on-screen keyboard appeared (search field found: \(field != nil)).")
         }
         app.terminate()
 
         app = launch("-UITestFixtures", tab: "discover")
-        sleep(4)
-        shot("77-discover-no-key")
+        if waitForScreen("screen.discover", in: app) { settle(); shot("77-discover-no-key") }
+        else { notReached("77-discover-no-key", "The Discover screen (screen.discover) did not appear within 30 s.") }
         notReached("78-discover-results", "Discover results need an online lookup key and the network; UI-test mode makes no network calls.")
         notReached("79-top-shelf", "The Top Shelf is part of the Home Screen, not the app; a UI test of this app cannot open it.")
         app.terminate()

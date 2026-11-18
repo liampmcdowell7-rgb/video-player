@@ -7,6 +7,7 @@ import LibraryIndex
 /// reachable in a Release build: the switch refuses when the build does not allow it, and every file that holds sample data
 /// is wrapped in `#if DEBUG` (checked below by reading the files).
 final class UITestLaunchTests: XCTestCase {
+    #if DEBUG // the switch exists only in debug builds (tests are built debug)
     // MARK: The switch
 
     func testAReleaseBuildNeverTurnsAUITestModeOn() {
@@ -27,8 +28,9 @@ final class UITestLaunchTests: XCTestCase {
         XCTAssertNil(UITestLaunch.value(of: UITestLaunch.tabArgument, arguments: ["app", "-UITestTab"], mode: .fixtures))
         XCTAssertNil(UITestLaunch.value(of: UITestLaunch.tabArgument, arguments: ["app", "-UITestTab", "-UITestEmpty"], mode: .empty))
     }
+    #endif
 
-    /// Every file that holds sample data or reads the switch starts with `#if DEBUG` and ends with `#endif`, so a Release build
+    /// Every file that holds sample data, the launch-argument texts or reads the switch starts with `#if DEBUG` and ends with `#endif`, so a Release build
     /// does not contain it. The repo is found through VP_PROJECT_ROOT (scripts/test-core.sh sets it, because it copies only
     /// the package before building) or next to this test file (Packages/VideoPlayerCore in a checkout), as in NamesTests.
     func testEverySampleDataFileIsCompiledOnlyInDebugBuilds() throws {
@@ -38,11 +40,16 @@ final class UITestLaunchTests: XCTestCase {
         }
         candidates.append(URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent())
-        let repo = try XCTUnwrap(candidates.first { FileManager.default.fileExists(atPath: $0.appendingPathComponent("App").path) },
-                                 "the repository (with App/) was not found")
+        let found = candidates.first { FileManager.default.fileExists(atPath: $0.appendingPathComponent("App").path) }
+        #if !os(Linux)
+        // In a tvOS Simulator run the checkout may not be readable (CI sets TEST_RUNNER_VP_PROJECT_ROOT): skipped, never passed.
+        if found == nil { throw XCTSkip("the repository (with App/) is not readable from this test host") }
+        #endif
+        let repo = try XCTUnwrap(found, "the repository (with App/) was not found")
         let package = repo.appendingPathComponent("Packages/VideoPlayerCore")
         let guarded = [
             package.appendingPathComponent("Sources/AppLogic/UITestFixtures.swift"),
+            package.appendingPathComponent("Sources/AppLogic/UITestLaunch.swift"),
             repo.appendingPathComponent("App/Support/UITestMode.swift"),
         ]
         for url in guarded {

@@ -251,3 +251,25 @@ Same calls as the user-data sync (already compiled for tvOS in the first compile
 SQLite online backup API (`sqlite3_backup_init`, `_step`, `_finish`; SQLite's own documentation,
 https://www.sqlite.org/backup.html, NOT re-read this session) copies the open library database page by page; it is
 tested in WSL against the system SQLite.
+
+
+## LAUNCH SAFETY (fourth CI run: crash at launch in the simulator; R164, 2026-11-18)
+
+Rule: nothing that needs an entitlement (iCloud, App Group, Keychain access group) is created in an initializer on the
+launch path, and every failure of such a thing ends as text on screen (Settings > Storage and iCloud, Settings > Backup,
+the sync line), never a crash. No force-unwrap, `fatalError` or `[0]` on the launch path. UI-test modes use in-memory
+fakes for all of them (App/Support/AppDependencies.swift, `uiTest()`, DEBUG only).
+
+| Fact relied on | Page |
+|---|---|
+| `CKContainer(identifier:)`: the identifier must be listed in the app's `com.apple.developer.icloud-container-identifiers` entitlement. The page does NOT say what happens when it is not; an exception is reported behaviour, not documented. So the container is made lazily (`LazyCloudResource`, UserData/CloudGate.swift) and inside an Objective-C `@try` (App/Support/ObjC/VPCatchException.m, `CloudKitGate`). | https://developer.apple.com/documentation/cloudkit/ckcontainer/init(identifier:) |
+| CKContainer overview: the simulator works only with the development environment. | https://developer.apple.com/documentation/cloudkit/ckcontainer |
+| `containerURL(forSecurityApplicationGroupIdentifier:)` returns nil for a group the app is not in (iOS wording; tvOS not named); on macOS a URL is returned anyway, so test access before use. Checked by `SharedFolder.usable` (AppLogic/SharedFolder.swift). | https://developer.apple.com/documentation/foundation/filemanager/containerurl(forsecurityapplicationgroupidentifier:) |
+| `errSecMissingEntitlement` (tvOS 9+): what Keychain calls return for a wrong access group; the page says to check entitlements on hardware, "not the Simulator app", and documents `codesign -d --entitlements :- <path>`. The app uses no access group; Keychain errors are thrown and shown, not trapped. | https://developer.apple.com/documentation/security/errsecmissingentitlement |
+| `codesign --display --entitlements :- YourApp.app` prints what a build carries (the screenshots job prints it). | https://developer.apple.com/documentation/bundleresources/diagnosing-issues-with-entitlements |
+| `SecTaskCopyValueForEntitlement` is macOS / Mac Catalyst only: there is NO public tvOS call to ask "do I have this entitlement?", so the app finds out by trying (lazily) and catching. | https://developer.apple.com/documentation/security/sectaskcopyvalueforentitlement(_:_:_:) |
+| `DeveloperToolsSupport.LibraryItem` exists, so an unqualified `LibraryItem` in the tvOS test build was ambiguous; the tests use a `typealias LibraryItem = LibraryIndex.LibraryItem`. | https://developer.apple.com/documentation/developertoolssupport/libraryitem |
+
+NOT verified on an Apple page: that the simulator honours entitlements embedded by ad-hoc signing (R164), and that
+`xcodebuild` passes only `TEST_RUNNER_`-prefixed variables to the test process (taken from `man xcodebuild`, which the
+workflow prints).

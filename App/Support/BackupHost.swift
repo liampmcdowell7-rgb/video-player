@@ -19,6 +19,8 @@ final class BackupHost {
     /// True while the automatic restore after a cleanup runs (the "Restoring your library from iCloud" banner).
     private(set) var isAutoRestoring = false
     private(set) var isWorking = false
+    /// Set when iCloud cannot be used at all by this copy of the app; the screen shows it and nothing is backed up or restored.
+    private(set) var unavailableReason: String?
 
     var settings: BackupSettings {
         didSet { Self.save(settings) }
@@ -35,7 +37,8 @@ final class BackupHost {
 
     /// - forbidden: every source password or token and every API key, read at the time of each backup (never stored).
     /// - matchFile: the Fix Match choices (Application Support).
-    init(store: SQLiteLibraryStore, matchFile: URL, forbidden: @escaping @Sendable () -> [String]) {
+    /// - cloud: the CloudKit adapter (container made on first use), or the in-memory one in a UI-test mode.
+    init(store: SQLiteLibraryStore, cloud: any BackupCloud, matchFile: URL, forbidden: @escaping @Sendable () -> [String]) {
         self.store = store
         self.settings = Self.loadSettings()
         self.lastSuccess = UserDefaults.standard.object(forKey: Self.lastSuccessKey) as? Date
@@ -54,11 +57,18 @@ final class BackupHost {
             })
         self.files = files
         let box = BackupStatusBox()
-        self.engine = BackupEngine(cloud: CloudKitBackupCloud(), codec: LZFSECodec(), content: files,
+        self.engine = BackupEngine(cloud: cloud, codec: LZFSECodec(), content: files,
                                    staging: caches.appendingPathComponent("backup-staging", isDirectory: true),
                                    forbidden: forbidden, onStatus: { box.deliver($0) })
         box.onMain = { [weak self] new in self?.status = new }
         self.scheduler = BackupScheduler(run: { [weak self] in await self?.runBackup() })
+    }
+
+    /// iCloud cannot be used (no iCloud capability in this copy of the app): no backup, no restore, the reason on the screen.
+    func markCloudUnavailable(_ reason: String) {
+        unavailableReason = reason
+        lastProblem = reason
+        isAutoRestoring = false
     }
 
     // MARK: Triggers (never background sync, decision D8)
@@ -82,7 +92,7 @@ final class BackupHost {
     private func runBackup() async {
         let chosen = settings
         // Never while a restore is filling the folders (the backup would record a half-restored set); the next trigger runs it.
-        guard chosen.library || chosen.artwork, !isAutoRestoring, !isWorking else { return }
+        guard unavailableReason == nil, chosen.library || chosen.artwork, !isAutoRestoring, !isWorking else { return }
         isWorking = true
         defer { isWorking = false }
         let report = await engine.backUp(settings: chosen)
@@ -104,6 +114,7 @@ final class BackupHost {
     /// TV), brings the library back from iCloud instead of rescanning. True when the index now holds the library.
     /// The pictures follow in the background, the Home-row posters first.
     func restoreIfLibraryIsEmpty() async -> Bool {
+        guard unavailableReason == nil else { return false }
         guard settings.library, (try? await store.isEmptyLibrary()) ?? false else {
             // The index came back on an earlier launch but the pictures did not finish (the app was quit): resume them.
             // Verified pieces are still staged, so only what is missing is downloaded.
@@ -133,6 +144,7 @@ final class BackupHost {
     /// kept, and `afterLibrary` puts the newest watch state and saved views from the user-data ledger back on top of the
     /// restored index (newest edit wins) before the pictures follow.
     func restoreNow(afterLibrary: @escaping @MainActor () async -> Void) {
+        guard unavailableReason == nil else { return }
         Task(priority: .utility) {
             isWorking = true
             defer { isWorking = false }
@@ -201,6 +213,7 @@ final class BackupHost {
     // MARK: Screen
 
     func refreshUsage() async {
+        guard unavailableReason == nil else { return }
         if let measured = try? await engine.usage() { usage = measured }
     }
 

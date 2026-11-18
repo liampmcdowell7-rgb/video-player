@@ -43,7 +43,7 @@ final class OnlineServices {
     /// PROVISIONAL: kept on this device only; alternative: a ledger record so they sync (needs a Schema.swift record type).
     /// Also read by the iCloud backup (docs/BACKUP.md), so a reinstall gets the choices back.
     static var matchFileURL: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let base = (FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory)
         return base.appendingPathComponent("matches.json")
     }
 

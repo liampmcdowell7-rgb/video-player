@@ -6,9 +6,12 @@
 #   macho-report.txt          for every Mach-O file: architectures (lipo), platform tag (vtool / LC_BUILD_VERSION), linked libraries
 #   static-libraries.txt      the two static libraries linked into the app binary (libnfs, libdovi): platform tag of the
 #                             device slice, and the process-spawning symbols they reference (posix_spawn, posix_spawnp, fork, exec*)
-#   release-strings.txt       proof that the debug-only sample library is compiled out of Release (no "Sample Movie" string)
+#   release-strings.txt       proof that the debug-only UI-test code is compiled out of Release: no launch-argument text
+#                             (-UITestEmpty, -UITestFixtures, -UITestTab, -UITestOpen) and no sample-library text
+#   app-nm.txt                `nm -m` of the app binary, saved once; the symbol checks read this file (ci-inspect-lib.sh)
 set -uo pipefail
 : "${OUT:?}"
+. "$(dirname "${BASH_SOURCE[0]}")/ci-inspect-lib.sh"
 mkdir -p "$OUT"
 PROD="build/DerivedData/Build/Products/Release-appletvos"
 APP="$PROD/VideoPlayer.app"
@@ -55,7 +58,7 @@ exec 1>&3 3>&-
 # Every Mach-O file in the bundle: arm64 only, platform TVOS (2 in LC_BUILD_VERSION), not the simulator.
 {
   find "$APP" -type f | while read -r f; do
-    file -b "$f" | grep -q 'Mach-O' || continue
+    case "$(file -b "$f")" in *Mach-O*) ;; *) continue ;; esac   # no pipe into grep -q (SIGPIPE under pipefail)
     echo "== ${f#$APP/}"
     lipo -info "$f" 2>&1
     vtool -show-build "$f" 2>&1 | sed -n '1,12p'
@@ -69,6 +72,8 @@ echo "Mach-O files inspected: $(grep -c '^== ' "$OUT/macho-report.txt")"
 
 # Static libraries linked into the app binary.
 BIN="$APP/VideoPlayer"
+# Saved to a file first: the checks below read the file, never `nm | grep -q` (a SIGPIPE false alarm under pipefail).
+nm -m "$BIN" > "$OUT/app-nm.txt" 2>"$OUT/app-nm.stderr" || echo "nm -m failed on $BIN (see app-nm.stderr)"
 {
   for lib in "$P/Frameworks/Libnfs.xcframework/tvos-arm64/libnfs.a" "$P/Frameworks/DolbyVisionRPULib.xcframework/tvos-arm64_arm64e/libdovi.a"; do
     echo "== $lib"
@@ -84,22 +89,27 @@ BIN="$APP/VideoPlayer"
   nm -um "$BIN" 2>/dev/null | grep -E '_(posix_spawnp?|fork|vfork|execv[pe]?|execl[pe]?|system)$' || echo "(none)"
   echo
   echo "== libnfs and libdovi code is in the app binary (sample of defined symbols):"
-  nm -m "$BIN" 2>/dev/null | grep -E '\(__TEXT,__text\) external _(nfs_|rpc_nfs)' | head -n 5 || true
-  nm -m "$BIN" 2>/dev/null | grep -E '\(__TEXT,__text\) external _dovi_' | head -n 5 || true
+  grep -m 5 -E '\(__TEXT,__text\) external _(nfs_|rpc_nfs)' "$OUT/app-nm.txt" || echo "(no libnfs symbol)"
+  grep -m 5 -E '\(__TEXT,__text\) external _dovi_' "$OUT/app-nm.txt" || echo "(no libdovi symbol)"
 } | tee "$OUT/static-libraries.txt"
-nm -m "$BIN" 2>/dev/null | grep -qE 'external _nfs_' || problem "no libnfs symbols in the app binary (libnfs not linked?)"
-nm -m "$BIN" 2>/dev/null | grep -qE 'external _dovi_' || problem "no libdovi symbols in the app binary (Dolby Vision RPU library not linked?)"
+if vp_symbols_defined "$OUT/app-nm.txt" _nfs_; then echo "ok      libnfs symbols defined in the app binary"; else problem "no libnfs symbols in the app binary (libnfs not linked?)"; fi
+if vp_symbols_defined "$OUT/app-nm.txt" _dovi_; then echo "ok      libdovi symbols defined in the app binary"; else problem "no libdovi symbols in the app binary (Dolby Vision RPU library not linked?)"; fi
 
-# The UI-test sample library is #if DEBUG only (OPEN_QUESTIONS R160): a Release binary must not contain it.
+# The UI-test modes and the sample library are #if DEBUG only (OPEN_QUESTIONS R160): a Release binary must not contain
+# their texts (list: VP_RELEASE_FORBIDDEN_RE in ci-inspect-lib.sh). `strings` output is saved per file, then searched.
+hits=0
 {
-  echo "Strings from the debug-only sample library found in the Release app binary and frameworks (expected: none):"
-  hits=0
-  while read -r f; do
-    if strings -a "$f" 2>/dev/null | grep -nE 'Sample Movie|uitest-sample-library|-UITestFixtures|UITestFixtures'; then hits=1; echo "  in ${f#$APP/}"; fi
-  done < <(find "$APP" -type f -perm -u+x)
-  [ "$hits" -eq 0 ] && echo "(none)"
-} | tee "$OUT/release-strings.txt"
-grep -q '^(none)$' "$OUT/release-strings.txt" || problem "the Release build contains UI-test sample-library strings"
+  echo "Debug-only UI-test texts found in the Release app binary, extension and frameworks (expected: none):"
+  echo "searched for: $VP_RELEASE_FORBIDDEN_RE"
+} > "$OUT/release-strings.txt"
+while read -r f; do
+  strings -a "$f" > "$OUT/strings.tmp" 2>/dev/null || true
+  if ! vp_forbidden_strings "$OUT/strings.tmp" >> "$OUT/release-strings.txt"; then hits=1; echo "  in ${f#$APP/}" >> "$OUT/release-strings.txt"; fi
+done < <(find "$APP" -type f -perm -u+x)
+rm -f "$OUT/strings.tmp"
+[ "$hits" -eq 0 ] && echo "(none)" >> "$OUT/release-strings.txt"
+cat "$OUT/release-strings.txt"
+[ "$hits" -eq 0 ] || problem "the Release build contains debug-only UI-test texts (release-strings.txt)"
 
 echo "Problems found: $problems" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
 [ "$problems" -eq 0 ]

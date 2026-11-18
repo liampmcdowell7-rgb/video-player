@@ -34,12 +34,17 @@ public struct StorageStatusModel: Equatable, Sendable {
     public var secrets: CloudSecretState
     public var counts: LibraryCounts?
     public var passwordsNeeded: Int
+    /// Set when iCloud cannot be used at all by this copy of the app (no iCloud capability); wins over `account`.
+    public var cloudUnavailable: String?
 
-    public init(account: UDAccountStatus, secrets: CloudSecretState, counts: LibraryCounts?, passwordsNeeded: Int) {
+    public init(account: UDAccountStatus, secrets: CloudSecretState, counts: LibraryCounts?, passwordsNeeded: Int,
+                cloudUnavailable: String? = nil) {
         self.account = account; self.secrets = secrets; self.counts = counts; self.passwordsNeeded = passwordsNeeded
+        self.cloudUnavailable = cloudUnavailable
     }
 
     public var accountLine: String {
+        if let cloudUnavailable { return cloudUnavailable + " Everything is kept on this Apple TV only." }
         switch account {
         case .available: return "Signed in to iCloud. Watch history, saved views and your source list sync through your iCloud account."
         case .noAccount: return "Not signed in to iCloud. Everything is kept on this Apple TV only."

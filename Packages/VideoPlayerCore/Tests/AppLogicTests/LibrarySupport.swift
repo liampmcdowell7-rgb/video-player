@@ -3,6 +3,13 @@ import XCTest
 import VideoPlayerCore
 import LibraryIndex
 
+/// On Apple platforms the test imports also bring in DeveloperToolsSupport (which import does is not verified), which has its
+/// own `LibraryItem` (an Xcode library entry,
+/// https://developer.apple.com/documentation/developertoolssupport/libraryitem), so the bare name is ambiguous there (fourth
+/// CI run: TestSupport.swift:286). A declaration in this module wins over both imports, so every use in this test target means
+/// the library index's item, on Linux and on tvOS alike.
+typealias LibraryItem = LibraryIndex.LibraryItem
+
 let epoch = Date(timeIntervalSince1970: 1_700_000_000)
 func dayOffset(_ n: Double) -> Date { epoch.addingTimeInterval(n * 86_400) }
 

@@ -19,16 +19,20 @@ public final class CloudKitSecretCloud: SecretCloud, @unchecked Sendable {
     public static let recordType = "SourceSecret"
     static let secretKey = "secret"
 
-    private let container: CKContainer
-    private let database: CKDatabase
+    /// Created on first use, never in `init` (launch safety, docs/API_USAGE.md): shared with the other CloudKit adapters.
+    private let containers: LazyCloudResource<CKContainer>
     private let zoneID: CKRecordZone.ID
     private let lock = NSLock()
     private var zoneReady = false
 
-    public init(containerIdentifier: String = UserDataModule.cloudKitContainerIdentifier) {
-        container = CKContainer(identifier: containerIdentifier)
-        database = container.privateCloudDatabase
+    public init(containers: LazyCloudResource<CKContainer> = CloudKitContainers.make()) {
+        self.containers = containers
         zoneID = CKRecordZone.ID(zoneName: "Secrets", ownerName: CKCurrentUserDefaultName)
+    }
+
+    /// The private database; throws `CloudUnavailable` when the container cannot be made (no iCloud capability).
+    private var database: CKDatabase {
+        get throws { try containers.value().privateCloudDatabase }
     }
 
     private func recordID(_ sourceID: String) -> CKRecord.ID { CKRecord.ID(recordName: "secret-" + sourceID, zoneID: zoneID) }
@@ -94,6 +98,7 @@ public final class CloudKitSecretCloud: SecretCloud, @unchecked Sendable {
     /// Apple's "Handle a User Keychain Reset": `zoneNotFound` with `CKErrorUserDidResetEncryptedDataKey` means the data is
     /// permanently lost; delete and recreate the zone, then report `keyReset` so the mirror uploads its local copies.
     private func map(_ error: Error) async throws -> SecretCloudError {
+        if let missing = error as? CloudUnavailable { return .unavailable(missing.reason) }
         guard let ck = error as? CKError else { return .unavailable(String(describing: error)) }
         switch ck.code {
         case .notAuthenticated, .managedAccountRestricted:

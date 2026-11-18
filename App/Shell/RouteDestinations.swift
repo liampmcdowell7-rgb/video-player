@@ -6,11 +6,11 @@ struct RouteDestinations: ViewModifier {
         content.navigationDestination(for: Route.self) { route in
             switch route {
             case .item(let id):
-                ItemDetailView(itemID: id)
+                ItemDetailView(itemID: id).screenIdentifier("screen.item")
             case .series(let id):
-                SeriesView(seriesID: id)
+                SeriesView(seriesID: id).screenIdentifier("screen.series")
             case .folder(let sourceID, let sourceName, let path):
-                FilesFolderView(sourceID: sourceID, sourceName: sourceName, path: path)
+                FilesFolderView(sourceID: sourceID, sourceName: sourceName, path: path).screenIdentifier("screen.folder")
             }
         }
     }

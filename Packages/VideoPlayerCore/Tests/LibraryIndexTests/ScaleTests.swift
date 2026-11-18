@@ -4,7 +4,7 @@ import VideoPlayerCore
 
 // Generated libraries of 1,000, 10,000 and 100,000 items. Each test scans a fake source with realistic folder
 // shapes, checks the index against what was generated, and prints timings (lines start with "PERF"). The same
-// lines are appended to /tmp/library-index-perf.txt so a run can be copied into docs/LIBRARY_INDEX.md.
+// lines are appended to library-index-perf.txt in the temporary folder (/tmp on Linux) so a run can be copied into docs/LIBRARY_INDEX.md.
 //
 // Ceilings are about ten times what was measured on the reference machine (docs/LIBRARY_INDEX.md): they fail
 // on a large regression, not on a slower computer.
@@ -97,7 +97,7 @@ enum ProcessMemory {
 }
 
 enum PerfLog {
-    static let path = "/tmp/library-index-perf.txt"
+    static let path = FileManager.default.temporaryDirectory.appendingPathComponent("library-index-perf.txt").path
     static func line(_ s: String) {
         print("PERF \(s)")
         if let data = ("PERF \(s)\n").data(using: .utf8) {

@@ -29,8 +29,14 @@ final class AttributionNoticeTests: XCTestCase {
         for url in candidates where FileManager.default.fileExists(atPath: url.path) {
             return try String(contentsOf: url, encoding: .utf8)
         }
+        #if os(Linux)
         XCTFail("App/Support/Attribution.swift not found (tried \(candidates.map(\.path))). Set VP_PROJECT_ROOT to the project folder.")
         return ""
+        #else
+        // In a tvOS Simulator run the checkout may not be readable (xcodebuild passes only TEST_RUNNER_-prefixed
+        // variables to the tests, so CI sets TEST_RUNNER_VP_PROJECT_ROOT). Reported as skipped, never as passed.
+        throw XCTSkip("App/Support/Attribution.swift is not readable from this test host (tried \(candidates.map(\.path))).")
+        #endif
     }
 
     /// The string literal assigned to `static let <name>` in the file, or nil.
@@ -87,13 +93,23 @@ final class AttributionNoticeTests: XCTestCase {
         return candidates.first { FileManager.default.fileExists(atPath: $0.appendingPathComponent("App").path) }
     }
 
+    /// The project root, or a failure on Linux / a skip on Apple platforms when the checkout cannot be read (see above).
+    private func requireProjectRoot() throws -> URL {
+        if let root = projectRoot() { return root }
+        #if os(Linux)
+        return try XCTUnwrap(projectRoot(), "project root not found; set VP_PROJECT_ROOT")
+        #else
+        throw XCTSkip("The project checkout is not readable from this test host; set TEST_RUNNER_VP_PROJECT_ROOT.")
+        #endif
+    }
+
     private func swiftFiles(under dir: URL) -> [URL] {
         guard let e = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil) else { return [] }
         return e.compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" }
     }
 
     func testTheTMDBLogoIsReferencedOnlyOnceAndOnlyInTheAboutScreen() throws {
-        let root = try XCTUnwrap(projectRoot(), "project root not found; set VP_PROJECT_ROOT")
+        let root = try requireProjectRoot()
         var hits: [String] = []
         for dirName in ["App", "TopShelf"] {
             for file in swiftFiles(under: root.appendingPathComponent(dirName)) {
@@ -104,12 +120,13 @@ final class AttributionNoticeTests: XCTestCase {
         }
         XCTAssertEqual(hits, ["AboutView.swift"])
         let set = root.appendingPathComponent("App/Assets.xcassets/TMDBAttributionLogo.imageset")
-        let files = try FileManager.default.contentsOfDirectory(atPath: set.path).sorted()
+        // Hidden files (a Finder .DS_Store in a local checkout) are not part of the asset.
+        let files = try FileManager.default.contentsOfDirectory(atPath: set.path).filter { !$0.hasPrefix(".") }.sorted()
         XCTAssertEqual(files, ["Contents.json", "TMDBAttributionLogo.svg"])
     }
 
     func testEveryBundledLicenceTextExistsAndIsNotEmpty() throws {
-        let root = try XCTUnwrap(projectRoot(), "project root not found; set VP_PROJECT_ROOT")
+        let root = try requireProjectRoot()
         let dir = root.appendingPathComponent("App/Licenses")
         let onDisk = Set(try FileManager.default.contentsOfDirectory(atPath: dir.path).filter { $0.hasSuffix(".txt") })
         let listed = Set(LicenseNotices.texts.map { $0.fileName + ".txt" })

@@ -21,21 +21,26 @@ public final class CloudKitBackupCloud: BackupCloud, @unchecked Sendable {
     /// 400 for limitExceeded); a chunk is at most 1 MiB, so 8 chunks stay far under any size limit per request.
     static let idsPerRequest = 200
 
-    private let container: CKContainer
-    private let database: CKDatabase
+    /// Created on first use, never in `init` (launch safety, docs/API_USAGE.md): shared with the other CloudKit adapters.
+    private let containers: LazyCloudResource<CKContainer>
     private let zoneID: CKRecordZone.ID
     private let temp: URL
     private let lock = NSLock()
     private var zoneReady = false
 
-    public init(containerIdentifier: String = UserDataModule.cloudKitContainerIdentifier) {
-        container = CKContainer(identifier: containerIdentifier)
-        database = container.privateCloudDatabase
+    public init(containers: LazyCloudResource<CKContainer> = CloudKitContainers.make()) {
+        self.containers = containers
         zoneID = CKRecordZone.ID(zoneName: Self.zoneName, ownerName: CKCurrentUserDefaultName)
         temp = FileManager.default.temporaryDirectory.appendingPathComponent("backup-assets", isDirectory: true)
     }
 
+    /// The private database; throws `CloudUnavailable` when the container cannot be made (no iCloud capability).
+    private var database: CKDatabase {
+        get throws { try containers.value().privateCloudDatabase }
+    }
+
     public func accountStatus() async -> UDAccountStatus {
+        guard let container = try? containers.value() else { return .unknown }
         do {
             switch try await container.accountStatus() {
             case .available: return .available
@@ -172,6 +177,7 @@ public final class CloudKitBackupCloud: BackupCloud, @unchecked Sendable {
     /// The same mapping as CloudKitUserDataCloud (docs/STORAGE_MODEL.md, error codes).
     static func map(_ error: Error) -> UDCloudError {
         if let known = error as? UDCloudError { return known }
+        if let missing = error as? CloudUnavailable { return .other(missing.reason) }
         guard let ck = error as? CKError else { return .other("\(error)") }
         switch ck.code {
         case .limitExceeded: return .limitExceeded

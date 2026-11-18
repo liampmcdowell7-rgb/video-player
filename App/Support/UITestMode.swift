@@ -23,7 +23,7 @@ enum UITestMode {
         guard current != .off else { return }
         if let id = Bundle.main.bundleIdentifier { UserDefaults.standard.removePersistentDomain(forName: id) }
         let fm = FileManager.default
-        for base in [fm.urls(for: .cachesDirectory, in: .userDomainMask)[0], fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]] {
+        for base in [(fm.urls(for: .cachesDirectory, in: .userDomainMask).first ?? fm.temporaryDirectory), (fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first ?? fm.temporaryDirectory)] {
             for name in (try? fm.contentsOfDirectory(atPath: base.path)) ?? [] {
                 try? fm.removeItem(at: base.appendingPathComponent(name))
             }

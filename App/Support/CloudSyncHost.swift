@@ -15,9 +15,11 @@ final class CloudSyncHost {
     @ObservationIgnored private let ledger: UserDataLedger
     @ObservationIgnored private var observer: Task<Void, Never>?
     @ObservationIgnored private var started = false
+    /// Set when iCloud cannot be used at all by this copy of the app: the sync never starts and the line says why.
+    private(set) var unavailableReason: String?
 
     static var ledgerFile: URL {
-        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("user-data-ledger.json")
+        (FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory).appendingPathComponent("user-data-ledger.json")
     }
 
     /// Builds the coordinator around the sync engine. The saved ledger file is read by `loadLedgerFile()`.
@@ -33,7 +35,7 @@ final class CloudSyncHost {
 
     /// Start-up sequence, then the loop and the account-change watcher. Safe to call once; later calls do nothing.
     func start(startupSync: @escaping @Sendable () async -> UDSyncReport) async {
-        guard !started else { return }
+        guard !started, unavailableReason == nil else { return }
         started = true
         observer = Task { [weak self] in
             // PROVISIONAL / NOT CHECKED: the notification's Swift spelling is unverified, so the documented name is used as text.
@@ -45,12 +47,18 @@ final class CloudSyncHost {
         await coordinator.startLoop()
     }
 
-    func request(_ reason: CloudSyncReason) { Task { await coordinator.request(reason) } }
+    func request(_ reason: CloudSyncReason) {
+        guard unavailableReason == nil else { return }
+        Task { await coordinator.request(reason) }
+    }
+
+    /// iCloud cannot be used (no iCloud capability in this copy of the app): no sync; the status line gives the reason.
+    func markCloudUnavailable(_ reason: String) { unavailableReason = reason }
 
     /// "Sync now" in Settings.
     func syncNow() { request(.manual) }
 
-    var line: String { CloudSyncText.line(state) }
+    var line: String { unavailableReason.map { "Sync is off. " + $0 } ?? CloudSyncText.line(state) }
 }
 
 /// Carries a state from the coordinator's actor to the main actor without capturing `self` across isolation.

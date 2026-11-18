@@ -22,7 +22,9 @@ final class AppServices {
     let ledger: UserDataLedger
     let essentials: UDEssentialsStore
     let secrets: MirroredSecrets
-    let cloud: CloudKitUserDataCloud
+    let cloud: any UserDataCloud
+    /// The Apple-only parts (iCloud, App Group, Keychain), or their stand-ins in a UI-test mode (launch safety).
+    let dependencies: AppDependencies
     let connector: any SourceConnecting
     /// Which sources are refused for a changed certificate or host key (SOURCES, docs/SOURCES_WIRING.md).
     let trust: TrustCenter
@@ -47,10 +49,13 @@ final class AppServices {
     var accountStatus: UDAccountStatus = .unknown
     var secretState: CloudSecretState = .signedOut
     var passwordsNeeded = 0
+    /// Set when iCloud cannot be used at all by this copy of the app (no iCloud capability); shown in Settings. Everything
+    /// is then kept on this Apple TV only: no sync, no backup, no restore.
+    var cloudUnavailable: String?
 
     var store: any LibraryStore { sqlite }
 
-    init() {
+    init(dependencies: AppDependencies? = nil) {
         // The ledger comes first: the library store is opened with its recorder already in place (below), so not one
         // watch-state or saved-view change can happen before it is recorded. (`setRecorder` is actor-isolated and cannot be
         // called from this synchronous main-actor init; first compile, 2026-11-17.)
@@ -58,6 +63,9 @@ final class AppServices {
         // UI-test launches (screenshots) start from a clean state; nothing happens in a normal launch or in Release.
         UITestMode.resetPersistentState()
         #endif
+        // Built before anything else and touching nothing Apple-only: the CloudKit container is made on the first iCloud call.
+        let dependencies = dependencies ?? AppDependencies.forThisLaunch()
+        self.dependencies = dependencies
         let defaults = UserDefaults.standard
         let deviceKey = "vp.deviceID"
         let deviceID = defaults.string(forKey: deviceKey) ?? UUID().uuidString.lowercased()
@@ -67,7 +75,7 @@ final class AppServices {
         essentials.restore(into: ledger)
         let recorder = LedgerRecorder(ledger: ledger)
 
-        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        let caches = (FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory)
         let databaseURL = caches.appendingPathComponent("library.sqlite")
         var rebuilt = false
         var opened: SQLiteLibraryStore?
@@ -84,8 +92,8 @@ final class AppServices {
 
         self.ledger = ledger
         self.essentials = essentials
-        self.cloud = CloudKitUserDataCloud()
-        let secrets = MirroredSecrets(local: KeychainCredentialStore(), cloud: CloudKitSecretCloud())
+        self.cloud = dependencies.userDataCloud
+        let secrets = MirroredSecrets(local: dependencies.credentials, cloud: dependencies.secretCloud)
         let trust = TrustCenter()
         self.secrets = secrets
         self.trust = trust
@@ -104,7 +112,7 @@ final class AppServices {
         self.online = OnlineServices(keys: OnlineKeyStore(secrets: secrets), store: sqliteStore, reader: reader)
         // The backup refuses any file that holds one of these: every source password or token and every API key, read
         // from protected storage at the time of each backup and never written anywhere (docs/BACKUP.md "Secrets").
-        self.backup = BackupHost(store: sqliteStore, matchFile: OnlineServices.matchFileURL, forbidden: { [ledger, secrets] in
+        self.backup = BackupHost(store: sqliteStore, cloud: dependencies.backupCloud, matchFile: OnlineServices.matchFileURL, forbidden: { [ledger, secrets] in
             let keys = OnlineKeyStore(secrets: secrets)
             return ledger.sourceDefinitions().compactMap { secrets.secret(for: $0.id) } + OnlineKeyKind.allCases.compactMap { keys.key($0) }
         })
@@ -113,6 +121,22 @@ final class AppServices {
         let host = CloudSyncHost(ledger: ledger, engine: engine)
         self.ledgerWasLost = host.loadLedgerFile()
         self.sync = host
+        #if DEBUG
+        // UI-test modes: iCloud is off, and Settings says so (no CloudKit object exists in these modes).
+        if UITestMode.current != .off { applyCloudGate() }
+        #endif
+    }
+
+    /// Asks the gate whether iCloud can be used (the first call makes the CloudKit container, after the first frame) and,
+    /// when it cannot, switches sync and backup off with the reason. True when iCloud can be used.
+    @discardableResult
+    func applyCloudGate() -> Bool {
+        guard let reason = dependencies.cloudUnavailable() else { return true }
+        cloudUnavailable = reason.reason
+        accountStatus = .unknown
+        sync.markCloudUnavailable(reason.reason)
+        backup.markCloudUnavailable(reason.reason)
+        return false
     }
 
     // MARK: Sources
@@ -156,6 +180,10 @@ final class AppServices {
     // MARK: Cloud status
 
     func refreshCloudStatus() async {
+        guard applyCloudGate() else {
+            passwordsNeeded = CredentialGap.sourcesNeedingPassword(definitions, store: secrets.local).count
+            return
+        }
         accountStatus = await cloud.accountStatus()
         let report = await secrets.reconcile(sourceIDs: definitions.map(\.id))
         secretState = report.state
@@ -168,7 +196,8 @@ final class AppServices {
     /// next to the video first, then from the matched online poster when a key is entered; an item with no picture is left out
     /// by the extension. The folder is not durable storage (the system may delete it); it is written again after every scan.
     func writeTopShelf() async {
-        guard let folder = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.liamp.videoplayer") else { return }
+        // The App Group folder, checked before use; without it (no App Group in this build) there is simply no Top Shelf.
+        guard let folder = dependencies.sharedFolder() else { return }
         let days = UserDefaults.standard.integer(forKey: SettingsKey.continueWatchingDays.rawValue)
         let builder = TopShelfBuilder(store: store)
         guard let result = try? await builder.build(retentionDays: days > 0 ? days : SettingsKey.defaultContinueWatchingDays) else { return }
@@ -196,6 +225,8 @@ final class AppServices {
     /// Safe to call on every launch of the root screen; later calls do nothing.
     func startCloudSync() async {
         await online.reconcileKeys()
+        // No iCloud in this copy of the app: local only (no restore, no sync, no backup); Settings shows the reason.
+        guard applyCloudGate() else { return }
         let target = LibraryRestoreAdapter(store: sqlite, deviceID: ledger.deviceID, scan: { [weak self] in await self?.scanAll() })
         let bootstrap = LibraryBootstrap(ledger: ledger, engine: syncEngine, essentials: essentials, credentials: secrets.local)
         let lost = ledgerWasLost

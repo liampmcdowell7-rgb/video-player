@@ -9,7 +9,7 @@ struct StorageSettingsView: View {
 
     var body: some View {
         let status = StorageStatusModel(account: services.accountStatus, secrets: services.secretState, counts: counts,
-                                        passwordsNeeded: services.passwordsNeeded)
+                                        passwordsNeeded: services.passwordsNeeded, cloudUnavailable: services.cloudUnavailable)
         Form {
             Section("iCloud") {
                 Text(status.accountLine)

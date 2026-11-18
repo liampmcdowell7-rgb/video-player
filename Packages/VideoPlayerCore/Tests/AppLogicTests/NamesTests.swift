@@ -24,8 +24,14 @@ final class NamesTests: XCTestCase {
         for url in candidates where FileManager.default.fileExists(atPath: url.path) {
             return try String(contentsOf: url, encoding: .utf8)
         }
+        #if os(Linux)
         XCTFail("docs/NAMES.md not found (tried \(candidates.map(\.path))). Set VP_PROJECT_ROOT to the project folder.")
         return ""
+        #else
+        // In a tvOS Simulator run the checkout may not be readable (xcodebuild passes only TEST_RUNNER_-prefixed
+        // variables to the tests, so CI sets TEST_RUNNER_VP_PROJECT_ROOT). Reported as skipped, never as passed.
+        throw XCTSkip("docs/NAMES.md is not readable from this test host (tried \(candidates.map(\.path))).")
+        #endif
     }
 
     /// The entries of one fenced block (```names-allowlist or ```names-generic), as the lint reads them.

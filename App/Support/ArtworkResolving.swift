@@ -27,7 +27,7 @@ struct SourceSidecarReader: SidecarReading {
 
 /// Where cached pictures live. Caches only: the system may clear them at any time and they are fetched again (STORAGE_MODEL.md).
 enum ArtworkFolders {
-    static var caches: URL { FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0] }
+    static var caches: URL { (FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory) }
     /// Pictures read from sources (size-limited by `ArtworkDiskCache`, least recently used removed first).
     static var sidecars: URL { caches.appendingPathComponent("artwork", isDirectory: true) }
     /// Online metadata answers (small JSON files with their own expiry).

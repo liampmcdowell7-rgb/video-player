@@ -1,8 +1,10 @@
+#if DEBUG
 import Foundation
 
-// UI-test launch modes (screenshots in CI, docs/GITHUB_ACTIONS_RUNBOOK.md). This file holds only the switch; the sample library
-// itself (UITestFixtures.swift) is compiled only in debug builds (`#if DEBUG`), and the app reads the switch only inside
-// `#if DEBUG`, so a Release build can neither turn it on nor contain the sample data (tested in UITestLaunchTests).
+// UI-test launch modes (screenshots in CI, docs/GITHUB_ACTIONS_RUNBOOK.md). Debug builds only: this whole file is inside
+// `#if DEBUG`, like the sample library (UITestFixtures.swift) and the app's UITestMode.swift, so a Release build neither
+// contains the launch-argument texts nor can turn a mode on (UITestLaunchTests reads the guard; the device-build inspection
+// script searches the Release binary for the texts, fourth CI run finding).
 
 public enum UITestLaunch: Equatable, Sendable {
     /// Normal start.
@@ -35,3 +37,4 @@ public enum UITestLaunch: Equatable, Sendable {
         return value.hasPrefix("-") ? nil : value
     }
 }
+#endif

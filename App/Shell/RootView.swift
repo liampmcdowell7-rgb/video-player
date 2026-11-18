@@ -16,32 +16,32 @@ struct RootView: View {
         @Bindable var services = services
         TabView(selection: $selection) {
             Tab("Home", systemImage: "house", value: AppTab.home) {
-                NavigationStack(path: $homePath) { HomeView() }
+                NavigationStack(path: $homePath) { HomeView().screenIdentifier("screen.home") }
                     .routeDestinations()
             }
             Tab("Movies", systemImage: "film", value: AppTab.movies) {
-                NavigationStack { MoviesView() }
+                NavigationStack { MoviesView().screenIdentifier("screen.movies") }
                     .routeDestinations()
             }
             Tab("Shows", systemImage: "tv", value: AppTab.shows) {
-                NavigationStack { ShowsView() }
+                NavigationStack { ShowsView().screenIdentifier("screen.shows") }
                     .routeDestinations()
             }
             Tab("Files", systemImage: "folder", value: AppTab.files) {
-                NavigationStack { FilesView() }
+                NavigationStack { FilesView().screenIdentifier("screen.files") }
                     .routeDestinations()
             }
             if showDiscover {
                 Tab("Discover", systemImage: "sparkles", value: AppTab.discover) {
-                    NavigationStack { DiscoverView() }
+                    NavigationStack { DiscoverView().screenIdentifier("screen.discover") }
                 }
             }
             Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
-                NavigationStack { SearchView() }
+                NavigationStack { SearchView().screenIdentifier("screen.search") }
                     .routeDestinations()
             }
             Tab("Settings", systemImage: "gearshape", value: AppTab.settings) {
-                NavigationStack { SettingsView() }
+                NavigationStack { SettingsView().screenIdentifier("screen.settings") }
             }
         }
         .overlay(alignment: .bottom) {
@@ -86,5 +86,13 @@ struct RootView: View {
         case .series(let id): homePath = [.series(id)]
         case .library: homePath = []
         }
+    }
+}
+
+extension View {
+    /// A stable name for UI tests (UITests/ScreenshotTests.swift waits on these instead of on visible text). The screen stays one
+    /// accessibility container: its own elements keep their labels and focus order; only the container gets the identifier.
+    func screenIdentifier(_ identifier: String) -> some View {
+        accessibilityElement(children: .contain).accessibilityIdentifier(identifier)
     }
 }

@@ -298,6 +298,15 @@ tick or cross, and its own download. One red job does not stop the others. All f
 | Package tests (tvOS Simulator) | The package unit tests build and pass on tvOS (tests that need a server, iCloud or a tool are skipped, not failed) | `simulator-test-results` | `test-report.md` (passed / skipped / failed per test target, then the failures), `test.log` |
 | Screenshots of every screen (tvOS Simulator, UI tests) | The UI tests ran and took pictures | `screenshots` and `screenshots-logs` | `01-….png`, `02-….png` … in viewing order and `index.md` (the list, plus every screen that could not be reached and why) |
 
+**Screenshots job, launch smoke (fourth compile check onwards, OPEN_QUESTIONS R164).** Before any UI test, the job
+installs the app and launches it twice: once plain, once with `-UITestEmpty`. For each, the log shows either
+`LAUNCH OK (plain)` / `LAUNCH OK (uitest-empty)` (the app was still running 8 seconds later) or `LAUNCH FAILED (...)`
+followed by the crash report (first 120 lines), the simulator's log lines and the app's last 100 console lines. A failed
+launch turns the job red but the UI tests still run. The job is built with ad-hoc signing (no certificate, no secret);
+the log prints the signature and the entitlements the app carries. `screenshots-logs` now also holds `attachments/`
+(crash reports, videos and text files from the test results) and `launch-smoke-*/`. A screenshot is only taken while
+the app is in front; otherwise the test fails and `index.md` lists the screen as not reached.
+
 **Step by step after the run has finished:**
 
 1. Open the run. Scroll to **Artifacts** at the bottom.
