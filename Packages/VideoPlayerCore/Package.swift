@@ -51,7 +51,14 @@ libraryIndexLinker.append(.unsafeFlags(["-L", (ProcessInfo.processInfo.environme
 // SQLITE-BLOCK-END
 products.append(.library(name: "LibraryIndex", targets: ["LibraryIndex"]))
 targets.append(.target(name: "LibraryIndex", dependencies: libraryIndexDependencies, linkerSettings: libraryIndexLinker))
-targets.append(.testTarget(name: "LibraryIndexTests", dependencies: [.target(name: "LibraryIndex"), "VideoPlayerCore", "UserData"]))
+targets.append(.testTarget(name: "LibraryIndexTests", dependencies: [.target(name: "LibraryIndex"), "VideoPlayerCore", "UserData", "LibraryBackup"]))
+
+// --- iCloud backup of generated data (docs/BACKUP.md): chunked, versioned snapshots of the library index, the metadata
+// answers, the Fix Match file and the pictures read from sources. The engine talks to a `BackupCloud` protocol (an
+// in-memory fake in tests); the CloudKit adapter in Sources/LibraryBackup/Apple compiles only where CloudKit exists.
+products.append(.library(name: "LibraryBackup", targets: ["LibraryBackup"]))
+targets.append(.target(name: "LibraryBackup", dependencies: ["VideoPlayerCore", "UserData", "LibraryIndex"]))
+targets.append(.testTarget(name: "LibraryBackupTests", dependencies: [.target(name: "LibraryBackup"), "UserData", "LibraryIndex"]))
 
 // --- Remux engine (pure Swift: segmenter, box writer/checker, seek mapping, read-ahead, loopback server behind
 // a protocol). Depends on VideoPlayerCore only. FFmpeg itself is NOT a dependency here (see docs/ENGINE_DESIGN.md).

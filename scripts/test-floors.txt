@@ -13,7 +13,8 @@ sftp SourceSFTPTests 22
 smb SourceSMBTests 31
 unit AppLogicTests 284
 unit DolbyVisionRPUTests 15
-unit LibraryIndexTests 75
+unit LibraryBackupTests 16
+unit LibraryIndexTests 77
 unit MetadataLocalTests 124
 unit MetadataOnlineTests 227
 unit PlaybackLogicTests 163

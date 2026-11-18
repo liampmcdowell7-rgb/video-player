@@ -6,7 +6,7 @@
 #   bash scripts/design-lint.sh                    lint App/ and TopShelf/ with every rule (every .swift and .xcstrings
 #                                                  file, and the image sets in their asset catalogs), plus the package
 #                                                  modules that hold UI text (Packages/VideoPlayerCore/Sources/AppLogic,
-#                                                  PlaybackStatus, SourceLinks, UserData) with the names rules only
+#                                                  LibraryBackup, PlaybackStatus, SourceLinks, UserData) with the names rules only
 #                                                  (unknown-name, claim-wording, brand-logo)
 #   bash scripts/design-lint.sh FILE_OR_DIR ...    lint only these paths with every rule (the fixtures use this)
 #   bash scripts/design-lint.sh --names-only P ... lint the paths after the flag with the names rules only
@@ -96,9 +96,9 @@ done
 if [ "${#PATHS[@]}" -eq 0 ]; then
   PATHS=("1:$HERE/App")
   [ -d "$HERE/TopShelf" ] && PATHS+=("1:$HERE/TopShelf")
-  # The package modules that hold UI text (screen models, status wording, source and link messages, sync text):
+  # The package modules that hold UI text (screen models, status wording, source and link messages, sync and backup text):
   # names rules only (the layout and colour rules are about SwiftUI views, which live in App/).
-  for m in AppLogic PlaybackStatus SourceLinks UserData; do
+  for m in AppLogic LibraryBackup PlaybackStatus SourceLinks UserData; do
     [ -d "$HERE/Packages/VideoPlayerCore/Sources/$m" ] && PATHS+=("0:$HERE/Packages/VideoPlayerCore/Sources/$m")
   done
 fi

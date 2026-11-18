@@ -167,6 +167,19 @@ final class SQLiteDatabase {
         try first(sql, args) { $0.int(0) } ?? 0
     }
 
+    /// Copies this whole database into `other`, replacing its content, with SQLite's online backup API
+    /// (https://sqlite.org/backup.html): all pages in one step, all or nothing. Page numbers are kept, so a page that did
+    /// not change has the same bytes in every copy (the iCloud backup's incremental upload relies on it).
+    func copy(into other: SQLiteDatabase) throws {
+        guard let backup = sqlite3_backup_init(other.handle, "main", handle, "main") else {
+            throw other.error(sqlite3_errcode(other.handle))
+        }
+        let rc = sqlite3_backup_step(backup, -1)
+        let finish = sqlite3_backup_finish(backup)
+        guard rc == SQLITE_DONE else { throw LibraryIndexError.sqlite(code: rc, message: "backup step failed") }
+        guard finish == SQLITE_OK else { throw other.error(finish) }
+    }
+
     /// Nested calls join the outer transaction.
     func transaction<T>(_ body: () throws -> T) throws -> T {
         if transactionDepth > 0 { return try body() }
