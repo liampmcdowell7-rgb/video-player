@@ -313,6 +313,14 @@ Mark
 Profile
 English
 Unknown
+# Settings > Backup (iCloud backup of generated data, OPEN_QUESTIONS R163; the screen uses the real names iCloud and CloudKit, listed above)
+Backup
+Back Up Now
+Restore from iCloud
+Library Data
+Artwork
+Settings and Watch State
+Last Backup
 # The debug-only UI-test sample library (OPEN_QUESTIONS R160): ordinary words in its synthetic titles
 Sample
 Movie

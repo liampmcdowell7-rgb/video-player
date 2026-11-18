@@ -13,6 +13,7 @@ Information that stays on your Apple TV
 
 Information stored in your own iCloud account
 If you are signed in to iCloud, the app keeps a copy of your watch history, favorites, saved views, source definitions and an encrypted copy of your source passwords in your private iCloud database for this app, so a reset or second device can restore them. Passwords are encrypted on the device before upload. The developer cannot read this data; it is part of your own iCloud storage and is governed by Apple's terms for iCloud.
+Backup (Settings > Backup, on unless you turn it off): the app also keeps a backup of what it built from your videos in the same private iCloud database: the library index, details and ratings found online, your Fix Match choices and the pictures read from your sources. It uses your own iCloud storage, which other iCloud features share. Your videos, passwords, sign-in tokens and API keys are never included. You can turn each part off in Settings > Backup; data already in iCloud is removed from your iCloud storage settings.
 
 Information sent to servers you choose
 - Your own media servers and storage: the app sends them the login details you entered and the requests needed to list and play files. Whether that connection is encrypted depends on the server and the connection type you choose; the app tells you when a connection is not encrypted.

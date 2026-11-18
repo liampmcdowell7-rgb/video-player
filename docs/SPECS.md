@@ -22,6 +22,8 @@
 | scripts/test-servers.sh | Start and stop local test servers in WSL |
 | scripts/test-integration.sh | Start servers, run integration tests, stop servers |
 | scripts/test-mediaservers.sh | Run real Jellyfin or Emby in WSL (user space) |
+| docs/BACKUP.md | iCloud backup of generated data (not the media): records, chunking, versioning, merge rule, the Backup screen, Apple's limits (R163) |
+| docs/DEVICE_TEST_CHECKLIST_BACKUP.md | Device checks for the backup, one per screen state (B1 to B22) |
 | docs/STORAGE_MODEL.md | tvOS storage model: what is USER DATA (CloudKit, essentials in UserDefaults) and what is a purgeable cache, startup after a purge, conflict rules, limits. Refines the library spec: the SQLite index is a rebuildable mirror (OPEN_QUESTIONS R56, R64, R65) |
 | docs/APP_LOGIC.md | View models for the track pickers, Now Playing, skip and Up Next buttons, library screens (R52, R55) |
 | docs/SFTP_CITADEL.md | Citadel SFTP backend, timings, pin, patch (R29, R51) |

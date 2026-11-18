@@ -163,3 +163,24 @@ Machine: Intel Core i5-8500T 2.1 GHz, 6 cores, 7.8 GB RAM, Ubuntu 26.04.1 in WSL
 - Whether a TestFlight build uses the Production CloudKit schema and whether a development build creates the `UDRecord` type automatically.
 - CloudKit behaviour under real rate limiting, real conflicts and a real full iCloud.
 - Timings are debug-build, in-memory cloud; 100,000 is extrapolated.
+
+## 12. iCloud backup of generated data (R163, PROVISIONAL; docs/BACKUP.md)
+
+The caches in section 2 (library index, online-metadata answers, pictures read from sources) and the Fix Match file are
+backed up to the private database, zone `LibraryBackup`, as content-addressed 1 MiB pieces (`BKChunk`) plus one manifest per
+set (`BKManifest`). After a purge the index comes back from the backup BEFORE the start-up bootstrap, which then sees a
+healthy database and merges the ledger (newest edit wins) instead of rebuilding and rescanning. Watch state stays in the
+ledger and is NOT taken from the backup, so section 3's rules are unchanged.
+
+What was learned from Apple's pages for this (fetched 2026-11-17; the links are in docs/BACKUP.md "Apple limits"):
+- Private-database data counts toward the user's iCloud storage quota; no other per-app quota is documented:
+  https://developer.apple.com/documentation/cloudkit/ckcontainer/privateclouddatabase
+- Record 1 MB without assets, asset 50 MB, 200 operations per request (archived Web Services Reference, 2016):
+  https://developer.apple.com/library/archive/documentation/DataManagement/Conceptual/CloudKitWebServicesReference/PropertyMetrics.html
+- `CKAsset` contents are encrypted by default; `encryptedValues` cannot hold an asset:
+  https://developer.apple.com/documentation/cloudkit/ckrecord/encryptedvalues
+- `CKAsset(fileURL:)`: CloudKit does not delete the file after saving and does not keep the file name (the adapter deletes
+  its temporary file and keeps names in the manifest): https://developer.apple.com/documentation/cloudkit/ckasset/init(fileurl:)
+- `zoneBusy` and `requestRateLimited`: wait `CKErrorRetryAfterKey` seconds, then back off:
+  https://developer.apple.com/documentation/cloudkit/ckerror/code/zonebusy
+- The new record types must be deployed to the Production schema like `UDRecord` (section 1).

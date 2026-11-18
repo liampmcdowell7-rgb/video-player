@@ -229,3 +229,25 @@ No new AVFoundation, AVKit or VideoToolbox call was added; the conversion runs i
 | HLS `CODECS="fLaC"`, FLAC in fMP4, `CHANNELS` | RemuxEngine playlists (decoded tracks) | HLS authoring specification rules 2.5, 2.25, appendix CODECS table | Verified on the page; speaker mapping of FLAC multichannel not stated on any page (UNVERIFIED, device AU-14) | https://developer.apple.com/streaming/hls-authoring-specification-for-apple-devices.html |
 
 The decoding itself uses FFmpeg's C API (libavcodec, libavutil, libswresample) through Sources/CMediaCodecs, not an Apple framework.
+
+## iCLOUD BACKUP (generated data; R163, 2026-11-17)
+
+Checked on Apple's pages (tvOS availability as the page lists it). The adapter is Packages/VideoPlayerCore/Sources/
+LibraryBackup/Apple/CloudKitBackupCloud.swift; it has NOT been compiled yet (next CI run) and has never run on a device.
+
+| API | tvOS | Page |
+|---|---|---|
+| `CKDatabase.record(for:) async throws -> CKRecord` (throws when the record is not found) | 15.0+ | https://developer.apple.com/documentation/cloudkit/ckdatabase/record(for:) |
+| `CKDatabase.records(for:desiredKeys:) async throws -> [CKRecord.ID: Result<CKRecord, Error>]` | 15.0+ | https://developer.apple.com/documentation/cloudkit/ckdatabase/records(for:desiredkeys:) |
+| `CKAsset(fileURL:)` (the file is not deleted after the save; the name is not kept) | listed | https://developer.apple.com/documentation/cloudkit/ckasset/init(fileurl:) |
+| `CKRecord.encryptedValues` (not used: assets are already encrypted) | 15.0+ | https://developer.apple.com/documentation/cloudkit/ckrecord/encryptedvalues |
+| `CKError.Code.zoneBusy` (wait `CKErrorRetryAfterKey`) | listed | https://developer.apple.com/documentation/cloudkit/ckerror/code/zonebusy |
+| `NSData.compressed(using:)` / `decompressed(using:)` with `.lzfse` | 13.0+ | https://developer.apple.com/documentation/foundation/nsdata/compressed(using:) |
+
+Same calls as the user-data sync (already compiled for tvOS in the first compile): `CKContainer(identifier:)`,
+`accountStatus()`, `privateCloudDatabase`, `modifyRecordZones(saving:deleting:)`,
+`modifyRecords(saving:deleting:savePolicy:atomically:)`.
+
+SQLite online backup API (`sqlite3_backup_init`, `_step`, `_finish`; SQLite's own documentation,
+https://www.sqlite.org/backup.html, NOT re-read this session) copies the open library database page by page; it is
+tested in WSL against the system SQLite.

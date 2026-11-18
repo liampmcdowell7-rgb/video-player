@@ -127,7 +127,8 @@ Spec documents:
 | docs/FEATURE_BACKLOG.md | section 2 above | |
 | docs/SOURCES.md | built and tested (clients); wiring built, device-only | |
 | docs/HIG_AUDIT.md | written; device-only checks | |
-| docs/CODEMAGIC_SETUP.md | written; Codemagic not used this month (R105) | |
+| docs/CODEMAGIC_SETUP.md | written; Codemagic not used this month (R105) |
+| docs/BACKUP.md (iCloud backup of generated data, R163) | engine, merge rule and purge-then-restore built and tested (WSL, in-memory fake); CloudKit adapter, Settings > Backup and the automatic restore built, device-only (never compiled, never run) | checklist docs/DEVICE_TEST_CHECKLIST_BACKUP.md B1 to B22 | |
 | docs/LIBRARY_INDEX.md | built and tested | |
 | docs/METADATA_LOCAL.md | built and tested | MP4 chapters not done (SEGMENTS) |
 | docs/METADATA.md | built and tested (clients, matcher, Fix Match); OMDb client built but unused by the app | ratings never fetched (G18) |
