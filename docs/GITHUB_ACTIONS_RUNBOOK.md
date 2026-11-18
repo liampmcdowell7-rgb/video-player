@@ -242,7 +242,7 @@ keep do appear:
    - A **green tick** means the app and the Top Shelf extension compiled for the tvOS Simulator.
    - A **red cross** is expected for the first run: nothing in `App/` has ever been compiled.
 
-   Both results are useful. Since the third compile check the run has four jobs; Part F lists them and their downloads.
+   Both results are useful. Since the third compile check the run has several jobs (now five); Part F lists them and their downloads.
 
    *If the run stays "Queued" for a long time:* the free standard runners are busy. Wait; do not switch to another label.
 
@@ -286,10 +286,10 @@ The run's **Summary** page shows the same short list, so you can also copy it fr
 
    *If it says "no artifact":* the run failed before the upload step. Open the run in the browser and read its last red step.
 
-## Part F: the four jobs and their downloads (third compile check onwards, OPEN_QUESTIONS R161)
+## Part F: the five jobs and their downloads (third compile check onwards, OPEN_QUESTIONS R161)
 
-One press of **Run workflow** now starts four jobs at the same time. Each has its own line on the run page, its own
-tick or cross, and its own download. One red job does not stop the others. All four finish within about 30 minutes.
+One press of **Run workflow** now starts five jobs at the same time. Each has its own line on the run page, its own
+tick or cross, and its own download. One red job does not stop the others. Each job has its own 30-minute limit.
 
 | Job (name on the run page) | What a green tick proves | Download (Artifacts list) | What is inside |
 |---|---|---|---|
@@ -297,6 +297,17 @@ tick or cross, and its own download. One red job does not stop the others. All f
 | Build app + Top Shelf (Apple TV device, Release, unsigned) | The same compile for a real Apple TV, and the device slices of the codec frameworks, libnfs and the Dolby Vision RPU library link | `device-build-results` | `errors.txt`, `build.log`, `embedded-frameworks.txt`, `macho-report.txt`, `static-libraries.txt`, `release-strings.txt` |
 | Package tests (tvOS Simulator) | The package unit tests build and pass on tvOS (tests that need a server, iCloud or a tool are skipped, not failed) | `simulator-test-results` | `test-report.md` (passed / skipped / failed per test target, then the failures), `test.log` |
 | Screenshots of every screen (tvOS Simulator, UI tests) | The UI tests ran and took pictures | `screenshots` and `screenshots-logs` | `01-….png`, `02-….png` … in viewing order and `index.md` (the list, plus every screen that could not be reached and why) |
+| Accessibility screenshots (tvOS Simulator, UI tests) | Five screens were drawn with each accessibility setting (OPEN_QUESTIONS R170) | `accessibility-screenshots` and `accessibility-screenshots-logs` | folders `text` (80–84 Larger Text, 85–89 Bold Text), `contrast`, `transparency`, `motion`, each with its own `index.md`, plus `settings-applied.txt` |
+
+**Partial runs still give you files.** Every upload step runs even when an earlier step failed or ran out of time, so a
+red job still uploads whatever it captured. The long steps have their own time limits (screenshots: UI tests 20
+minutes; accessibility: Larger/Bold Text 8 minutes, each other setting 4 minutes), which leaves time for the uploads
+inside the 30 minutes. If a whole job hits its 30-minute limit, GitHub may stop it before the upload; that case has not
+been tried.
+
+**Stage times.** Each job's summary (open the job, scroll to the top of its page) has a table "Stage times" saying how
+long each step took, so you can see where the time goes. The same table is `stage-times.md` inside that job's download
+(for the screenshots jobs: inside the `-logs` download).
 
 **Screenshots job, launch smoke (fourth compile check onwards, OPEN_QUESTIONS R164).** Before any UI test, the job
 installs the app and launches it twice: once plain, once with `-UITestEmpty`. For each, the log shows either
@@ -310,17 +321,22 @@ the app is in front; otherwise the test fails and `index.md` lists the screen as
 **Step by step after the run has finished:**
 
 1. Open the run. Scroll to **Artifacts** at the bottom.
-2. Click each of the five names above to download a zip file (`screenshots-logs` only matters if the screenshots job is red).
+2. Click each of the seven names above to download a zip file: `compile-check-results`, `device-build-results`,
+   `simulator-test-results`, `screenshots`, `screenshots-logs`, `accessibility-screenshots`,
+   `accessibility-screenshots-logs` (the two `-logs` ones only matter if their job is red).
 3. Make a new folder `Downloads\run-3` and unzip each zip into its own subfolder there. Do not unzip into the project folder.
-4. Open `screenshots\index.md` (any text editor) and look at the pictures in number order. Pictures 80–84 are drawn with
-   Larger Text and 85–89 with Bold Text. The folders `screenshots\a11y-contrast`, `a11y-transparency` and `a11y-motion`
-   (each with its own `index.md`) hold the same five screens with Increase Contrast, Reduce Transparency or Reduce Motion
-   turned on in the simulator; `screenshots\a11y-settings.txt` says which of these were really applied (OPEN_QUESTIONS R170).
+4. Open `screenshots\index.md` (any text editor) and look at the pictures in number order. Then open
+   `accessibility-screenshots`: `text` holds pictures 80–84 (Larger Text) and 85–89 (Bold Text); `contrast`,
+   `transparency` and `motion` (each with its own `index.md`) hold the same five screens with Increase Contrast, Reduce
+   Transparency or Reduce Motion turned on in the simulator; `settings-applied.txt` says which of these were really
+   applied (OPEN_QUESTIONS R170).
 5. Send back, in this order of importance:
    - `compile-check-results\errors.txt` and `device-build-results\errors.txt` (even if empty);
    - `device-build-results\embedded-frameworks.txt`, `static-libraries.txt` and `release-strings.txt`;
    - `simulator-test-results\test-report.md`;
    - `screenshots\index.md` and the screenshots (the whole folder, or the ones that look wrong);
+   - `accessibility-screenshots\settings-applied.txt` and any accessibility picture that looks wrong;
+   - the "Stage times" table of any job that took longer than 25 minutes;
    - for any red job without an `errors.txt`: the name of its last red step and the last 30 lines of that step.
 
 **Terminal alternative:** `gh run download RUN-ID --repo liampmcdowell7-rgb/video-player --dir "$env:USERPROFILE\Downloads\run-3"`

@@ -1,12 +1,17 @@
-# Compile check: FOUR INDEPENDENT JOBS that run in parallel from one press of "Run workflow" (OPEN_QUESTIONS R161).
+# Compile check: FIVE INDEPENDENT JOBS that run in parallel from one press of "Run workflow" (OPEN_QUESTIONS R161).
 # No job depends on another (no `needs:`), so a failing job never stops or hides the others. Each job has its own
-# 30-minute timeout, its own error summary in the run page and its own artifact, uploaded even when the job fails.
+# 30-minute timeout, its own error summary in the run page and its own artifact. Every upload step has `if: always()`, so
+# it runs after a failed step too; the long steps have their own (shorter) timeout-minutes so that a slow step still
+# leaves time for the export and the uploads. Every job ends its summary with "Stage times" (scripts/ci-stage.sh): how
+# long each stage took.
 #   1. compile           the app and its Top Shelf extension for the tvOS Simulator (unchanged from the second compile check)
 #   2. device-build      the same two targets for a real Apple TV (Release, arm64, unsigned) and an inspection of the .app
 #   3. simulator-tests   the package unit tests (VideoPlayerCore) on a tvOS Simulator; counts are a report, not a gate
 #   4. screenshots       a launch smoke (the app must still be running 8 s after launch, plain and -UITestEmpty; the
 #                        cause is printed in the log if not), then UI tests that take a named screenshot of every screen
 #                        they can reach, with debug-only sample data
+#   5. accessibility-screenshots   the same five main screens under Larger Text, Bold Text, Increase Contrast, Reduce
+#                        Transparency and Reduce Motion (rule 17, R170); built exactly as job 4
 # docs/GITHUB_ACTIONS_RUNBOOK.md says what to download and what to send back.
 #
 # MANUAL ONLY: the only trigger is workflow_dispatch (the "Run workflow" button on the Actions tab). Nothing runs on push,
@@ -27,7 +32,7 @@
 # step; OPEN_QUESTIONS R158, R159). Expected run time is about 15 minutes or less; timeout-minutes is only the ceiling.
 #
 # It does not archive and does not upload anything to Apple. Nothing is signed with a certificate: jobs 1 to 3 are unsigned;
-# job 4 signs AD HOC (identity "-", no team, no profile, no secret) so the simulator app carries its entitlements (R164). Jobs 2 to 4 share their preparation steps through
+# jobs 4 and 5 sign AD HOC (identity "-", no team, no profile, no secret) so the simulator app carries its entitlements (R164). Jobs 2 to 5 share their preparation steps through
 # scripts/ci-prepare.sh (the same steps job 1 spells out).
 
 name: Compile check (tvOS Simulator, no signing)
@@ -63,6 +68,7 @@ jobs:
 
       - name: Select Xcode 27.2 and show the tvOS SDKs
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Select Xcode 27.2 and show the tvOS SDKs"
           set -euo pipefail
           mkdir -p "$OUT"
           sudo xcode-select -s "$XCODE_APP/Contents/Developer"
@@ -72,6 +78,7 @@ jobs:
 
       - name: Check the committed vendored packages and binary frameworks
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Check the committed vendored packages and binary frameworks"
           set -euo pipefail
           P=Packages/VideoPlayerCore
           missing=0
@@ -109,6 +116,7 @@ jobs:
 
       - name: Install XcodeGen ${{ env.XCODEGEN_VERSION }} (pinned release, SHA-256 checked)
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Install XcodeGen {{ env.XCODEGEN_VERSION }} (pinned release, SHA-256 checked)"
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/xcodegen"
           curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
@@ -122,12 +130,14 @@ jobs:
 
       - name: Generate the Xcode project
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Generate the Xcode project"
           set -euo pipefail
           xcodegen generate --spec project.yml 2>&1 | tee "$OUT/xcodegen.log"
           xcodebuild -list -project VideoPlayer.xcodeproj | tee "$OUT/schemes.txt"
 
       - name: Resolve Swift packages
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Resolve Swift packages"
           set -euo pipefail
           xcodebuild -resolvePackageDependencies \
             -project VideoPlayer.xcodeproj \
@@ -138,6 +148,7 @@ jobs:
       - name: Build for the tvOS Simulator (app + Top Shelf extension, no code signing)
         id: build
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Build for the tvOS Simulator (app + Top Shelf extension, no code signing)"
           set -euo pipefail
           # The VideoPlayer scheme builds the app target and, as its embedded dependency, the TopShelf extension target.
           #
@@ -184,6 +195,7 @@ jobs:
       - name: Summarise errors (file, line, message)
         if: always()
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Summarise errors (file, line, message)"
           set -uo pipefail
           touch "$OUT/build.log"
           # Compiler and linker errors from the full log, de-duplicated, as "file:line: message".
@@ -210,6 +222,10 @@ jobs:
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
+      - name: Stage times
+        if: always()
+        run: bash scripts/ci-stage.sh --summary "Compile"
+
       - name: Upload the build log, error lists and xcresult summary
         if: always()
         uses: actions/upload-artifact@v7
@@ -218,6 +234,7 @@ jobs:
           path: |
             build/ci/*.txt
             build/ci/*.log
+            build/ci/*.md
             build/ci/*.json
             build/ci/xcresulttool.stderr
           if-no-files-found: warn
@@ -242,10 +259,13 @@ jobs:
           persist-credentials: false
 
       - name: Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)
-        run: bash scripts/ci-prepare.sh
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)"
+          bash scripts/ci-prepare.sh
 
       - name: Build for tvOS devices (arm64, Release, no code signing)
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Build for tvOS devices (arm64, Release, no code signing)"
           set -euo pipefail
           # -sdk appletvos with generic/platform=tvOS builds for a real Apple TV without needing one. Same all-errors
           # settings as job 1 (OPEN_QUESTIONS R158).
@@ -271,11 +291,19 @@ jobs:
 
       - name: Summarise errors (file, line, message)
         if: always()
-        run: bash scripts/ci-summarise-errors.sh "Device build" "$OUT/build.log" "$OUT/resolve.log" "$OUT/xcodegen.log"
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Summarise errors (file, line, message)"
+          bash scripts/ci-summarise-errors.sh "Device build" "$OUT/build.log" "$OUT/resolve.log" "$OUT/xcodegen.log"
 
       - name: Inspect the device app (embedded frameworks, slices, platform tags, linked libraries, Release has no sample data)
         if: always()
-        run: bash scripts/ci-inspect-device-app.sh
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Inspect the device app (embedded frameworks, slices, platform tags, linked libraries, Release has no sample data)"
+          bash scripts/ci-inspect-device-app.sh
+
+      - name: Stage times
+        if: always()
+        run: bash scripts/ci-stage.sh --summary "Device build"
 
       - name: Upload the device build results
         if: always()
@@ -285,6 +313,7 @@ jobs:
           path: |
             build/ci/*.txt
             build/ci/*.log
+            build/ci/*.md
           if-no-files-found: warn
           retention-days: 14
 
@@ -309,6 +338,7 @@ jobs:
 
       - name: Select Xcode 27.2
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Select Xcode 27.2"
           set -euo pipefail
           mkdir -p "$OUT"
           sudo xcode-select -s "$XCODE_APP/Contents/Developer"
@@ -316,6 +346,7 @@ jobs:
 
       - name: Pick the simulator by name (Apple TV 4K, at 1080p preferred)
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator by name (Apple TV 4K, at 1080p preferred)"
           set -euo pipefail
           xcrun simctl list devices available | tee "$OUT/simulators.txt"
           UDID="$(xcrun simctl list devices available -j | python3 scripts/ci-pick-simulator.py 2> >(tee -a "$OUT/simulators.txt" >&2))"
@@ -324,6 +355,7 @@ jobs:
       - name: Run the package tests (VideoPlayerCore-Package scheme)
         working-directory: Packages/VideoPlayerCore
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Run the package tests (VideoPlayerCore-Package scheme)"
           set -euo pipefail
           # Tests that read the checkout (NamesTests, AttributionNoticeTests, UITestLaunchTests) find it through
           # VP_PROJECT_ROOT. xcodebuild hands the test process only variables prefixed TEST_RUNNER_ (prefix removed); the
@@ -347,6 +379,7 @@ jobs:
       - name: Report (passed, skipped, failed per test target; failures listed)
         if: always()
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Report (passed, skipped, failed per test target; failures listed)"
           set -uo pipefail
           bash scripts/ci-summarise-errors.sh "Package tests: build" "$OUT/test.log"
           python3 scripts/ci-test-report.py "$OUT/test.log" "$OUT/test-report.md" | tee -a "$GITHUB_STEP_SUMMARY"
@@ -355,6 +388,10 @@ jobs:
           if [ -d "$OUT/PackageTests.xcresult" ]; then
             xcrun xcresulttool get test-results summary --path "$OUT/PackageTests.xcresult" > "$OUT/xcresult-test-summary.json" 2>"$OUT/xcresulttool.stderr" || true
           fi
+
+      - name: Stage times
+        if: always()
+        run: bash scripts/ci-stage.sh --summary "Package tests"
 
       - name: Upload the test results
         if: always()
@@ -372,6 +409,9 @@ jobs:
 
   # JOB 4. Screenshots of every screen the UI tests can reach (UITests/ScreenshotTests.swift), on a tvOS Simulator, with
   # the debug-only sample library (launch arguments -UITestEmpty / -UITestFixtures, App/Support/UITestMode.swift; R160).
+  # The accessibility-setting screenshots are NOT here: they are job 5, with their own 30-minute cap, so this job keeps the
+  # time it had before them. The UI-test step has its own cap (step timeout-minutes) so the export and the uploads below
+  # still have time to run when the tests are slow; the uploads run whatever happened before them (if: always()).
   screenshots:
     name: Screenshots of every screen (tvOS Simulator, UI tests)
     runs-on: xcode-27
@@ -389,10 +429,13 @@ jobs:
           persist-credentials: false
 
       - name: Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)
-        run: bash scripts/ci-prepare.sh
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)"
+          bash scripts/ci-prepare.sh
 
       - name: Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)"
           set -euo pipefail
           xcrun simctl list devices available | tee "$OUT/simulators.txt"
           UDID="$(xcrun simctl list devices available -j | python3 scripts/ci-pick-simulator.py 2> >(tee -a "$OUT/simulators.txt" >&2))"
@@ -406,27 +449,12 @@ jobs:
       # fails the build, the job builds again unsigned (as before) and says so; the app must start either way (launch safety).
       - name: Build the app and the UI tests (Debug, simulator, ad-hoc signed; unsigned if that fails)
         id: build
-        run: |
-          set -uo pipefail
-          common=(-project VideoPlayer.xcodeproj -scheme VideoPlayerUITests -configuration Debug
-                  -destination "platform=tvOS Simulator,id=$SIM_UDID" -clonedSourcePackagesDirPath build/SourcePackages
-                  -derivedDataPath build/DerivedData -skipPackagePluginValidation -skipMacroValidation ARCHS=arm64 ONLY_ACTIVE_ARCH=YES)
-          if xcodebuild build-for-testing "${common[@]}" \
-               CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual \
-               DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= 2>&1 | tee "$OUT/test.log"; then
-            echo "SIGNING=ad-hoc" | tee -a "$GITHUB_ENV"
-          else
-            echo "::warning::The ad-hoc signed build failed (errors above); building again unsigned (CODE_SIGNING_ALLOWED=NO): no entitlement will be embedded."
-            xcodebuild build-for-testing "${common[@]}" CODE_SIGNING_ALLOWED=NO 2>&1 | tee -a "$OUT/test.log"
-            echo "SIGNING=unsigned" | tee -a "$GITHUB_ENV"
-          fi
-          APP="$(find build/DerivedData/Build/Products/Debug-appletvsimulator -maxdepth 1 -name 'VideoPlayer.app' -type d | head -n 1)"
-          [ -n "$APP" ] || { echo "::error::No VideoPlayer.app in build/DerivedData/Build/Products/Debug-appletvsimulator"; exit 1; }
-          echo "APP_PATH=$APP" >> "$GITHUB_ENV"
+        run: bash scripts/ci-build-uitests.sh
 
       - name: Show what the built app carries (signature, embedded entitlements, Info.plist scene keys)
         if: steps.build.outcome == 'success'
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Show what the built app carries (signature, embedded entitlements, Info.plist scene keys)"
           set -uo pipefail
           echo "Signing mode used: $SIGNING"
           # Apple's documented check ("Diagnosing Issues with Entitlements"): codesign --display --entitlements :- App.app
@@ -441,7 +469,9 @@ jobs:
       - name: Launch smoke (plain launch and -UITestEmpty; prints the cause if the app dies)
         id: smoke
         if: steps.build.outcome == 'success'
+        timeout-minutes: 4
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Launch smoke (plain launch and -UITestEmpty; prints the cause if the app dies)"
           set -uo pipefail
           xcrun simctl install "$SIM_UDID" "$APP_PATH"
           status=0
@@ -454,10 +484,13 @@ jobs:
           exit $status
 
       # The UI tests run even when the smoke step failed, so the xcresult (with its crash reports and screen recording)
-      # exists for the export below.
+      # exists for the export below. Tests 06-09 are the accessibility screenshots: job 5 runs them, this job skips them.
+      # Step cap 20 minutes: whatever the tests captured until then is still exported and uploaded.
       - name: Run the screenshot UI tests (Debug, simulator, built above)
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 20
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Run the screenshot UI tests (Debug, simulator, built above)"
           set -euo pipefail
           xcodebuild test-without-building \
             -project VideoPlayer.xcodeproj \
@@ -468,88 +501,27 @@ jobs:
             -derivedDataPath build/DerivedData \
             -resultBundlePath "$OUT/Screenshots.xcresult" \
             -parallel-testing-enabled NO \
+            -skip-testing:VideoPlayerUITests/ScreenshotTests/test06_LargerTextAndBoldText \
             -skip-testing:VideoPlayerUITests/ScreenshotTests/test07_IncreaseContrast \
             -skip-testing:VideoPlayerUITests/ScreenshotTests/test08_ReduceTransparency \
             -skip-testing:VideoPlayerUITests/ScreenshotTests/test09_ReduceMotion \
             2>&1 | tee -a "$OUT/test.log"
 
-      # Rule 17 (docs/DESIGN_REFERENCES.md). Larger Text and Bold Text are drawn by the app in the main run (test06, 80-89).
-      # Increase Contrast, Reduce Transparency and Reduce Motion cannot be set by the app (read-only in SwiftUI), so each is
-      # turned on in the simulator (scripts/ci-a11y-setting.sh reads `xcrun simctl help ui` for the option name), its test runs
-      # on its own into its own result bundle, and the setting is turned off again. A setting simctl does not offer is
-      # written down as NOT APPLIED and its screenshots are not taken: never a normal screen under that setting's name.
-      - name: Screenshots under Increase Contrast, Reduce Transparency, Reduce Motion (simulator settings)
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: |
-          set -uo pipefail
-          xcrun simctl help ui 2>&1 | tee "$OUT/simctl-ui-help.txt" || true
-          : > "$OUT/a11y-settings.txt"
-          for pair in contrast:test07_IncreaseContrast transparency:test08_ReduceTransparency motion:test09_ReduceMotion; do
-            word="${pair%%:*}"; test="${pair#*:}"
-            if bash scripts/ci-a11y-setting.sh "$SIM_UDID" "$word" on 2>&1 | tee -a "$OUT/a11y-settings.txt"; then
-              xcodebuild test-without-building \
-                -project VideoPlayer.xcodeproj -scheme VideoPlayerUITests -configuration Debug \
-                -destination "platform=tvOS Simulator,id=$SIM_UDID" \
-                -clonedSourcePackagesDirPath build/SourcePackages -derivedDataPath build/DerivedData \
-                -resultBundlePath "$OUT/A11y-$word.xcresult" -parallel-testing-enabled NO \
-                -only-testing:VideoPlayerUITests/ScreenshotTests/$test \
-                2>&1 | tee -a "$OUT/test.log" || echo "::warning::$test failed under the $word setting (see the log)"
-              bash scripts/ci-a11y-setting.sh "$SIM_UDID" "$word" off 2>&1 | tee -a "$OUT/a11y-settings.txt" || true
-            fi
-          done
-          { echo "## Accessibility settings in the simulator"; echo; sed 's/^/    /' "$OUT/a11y-settings.txt"; } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Summarise errors (file, line, message)
         if: always()
         run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Summarise errors (file, line, message)"
           bash scripts/ci-summarise-errors.sh "Screenshots: build and UI tests" "$OUT/test.log" "$OUT/resolve.log" "$OUT/xcodegen.log"
           python3 scripts/ci-test-report.py "$OUT/test.log" "$OUT/test-report.md" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Export the screenshots in viewing order (01-..., 02-...) with index.md
         if: always()
-        run: |
-          set -uo pipefail
-          # The tool's own help goes into the log first, so a changed command line is visible in the run.
-          xcrun xcresulttool help export 2>&1 | tee "$OUT/xcresulttool-help.txt" || true
-          xcrun xcresulttool export attachments --help 2>&1 | tee -a "$OUT/xcresulttool-help.txt" || true
-          [ -d "$OUT/Screenshots.xcresult" ] || { echo "::error::no Screenshots.xcresult"; exit 1; }
-          mkdir -p "$RUNNER_TEMP/attachments" screenshots
-          xcrun xcresulttool export attachments --path "$OUT/Screenshots.xcresult" --output-path "$RUNNER_TEMP/attachments" 2>&1 | tee "$OUT/export.log"
-          python3 scripts/ci-screenshots-index.py "$RUNNER_TEMP/attachments" screenshots
-          status=$?
-          # One folder per simulator accessibility setting that was applied (screenshots/a11y-contrast/, ...), each with
-          # its own index.md; the settings log says which were applied.
-          for r in "$OUT"/A11y-*.xcresult; do
-            [ -d "$r" ] || continue
-            word="$(basename "$r" .xcresult)"; word="${word#A11y-}"
-            mkdir -p "$RUNNER_TEMP/attachments-$word" "screenshots/a11y-$word" "$OUT/attachments"
-            xcrun xcresulttool export attachments --path "$r" --output-path "$RUNNER_TEMP/attachments-$word" 2>&1 | tee -a "$OUT/export.log"
-            python3 scripts/ci-screenshots-index.py "$RUNNER_TEMP/attachments-$word" "screenshots/a11y-$word" || echo "::warning::no screenshots for $word"
-            find "$RUNNER_TEMP/attachments-$word" -type f \( -name '*.ips' -o -name '*.txt' \) -exec cp {} "$OUT/attachments/" \; 2>/dev/null || true
-          done
-          [ -f "$OUT/a11y-settings.txt" ] && cp "$OUT/a11y-settings.txt" screenshots/a11y-settings.txt
-          # Crash evidence for next time: every crash report (.ips), screen recording (.mp4) and text attachment from the
-          # xcresult goes into the screenshots-logs artifact (the PNGs stay in the screenshots artifact), and the first 60
-          # lines of every crash report go into this log.
-          mkdir -p "$OUT/attachments"
-          find "$RUNNER_TEMP/attachments" -type f \( -name '*.ips' -o -name '*.mp4' -o -name '*.txt' -o -name '*.crash' -o -name 'manifest.json' \) \
-            -exec cp {} "$OUT/attachments/" \;
-          ls -la "$OUT/attachments"
-          for f in "$OUT"/attachments/*.ips "$OUT"/attachments/*.crash; do
-            [ -f "$f" ] || continue
-            echo "----- $(basename "$f") (first 60 lines)"
-            sed -n '1,60p' "$f"
-          done
-          # Keep the artifact under about 45 MB: full-size PNGs when they fit, otherwise JPEG copies (quality 80) at full size.
-          size=$(du -sm screenshots | cut -f1)
-          echo "screenshots folder: ${size} MB"
-          if [ "$size" -gt 45 ]; then
-            find screenshots -name '*.png' | while read -r f; do sips -s format jpeg -s formatOptions 80 "$f" --out "${f%.png}.jpg" >/dev/null && rm "$f"; done
-            find screenshots -name index.md -exec sed -i '' 's/\.png)/.jpg)/g' {} \;
-            echo "Converted to JPEG: now $(du -sm screenshots | cut -f1) MB" | tee -a screenshots/index.md
-          fi
-          { echo "## Screenshots"; echo; sed -n '1,200p' screenshots/index.md; } >> "$GITHUB_STEP_SUMMARY"
-          exit $status
+        timeout-minutes: 4
+        run: bash scripts/ci-export-screenshots.sh "$OUT/Screenshots.xcresult" screenshots
+
+      - name: Stage times
+        if: always()
+        run: bash scripts/ci-stage.sh --summary "Screenshots"
 
       - name: Upload the screenshots
         if: always()
@@ -571,5 +543,125 @@ jobs:
             build/ci/*.md
             build/ci/attachments/
             build/ci/launch-smoke-*/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # JOB 5. Accessibility screenshots (rule 17, docs/DESIGN_REFERENCES.md; OPEN_QUESTIONS R170): the same five main screens
+  # under Larger Text, Bold Text, Increase Contrast, Reduce Transparency and Reduce Motion. Its own job and its own 30-minute
+  # cap, built exactly as job 4, so a slow run here never costs the main screenshots.
+  #   Larger Text and Bold Text are drawn by the app (launch arguments, test06). Increase Contrast, Reduce Transparency and
+  #   Reduce Motion are read-only in SwiftUI, so each is turned on in the simulator (scripts/ci-a11y-setting.sh reads
+  #   `xcrun simctl help ui` for the option name), its test runs alone into its own result bundle, and the setting is turned
+  #   off again. A setting simctl does not offer is written down as NOT APPLIED and gets no screenshots.
+  accessibility-screenshots:
+    name: Accessibility screenshots (tvOS Simulator, UI tests)
+    runs-on: xcode-27
+    timeout-minutes: 30
+    env:
+      XCODE_APP: /Applications/Xcode_27.2.app
+      XCODEGEN_VERSION: "2.46.0"
+      XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
+      OUT: build/ci
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          lfs: false
+          persist-credentials: false
+
+      - name: Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)"
+          bash scripts/ci-prepare.sh
+
+      - name: Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)"
+          set -euo pipefail
+          xcrun simctl list devices available | tee "$OUT/simulators.txt"
+          UDID="$(xcrun simctl list devices available -j | python3 scripts/ci-pick-simulator.py 2> >(tee -a "$OUT/simulators.txt" >&2))"
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Build the app and the UI tests (Debug, simulator, ad-hoc signed; unsigned if that fails)
+        id: build
+        run: bash scripts/ci-build-uitests.sh
+
+      - name: Larger Text and Bold Text (drawn by the app; screenshots 80-89)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 8
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Larger Text and Bold Text (drawn by the app; screenshots 80-89)"
+          set -uo pipefail
+          xcodebuild test-without-building \
+            -project VideoPlayer.xcodeproj -scheme VideoPlayerUITests -configuration Debug \
+            -destination "platform=tvOS Simulator,id=$SIM_UDID" \
+            -clonedSourcePackagesDirPath build/SourcePackages -derivedDataPath build/DerivedData \
+            -resultBundlePath "$OUT/A11y-text.xcresult" -parallel-testing-enabled NO \
+            -only-testing:VideoPlayerUITests/ScreenshotTests/test06_LargerTextAndBoldText \
+            2>&1 | tee -a "$OUT/test.log"
+
+      # One step per setting, each with its own cap, so one slow setting does not cost the others.
+      - name: Increase Contrast (simulator setting)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 4
+        run: bash scripts/ci-a11y-run.sh contrast test07_IncreaseContrast
+
+      - name: Reduce Transparency (simulator setting)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 4
+        run: bash scripts/ci-a11y-run.sh transparency test08_ReduceTransparency
+
+      - name: Reduce Motion (simulator setting)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 4
+        run: bash scripts/ci-a11y-run.sh motion test09_ReduceMotion
+
+      - name: Summarise errors (file, line, message)
+        if: always()
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Summarise errors (file, line, message)"
+          bash scripts/ci-summarise-errors.sh "Accessibility screenshots: build and UI tests" "$OUT/test.log" "$OUT/resolve.log" "$OUT/xcodegen.log"
+          python3 scripts/ci-test-report.py "$OUT/test.log" "$OUT/test-report.md" | tee -a "$GITHUB_STEP_SUMMARY"
+          { echo "## Accessibility settings in the simulator"; echo; sed 's/^/    /' "$OUT/a11y-settings.txt" 2>/dev/null || echo "    (none tried)"; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Export the screenshots (one folder per setting, each with index.md)
+        if: always()
+        timeout-minutes: 4
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Export the screenshots (one folder per setting, each with index.md)"
+          set -uo pipefail
+          status=1
+          for word in text contrast transparency motion; do
+            [ -d "$OUT/A11y-$word.xcresult" ] || { echo "no result bundle for $word"; continue; }
+            bash scripts/ci-export-screenshots.sh "$OUT/A11y-$word.xcresult" "accessibility-screenshots/$word" && status=0
+          done
+          [ -f "$OUT/a11y-settings.txt" ] && cp "$OUT/a11y-settings.txt" accessibility-screenshots/settings-applied.txt
+          exit $status
+
+      - name: Stage times
+        if: always()
+        run: bash scripts/ci-stage.sh --summary "Accessibility screenshots"
+
+      - name: Upload the accessibility screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: accessibility-screenshots
+          path: accessibility-screenshots/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload the accessibility job logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: accessibility-screenshots-logs
+          path: |
+            build/ci/*.txt
+            build/ci/*.log
+            build/ci/*.md
+            build/ci/attachments/
           if-no-files-found: warn
           retention-days: 14
