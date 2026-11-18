@@ -183,6 +183,25 @@ targets:
         SWIFT_STRICT_CONCURRENCY: minimal
         TARGETED_DEVICE_FAMILY: "3"
 
+  # UI tests that take a screenshot of every reachable screen (compile-check.yml, job "screenshots"; docs/GITHUB_ACTIONS_RUNBOOK.md).
+  # They launch the app with the debug-only UI-test arguments (App/Support/UITestMode.swift). Not part of the VideoPlayer
+  # scheme, so the app build and the archive are unchanged.
+  VideoPlayerUITests:
+    type: bundle.ui-testing
+    platform: tvOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: VideoPlayer
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.liamp.videoplayer.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: VideoPlayer
+        SWIFT_VERSION: "5.0"
+        SWIFT_STRICT_CONCURRENCY: minimal
+        TARGETED_DEVICE_FAMILY: "3"
+
 schemes:
   VideoPlayer:
     build:
@@ -192,3 +211,13 @@ schemes:
       config: Debug
     archive:
       config: Release
+  # Screenshot UI tests only (Debug: the UI-test launch arguments exist only in debug builds).
+  VideoPlayerUITests:
+    build:
+      targets:
+        VideoPlayer: all
+        VideoPlayerUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - VideoPlayerUITests

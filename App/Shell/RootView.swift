@@ -49,6 +49,18 @@ struct RootView: View {
         }
         .onOpenURL { url in open(DeepLink.parse(url)) }
         .task {
+            #if DEBUG
+            // UI-test launches (screenshots): no iCloud calls and no scan; the sample library instead, then the asked-for screen.
+            if UITestMode.current != .off {
+                await UITestMode.prepare(services)
+                if let tab = UITestMode.tab(named: UITestMode.value(UITestLaunch.tabArgument)) { selection = tab }
+                if let title = UITestMode.value(UITestLaunch.openArgument), let route = await UITestMode.route(forTitle: title, in: services) {
+                    selection = .home
+                    homePath = [route]
+                }
+                return
+            }
+            #endif
             await services.refreshCloudStatus()
             await services.startCloudSync()
             if scanOnLaunch { await services.scanAll() }

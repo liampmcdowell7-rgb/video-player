@@ -371,6 +371,10 @@ enum TestMedia {
 struct ProcessResult { var status: Int32; var out: String; var err: String }
 
 func runProcess(_ exe: String, _ args: [String], timeout: TimeInterval = 120) throws -> ProcessResult {
+    // `Process` does not exist on tvOS/iOS: the tests that run a command-line tool skip there (simulator test job).
+    #if !(os(Linux) || os(macOS))
+    throw XCTSkip("Runs \(exe), a command-line tool; this platform cannot start processes.")
+    #else
     let dir = NSTemporaryDirectory()
     let outPath = dir + "/rx-out-\(UUID().uuidString)", errPath = dir + "/rx-err-\(UUID().uuidString)"
     FileManager.default.createFile(atPath: outPath, contents: nil); FileManager.default.createFile(atPath: errPath, contents: nil)
@@ -387,6 +391,7 @@ func runProcess(_ exe: String, _ args: [String], timeout: TimeInterval = 120) th
     let out = String(decoding: FileManager.default.contents(atPath: outPath) ?? Data(), as: UTF8.self)
     let err = String(decoding: FileManager.default.contents(atPath: errPath) ?? Data(), as: UTF8.self)
     return ProcessResult(status: p.terminationStatus, out: out, err: err)
+    #endif
 }
 
 /// A scratch directory removed after the test.

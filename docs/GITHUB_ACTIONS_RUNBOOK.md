@@ -242,7 +242,7 @@ keep do appear:
    - A **green tick** means the app and the Top Shelf extension compiled for the tvOS Simulator.
    - A **red cross** is expected for the first run: nothing in `App/` has ever been compiled.
 
-   Both results are useful.
+   Both results are useful. Since the third compile check the run has four jobs; Part F lists them and their downloads.
 
    *If the run stays "Queued" for a long time:* the free standard runners are busy. Wait; do not switch to another label.
 
@@ -285,6 +285,37 @@ The run's **Summary** page shows the same short list, so you can also copy it fr
    *Success looks like this:* the folder `Downloads\compile-check` contains `errors.txt`, `errors-other.txt` and `build.log`.
 
    *If it says "no artifact":* the run failed before the upload step. Open the run in the browser and read its last red step.
+
+## Part F: the four jobs and their downloads (third compile check onwards, OPEN_QUESTIONS R161)
+
+One press of **Run workflow** now starts four jobs at the same time. Each has its own line on the run page, its own
+tick or cross, and its own download. One red job does not stop the others. All four finish within about 30 minutes.
+
+| Job (name on the run page) | What a green tick proves | Download (Artifacts list) | What is inside |
+|---|---|---|---|
+| Build app + Top Shelf (Simulator) | The app and Top Shelf compile for the tvOS Simulator (arm64) | `compile-check-results` | `errors.txt`, `errors-other.txt`, `build.log` |
+| Build app + Top Shelf (Apple TV device, Release, unsigned) | The same compile for a real Apple TV, and the device slices of the codec frameworks, libnfs and the Dolby Vision RPU library link | `device-build-results` | `errors.txt`, `build.log`, `embedded-frameworks.txt`, `macho-report.txt`, `static-libraries.txt`, `release-strings.txt` |
+| Package tests (tvOS Simulator) | The package unit tests build and pass on tvOS (tests that need a server, iCloud or a tool are skipped, not failed) | `simulator-test-results` | `test-report.md` (passed / skipped / failed per test target, then the failures), `test.log` |
+| Screenshots of every screen (tvOS Simulator, UI tests) | The UI tests ran and took pictures | `screenshots` and `screenshots-logs` | `01-….png`, `02-….png` … in viewing order and `index.md` (the list, plus every screen that could not be reached and why) |
+
+**Step by step after the run has finished:**
+
+1. Open the run. Scroll to **Artifacts** at the bottom.
+2. Click each of the five names above to download a zip file (`screenshots-logs` only matters if the screenshots job is red).
+3. Make a new folder `Downloads\run-3` and unzip each zip into its own subfolder there. Do not unzip into the project folder.
+4. Open `screenshots\index.md` (any text editor) and look at the pictures in number order.
+5. Send back, in this order of importance:
+   - `compile-check-results\errors.txt` and `device-build-results\errors.txt` (even if empty);
+   - `device-build-results\embedded-frameworks.txt`, `static-libraries.txt` and `release-strings.txt`;
+   - `simulator-test-results\test-report.md`;
+   - `screenshots\index.md` and the screenshots (the whole folder, or the ones that look wrong);
+   - for any red job without an `errors.txt`: the name of its last red step and the last 30 lines of that step.
+
+**Terminal alternative:** `gh run download RUN-ID --repo liampmcdowell7-rgb/video-player --dir "$env:USERPROFILE\Downloads\run-3"`
+downloads every artifact of the run into one folder each.
+
+*If the screenshots job is red but `screenshots` has pictures:* the pictures are still valid; `index.md` and
+`screenshots-logs\test-report.md` say which test step failed.
 
 ## Do not
 

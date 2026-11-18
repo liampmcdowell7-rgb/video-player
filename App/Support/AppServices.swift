@@ -51,6 +51,10 @@ final class AppServices {
         // The ledger comes first: the library store is opened with its recorder already in place (below), so not one
         // watch-state or saved-view change can happen before it is recorded. (`setRecorder` is actor-isolated and cannot be
         // called from this synchronous main-actor init; first compile, 2026-11-17.)
+        #if DEBUG
+        // UI-test launches (screenshots) start from a clean state; nothing happens in a normal launch or in Release.
+        UITestMode.resetPersistentState()
+        #endif
         let defaults = UserDefaults.standard
         let deviceKey = "vp.deviceID"
         let deviceID = defaults.string(forKey: deviceKey) ?? UUID().uuidString.lowercased()

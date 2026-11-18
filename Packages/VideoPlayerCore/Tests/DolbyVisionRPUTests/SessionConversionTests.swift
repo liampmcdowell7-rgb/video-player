@@ -165,6 +165,10 @@ final class SessionConversionTests: XCTestCase {
     }
 
     func runJSON(_ tool: String, _ args: [String]) throws -> [String: Any] {
+        // `Process` does not exist on tvOS/iOS: the test skips there (simulator test job).
+        #if !(os(Linux) || os(macOS))
+        throw XCTSkip("Runs \(tool), a command-line tool; this platform cannot start processes.")
+        #else
         let p = Process()
         p.executableURL = URL(fileURLWithPath: tool)
         p.arguments = args
@@ -176,5 +180,6 @@ final class SessionConversionTests: XCTestCase {
         p.waitUntilExit()
         guard p.terminationStatus == 0 else { throw DolbyVisionRPUError("ffprobe failed: " + String(decoding: errData, as: UTF8.self)) }
         return (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+        #endif
     }
 }

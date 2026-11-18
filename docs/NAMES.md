@@ -313,6 +313,15 @@ Mark
 Profile
 English
 Unknown
+# The debug-only UI-test sample library (OPEN_QUESTIONS R160): ordinary words in its synthetic titles
+Sample
+Movie
+Show
+Season
+# PNG chunk type names written by the sample library's picture generator (PNG specification, not brands)
+IHDR
+IDAT
+IEND
 ```
 
 ---

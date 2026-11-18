@@ -28,6 +28,17 @@ GitHub Actions, xcode-27 runner, Xcode 27.2, tvOS Simulator (x86_64 and arm64), 
 
 So "built" for an App/ row still means "syntax-checked and declarations type-checked", not "compiled", until the next compile passes.
 
+### What each CI job proves when it is green (third compile check onwards, R161)
+
+| Job | A green tick proves | It does NOT prove |
+|---|---|---|
+| 1. Simulator compile (unchanged) | Every App/ and Top Shelf file compiles for the tvOS Simulator (arm64), the app links and embeds the extension and frameworks for the simulator | x86_64 simulator (R159), a real device, anything at run time |
+| 2. Device build (new) | The same for a real Apple TV in Release: the device slices of the 5 audio codec frameworks, libnfs, AMSMB2 and the Dolby Vision RPU library link; the extension embeds no frameworks; Release contains no UI-test sample data (R160) | Signing, provisioning, entitlements, that it launches |
+| 3. Simulator package tests (new) | The package unit tests build for tvOS and pass on the Simulator (server, iCloud and tool tests skip) | Device hardware paths (decoders, HDR, network to real servers) |
+| 4. Screenshots (new) | The app launches on the Simulator, every listed screen is reachable with the remote, and how each looks with sample data | Focus feel, HDR and colour on a TV, real servers, playback (no real video in the sample data) |
+
+None of jobs 2 to 4 has run yet: until a run is green they prove nothing.
+
 ## 1. What the first TestFlight build would NOT have that you asked for (gaps first)
 
 | # | You asked for | Status | What exists / what is missing | Where |

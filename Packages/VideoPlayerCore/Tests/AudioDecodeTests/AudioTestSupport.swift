@@ -26,6 +26,8 @@ struct ToolResult { var status: Int32; var out: String; var err: String }
 
 /// Runs a tool with stdout and stderr in files (binary output goes to a file named in the arguments).
 func runTool(_ exe: String, _ args: [String]) throws -> ToolResult {
+    // `Process` does not exist on tvOS/iOS: the tests that run a command-line tool skip there (simulator test job).
+    #if os(Linux) || os(macOS)
     let dir = NSTemporaryDirectory()
     let outPath = dir + "/ad-out-\(UUID().uuidString)", errPath = dir + "/ad-err-\(UUID().uuidString)"
     FileManager.default.createFile(atPath: outPath, contents: nil); FileManager.default.createFile(atPath: errPath, contents: nil)
@@ -40,6 +42,9 @@ func runTool(_ exe: String, _ args: [String]) throws -> ToolResult {
     return ToolResult(status: p.terminationStatus,
                       out: String(decoding: FileManager.default.contents(atPath: outPath) ?? Data(), as: UTF8.self),
                       err: String(decoding: FileManager.default.contents(atPath: errPath) ?? Data(), as: UTF8.self))
+    #else
+    throw XCTSkip("Runs \(exe), a command-line tool; this platform cannot start processes.")
+    #endif
 }
 
 func tempDir() -> String {

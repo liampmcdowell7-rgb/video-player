@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Syntax check of every Swift file in App/ and TopShelf/ with `swiftc -parse`.
+# Syntax check of every Swift file in App/, TopShelf/ and UITests/ with `swiftc -parse`.
 #
 # WHAT THIS CATCHES: syntax errors only (unbalanced braces, bad punctuation, misplaced keywords).
 # WHAT THIS CANNOT CATCH: anything that needs the SDK: unknown names, wrong argument labels, missing imports, wrong types,
@@ -14,6 +14,6 @@ if ! command -v swiftc >/dev/null 2>&1; then echo "parse: swiftc not found"; ech
 pass=0; fail=0
 while IFS= read -r f; do
   if out="$(swiftc -parse -swift-version 5 "$f" 2>&1)"; then pass=$((pass + 1)); else fail=$((fail + 1)); echo "FAIL $f"; echo "$out" | head -8; fi
-done < <(find "$HERE/App" "$HERE/TopShelf" -type f -name '*.swift' 2>/dev/null | LC_ALL=C sort)
+done < <(find "$HERE/App" "$HERE/TopShelf" "$HERE/UITests" -type f -name '*.swift' 2>/dev/null | LC_ALL=C sort)
 echo "parse: passed $pass, failed $fail (syntax only; see the header of this script)"
 [ "$fail" -eq 0 ] && [ "$pass" -gt 0 ]

@@ -51,6 +51,10 @@ final class SourceFactory {
 
     /// Same as `makeSource`, with the reason when it cannot be built.
     func source(for definition: UDSourceDefinition) throws -> any MediaSource {
+        #if DEBUG
+        // The synthetic sample library of the UI-test screenshots; nil in every normal launch.
+        if let sample = UITestMode.fixtureSource(for: definition) { return sample }
+        #endif
         let secret = secrets.secret(for: definition.id)
         let pin = Self.pin(for: definition, trust: trust)
         return try builder.build(definition, secret: secret, pin: pin)

@@ -1,0 +1,136 @@
+import XCTest
+import VideoPlayerCore
+import LibraryIndex
+@testable import AppLogic
+
+/// The UI-test launch switch and the synthetic sample library (screenshots in CI). The sample library must never be
+/// reachable in a Release build: the switch refuses when the build does not allow it, and every file that holds sample data
+/// is wrapped in `#if DEBUG` (checked below by reading the files).
+final class UITestLaunchTests: XCTestCase {
+    // MARK: The switch
+
+    func testAReleaseBuildNeverTurnsAUITestModeOn() {
+        for args in [["app", "-UITestFixtures"], ["app", "-UITestEmpty"], ["app", "-UITestFixtures", "-UITestEmpty", "-UITestTab", "movies"]] {
+            XCTAssertEqual(UITestLaunch.mode(arguments: args, buildAllowsUITestModes: false), .off, "\(args)")
+        }
+        XCTAssertNil(UITestLaunch.value(of: UITestLaunch.tabArgument, arguments: ["app", "-UITestTab", "movies"], mode: .off))
+    }
+
+    func testADebugBuildReadsTheArguments() {
+        XCTAssertEqual(UITestLaunch.mode(arguments: ["app"], buildAllowsUITestModes: true), .off)
+        XCTAssertEqual(UITestLaunch.mode(arguments: ["app", "-UITestEmpty"], buildAllowsUITestModes: true), .empty)
+        XCTAssertEqual(UITestLaunch.mode(arguments: ["app", "-UITestFixtures"], buildAllowsUITestModes: true), .fixtures)
+        XCTAssertEqual(UITestLaunch.mode(arguments: ["app", "-UITestEmpty", "-UITestFixtures"], buildAllowsUITestModes: true), .fixtures)
+        let args = ["app", "-UITestFixtures", "-UITestTab", "movies", "-UITestOpen", "Sample Movie 1"]
+        XCTAssertEqual(UITestLaunch.value(of: UITestLaunch.tabArgument, arguments: args, mode: .fixtures), "movies")
+        XCTAssertEqual(UITestLaunch.value(of: UITestLaunch.openArgument, arguments: args, mode: .fixtures), "Sample Movie 1")
+        XCTAssertNil(UITestLaunch.value(of: UITestLaunch.tabArgument, arguments: ["app", "-UITestTab"], mode: .fixtures))
+        XCTAssertNil(UITestLaunch.value(of: UITestLaunch.tabArgument, arguments: ["app", "-UITestTab", "-UITestEmpty"], mode: .empty))
+    }
+
+    /// Every file that holds sample data or reads the switch starts with `#if DEBUG` and ends with `#endif`, so a Release build
+    /// does not contain it. The repo is found through VP_PROJECT_ROOT (scripts/test-core.sh sets it, because it copies only
+    /// the package before building) or next to this test file (Packages/VideoPlayerCore in a checkout), as in NamesTests.
+    func testEverySampleDataFileIsCompiledOnlyInDebugBuilds() throws {
+        var candidates: [URL] = []
+        if let root = ProcessInfo.processInfo.environment["VP_PROJECT_ROOT"], !root.isEmpty {
+            candidates.append(URL(fileURLWithPath: root))
+        }
+        candidates.append(URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent())
+        let repo = try XCTUnwrap(candidates.first { FileManager.default.fileExists(atPath: $0.appendingPathComponent("App").path) },
+                                 "the repository (with App/) was not found")
+        let package = repo.appendingPathComponent("Packages/VideoPlayerCore")
+        let guarded = [
+            package.appendingPathComponent("Sources/AppLogic/UITestFixtures.swift"),
+            repo.appendingPathComponent("App/Support/UITestMode.swift"),
+        ]
+        for url in guarded {
+            let text = try String(contentsOf: url, encoding: .utf8)
+            let lines = text.split(separator: "\n", omittingEmptySubsequences: true).map { $0.trimmingCharacters(in: .whitespaces) }
+            XCTAssertEqual(lines.first, "#if DEBUG", url.lastPathComponent)
+            XCTAssertEqual(lines.last, "#endif", url.lastPathComponent)
+            // One block only: no `#endif` before the end that would let code after it into a Release build.
+            XCTAssertEqual(lines.filter { $0.hasPrefix("#endif") }.count, lines.filter { $0.hasPrefix("#if") }.count, url.lastPathComponent)
+        }
+    }
+
+    #if DEBUG // the sample library exists only in debug builds (tests are built debug)
+    // MARK: Sample library content
+
+    func testTheSampleLibraryUsesOnlyGenericNames() {
+        let allowed = try! NSRegularExpression(pattern:
+            #"^(Movies|Shows|Season \d+|poster\.png|fanart\.png|Sample (Movie|Show) \d+( \(\d{4}\))?( - S\d\dE\d\d)?( - )?( ?(2160p|1080p|720p))?(\.en)?\.(mkv|mp4|srt|sup))$|^Sample (Movie|Show) \d+( \(\d{4}\))?$"#)
+        for path in UITestFixtures.files().keys {
+            for part in path.split(separator: "/") {
+                let s = String(part)
+                XCTAssertNotNil(allowed.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)), "unexpected name: \(s)")
+            }
+        }
+        XCTAssertEqual(UITestFixtures.sourceName, "Sample Library")
+    }
+
+    func testThePicturesAreValidPNGFilesOfTheRightSize() throws {
+        let png = GradientPNG.make(width: 24, height: 36, hue: 0.3)
+        XCTAssertEqual(Array(png.prefix(8)), [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+        // IHDR: length 13, type, width 24, height 36, and its CRC matches.
+        XCTAssertEqual(Array(png[8..<16]), [0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52])
+        XCTAssertEqual(Array(png[16..<24]), [0, 0, 0, 24, 0, 0, 0, 36])
+        let crc = GradientPNG.crc32(png.subdata(in: 12..<29))
+        XCTAssertEqual(Array(png[29..<33]), Array(GradientPNG.be32(crc)))
+        XCTAssertEqual(Array(png.suffix(12)), [0, 0, 0, 0, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82])
+        // Known CRC-32 check value ("123456789" gives CBF43926).
+        XCTAssertEqual(GradientPNG.crc32(Data("123456789".utf8)), 0xCBF4_3926)
+    }
+
+    func testSeedingFillsTheLibraryThroughTheRealScan() async throws {
+        let store = try SQLiteLibraryStore(path: ":memory:")
+        let now = Date(timeIntervalSince1970: 1_780_000_000)
+        try await UITestFixtures.seed(into: store, now: now)
+        let items = try await UITestFixtures.allItems(store)
+        let movies = items.filter { $0.kind == .movie }
+        let episodes = items.filter { $0.kind == .episode }
+        XCTAssertEqual(movies.count, 6, "\(movies.map(\.title))")
+        XCTAssertEqual(episodes.count, 10, "\(episodes.map(\.title))")
+        XCTAssertTrue(items.allSatisfy { $0.title.hasPrefix("Sample") || ($0.seriesTitle ?? "").hasPrefix("Sample") }, "\(items.map(\.title))")
+
+        // Two versions of Sample Movie 2, the 4K one first.
+        let two = try XCTUnwrap(movies.first { $0.title == "Sample Movie 2" }, "\(movies.map(\.title))")
+        XCTAssertEqual(two.versionCount, 2)
+        XCTAssertEqual(two.watch.watched, true)
+
+        // Real format names in the detail page's version row.
+        let one = try XCTUnwrap(movies.first { $0.title == "Sample Movie 1" })
+        var detail = ItemDetailViewModel(store: store, itemID: one.id)
+        await detail.load()
+        guard case .loaded(let content) = detail.state else { return XCTFail("detail did not load: \(detail.state)") }
+        let row = try XCTUnwrap(content.versions.first?.detail)
+        XCTAssertTrue(row.contains("HEVC"), row)
+        XCTAssertTrue(row.contains("Dolby Vision"), row)
+        XCTAssertTrue(row.contains("Dolby TrueHD with Dolby Atmos"), row)
+        XCTAssertEqual(content.playTitle, "Resume")
+        // The two subtitle files; poster.png and fanart.png are the item's artwork, not extras.
+        XCTAssertEqual(content.extras.map(\.name).sorted(), ["Sample Movie 1 (2021) 2160p.en.srt", "Sample Movie 1 (2021) 2160p.en.sup"])
+
+        // Continue Watching has the half-watched movies and the started episode.
+        let continuing = try await store.continueWatching(limit: 20, now: now, retentionDays: 90)
+        XCTAssertEqual(Set(continuing.map(\.title)).isSuperset(of: ["Sample Movie 1", "Sample Movie 4"]), true, "\(continuing.map(\.title))")
+        XCTAssertTrue(continuing.contains { $0.kind == .episode }, "\(continuing.map(\.title))")
+        XCTAssertTrue(movies.contains { $0.watch.favorite })
+    }
+
+    func testTheSampleSourceRefusesToReadAVideo() async throws {
+        let source = FixtureSource()
+        let root = try await source.list("/")
+        XCTAssertEqual(root.map(\.name), ["Movies", "Shows"])
+        let poster = try await source.read("/Movies/Sample Movie 1 (2021)/poster.png", range: ByteRange(offset: 0, length: 8))
+        XCTAssertEqual(Array(poster), [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+        do {
+            _ = try await source.read("/Movies/Sample Movie 1 (2021)/Sample Movie 1 (2021) 2160p.mkv", range: ByteRange(offset: 0, length: 16))
+            XCTFail("reading a sample video must fail")
+        } catch let error as SourceError {
+            XCTAssertEqual(error, .unsupported(FixtureSource.noVideo))
+        }
+    }
+    #endif
+}

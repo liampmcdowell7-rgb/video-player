@@ -330,7 +330,9 @@ actor MemoryKnownHosts: SFTPKnownHosts {
 }
 
 /// An rclone SFTP server this test starts and stops itself, to be able to change the host key between two connections.
+/// `Process` does not exist on tvOS/iOS: there the server cannot be started and the test skips (simulator test job).
 final class RcloneSFTPServer {
+    #if os(Linux) || os(macOS)
     private let process = Process()
 
     init(rclone: String, data: String, port: Int, hostKey: String, user: String, pass: String) throws {
@@ -347,6 +349,13 @@ final class RcloneSFTPServer {
         process.terminate()
         process.waitUntilExit()
     }
+    #else
+    init(rclone: String, data: String, port: Int, hostKey: String, user: String, pass: String) throws {
+        throw XCTSkip("Starts rclone, a command-line tool; this platform cannot start processes.")
+    }
+
+    func stop() {}
+    #endif
 
     deinit { stop() }
 }

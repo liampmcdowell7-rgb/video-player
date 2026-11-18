@@ -1,4 +1,11 @@
-# Compile check: builds the app and its Top Shelf extension for the tvOS Simulator, with no code signing.
+# Compile check: FOUR INDEPENDENT JOBS that run in parallel from one press of "Run workflow" (OPEN_QUESTIONS R161).
+# No job depends on another (no `needs:`), so a failing job never stops or hides the others. Each job has its own
+# 30-minute timeout, its own error summary in the run page and its own artifact, uploaded even when the job fails.
+#   1. compile           the app and its Top Shelf extension for the tvOS Simulator (unchanged from the second compile check)
+#   2. device-build      the same two targets for a real Apple TV (Release, arm64, unsigned) and an inspection of the .app
+#   3. simulator-tests   the package unit tests (VideoPlayerCore) on a tvOS Simulator; counts are a report, not a gate
+#   4. screenshots       UI tests that take a named screenshot of every screen they can reach, with debug-only sample data
+# docs/GITHUB_ACTIONS_RUNBOOK.md says what to download and what to send back.
 #
 # MANUAL ONLY: the only trigger is workflow_dispatch (the "Run workflow" button on the Actions tab). Nothing runs on push,
 # pull request, tag or schedule. It uses NO secrets.
@@ -17,7 +24,8 @@
 # Build settings for this check only: arm64 simulator slice, whole-module compile, continue after errors (see the build
 # step; OPEN_QUESTIONS R158, R159). Expected run time is about 15 minutes or less; timeout-minutes is only the ceiling.
 #
-# It does NOT run `swift test` (the package tests run in WSL), does not archive, does not sign, does not upload anything to Apple.
+# It does not archive, does not sign, does not upload anything to Apple. Jobs 2 to 4 share their preparation steps through
+# scripts/ci-prepare.sh (the same steps job 1 spells out).
 
 name: Compile check (tvOS Simulator, no signing)
 
@@ -209,5 +217,246 @@ jobs:
             build/ci/*.log
             build/ci/*.json
             build/ci/xcresulttool.stderr
+          if-no-files-found: warn
+          retention-days: 14
+
+  # JOB 2. A real-device build: proves the device (tvos-arm64) slices of every binary framework link, which the simulator
+  # build cannot. Release configuration, so it also proves the debug-only UI-test sample library is compiled out.
+  device-build:
+    name: Build app + Top Shelf (Apple TV device, Release, unsigned)
+    runs-on: xcode-27
+    timeout-minutes: 30
+    env:
+      XCODE_APP: /Applications/Xcode_27.2.app
+      XCODEGEN_VERSION: "2.46.0"
+      XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
+      OUT: build/ci
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          lfs: false
+          persist-credentials: false
+
+      - name: Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)
+        run: bash scripts/ci-prepare.sh
+
+      - name: Build for tvOS devices (arm64, Release, no code signing)
+        run: |
+          set -euo pipefail
+          # -sdk appletvos with generic/platform=tvOS builds for a real Apple TV without needing one. Same all-errors
+          # settings as job 1 (OPEN_QUESTIONS R158).
+          xcodebuild build \
+            -project VideoPlayer.xcodeproj \
+            -scheme VideoPlayer \
+            -configuration Release \
+            -sdk appletvos \
+            -destination 'generic/platform=tvOS' \
+            -clonedSourcePackagesDirPath build/SourcePackages \
+            -derivedDataPath build/DerivedData \
+            -resultBundlePath "$OUT/DeviceBuild.xcresult" \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            -IDEBuildingContinueBuildingAfterErrors=YES \
+            ARCHS=arm64 \
+            SWIFT_COMPILATION_MODE=wholemodule \
+            'OTHER_SWIFT_FLAGS=$(inherited) -continue-building-after-errors' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            2>&1 | tee "$OUT/build.log"
+
+      - name: Summarise errors (file, line, message)
+        if: always()
+        run: bash scripts/ci-summarise-errors.sh "Device build" "$OUT/build.log" "$OUT/resolve.log" "$OUT/xcodegen.log"
+
+      - name: Inspect the device app (embedded frameworks, slices, platform tags, linked libraries, Release has no sample data)
+        if: always()
+        run: bash scripts/ci-inspect-device-app.sh
+
+      - name: Upload the device build results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: device-build-results
+          path: |
+            build/ci/*.txt
+            build/ci/*.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  # JOB 3. The package unit tests on a tvOS Simulator. Tests that need a live server, iCloud, a command-line tool or a
+  # sample file that is not in the repository skip themselves (XCTSkip). A report, not a gate: failures are listed, and
+  # the job is red when a test failed, but the counts are not checked against floors.
+  simulator-tests:
+    name: Package tests (tvOS Simulator)
+    runs-on: xcode-27
+    timeout-minutes: 30
+    env:
+      XCODE_APP: /Applications/Xcode_27.2.app
+      XCODEGEN_VERSION: "2.46.0"
+      XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
+      OUT: build/ci
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          lfs: false
+          persist-credentials: false
+
+      - name: Select Xcode 27.2
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT"
+          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          xcodebuild -version | tee "$OUT/xcode-version.txt"
+
+      - name: Pick the simulator by name (Apple TV 4K, at 1080p preferred)
+        run: |
+          set -euo pipefail
+          xcrun simctl list devices available | tee "$OUT/simulators.txt"
+          UDID="$(xcrun simctl list devices available -j | python3 scripts/ci-pick-simulator.py 2> >(tee -a "$OUT/simulators.txt" >&2))"
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
+
+      - name: Run the package tests (VideoPlayerCore-Package scheme)
+        working-directory: Packages/VideoPlayerCore
+        run: |
+          set -euo pipefail
+          # One test at a time, so the log lines are in order and per-target counts are exact.
+          xcodebuild test \
+            -scheme VideoPlayerCore-Package \
+            -destination "platform=tvOS Simulator,id=$SIM_UDID" \
+            -derivedDataPath "$GITHUB_WORKSPACE/build/PackageDerivedData" \
+            -resultBundlePath "$GITHUB_WORKSPACE/$OUT/PackageTests.xcresult" \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            -parallel-testing-enabled NO \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee "$GITHUB_WORKSPACE/$OUT/test.log"
+
+      - name: Report (passed, skipped, failed per test target; failures listed)
+        if: always()
+        run: |
+          set -uo pipefail
+          bash scripts/ci-summarise-errors.sh "Package tests: build" "$OUT/test.log"
+          python3 scripts/ci-test-report.py "$OUT/test.log" "$OUT/test-report.md" | tee -a "$GITHUB_STEP_SUMMARY"
+          # The WSL floor check, as a report only (its floors are for the Linux runs; this stage has none recorded).
+          bash scripts/test-counts.sh tvos-simulator "$OUT/test.log" > "$OUT/test-counts.txt" 2>&1 || true
+          if [ -d "$OUT/PackageTests.xcresult" ]; then
+            xcrun xcresulttool get test-results summary --path "$OUT/PackageTests.xcresult" > "$OUT/xcresult-test-summary.json" 2>"$OUT/xcresulttool.stderr" || true
+          fi
+
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: simulator-test-results
+          path: |
+            build/ci/*.txt
+            build/ci/*.log
+            build/ci/*.md
+            build/ci/*.json
+            build/ci/xcresulttool.stderr
+          if-no-files-found: warn
+          retention-days: 14
+
+  # JOB 4. Screenshots of every screen the UI tests can reach (UITests/ScreenshotTests.swift), on a tvOS Simulator, with
+  # the debug-only sample library (launch arguments -UITestEmpty / -UITestFixtures, App/Support/UITestMode.swift; R160).
+  screenshots:
+    name: Screenshots of every screen (tvOS Simulator, UI tests)
+    runs-on: xcode-27
+    timeout-minutes: 30
+    env:
+      XCODE_APP: /Applications/Xcode_27.2.app
+      XCODEGEN_VERSION: "2.46.0"
+      XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
+      OUT: build/ci
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          lfs: false
+          persist-credentials: false
+
+      - name: Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)
+        run: bash scripts/ci-prepare.sh
+
+      - name: Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)
+        run: |
+          set -euo pipefail
+          xcrun simctl list devices available | tee "$OUT/simulators.txt"
+          UDID="$(xcrun simctl list devices available -j | python3 scripts/ci-pick-simulator.py 2> >(tee -a "$OUT/simulators.txt" >&2))"
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Run the screenshot UI tests (Debug, simulator, no code signing)
+        run: |
+          set -euo pipefail
+          xcodebuild test \
+            -project VideoPlayer.xcodeproj \
+            -scheme VideoPlayerUITests \
+            -configuration Debug \
+            -destination "platform=tvOS Simulator,id=$SIM_UDID" \
+            -clonedSourcePackagesDirPath build/SourcePackages \
+            -derivedDataPath build/DerivedData \
+            -resultBundlePath "$OUT/Screenshots.xcresult" \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            -parallel-testing-enabled NO \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee "$OUT/test.log"
+
+      - name: Summarise errors (file, line, message)
+        if: always()
+        run: |
+          bash scripts/ci-summarise-errors.sh "Screenshots: build and UI tests" "$OUT/test.log" "$OUT/resolve.log" "$OUT/xcodegen.log"
+          python3 scripts/ci-test-report.py "$OUT/test.log" "$OUT/test-report.md" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Export the screenshots in viewing order (01-..., 02-...) with index.md
+        if: always()
+        run: |
+          set -uo pipefail
+          # The tool's own help goes into the log first, so a changed command line is visible in the run.
+          xcrun xcresulttool help export 2>&1 | tee "$OUT/xcresulttool-help.txt" || true
+          xcrun xcresulttool export attachments --help 2>&1 | tee -a "$OUT/xcresulttool-help.txt" || true
+          [ -d "$OUT/Screenshots.xcresult" ] || { echo "::error::no Screenshots.xcresult"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/attachments" screenshots
+          xcrun xcresulttool export attachments --path "$OUT/Screenshots.xcresult" --output-path "$RUNNER_TEMP/attachments" 2>&1 | tee "$OUT/export.log"
+          python3 scripts/ci-screenshots-index.py "$RUNNER_TEMP/attachments" screenshots
+          status=$?
+          # Keep the artifact under about 45 MB: full-size PNGs when they fit, otherwise JPEG copies (quality 80) at full size.
+          size=$(du -sm screenshots | cut -f1)
+          echo "screenshots folder: ${size} MB"
+          if [ "$size" -gt 45 ]; then
+            for f in screenshots/*.png; do sips -s format jpeg -s formatOptions 80 "$f" --out "${f%.png}.jpg" >/dev/null && rm "$f"; done
+            sed -i '' 's/\.png)/.jpg)/g' screenshots/index.md
+            echo "Converted to JPEG: now $(du -sm screenshots | cut -f1) MB" | tee -a screenshots/index.md
+          fi
+          { echo "## Screenshots"; echo; sed -n '1,200p' screenshots/index.md; } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+
+      - name: Upload the screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots
+          path: screenshots/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload the screenshot job logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots-logs
+          path: |
+            build/ci/*.txt
+            build/ci/*.log
+            build/ci/*.md
           if-no-files-found: warn
           retention-days: 14
