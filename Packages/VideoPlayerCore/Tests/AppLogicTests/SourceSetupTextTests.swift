@@ -32,6 +32,30 @@ final class SourceSetupTextTests: XCTestCase {
         XCTAssertEqual(ftp.fields.first { $0.kind == .port }?.prompt, "21")
     }
 
+    /// #25 B1: one short line per type row, and every type's status, caveat or reason on the Learn More page.
+    func testEveryTypeHasOneShortRowLineAndItsNotesAreOnLearnMore() {
+        let catalog = SourceCatalog.catalog()
+        let page = SourceSetupText.learnMore(catalog)
+        for info in catalog {
+            let line = SourceSetupText.rowLine(info.kind)
+            XCTAssertFalse(line.isEmpty)
+            XCTAssertLessThanOrEqual(line.count, 30, "one short line: \(line)")
+            XCTAssertTrue(page.contains(info.title + "\n"), info.title)
+            if let note = info.unavailableNote { XCTAssertTrue(page.contains(note), info.title) }
+            else { XCTAssertTrue(page.contains(info.statusLine), info.title) }
+            if let caveat = info.caveat { XCTAssertTrue(page.contains(caveat), info.title) }
+        }
+    }
+
+    /// #25 B1: placeholders short enough to show in full (at most 24 characters).
+    func testEveryPlaceholderIsShort() {
+        for info in SourceCatalog.catalog() {
+            for field in info.fields where field.choices.isEmpty {
+                XCTAssertLessThanOrEqual(field.prompt.count, 24, "\(info.title) \(field.title): \(field.prompt)")
+            }
+        }
+    }
+
     func testEveryTypeHasAShortBadge() {
         for kind in SourceKind.allCases {
             let badge = SourceSetupText.statusBadge(kind)

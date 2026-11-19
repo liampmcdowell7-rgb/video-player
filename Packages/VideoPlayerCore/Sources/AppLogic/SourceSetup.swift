@@ -47,7 +47,9 @@ public enum SourceCatalog {
     private static func f(_ k: SourceFieldKind, _ t: String, _ p: String, required: Bool = true, secret: Bool = false) -> SourceFieldSpec {
         SourceFieldSpec(kind: k, title: t, prompt: p, required: required, isSecret: secret)
     }
-    private static let name = f(.name, "Name", "Living Room Server", required: false)
+    // #25 B1: placeholders short enough to show in full in the sheet's field (the run on 1fe5d50 showed "Living Room…" and
+    // "https://nas.l…"); the field's title says what it is.
+    private static let name = f(.name, "Name", "Living Room", required: false)
     private static let user = f(.username, "User Name", "Optional", required: false)
     private static let pass = f(.password, "Password", "Optional", required: false, secret: true)
 
@@ -92,13 +94,13 @@ public enum SourceCatalog {
         switch kind {
         case .webdav:
             title = "WebDAV"; summary = "A web folder, for example on a NAS."; discover = true
-            fields = [name, f(.address, "Address", "https://nas.local/videos"), user, pass]
+            fields = [name, f(.address, "Address", "https://nas.local"), user, pass]
         case .smb:
             title = "SMB"; summary = "A shared folder on a computer or NAS."; discover = true
             fields = [name, f(.host, "Server", "nas.local"), f(.port, "Port", "445", required: false), f(.share, "Shared Folder", "Videos"), user, pass]
         case .nfs:
             title = "NFS"; summary = "An exported folder on a NAS or Linux server."; discover = true
-            fields = [name, f(.host, "Server", "nas.local"), f(.folder, "Exported Folder", "/volume1/videos")]
+            fields = [name, f(.host, "Server", "nas.local"), f(.folder, "Exported Folder", "/videos")]
         case .sftp:
             title = "SFTP"; summary = "A folder reached over SSH (SFTP)."; discover = true
             fields = [name, f(.host, "Server", "nas.local"), f(.port, "Port", "22", required: false),
@@ -110,16 +112,16 @@ public enum SourceCatalog {
                       f(.folder, "Start Folder", "/", required: false), user, pass]
         case .upnp:
             title = "UPnP/DLNA"; summary = "A UPnP/DLNA media server on your network, found automatically or by its address."; discover = true
-            fields = [name, f(.address, "Device Address", "http://nas.local:8200/rootDesc.xml")]
+            fields = [name, f(.address, "Device Address", "http://nas.local:8200")]
         case .jellyfin:
             title = "Jellyfin"; summary = "A Jellyfin media server."
-            fields = [name, f(.address, "Address", "http://server.local:8096"), f(.username, "User Name", "Required"), pass]
+            fields = [name, f(.address, "Address", "http://nas.local:8096"), f(.username, "User Name", "Required"), pass]
         case .emby:
             title = "Emby"; summary = "An Emby media server."
-            fields = [name, f(.address, "Address", "http://server.local:8096"), f(.username, "User Name", "Required"), pass]
+            fields = [name, f(.address, "Address", "http://nas.local:8096"), f(.username, "User Name", "Required"), pass]
         case .directLink:
             title = "Web Link"; summary = "A direct link to one video file, including Dropbox, Google Drive and OneDrive file links. An iCloud Drive sharing page cannot be played."
-            fields = [name, f(.address, "Link", "https://example.com/video.mkv")]
+            fields = [name, f(.address, "Link", "https://nas.local/a.mkv")]
         case .plex:
             title = "Plex"; summary = "A Plex media server."
             note = "blocked: Plex needs a Plex account sign-in, which this app does not offer yet. Use the Plex server’s media folder through SMB or WebDAV instead."

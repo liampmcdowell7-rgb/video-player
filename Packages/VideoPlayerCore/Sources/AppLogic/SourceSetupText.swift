@@ -15,6 +15,43 @@ public enum SourceSetupText {
         }
     }
 
+    /// #25 B1 (OPEN_QUESTIONS R202): the ONE short line under a type's name in the Add a Source list. Short enough to show in
+    /// full in the sheet at every text size (it scales, rule S1). What was tested and why a type is not available are on the
+    /// Learn More page (`learnMore`), one press away, so nothing is hidden.
+    public static func rowLine(_ kind: SourceKind) -> String {
+        switch kind {
+        case .webdav: return "Web folder, as on a NAS"
+        case .smb: return "Shared folder"
+        case .nfs: return "Exported folder"
+        case .sftp: return "Folder over SSH"
+        case .ftp: return "Folder on an FTP server"
+        case .upnp: return "Media server on your network"
+        case .jellyfin: return "Jellyfin media server"
+        case .emby: return "Emby media server"
+        case .directLink: return "Link to one video file"
+        case .plex: return "Needs a Plex sign-in"
+        case .oneDrive: return "Needs an app registration"
+        case .dropbox, .googleDrive: return "No sign-in for TVs"
+        }
+    }
+
+    public static let learnMoreTitle = "About Source Types"
+
+    /// #25 B1: the Learn More page of the Add a Source list: per type, what it is, how it was tested and what was not, or why
+    /// it cannot be set up yet. Built from the catalog, so it always matches the forms.
+    public static func learnMore(_ catalog: [SourceKindInfo]) -> String {
+        catalog.map { info in
+            var parts = [info.summary]
+            if let note = info.unavailableNote {
+                parts.append("Not available yet: " + note)
+            } else {
+                parts.append(info.statusLine + ".")
+                if let caveat = info.caveat { parts.append(caveat) }
+            }
+            return info.title + "\n" + parts.joined(separator: " ")
+        }.joined(separator: "\n\n")
+    }
+
     /// 2.3: a found server's name for one line, and its technical identifier for a second line when the announced name is
     /// a machine identifier ("host-<UUID>-<hex>"). The title is the readable part before the identifier, or "SMB server"
     /// (by kind) when there is none. An ordinary name ("Living Room NAS") is kept whole, with no second line.

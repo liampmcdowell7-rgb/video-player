@@ -17,16 +17,20 @@ struct SourceFormView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        // #15 2.2 (R188): the status and caveat are plain text in the left column, not rows or pills (L3); the fields are
-        // system Form rows in the right half; Connect and Cancel sit together at the end, reached by normal scrolling.
-        // Fixed in code, verify in next screenshots (11 to 19).
-        SettingsPane(title: info.title, summary: info.summary, status: [info.statusLine, info.caveat ?? ""]) {
+        // #25 B1 (R202): one column (`SheetColumn`), the type's name on top and its one sentence under it; the fields are
+        // system Form rows; Connect and Cancel sit together after them. What was tested and what was not (the status and the
+        // caveat) are on the type's Learn More page, one press away. Fixed in code, verify in next screenshots (11 to 19,
+        // 94, 100, 111).
+        SheetColumn(title: info.title, summary: info.summary) {
             ForEach(info.fields) { spec in
                 SourceFieldRow(spec: spec, text: binding(spec.kind), problem: problems.first { $0.field == spec.kind }?.message)
             }
             Section {
                 connectRow
                 Button("Cancel", role: .cancel) { dismiss() }
+                    .accessibilityIdentifier(ControlID.sourceCancel)
+                LearnMoreLink(title: "About \(info.title)", text: [info.statusLine + ".", info.caveat].compactMap { $0 }.joined(separator: " "))
+                    .accessibilityIdentifier(ControlID.learnMore)
             }
         }
         .onChange(of: phase) { _, newPhase in
