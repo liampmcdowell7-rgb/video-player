@@ -103,6 +103,34 @@ final class PlaybackErrorsTests: XCTestCase {
         for t in texts { for word in claims { XCTAssertFalse(t.lowercased().contains(word), "'\(word)' in: \(t)") } }
         XCTAssertTrue(texts.contains { $0.contains("VP9") }, "the unsupported codec is named by its real name")
     }
+
+    /// #15 8.1: the alert is titled by cause when the cause is known.
+    func testTheAlertTitleNamesTheCauseWhenKnown() {
+        XCTAssertEqual(PlaybackFailures.map(URLError(.cannotConnectToHost)).alertTitle, "Server Not Reachable")
+        XCTAssertEqual(PlaybackFailures.playerFailure(.network).alertTitle, "Server Not Reachable")
+        XCTAssertEqual(PlaybackFailures.readFailed(detail: nil).alertTitle, "Can’t Open This File")
+        XCTAssertEqual(PlaybackFailures.damaged.alertTitle, "Can’t Open This File")
+        XCTAssertEqual(PlaybackFailures.noFile.alertTitle, "Can’t Open This File")
+        XCTAssertEqual(PlaybackFailures.unsupportedContainer(fileExtension: "avi").alertTitle, "Format Not Supported")
+        XCTAssertEqual(PlaybackFailures.map(RemuxError.unsupported("video codec V_VP9")).alertTitle, "Format Not Supported")
+        XCTAssertEqual(PlaybackFailures.playerFailure(.other).alertTitle, PlaybackFailure.title)
+    }
+
+    /// #15 8.1: the text never says "try again" without a Try Again button, and a format or a missing file that would fail
+    /// the same way again gets Done only.
+    func testTryAgainIsOfferedExactlyWhenItCanHelp() {
+        var all: [PlaybackFailure] = [PlaybackFailures.noFile, PlaybackFailures.sourceGone, PlaybackFailures.damaged,
+                                      PlaybackFailures.readFailed(detail: nil), PlaybackFailures.unsupportedContainer(fileExtension: "avi"),
+                                      PlaybackFailures.map(URLError(.timedOut)), PlaybackFailures.map(NSError(domain: "x", code: 1))]
+        all += PlayerFailureHint.allCases.map(PlaybackFailures.playerFailure)
+        all += [RemuxError.unsupported("no video track"), .unsupported("video codec V_VP9"), .io("bind() failed"), .truncated("x")].map(PlaybackFailures.map)
+        for f in all where f.text.lowercased().contains("try again") {
+            XCTAssertTrue(f.canTryAgain, "the text says try again: \(f.text)")
+        }
+        XCTAssertFalse(PlaybackFailures.unsupportedContainer(fileExtension: "avi").canTryAgain)
+        XCTAssertFalse(PlaybackFailures.damaged.canTryAgain)
+        XCTAssertTrue(PlaybackFailures.map(URLError(.timedOut)).canTryAgain)
+    }
 }
 
 // MARK: - Status inputs and notices

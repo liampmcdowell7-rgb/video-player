@@ -1,8 +1,8 @@
 import SwiftUI
 import AppLogic
 
-/// Resolves what to play, then hands it to the system player. Shows why, and what to do, when a title cannot be played.
-/// Nothing fails silently: every error path ends in the `.failed` state.
+/// Resolves what to play, then hands it to the system player. Nothing fails silently: every error path closes the player
+/// and hands the reason to `AppServices.playFailure`, which RootView shows as a system alert over the unchanged page (#15 8.1).
 struct PlayerScreen: View {
     let request: PlayRequest
     @Environment(AppServices.self) private var services
@@ -12,7 +12,6 @@ struct PlayerScreen: View {
     enum Phase {
         case loading
         case ready(ResolvedPlayback)
-        case failed(PlaybackFailure)
     }
 
     var body: some View {
@@ -26,20 +25,17 @@ struct PlayerScreen: View {
                        onFailure: { failure in
                            // The player stopped by itself (a stream the decoder rejected): the reason replaces the black screen.
                            resolved.remux?.stop()
-                           phase = .failed(failure)
+                           fail(failure)
                        })
                 // design-lint:allow the system player draws its own safe areas; the video fills the whole screen
                 .ignoresSafeArea()
-        case .failed(let failure):
-            ContentUnavailableView {
-                Label(PlaybackFailure.title, systemImage: "play.slash")
-            } description: {
-                Text(failure.message)
-                if !failure.advice.isEmpty { Text(failure.advice) }
-            } actions: {
-                Button("Done") { dismiss() }
-            }
         }
+    }
+
+    /// Closes the player and leaves the reason for the alert on the page underneath.
+    private func fail(_ failure: PlaybackFailure) {
+        if !failure.isSilentByDesign { services.playFailure = PlayFailurePrompt(failure: failure, request: request) }
+        dismiss()
     }
 
     private func resolve() async {
@@ -53,7 +49,7 @@ struct PlayerScreen: View {
             phase = .ready(resolved)
         } catch {
             let failure = PlaybackFailureMapper.failure(for: error)
-            if failure.isSilentByDesign { dismiss() } else { phase = .failed(failure) }
+            fail(failure)
         }
     }
 }

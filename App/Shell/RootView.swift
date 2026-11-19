@@ -58,6 +58,20 @@ struct RootView: View {
             PlayerScreen(request: request)
                 .uiTestAccessibilityOverrides()
         }
+        // #15 8.1: a title that cannot be played is a system alert over the page it was started from, not a view inside it.
+        .alert(services.playFailure?.failure.alertTitle ?? PlaybackFailure.title,
+               isPresented: Binding(get: { services.playFailure != nil }, set: { if !$0 { services.playFailure = nil } }),
+               presenting: services.playFailure) { prompt in
+            if prompt.failure.canTryAgain {
+                Button("Try Again") {
+                    services.playFailure = nil
+                    services.playRequest = PlayRequest(itemID: prompt.request.itemID, fromStart: prompt.request.fromStart)
+                }
+            }
+            Button("Done", role: .cancel) { services.playFailure = nil }
+        } message: { prompt in
+            Text(prompt.failure.text)
+        }
         .onOpenURL { url in open(DeepLink.parse(url)) }
         .task {
             #if DEBUG

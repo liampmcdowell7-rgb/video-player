@@ -14,6 +14,14 @@ struct PlayRequest: Identifiable, Equatable {
     let fromStart: Bool
 }
 
+/// #15 8.1: a title that could not be played. The player closes and the page it was started from stays as it was, under a
+/// system alert with the reason, "Try Again" (when trying again can help) and "Done".
+struct PlayFailurePrompt: Identifiable {
+    let id = UUID()
+    let failure: PlaybackFailure
+    let request: PlayRequest
+}
+
 /// The one place the app's long-lived parts are built and held, handed to every screen through the environment.
 /// Screens receive plain protocols and view models; none of them builds a database or a network client.
 @MainActor
@@ -46,6 +54,7 @@ final class AppServices {
     var libraryRevision = 0
     var pendingLink: DeepLink?
     var playRequest: PlayRequest?
+    var playFailure: PlayFailurePrompt?
     var isScanning = false
     /// Folders done and still queued in the running scan (the one-time re-sort runs inside a scan, addendum #18 F); nil when
     /// no scan runs. Shown with a system ProgressView in Settings > Library and Needs Review.

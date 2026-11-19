@@ -34,6 +34,27 @@ public struct PlaybackFailure: Error, Equatable, Sendable {
 
     public static let title = "Can’t Play This Title"
 
+    /// #15 8.1: the title of the system alert, by cause when the cause is known: the server could not be reached, the
+    /// file could not be opened, or its format is not supported. Anything else keeps the general title.
+    public var alertTitle: String {
+        switch kind {
+        case .readFailed where message.contains("could not be reached"): return "Server Not Reachable"
+        case .noFile, .sourceGone, .readFailed, .notMatroska, .damaged, .localServer: return "Can’t Open This File"
+        case .unsupportedVideo, .noVideo, .unsupportedLacing, .encrypted, .unsupportedCompression, .unsupportedStructure,
+             .unsupportedContainer: return "Format Not Supported"
+        case .playerRejected, .cancelled, .other: return Self.title
+        }
+    }
+
+    /// #15 8.1: "Try Again" is offered when trying again can help (a server or connection problem, or a cause not known);
+    /// a file that is missing, damaged or in a format that is not supported fails the same way again, so only "Done" shows.
+    public var canTryAgain: Bool {
+        switch kind {
+        case .readFailed, .localServer, .playerRejected, .other: return true
+        default: return false
+        }
+    }
+
     /// Both sentences as one block of text (what a plain text field or a log line shows).
     public var text: String { advice.isEmpty ? message : message + " " + advice }
 
