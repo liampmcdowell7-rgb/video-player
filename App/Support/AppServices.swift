@@ -175,6 +175,10 @@ final class AppServices {
             backup.libraryChanged()
             await writeTopShelf()
         }
+        // Stored before the first suspension: this method and the task body both run on the main actor, so the body cannot
+        // start before the handle is here, and a later cancel always finds it. The syncer reads `Task.isCancelled` at every
+        // folder, which stays set, so even a cancel that came first is not lost (addendum #19 B). The app has no cancel
+        // control for a scan today.
         scanTask = task
         await task.value
         scanTask = nil

@@ -48,5 +48,15 @@ run floors.txt warning-late-split.log
 has "FixtureTargetTests: passed 2, skipped 0, failed 0" && has "XCTest summary says 3 ran" && [ "$RC" -eq 0 ]
 check "split too late to tell the result: line count 2, the XCTest summary (3) keeps the floor met" $?
 
+# --duplicates (addendum #19 B): a test class name in two targets makes the per-target counts wrong.
+OUT="$(VP_TESTS_DIR="$F/Duplicates" bash "$HERE/scripts/test-counts.sh" --duplicates 2>&1)"; RC=$?
+[ "$RC" -eq 1 ] && has "DUPLICATE TEST CLASS: SharedNameTests in AlphaTests, BetaTests"
+check "--duplicates: a test class in two targets is reported, exit 1" $?
+! has "Locked" && ! has "AlphaOnlyTests"; check "--duplicates: a shared helper class and a unique test class are not reported" $?
+OUT="$(VP_TESTS_DIR="$F/Tests" bash "$HERE/scripts/test-counts.sh" --duplicates 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && has "No test class name is used in more than one test target."; check "--duplicates: none found, exit 0" $?
+OUT="$(VP_TESTS_DIR="$HERE/Packages/VideoPlayerCore/Tests" bash "$HERE/scripts/test-counts.sh" --duplicates 2>&1)"; RC=$?
+[ "$RC" -eq 0 ]; check "--duplicates: the real test targets have no duplicate test class name" $?
+
 echo "test-counts tests: passed $P, failed $X"
 [ "$X" -eq 0 ]

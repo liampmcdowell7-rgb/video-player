@@ -16,7 +16,7 @@ unit DolbyVisionRPUTests 15
 unit LibraryBackupTests 16
 unit LibraryIndexTests 78
 unit MetadataLocalTests 124
-unit MetadataOnlineTests 227
+unit MetadataOnlineTests 222
 unit PlaybackLogicTests 163
 unit PlaybackStatusTests 32
 unit RemuxEngineTests 179

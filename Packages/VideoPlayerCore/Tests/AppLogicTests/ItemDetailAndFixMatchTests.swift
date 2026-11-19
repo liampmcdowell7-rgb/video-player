@@ -84,7 +84,9 @@ final class ItemDetailTests: XCTestCase {
     }
 }
 
-final class FixMatchTests: XCTestCase {
+/// Renamed from FixMatchTests (addendum #19 B): MetadataOnlineTests has a class of that name, and XCTest on Linux reports
+/// results by class name only, so the per-target counts put these 5 tests under MetadataOnline.
+final class FixMatchViewModelTests: XCTestCase {
     private func model(_ result: Result<[MatchCandidate], Error>, rig: LibraryRig, itemID: Int64 = 1) -> FixMatchViewModel {
         FixMatchViewModel(store: rig.store, searcher: StubSearcher(result: result), itemID: itemID, kind: .movie, currentTitle: "Heat")
     }

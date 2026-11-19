@@ -82,6 +82,15 @@ else
   echo "Workflows: manual trigger only, no secrets, standard runners only."
 fi
 
+# --- Test class names used in two test targets (addendum #19 B) ---
+# XCTest on Linux reports results by class name only, so scripts/test-counts.sh would credit both classes to one target.
+echo
+echo "== Test class names =="
+if ! bash "$HERE/scripts/test-counts.sh" --duplicates; then
+  echo "!! Rename one of the test classes above before pushing."
+  exit 1
+fi
+
 # --- Files GitHub would refuse (over 100 MiB per file) or warn about (over 50 MiB) ---
 echo
 echo "== Large files =="

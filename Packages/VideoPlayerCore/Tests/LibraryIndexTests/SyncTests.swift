@@ -394,9 +394,18 @@ final class SyncTests: XCTestCase {
             if listed.with({ $0 += 1; return $0 }) == 3 { box.get?.cancel() }
         }
         let syncer = h.syncer
-        let task = Task { try await syncer.sync() }
+        // The scan starts only after its handle is stored (addendum #19 B: under load the task listed three folders before
+        // the handle was there, so the cancel found nothing). No timing is involved.
+        let (handleStored, signalHandleStored) = AsyncStream<Void>.makeStream()
+        let task = Task {
+            for await _ in handleStored { break }
+            return try await syncer.sync()
+        }
         box.with { $0 = task }
+        signalHandleStored.yield()
+        signalHandleStored.finish()
         let cancelled = try await task.value
+        XCTAssertEqual(listed.get, 3, "cancelled while the third folder was listed; no further folder was listed")
         XCTAssertEqual(cancelled.status, .cancelled)
         XCTAssertLessThan(cancelled.progress.foldersDone, 8)
         let open = try await h.store.unfinishedScan(sourceID: Harness.sourceID)

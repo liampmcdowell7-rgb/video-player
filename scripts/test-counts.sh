@@ -4,6 +4,8 @@
 #   bash scripts/test-counts.sh STAGE LOGFILE            print the counts, check the floors, exit 1 when any is below its floor
 #   bash scripts/test-counts.sh --record STAGE LOGFILE   write this log's counts as the new floors (a person decides when)
 #   bash scripts/test-counts.sh --totals LOGFILE         print only "passed P, skipped S, failed F" (used by test-all.sh)
+#   bash scripts/test-counts.sh --duplicates             list test class names used in more than one test target; exit 1 if any
+#                                                        (used by pre-push-check.sh; counts by class name are wrong for them)
 #
 # Why: a stage that "runs" but silently discovers fewer tests (a target with 0 discovered tests happened for the SFTP
 # tests under the default build system, OPEN_QUESTIONS.md R68) must fail loudly instead of printing a small, clean number.
@@ -25,6 +27,31 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TESTS="${VP_TESTS_DIR:-$HERE/Packages/VideoPlayerCore/Tests}"
 FLOORS="${VP_FLOORS_FILE:-$HERE/scripts/test-floors.txt}"
 RECORD=0; TOTALS=0
+
+# Test classes (subclasses of XCTestCase, or any class named …Tests) declared in more than one test target. The counts
+# below map results to targets by class name only, so such a pair puts all its results under one target (addendum #19 B:
+# FixMatchTests in AppLogic and MetadataOnline). Prints one line per name, exit 1 when there is any.
+duplicate_test_classes() {
+  local dir target
+  for dir in "$TESTS"/*/; do
+    target="$(basename "$dir")"
+    grep -rhoE --include='*.swift' '^[[:space:]]*((final|open|public|internal) )*class [A-Za-z0-9_]+[[:space:]]*(:[[:space:]]*XCTestCase)?' "$dir" 2>/dev/null \
+      | sed -E 's/.*class //; s/[[:space:]]*:.*//' | grep -E 'Tests$' | sort -u | sed "s/\$/ $target/"
+    grep -rhoE --include='*.swift' 'class [A-Za-z0-9_]+[[:space:]]*:[[:space:]]*XCTestCase' "$dir" 2>/dev/null \
+      | sed -E 's/class //; s/[[:space:]]*:.*//' | sort -u | sed "s/\$/ $target/"
+  done | sort -u | awk '{ t[$1] = ($1 in t) ? t[$1] ", " $2 : $2; c[$1]++ } END { for (k in c) if (c[k] > 1) print "DUPLICATE TEST CLASS: " k " in " t[k] }' | sort
+}
+if [ "${1:-}" = "--duplicates" ]; then
+  out="$(duplicate_test_classes)"
+  if [ -n "$out" ]; then
+    echo "$out"
+    echo "!! A test class name is used in more than one test target: per-target test counts are wrong for it. Rename one."
+    exit 1
+  fi
+  echo "No test class name is used in more than one test target."
+  exit 0
+fi
+
 if [ "${1:-}" = "--record" ]; then RECORD=1; shift; fi
 if [ "${1:-}" = "--totals" ]; then TOTALS=1; shift; set -- totals "${1:-}"; fi
 STAGE="${1:?usage: test-counts.sh [--record|--totals] STAGE LOGFILE}"; LOGFILE="${2:?usage: test-counts.sh [--record] STAGE LOGFILE}"
@@ -122,5 +149,7 @@ else
   echo "$STAGE  NO FLOORS RECORDED ($FLOORS missing): counts are not checked"
 fi
 if grep -q '(unmapped:' "$COUNTS"; then echo "$STAGE  WARNING: results for classes that belong to no test target (see above)"; fi
+dups="$(duplicate_test_classes)"
+if [ -n "$dups" ]; then printf '%s\n' "$dups" | sed "s/^/$STAGE  WARNING: /"; echo "$STAGE  WARNING: the per-target counts above are wrong for those classes"; fi
 [ "$bad" -eq 0 ] || { echo "$STAGE  FAILED: a target ran fewer tests than its floor"; exit 1; }
 exit 0
