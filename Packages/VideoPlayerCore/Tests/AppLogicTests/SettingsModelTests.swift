@@ -42,7 +42,7 @@ final class SettingsModelTests: XCTestCase {
     func testSettingsKeysAreUniqueAndTheDefaultsAreTheDocumentedOnes() {
         let raws = SettingsKey.allCases.map(\.rawValue)
         XCTAssertEqual(Set(raws).count, raws.count)
-        XCTAssertEqual(SettingsKey.allCases.count, 11)
+        XCTAssertEqual(SettingsKey.allCases.count, 12)
         for key in SettingsKey.allCases where key != .continueWatchingDays && key != .trueHDCompatibilityCore { XCTAssertTrue(key.defaultBool, key.rawValue) }
         // Quality first: the full TrueHD decode is the default; the Dolby Digital core is an opt-in compatibility setting.
         XCTAssertFalse(SettingsKey.trueHDCompatibilityCore.defaultBool)

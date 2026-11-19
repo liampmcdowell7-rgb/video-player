@@ -48,6 +48,20 @@ public struct TMDBArtworkProvider: OnlineArtworkProviding {
         await client.imageURLBuilder().url(path: path, kind: .poster)
     }
 
+    /// #15 Part 9: the picture sets come with the title details (`append_to_response=images`), the same cached request as the
+    /// poster, so asking for logos sends nothing new. Only an item that is already matched has an id.
+    public func images(forItem item: LibraryItem) async -> ImageSet? {
+        guard let id = item.tmdbID else { return nil }
+        switch item.kind {
+        case .movie: return (try? await client.movie(id: id))?.images
+        case .episode: return (try? await client.series(id: id))?.images
+        }
+    }
+
+    public func images(forSeriesID tmdbID: Int) async -> ImageSet? { (try? await client.series(id: tmdbID))?.images }
+
+    public func logoURL(path: String) async -> URL? { await client.imageURLBuilder().url(path: path, kind: .logo) }
+
     private func poster(kind: TitleKind, id: Int) async -> URL? {
         let path: String?
         switch kind {

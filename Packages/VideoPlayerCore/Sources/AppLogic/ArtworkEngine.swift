@@ -51,6 +51,27 @@ public protocol OnlineArtworkProviding: Sendable {
     func posterURL(forSeriesID tmdbID: Int) async -> URL?
     /// Turns a poster path into an address.
     func imageURL(path: String) async -> URL?
+    /// The online picture sets (posters, backdrops, logos) of the title an item is already matched to (no new matching), or
+    /// nil. #15 Part 9: they come with the title details the poster lookup already requested.
+    func images(forItem item: LibraryItem) async -> ImageSet?
+    /// The online picture sets of a series by its online id, or nil.
+    func images(forSeriesID tmdbID: Int) async -> ImageSet?
+    /// Turns a logo path into an address.
+    func logoURL(path: String) async -> URL?
+}
+
+public extension OnlineArtworkProviding {
+    func images(forItem item: LibraryItem) async -> ImageSet? { nil }
+    func images(forSeriesID tmdbID: Int) async -> ImageSet? { nil }
+    func logoURL(path: String) async -> URL? { nil }
+}
+
+/// One title-logo picture to try, in order (#15 9.2). The app decodes it and checks it with `TitleLogoRules.check`; the
+/// first that passes is drawn, and with none the text title stays.
+public struct LogoCandidate: Equatable, Sendable {
+    public var source: TitleLogoSource
+    /// `.file` (read from the source, cached) or `.remote` (fetched by the system image loader).
+    public var location: ArtworkResult
 }
 
 public actor ArtworkEngine {
@@ -147,6 +168,75 @@ public actor ArtworkEngine {
         let entries = try await folderEntries(sourceID: file.sourceID, folder: folder)
         guard let hit = SidecarImageFinder.images(forShowFolder: entries).poster else { return nil }
         return await cached(hit, file.sourceID)
+    }
+
+    // MARK: Title logos (#15 Part 9)
+
+    /// The title-logo pictures to try for a movie page (`item-N`) or a show page (`series-N`), strongest source first: a
+    /// local file next to the media, then the matched title's online logos (only when online lookup has a key; the online
+    /// candidates come ordered by `TitleLogoRules.ordered`). An episode uses its show's logos. Empty: the text title stays.
+    public func logoCandidates(key text: String, userLanguage: String?) async -> [LogoCandidate] {
+        guard let key = ArtworkKey(text) else { return [] }
+        var out: [LogoCandidate] = []
+        do {
+            switch key {
+            case .item(let id):
+                guard let item = try await store.item(id: id) else { return [] }
+                if item.kind == .episode, let seriesID = item.seriesID {
+                    return await logoCandidates(key: "series-\(seriesID)", userLanguage: userLanguage)
+                }
+                let versions = try await store.versions(of: id)
+                if let file = versions.first(where: { $0.id == item.preferredFileID }) ?? versions.first {
+                    let entries = try await folderEntries(sourceID: file.sourceID, folder: file.parentPath)
+                    let videos = entries.filter { !$0.isDirectory && FileClassifier.fileExtension(of: $0.name).isVideoExtension }.count
+                    let found = SidecarImageFinder.images(forMovie: file.name, in: entries, folderHoldsOneVideo: videos <= 1)
+                    if let hit = found.logo, let r = await cached(hit, file.sourceID) { out.append(LogoCandidate(source: .localFile, location: r)) }
+                }
+                if let online, let set = await online.images(forItem: item) {
+                    out += await onlineLogos(set, online, userLanguage)
+                }
+            case .series(let seriesID):
+                if let hit = try await showFolderEntry(seriesID: seriesID, role: .logo), let r = await cached(hit.entry, hit.sourceID) {
+                    out.append(LogoCandidate(source: .localFile, location: r))
+                }
+                if let online, let tmdbID = try await seriesOnlineID(seriesID), let set = await online.images(forSeriesID: tmdbID) {
+                    out += await onlineLogos(set, online, userLanguage)
+                }
+            case .remote:
+                return []
+            }
+        } catch {
+            return out
+        }
+        return out
+    }
+
+    private func onlineLogos(_ set: ImageSet, _ online: any OnlineArtworkProviding, _ language: String?) async -> [LogoCandidate] {
+        var out: [LogoCandidate] = []
+        for ref in TitleLogoRules.ordered(set.logos, userLanguage: language) {
+            if let url = await online.logoURL(path: ref.path) { out.append(LogoCandidate(source: .online, location: .remote(url))) }
+        }
+        return out
+    }
+
+    /// The online id most of a series' episodes carry, or nil.
+    private func seriesOnlineID(_ seriesID: Int64) async throws -> Int? {
+        let ids = try await store.episodes(ofSeries: seriesID).compactMap(\.tmdbID)
+        let counts = Dictionary(grouping: ids, by: { $0 }).mapValues(\.count)
+        return counts.max(by: { $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key })?.key
+    }
+
+    /// A picture of `role` in the show folder (the folder above the season folders), with its source.
+    private func showFolderEntry(seriesID: Int64, role: SidecarImageRole) async throws -> (entry: SourceEntry, sourceID: String)? {
+        guard let first = try await store.episodes(ofSeries: seriesID).first, let file = try await store.versions(of: first.id).first else { return nil }
+        var folder = file.parentPath
+        let last = String(folder.split(separator: "/").last ?? "")
+        if SidecarImageFinder.seasonNumber(ofFolder: last) != nil {
+            folder = Self.parent(of: folder)
+        }
+        let entries = try await folderEntries(sourceID: file.sourceID, folder: folder)
+        guard let hit = SidecarImageFinder.images(forShowFolder: entries)[role] else { return nil }
+        return (hit, file.sourceID)
     }
 
     // MARK: Helpers

@@ -1,6 +1,7 @@
 import XCTest
 import VideoPlayerCore
 import LibraryIndex
+import MetadataOnline
 @testable import AppLogic
 
 // FIXTURE: the "pictures" below are a few bytes of invented data and the online provider is a fake; no file server or service is contacted.
@@ -99,6 +100,11 @@ private final class FakeOnline: OnlineArtworkProviding, @unchecked Sendable {
     func posterURL(forItem item: LibraryItem, file: StoredFile?) async -> URL? { lock.withLock { itemCalls += 1 }; return itemURL }
     func posterURL(forSeriesID tmdbID: Int) async -> URL? { lock.withLock { seriesCalls.append(tmdbID) }; return seriesURL }
     func imageURL(path: String) async -> URL? { URL(string: "https://images.example.invalid/w500" + path) }
+    private(set) var imageCalls = 0
+    var logos: [ImageRef] = []
+    func images(forItem item: LibraryItem) async -> ImageSet? { lock.withLock { imageCalls += 1 }; return item.tmdbID == nil ? nil : ImageSet(logos: logos) }
+    func images(forSeriesID tmdbID: Int) async -> ImageSet? { lock.withLock { imageCalls += 1 }; return ImageSet(logos: logos) }
+    func logoURL(path: String) async -> URL? { URL(string: "https://images.example.invalid/original" + path) }
 }
 
 final class ArtworkEngineTests: XCTestCase {
@@ -247,6 +253,46 @@ final class ArtworkEngineTests: XCTestCase {
         }
         let none = await r.engine(withOnline: false).resolve(key: "remote:/abc.jpg")
         XCTAssertEqual(none, .none, "no key, no address")
+    }
+
+    // MARK: Title logos (#15 Part 9)
+
+    func testAMovieLogoNextToTheFileComesFirstThenTheOnlineLogosInOrder() async throws {
+        let r = try await rig([("/Movies/Heat (1995)/Heat (1995).mkv", 10_000), ("/Movies/Heat (1995)/clearlogo.png", 5)])
+        r.reader.files["/Movies/Heat (1995)/clearlogo.png"] = Data([9])
+        let id = try await r.lib.movieID("Heat")
+        try await r.lib.store.setMetadata(itemID: id, ItemMetadata(tmdbID: 42))
+        r.online.logos = [ImageRef(path: "/fr.png", width: 800, language: "fr", voteAverage: 9),
+                          ImageRef(path: "/en.png", width: 800, language: "en", voteAverage: 1)]
+        let found = await r.engine().logoCandidates(key: "item-\(id)", userLanguage: "en")
+        XCTAssertEqual(found.map(\.source), [.localFile, .online, .online])
+        guard case .file(let url) = found[0].location else { return XCTFail("\(found)") }
+        XCTAssertEqual(try Data(contentsOf: url), Data([9]))
+        XCTAssertEqual(found[1].location, .remote(URL(string: "https://images.example.invalid/original/en.png")!), "English before French")
+    }
+
+    func testWithOnlineLookupOffNothingIsAskedAndOnlyLocalLogosCount() async throws {
+        let r = try await rig([("/Movies/Heat (1995)/Heat (1995).mkv", 10_000)])
+        let id = try await r.lib.movieID("Heat")
+        try await r.lib.store.setMetadata(itemID: id, ItemMetadata(tmdbID: 42))
+        r.online.logos = [ImageRef(path: "/en.png", width: 800, language: "en")]
+        let found = await r.engine(withOnline: false).logoCandidates(key: "item-\(id)", userLanguage: "en")
+        XCTAssertEqual(found, [], "no local logo, no key: the text title stays")
+        XCTAssertEqual(r.online.imageCalls, 0, "Online Lookup off sends nothing")
+    }
+
+    func testAnEpisodeUsesItsShowsLogoFromTheShowFolder() async throws {
+        let r = try await rig([("/TV/Show One (2010)/Season 1/Show One - S01E01 - A.mkv", 1_000), ("/TV/Show One (2010)/clearlogo.png", 5)])
+        r.reader.files["/TV/Show One (2010)/clearlogo.png"] = Data([7])
+        let episodes = try await r.lib.episodes(ofSeriesTitle: "Show One")
+        let ep = try XCTUnwrap(episodes.first)
+        let engine = r.engine(withOnline: false)
+        let viaEpisode = await engine.logoCandidates(key: "item-\(ep.id)", userLanguage: nil)
+        let viaShow = await engine.logoCandidates(key: "series-\(try XCTUnwrap(ep.seriesID))", userLanguage: nil)
+        XCTAssertEqual(viaEpisode, viaShow)
+        XCTAssertEqual(viaShow.map(\.source), [.localFile])
+        let none = await engine.logoCandidates(key: "remote:/x.jpg", userLanguage: nil)
+        XCTAssertEqual(none, [])
     }
 
     func testKeysParse() {

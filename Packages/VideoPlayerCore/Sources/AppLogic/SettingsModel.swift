@@ -17,6 +17,8 @@ public enum SettingsKey: String, CaseIterable, Sendable {
     case scanOnLaunch
     /// Dolby TrueHD tracks with an embedded Dolby Digital core play that core instead of the full lossless decode.
     case trueHDCompatibilityCore
+    /// #15 9.4: title logos in place of the text title on the movie and show pages (on by default; off = text titles).
+    case showTitleLogos
 
     public var defaultBool: Bool {
         switch self {
