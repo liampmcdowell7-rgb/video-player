@@ -457,6 +457,12 @@ final class ScreenshotTests: XCTestCase {
                 settle(); shot("71-files-root"); hierarchy("71-files-root", of: app)
                 if open("Movies", in: app, name: "72-files-folder") {
                     settle(); shot("72-files-folder")
+                    // #15 7.2: opening a folder must keep the Files tab. If the Movies tab got selected instead, say so (the
+                    // test pressed the tab, or the app switched tabs) rather than leave a Movies grid named "files-folder".
+                    let filesTab = app.tabBars.buttons["Files"]
+                    if filesTab.exists, !filesTab.isSelected {
+                        notReached("72-files-folder", "After opening the Movies folder the Files tab is not selected (selected: \(app.tabBars.buttons.matching(NSPredicate(format: "isSelected == true")).firstMatch.label)).")
+                    }
                     if open("Sample Movie 1 (2021)", in: app, name: "73-files-movie-folder") {
                         settle(); shot("73-files-movie-folder")
                         if open("2160p.mkv", in: app, name: "74-file-details") { settle(); shot("74-file-details") }
