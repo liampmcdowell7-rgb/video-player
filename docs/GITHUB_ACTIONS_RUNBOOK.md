@@ -288,14 +288,24 @@ The run's **Summary** page shows the same short list, so you can also copy it fr
 
 ## Part F: the six jobs and their downloads (third compile check onwards, OPEN_QUESTIONS R161)
 
-One press of **Run workflow** now starts seven jobs at the same time (five until #16 item 1.10, which split the
-accessibility job in two; six until #21 B, which split the screenshots job in two). Each has its own line on the run page, its own
-tick or cross, and its own download. One red job does not stop the others. Each job has its own 30-minute limit.
+One press of **Run workflow** starts seven jobs (five until #16 item 1.10, which split the accessibility job in two; six until
+#21 B, which split the screenshots job in two). Each has its own line on the run page, its own tick or cross, and its own
+download. Each job has its own 30-minute limit.
+
+**Order (#23 E).** "Build app + Top Shelf (Simulator)" and "Package tests" start at once. The device build and the four
+screenshot jobs wait for the Simulator build (`needs: compile`) and start only when it is green, about 5 minutes later
+(it took 4:02 in the run of 5ea8e96, plus queueing). Their own 22-minute test deadline counts from their own first stage,
+so it is unchanged; the whole run takes about 5 minutes longer when everything compiles (about 25 instead of about 20
+minutes, an estimate). When the app does not compile, they are skipped (grey), and a small job **"Not taken (the app did
+not compile)"** (ubuntu-latest, about a minute) uploads `screenshots`, `screenshots-library`, `accessibility-screenshots`,
+`accessibility-settings-screenshots` and `device-build-results` with `NOT-TAKEN.txt` / `index.md` saying "NOT TAKEN: the
+app did not compile" and the first error line (the device reports say "NOT CHECKED"). The first compile of the App target
+(#23) failed, and the other jobs then spent their whole time on the same error.
 
 | Job (name on the run page) | What a green tick proves | Download (Artifacts list) | What is inside |
 |---|---|---|---|
 | Build app + Top Shelf (Simulator) | The app and Top Shelf compile for the tvOS Simulator (arm64) | `compile-check-results` | `errors.txt`, `errors-other.txt`, `build.log` |
-| Build app + Top Shelf (Apple TV device, Release, unsigned) | The same compile for a real Apple TV, and the device slices of the codec frameworks, libnfs and the Dolby Vision RPU library link | `device-build-results` | `errors.txt`, `build.log`, `embedded-frameworks.txt`, `macho-report.txt`, `static-libraries.txt`, `release-strings.txt` |
+| Build app + Top Shelf (Apple TV device, Release, unsigned) | The same compile for a real Apple TV, and the device slices of the codec frameworks, libnfs and the Dolby Vision RPU library link | `device-build-results` | `errors.txt`, `build.log`, `embedded-frameworks.txt`, `macho-report.txt`, `static-libraries.txt`, `release-strings.txt`, `process-spawning.txt` (#23 C; every report says NOT CHECKED when the build failed) |
 | Package tests (tvOS Simulator) | The package unit tests build and pass on tvOS (tests that need a server, iCloud or a tool are skipped, not failed) | `simulator-test-results` | `test-report.md` (passed / skipped / failed per test target, then the failures), `test.log` |
 | Screenshots, part 1 (setup, Settings, sorting; tvOS Simulator, UI tests) | The UI tests 01, 02, 03, 10 and 12 (the player clip, 22–27) ran and took pictures | `screenshots` and `screenshots-logs` | `01-….png`, `02-….png` … in viewing order and `index.md` (the list, plus every screen that could not be reached and why) |
 | Screenshots, part 2 (library and detail pages; tvOS Simulator, UI tests) | The UI tests 04, 05, 13 and 14 ran and took pictures | `screenshots-library` and `screenshots-library-logs` | the same kind of folder: Home, Movies, Shows, the movie and show pages, Files, Search, Discover (44–62, 70–76), the synopsis and cast pages (77, 78), the Shows row and the card menu (07, 08), with its own `index.md` |
