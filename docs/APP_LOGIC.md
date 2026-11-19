@@ -13,6 +13,7 @@ Target `AppLogic` in `Packages/VideoPlayerCore`. It is the glue between the feat
 | Library screens (`LibraryScreens.swift`): Home, grid/Movies, Shows, Seasons, Files, Search | yes | yes, 25 tests on a real in-memory `SQLiteLibraryStore` plus a failing wrapper store | no |
 | Shared states and text (`Presentation.swift`) | yes | yes | no |
 | Tabs and the Search tab (`AppTabs.swift`): the six tabs and what Search shows (R167 (c), PROVISIONAL) | yes | yes, 8 tests (`AppTabsTests`) | no |
+| Sorting (`Sorting.swift`): Move form, Move and Sort Automatically, Needs Review list, online check, source setting, texts (R171, docs/SORTING.md) | yes | yes, 7 tests (`SortingLogicTests`) | no |
 | Apple wrappers: only in the app now (`App/Features/Player/ProposalPresenter.swift`, `SkipButtonPresenter.swift`); the unused package copies were deleted after the first compile, 2026-11-17 (R76, R154); the app's `NowPlayingCenterPublisher.swift` was deleted after the second compile, 2026-11-17 (R157) | n/a | **no, cannot be built on Linux** | **no** |
 
 Run: `swift test` in a manifest that has the AppLogic targets: 62 tests, 0 skipped, 0 failed (last run in a private trimmed copy, debug, Swift 6.4.2 on WSL). The test target needs only `AppLogic` and `VideoPlayerCore` in the manifest as written.
@@ -29,6 +30,13 @@ Run: `swift test` in a manifest that has the AppLogic targets: 62 tests, 0 skipp
   results only, and clearing the field brings Discover back. Library results and Discover are never in one list. Only the
   Discover state loads Discover (`loadsDiscover`), so typing or turning Discover off sends no discovery request. The view
   keeps Discover's model while the person types, so clearing the field does not load it again.
+- **Sorting (docs/SORTING.md).** `SortMoveDraft` is the Move to Movies / Move to Shows form: filled from the file name
+  (the item's own title when moving a library item) and checked before anything is saved. `SortMover` writes the choice
+  for every version of an item, or for one Needs Review file, as a `sorting` ledger record; `sortAutomatically` writes the
+  tombstone. `NeedsReviewViewModel` lists the files (500 at most). `OnlineSortResolver` is signal d: a movie search and,
+  only with episode numbers, a show search through `SortLookup` (`MatchEngine` in the app, a fake in tests); exactly one
+  confirmed side at 0.8 or more becomes an `onlineLookup` record. `SortSourceOption` keeps the Jellyfin/Emby setting in
+  the source options. `SortTexts` names each signal. The decision itself is LibraryIndex's `MediaSorter`.
 - **Library screens.** Each is a value type with `async mutating` methods and a `state` of `idle / loading / loaded / empty / failed`. Empty and error wording is final text in `Presentation.swift` and `LibraryScreens.swift`.
 
 ## Interpretations (all PROVISIONAL, none has spec text; listed in OPEN_QUESTIONS under item E)

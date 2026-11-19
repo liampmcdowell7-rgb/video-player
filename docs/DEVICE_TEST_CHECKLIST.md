@@ -2,7 +2,8 @@
 
 Everything below is **untested**: only an Apple TV (with a real TV, and for some items a receiver) can check it. Each item says
 what to do and what "pass" looks like. Platform items P1 to P37 are in `DEVICE_TEST_CHECKLIST_PLATFORM.md`, visual items in
-`DEVICE_TEST_CHECKLIST_VISUAL.md`.
+`DEVICE_TEST_CHECKLIST_VISUAL.md`, sorting into Movies and Shows (SO1 "flat mixed folder sorts into Movies and Shows" to
+SO14) in `DEVICE_TEST_CHECKLIST_SORTING.md`.
 
 ## A. The stream starts and plays
 - E1. Play an H.264 MKV with AAC audio. Pass: picture and sound start within about 5 seconds, no stutter for 2 minutes.
