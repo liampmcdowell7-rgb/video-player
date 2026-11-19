@@ -80,7 +80,7 @@ public struct DiscoverViewModel: Sendable {
         self.source = source; self.library = library; self.watchlist = watchlist; self.region = region; self.limits = limits
     }
 
-    public static let needsKey = EmptyState(reason: .nothingIndexed, title: OnlineLookupText.discoverNeedsKeyTitle, message: OnlineLookupText.discoverNeedsKey)
+    public static let needsKey = EmptyState(reason: .needsKey, title: OnlineLookupText.discoverNeedsKeyTitle, message: OnlineLookupText.discoverNeedsKey)
     public static let nothingYet = EmptyState(
         reason: .nothingIndexed, title: "Nothing to Suggest Yet",
         message: "Discover works from the titles in your library that have been matched online, and from your watchlist. Matching runs in the background once pictures are loading; play or favorite something and check again.")

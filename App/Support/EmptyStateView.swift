@@ -24,6 +24,8 @@ struct EmptyStateView: View {
         case .nothingIndexed: return "tray"
         case .noMatches, .noQuery: return "magnifyingglass"
         case .emptyFolder: return "folder"
+        // #15 10.1: a key, not an inbox, for "Discover Needs a Key".
+        case .needsKey: return "key"
         }
     }
 }

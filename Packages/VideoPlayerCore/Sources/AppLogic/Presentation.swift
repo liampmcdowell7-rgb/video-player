@@ -17,6 +17,8 @@ public struct EmptyState: Equatable, Sendable {
         case emptyFolder
         /// The search field is empty (nothing was searched yet).
         case noQuery
+        /// A feature that needs the user's own online-lookup key, which is not entered yet (#15 10.1).
+        case needsKey
     }
     public var reason: Reason
     public var title: String

@@ -68,6 +68,10 @@ public struct HomeViewModel: Sendable {
     public static let nothingIndexed = EmptyState(
         reason: .nothingIndexed, title: "Nothing Here Yet",
         message: "Your sources are still being scanned, or no videos were found in them.")
+    /// #15 10.2: the Files tab browses folders, so its empty state says that instead of "see your movies and shows here".
+    public static let noSourcesForFiles = EmptyState(
+        reason: .noSources, title: "No Sources Yet",
+        message: "Add a server or a shared folder to browse its folders here.", actionTitle: "Add a Source")
 }
 
 // MARK: Grid (Movies, and any filtered list of items)

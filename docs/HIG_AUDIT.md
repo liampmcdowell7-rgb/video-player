@@ -149,9 +149,13 @@ tested on any screen: **unproven everywhere**, and nothing was run with those se
 - 7 System keyboard: unproven. The UI test could not type with `typeText` in run 44401030622 (a test problem, not an
   app one); the test now presses the keyboard keys.
 - 5 Three non-result states: unproven (ContentUnavailableView.search).
+- #15 10.3, screenshot 76 ("No Results for ...", spelling hint): the code draws it with the system `ContentUnavailableView`
+  (App/Support/EmptyStateView.swift, via SearchView.swift:41) with the app's own title and message. That is a system view, not
+  `ContentUnavailableView.search`. Confirmed in code; the look is from the screenshot only.
 
 ### Discover
-- 5 No key / offline states: unproven.
+- 5 No key / offline states: unproven. #15 10.1: the no-key state now uses the `key` symbol instead of the inbox (`tray`)
+  (empty-state reason `.needsKey`). Fixed in code, verify in next screenshots.
 - 13 Title, year and reason: changed (R165). The "where to watch" sentence keeps wrapping (a sentence, not a short
   text). Unproven.
 - 18 TMDB logo only in Settings > About > Data Sources: pass in code (design-lint); unproven on screen.

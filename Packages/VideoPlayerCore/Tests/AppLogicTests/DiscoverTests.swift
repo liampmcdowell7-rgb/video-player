@@ -171,6 +171,7 @@ final class DiscoverViewModelTests: XCTestCase {
         await vm.load()
         guard case .empty(let empty) = vm.state else { return XCTFail("state \(vm.state)") }
         XCTAssertEqual(empty.title, "Discover Needs a Key")
+        XCTAssertEqual(empty.reason, .needsKey, "#15 10.1: drawn with a key symbol")
         XCTAssertTrue(empty.message.contains("Settings > Online Lookup"))
         XCTAssertTrue(empty.message.contains("TMDB key"))
     }
@@ -231,5 +232,16 @@ final class StoreDiscoverLibraryTests: XCTestCase {
         XCTAssertEqual(library.ownedSeriesIDs, [1396])
         XCTAssertEqual(library.ownedEpisodes[1396], [EpisodeKey(season: 1, episode: 1), EpisodeKey(season: 1, episode: 2), EpisodeKey(season: 1, episode: 3), EpisodeKey(season: 2, episode: 1)])
         XCTAssertEqual(library.seeds.map(\.tmdbID), [949, 1396], "the favorite first, then the played show; unplayed titles are not seeds")
+    }
+}
+
+/// #15 10.2: the Files tab's empty state talks about folders, not about movies and shows.
+final class FilesEmptyStateTests: XCTestCase {
+    func testTheFilesEmptyStateSaysItBrowsesFolders() {
+        let e = HomeViewModel.noSourcesForFiles
+        XCTAssertEqual(e.reason, .noSources)
+        XCTAssertEqual(e.message, "Add a server or a shared folder to browse its folders here.")
+        XCTAssertFalse(e.message.contains("movies and shows"))
+        XCTAssertEqual(e.actionTitle, "Add a Source")
     }
 }
