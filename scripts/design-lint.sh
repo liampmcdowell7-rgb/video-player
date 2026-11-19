@@ -41,6 +41,7 @@
 #   short-line             .lineLimit(1) with no .minimumScaleFactor within 3 lines (rule S1: fit by scaling, never "...")
 #   pushed-title           a .navigationTitle with the navigation bar left visible (rule D1: no dim duplicate title)
 #   fixture-claim          "Tested against a real server" or .realServer in sample or fixture data (rule D7)
+#   section-title-closure  Section("Title") { } followed by header: or footer: (no such SwiftUI initializer; #23 A)
 #
 # The names rule (unknown-name), exactly. It reads UI strings only (string literals in .swift files, keys and values in
 # .xcstrings files), never comments or code identifiers. Per string: interpolations \(...), escapes, URLs, paths and
@@ -222,6 +223,34 @@ image_control() {
       if (sp > 0 && line ~ /(^|[^A-Za-z0-9_])Image\(/ && line !~ /(^|[^A-Za-z0-9_])Image\(systemName:/) print NR
       depth += count(line, "{") - count(line, "}")
       while (sp > 0 && depth <= stack[sp]) sp--
+    }' "$1"
+}
+
+# section_title_closure CODEFILE (#23 A): lines of a Section(<title>) { ... } that is followed by a header: or footer:
+# closure. SwiftUI has Section(_:content:) and Section(content:header:footer:), but no initializer that takes a title AND
+# a header or footer closure, so this fails to compile ("generic parameter 'Content' could not be inferred"). Brace and
+# parenthesis matching runs on the code stream (strings blanked, comments removed), across lines.
+section_title_closure() {
+  awk '
+    { all = all $0 "\n" }
+    END {
+      n = length(all); line = 1
+      for (i = 1; i <= n; i++) { ch[i] = substr(all, i, 1); ln[i] = line; if (ch[i] == "\n") line++ }
+      for (i = 1; i <= n - 8; i++) {
+        if (substr(all, i, 8) != "Section(") continue
+        if (i > 1 && ch[i - 1] ~ /[A-Za-z0-9_.]/) continue
+        j = i + 8; while (j <= n && ch[j] ~ /[ \t\n]/) j++
+        if (ch[j] == ")") continue
+        if (ch[j] != "\"") { k = j; while (k <= n && ch[k] ~ /[A-Za-z0-9_]/) k++; if (k > j && ch[k] == ":") continue }
+        d = 0
+        for (k = i + 7; k <= n; k++) { if (ch[k] == "(") d++; else if (ch[k] == ")") { d--; if (d == 0) break } }
+        k++; while (k <= n && ch[k] ~ /[ \t\n]/) k++
+        if (ch[k] != "{") continue
+        d = 0
+        for (; k <= n; k++) { if (ch[k] == "{") d++; else if (ch[k] == "}") { d--; if (d == 0) break } }
+        k++; while (k <= n && ch[k] ~ /[ \t\n]/) k++
+        if (substr(all, k, 7) == "header:" || substr(all, k, 7) == "footer:") print ln[i]
+      }
     }' "$1"
 }
 
@@ -434,6 +463,7 @@ for e in "${FILES[@]}"; do
     scan "$f" "$nf" "$cf" pushed-title '\.navigationTitle\(' 'navigation title with the bar left visible: use .pushedScreen(title) so no dim duplicate title is drawn (rule D1)'
   fi
 
+  while IFS= read -r ln; do [ -n "$ln" ] && report "$f" "$nf" "$ln" section-title-closure 'Section("Title") { } with a header: or footer: closure does not compile: write Section { } header: { Text("Title") } footer: { } (#23 A)'; done < <(section_title_closure "$cf")
   if ! grep -q 'accessibilityReduceMotion' "$cf"; then
     scan "$f" "$nf" "$cf" motion 'withAnimation|\.animation\(|\.transition\(|\.contentTransition\(|\.symbolEffect\(|\.phaseAnimator\(|\.keyframeAnimator\(' 'animation with no @Environment(\.accessibilityReduceMotion) in this file: honour Reduce Motion'
   fi
