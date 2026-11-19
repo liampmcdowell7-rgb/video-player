@@ -24,8 +24,27 @@ public enum UITestFixtureDetails {
         + "sample plans, changes those plans twice and then goes home again, which is all this placeholder needs to say. ", count: 6)
         + "It ends here, still describing no real film."
 
+    /// #25 B7: every sample actor has a role; the odd-numbered ones have a generated photo (a plain gradient, no real
+    /// picture), the even-numbered ones none, so the shelf shows both the photo and the system placeholder.
     static func cast(_ count: Int) -> [TitleDetails.CastMember] {
-        (1...count).map { TitleDetails.CastMember(id: $0, name: "Sample Actor \($0)", role: $0 == 3 ? nil : "Sample Role \($0)") }
+        (1...count).map { n in
+            TitleDetails.CastMember(id: n, name: "Sample Actor \(n)", role: "Sample Role \(n)", photo: n % 2 == 1 ? photo(n) : nil)
+        }
+    }
+
+    /// The generated photo of sample actor `n`: a gradient PNG written once into the temporary folder. Nil when it cannot be
+    /// written (the shelf then shows the placeholder).
+    static func photo(_ n: Int) -> URL? {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("uitest-cast", isDirectory: true)
+        let url = folder.appendingPathComponent("actor-\(n).png")
+        if FileManager.default.fileExists(atPath: url.path) { return url }
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try GradientPNG.make(width: 160, height: 160, hue: Double(n) * 0.13).write(to: url)
+            return url
+        } catch {
+            return nil
+        }
     }
 
     /// The fake details of a sample title, or nil (a page with neither synopsis nor cast).

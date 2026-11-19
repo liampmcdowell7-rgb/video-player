@@ -109,4 +109,17 @@ final class FixtureLogoTests: XCTestCase {
         XCTAssertEqual(verdicts["Sample Movie 5 (2020)"], .some(.notTransparent))
         XCTAssertEqual(verdicts["Sample Movie 6 (2017)"], .some(.tooSmall))
     }
+
+    /// #25 B8: the logo is the plain wordmark "SAMPLE" (block letters), not bars: the first column of ink is the S's top bar
+    /// (not its left edge, which starts one row lower), and the gap between two letters has no ink.
+    func testTheFixtureLogoIsAWordmark() {
+        let logo = LogoPNG(width: 800, height: 200, ink: (245, 245, 245), background: nil)
+        let ink = (0..<logo.height).flatMap { y in (0..<logo.width).map { x in (x, y) } }.filter { logo.isInk(x: $0.0, y: $0.1) }
+        XCTAssertFalse(ink.isEmpty)
+        let cell = max(1, min(800 / (35 + 2), 200 * 3 / 5 / 7))
+        let left = (800 - 35 * cell) / 2, top = (200 - 7 * cell) / 2
+        XCTAssertFalse(logo.isInk(x: left, y: top), "S: no ink at the top-left corner")
+        XCTAssertTrue(logo.isInk(x: left, y: top + cell), "S: its left edge starts on the second row")
+        for row in 0..<7 { XCTAssertFalse(logo.isInk(x: left + 5 * cell, y: top + row * cell), "gap between S and A") }
+    }
 }

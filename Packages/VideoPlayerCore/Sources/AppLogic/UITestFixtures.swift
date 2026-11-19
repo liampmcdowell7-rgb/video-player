@@ -31,7 +31,7 @@ public enum UITestFixtures {
     }
 
     /// A Jellyfin source that is never scanned or contacted (UI-test launches do not scan; `.invalid` never resolves). It
-    /// exists only so the source page with "Sort by Filename Instead of Server Library Types" can be drawn (addendum #18 B).
+    /// exists only so the source page with "Sort by Filename" can be drawn (addendum #18 B).
     public static let serverID = "uitest-sample-server"
     public static var serverDefinition: UDSourceDefinition {
         UDSourceDefinition(id: serverID, kind: SourceKind.jellyfin.rawValue, name: "Sample Server", host: "server.sample.invalid",
@@ -125,9 +125,11 @@ public enum UITestFixtures {
     /// D7: invented, generic episode titles for Show 1 (the parser reads "Show - S01E01 - Title"), one of them long enough
     /// to need the code-first rule S1 on an episode card. Show 2 is the item with missing data (D7): no episode titles,
     /// no poster and no fan art, so the screens show their fallbacks.
+    /// #25 B7: S2 E1 (the fifth) has a plain title, so the season 2 shelf opens with "S2 E1 · Second chances"; the long title
+    /// is S2 E3.
     static let episodeTitles = [
         "A quiet beginning", "The long way round", "Lights over the harbor", "Small hours",
-        "A very long episode title that is wider than any episode card on the show page", "Second chances", "The last stop",
+        "Second chances", "The last stop", "A very long episode title that is wider than any episode card on the show page",
     ]
 
     static func episodePath(show: String, season: Int, episode: Int) -> String {
@@ -172,8 +174,19 @@ public enum UITestFixtures {
         var files: [String: FixtureSource.File] = [:]
         for movie in movies {
             for video in movie.videos { files[video.path] = .init(size: video.size, data: nil) }
-            files[movie.folder + "/poster.png"] = .init(data: GradientPNG.make(width: 240, height: 360, hue: movie.hue))
-            files[movie.folder + "/fanart.png"] = .init(data: GradientPNG.make(width: 480, height: 270, hue: movie.hue + 0.08))
+            let poster = GradientPNG.make(width: 240, height: 360, hue: movie.hue)
+            let backdrop = GradientPNG.make(width: 480, height: 270, hue: movie.hue + 0.08)
+            files[movie.folder + "/poster.png"] = .init(data: poster)
+            files[movie.folder + "/fanart.png"] = .init(data: backdrop)
+            // #25 B8: a folder with two versions hands its folder-wide poster.png and fanart.png to neither
+            // (SidecarImageFinder), so Sample Movie 2's page had no backdrop. Each version gets its own same-name pictures.
+            if movie.videos.count > 1 {
+                for video in movie.videos {
+                    let stem = ((video.path as NSString).lastPathComponent as NSString).deletingPathExtension
+                    files[movie.folder + "/" + stem + "-poster.png"] = .init(data: poster)
+                    files[movie.folder + "/" + stem + "-fanart.png"] = .init(data: backdrop)
+                }
+            }
             if movie.subtitles, let first = movie.videos.first {
                 let stem = ((first.path as NSString).lastPathComponent as NSString).deletingPathExtension
                 files[movie.folder + "/" + stem + ".en.srt"] = .init(data: Data(sampleSubtitles.utf8))
@@ -214,13 +227,22 @@ public enum UITestFixtures {
         try await LibrarySyncer(store: store, source: FixtureSource(), sourceID: sourceID, clock: { referenceDate }).sync()
 
         var technical: [String: FileTechnicalInfo] = [:]
-        for movie in movies { for v in movie.videos { technical[v.path] = v.technical } }
+        var subtitled: Set<String> = []
+        for movie in movies {
+            for v in movie.videos { technical[v.path] = v.technical }
+            if movie.subtitles { subtitled.formUnion(movie.videos.map(\.path)) }
+        }
         for v in episodes { technical[v.path] = v.technical }
 
         let items = try await allItems(store)
         for item in items {
             for file in try await store.versions(of: item.id) {
-                if let t = technical[file.path] { try await store.setTechnicalInfo(fileID: file.id, t) }
+                if let t = technical[file.path] {
+                    try await store.setTechnicalInfo(fileID: file.id, t)
+                    // #25 B6: what the header probe would read, so Media Info shows the real layout (frame rate, every
+                    // audio track, embedded subtitles) instead of "Not checked yet". The sample files have no header.
+                    try await store.setTrackDetails(fileID: file.id, trackDetails(t, hasSubtitles: subtitled.contains(file.path)))
+                }
             }
         }
         // Watch states, matched by the folder the item's file is in.
@@ -240,6 +262,15 @@ public enum UITestFixtures {
                 try await store.updateProgress(itemID: item.id, position: 2580 * 0.3, duration: 2580, at: now.addingTimeInterval(-7_200))
             }
         }
+    }
+
+    /// #25 B6: invented header facts for a sample file: 23.976 fps (25 for the 1080p episodes), the main audio track in
+    /// English and a stereo French one, and an English PGS subtitle track when the title has subtitles.
+    static func trackDetails(_ t: FileTechnicalInfo, hasSubtitles: Bool) -> FileTrackDetails {
+        let main = FileTrackDetails.Audio(codec: t.audioCodec ?? "aac", channels: t.audioChannels, language: "eng", name: nil, isDefault: true)
+        let second = FileTrackDetails.Audio(codec: "aac", channels: 2, language: "fre", name: nil, isDefault: false)
+        let subtitles = hasSubtitles ? [FileTrackDetails.Subtitle(codec: "PGS", language: "eng", name: nil, isForced: false, isHearingImpaired: false)] : []
+        return FileTrackDetails(frameRate: t.duration == 2580 ? 25 : 23.976023976, audio: [main, second], subtitles: subtitles)
     }
 
     static func allItems(_ store: SQLiteLibraryStore) async throws -> [LibraryItem] {
@@ -328,28 +359,46 @@ public struct FixtureSource: MediaSource {
     static let noVideo = "This is a sample file made for screenshots. It has no video."
 }
 
-/// A generated "title logo" (#15 9.6): blocky bars that stand in for lettering, in one ink colour, on a transparent background
-/// (RGBA PNG) or on a solid one. Synthetic: no real title's artwork.
+/// A generated "title logo" (#15 9.6): the plain wordmark "SAMPLE" in a simple 5 × 7 block lettering, in one ink colour, on a
+/// transparent background (RGBA PNG) or on a solid one. Synthetic: no real title's artwork. #25 B8: before, blocky bars
+/// that looked like a barcode stood in for the lettering.
 struct LogoPNG {
     var width: Int
     var height: Int
     var ink: (UInt8, UInt8, UInt8)
     var background: (UInt8, UInt8, UInt8)?
 
+    static let word = "Sample".uppercased()
+    /// 5 × 7 block letters, "#" is ink.
+    static let glyphs: [Character: [String]] = [
+        "S": [" ####", "#    ", "#    ", " ### ", "    #", "    #", "#### "],
+        "A": [" ### ", "#   #", "#   #", "#####", "#   #", "#   #", "#   #"],
+        "M": ["#   #", "## ##", "# # #", "# # #", "#   #", "#   #", "#   #"],
+        "P": ["#### ", "#   #", "#   #", "#### ", "#    ", "#    ", "#    "],
+        "L": ["#    ", "#    ", "#    ", "#    ", "#    ", "#    ", "#####"],
+        "E": ["#####", "#    ", "#    ", "#### ", "#    ", "#    ", "#####"],
+    ]
+
+    /// True when the pixel (x, y) is ink: the word centred, each letter 5 cells wide with one cell between letters.
+    func isInk(x: Int, y: Int) -> Bool {
+        let letters = Array(Self.word)
+        let columns = letters.count * 6 - 1
+        let cell = max(1, min(width / (columns + 2), height * 3 / 5 / 7))
+        let left = (width - columns * cell) / 2, top = (height - 7 * cell) / 2
+        guard x >= left, y >= top else { return false }
+        let column = (x - left) / cell, row = (y - top) / cell
+        guard column < columns, row < 7, column % 6 != 5 else { return false }
+        guard let glyph = Self.glyphs[letters[column / 6]] else { return false }
+        return Array(glyph[row])[column % 6] == "#"
+    }
+
     /// The pixels, row after row, RGBA (what `LogoPixels.measure` reads; the fixture tests check them).
     var rgba: [UInt8] {
         var out: [UInt8] = []
         out.reserveCapacity(width * height * 4)
-        let letters = 7
-        let cell = max(1, width / (letters * 3 + 1))
-        let top = height / 5, bottom = height - height / 5
         for y in 0..<height {
             for x in 0..<width {
-                // Letter k covers columns [cell*(3k+1), cell*(3k+3)); every other letter has a gap in its middle third.
-                let k = x / cell
-                let inLetter = k % 3 != 0 && k / 3 < letters && y >= top && y < bottom
-                let gap = (k / 3) % 2 == 1 && y >= top + (bottom - top) / 3 && y < bottom - (bottom - top) / 3 && k % 3 == 1
-                if inLetter && !gap {
+                if isInk(x: x, y: y) {
                     out += [ink.0, ink.1, ink.2, 255]
                 } else if let b = background {
                     out += [b.0, b.1, b.2, 255]
