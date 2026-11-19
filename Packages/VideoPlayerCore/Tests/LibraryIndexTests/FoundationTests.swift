@@ -105,7 +105,7 @@ final class FoundationTests: XCTestCase {
         try db.prepareLibrarySchema()   // idempotent
         XCTAssertEqual(try db.scalarInt("PRAGMA user_version"), LibrarySchema.currentVersion)
         let tables = try db.rows("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name") { $0.text(0) }
-        XCTAssertEqual(tables, ["files", "folders", "item_genres", "items", "scan_queue", "scans", "series", "sources", "views"])
+        XCTAssertEqual(tables, ["file_tracks", "files", "folders", "item_genres", "items", "scan_queue", "scans", "series", "sources", "views"])
     }
 
     // MARK: Text helpers

@@ -344,6 +344,7 @@ extension SQLiteLibraryStore {
             let items = try db.rows("SELECT DISTINCT item_id FROM files WHERE removed_at IS NOT NULL AND removed_at < ? AND item_id IS NOT NULL", [cutoff]) { $0.int64(0) }
             var n = try db.run("DELETE FROM files WHERE removed_at IS NOT NULL AND removed_at < ?", [cutoff])
             n += try db.run("DELETE FROM folders WHERE removed_at IS NOT NULL AND removed_at < ?", [cutoff])
+            try dropOrphanTrackDetails()
             try deleteEmptyItems(among: items, keepWatched: true)
             return n
         }

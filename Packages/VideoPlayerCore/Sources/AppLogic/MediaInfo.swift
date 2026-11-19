@@ -1,5 +1,6 @@
 import Foundation
 import LibraryIndex
+import MetadataLocal
 import MetadataOnline
 
 /// One line of the detail page's "Media Info" section (#15 6.2): a label and its value.
@@ -9,22 +10,22 @@ public struct MediaInfoRow: Equatable, Sendable, Identifiable {
     public var value: String
 }
 
-/// The "Media Info" section of a movie or episode page (#15 6.2): what the preferred file contains, most important first,
-/// always fully shown. Everything comes from the library index (file-name tags and the probe); a value the index does not
-/// hold says so instead of being guessed. The index keeps one audio track and no frame rate or embedded subtitle list, so
-/// those rows say what is and is not known (OPEN_QUESTIONS R182).
+/// The "Media Info" section of a movie or episode page (#15 6.2, #21 C): what the preferred file contains, most important
+/// first (resolution, HDR, video codec, frame rate, bitrate, each audio track, subtitles, container, size, source, path),
+/// always fully shown. The library index gives the first part (file-name tags and the scan); the frame rate, every audio
+/// track and the subtitles inside the file come from the file's header, read when the page opens (`MediaTrackProbe`,
+/// OPEN_QUESTIONS R192). Until then, and for containers that are not read, those rows say "Not known"; nothing is guessed.
 public enum MediaInfo {
-    /// The value of a row the index has no answer for.
+    /// The value of a row there is no answer for (yet).
     public static let notKnown = "Not known"
-    /// Frame rate: the index does not record it.
-    public static let frameRateNotRead = "Not read from the file"
 
-    public static func rows(file: StoredFile, sidecars: [StoredFile], sourceName: String?) -> [MediaInfoRow] {
+    public static func rows(file: StoredFile, sidecars: [StoredFile], sourceName: String?, tracks: FileTrackDetails? = nil) -> [MediaInfoRow] {
         rows(technical: file.technical, size: file.size, path: file.path,
-             subtitleNames: sidecars.filter { $0.kind == .subtitle }.map(\.name), sourceName: sourceName)
+             subtitleNames: sidecars.filter { $0.kind == .subtitle }.map(\.name), sourceName: sourceName, tracks: tracks)
     }
 
-    public static func rows(technical t: FileTechnicalInfo?, size: Int64?, path: String, subtitleNames: [String], sourceName: String?) -> [MediaInfoRow] {
+    public static func rows(technical t: FileTechnicalInfo?, size: Int64?, path: String, subtitleNames: [String], sourceName: String?,
+                            tracks: FileTrackDetails? = nil) -> [MediaInfoRow] {
         var rows: [MediaInfoRow] = []
         func add(_ label: String, _ value: String?) { rows.append(MediaInfoRow(label: label, value: value ?? notKnown)) }
 
@@ -33,16 +34,63 @@ public enum MediaInfo {
         let hdr = t.flatMap { FormatNames.hdr($0.hdrFormats, dolbyVisionProfile: $0.dolbyVisionProfile) }
         add("HDR", hdr ?? ((t?.height != nil || t?.videoCodec != nil) ? "None (SDR)" : nil))
         add("Video", t?.videoCodec.map(FormatNames.videoCodec))
-        add("Frame Rate", frameRateNotRead)
+        add("Frame Rate", tracks?.frameRate.flatMap(frameRate))
         add("Bitrate", t?.bitrate.flatMap(bitrate))
-        add("Audio", t.flatMap { FormatNames.audio(codec: $0.audioCodec, channels: $0.audioChannels, atmos: $0.hasAtmos) })
-        let subtitles = subtitleNames.sorted()
-        add("Subtitles", subtitles.isEmpty ? "No subtitle files next to the video" : subtitles.joined(separator: ", "))
+        // Every audio track when the header was read ("Audio 1", "Audio 2", ...); before that the index's one line.
+        if let audio = tracks?.audio, !audio.isEmpty {
+            for (i, track) in audio.enumerated() {
+                rows.append(MediaInfoRow(label: audio.count == 1 ? "Audio" : "Audio \(i + 1)", value: audioLine(track)))
+            }
+        } else {
+            add("Audio", t.flatMap { FormatNames.audio(codec: $0.audioCodec, channels: $0.audioChannels, atmos: $0.hasAtmos) })
+        }
+        add("Subtitles", subtitlesLine(embedded: tracks?.subtitles, files: subtitleNames))
         add("Container", t?.container.map(containerName))
         add("File Size", size.map(DisplayText.fileSize))
         add("Source", sourceName)
         add("Path", path)
         return rows
+    }
+
+    /// "23.976 fps", "25 fps".
+    public static func frameRate(_ fps: Double) -> String? {
+        guard fps > 0, fps.isFinite else { return nil }
+        let rounded = (fps * 1000).rounded() / 1000
+        let text = rounded == rounded.rounded() ? String(Int(rounded)) : String(format: "%.3f", rounded)
+            .replacingOccurrences(of: "0+$", with: "", options: .regularExpression)
+        return text + " fps"
+    }
+
+    /// "Dolby TrueHD 7.1 · English · default", plus the track's own name when it says more ("Director's commentary").
+    /// Atmos is never claimed from the header (Matroska has no flag for it); a name that mentions it is shown as the name.
+    public static func audioLine(_ a: FileTrackDetails.Audio) -> String {
+        var parts = [FormatNames.audio(codec: a.codec, channels: a.channels, atmos: false) ?? a.codec]
+        if let lang = a.language, !lang.isEmpty { parts.append(MatroskaTrack.languageName(for: lang)) }
+        if a.isDefault { parts.append("default") }
+        if a.isCommentary { parts.append("commentary") }
+        if let name = a.name?.trimmingCharacters(in: .whitespaces), !name.isEmpty { parts.append("“\(name)”") }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Embedded tracks ("In the file: English (PGS), French (SRT, forced)") and the files next to the video. When the header
+    /// was not read, the embedded part says "not known".
+    public static func subtitlesLine(embedded: [FileTrackDetails.Subtitle]?, files: [String]) -> String {
+        let inFile: String
+        if let embedded {
+            inFile = embedded.isEmpty ? "none in the file" : "in the file: " + embedded.map { s in
+                var notes = [s.codec]
+                if s.isForced { notes.append("forced") }
+                if s.isHearingImpaired { notes.append("SDH") }
+                let lang = s.language.map { MatroskaTrack.languageName(for: $0) } ?? "Unknown language"
+                return "\(lang) (\(notes.joined(separator: ", ")))"
+            }.joined(separator: ", ")
+        } else {
+            inFile = "in the file: not known"
+        }
+        let names = files.sorted()
+        let side = names.isEmpty ? "no subtitle files next to the video" : "files: " + names.joined(separator: ", ")
+        let text = inFile + "; " + side
+        return text.prefix(1).uppercased() + text.dropFirst()
     }
 
     /// "3840 × 2160 (4K)", "1920 × 1080 (1080p)", or "1080p" when only the height is known.

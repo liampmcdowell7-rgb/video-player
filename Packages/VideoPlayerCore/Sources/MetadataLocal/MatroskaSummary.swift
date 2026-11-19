@@ -18,7 +18,7 @@ extension MatroskaTrack {
         MatroskaTrack.languageName(for: languageBCP47 ?? language)
     }
 
-    static func languageName(for code: String) -> String {
+    public static func languageName(for code: String) -> String {
         let key = code.lowercased().split(separator: "-").first.map(String.init) ?? code.lowercased()
         let table: [String: String] = [
             "eng": "English", "en": "English", "fre": "French", "fra": "French", "fr": "French",

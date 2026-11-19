@@ -3,7 +3,7 @@ import Foundation
 /// The database layout. `PRAGMA user_version` holds the schema number; each step in `migrations` upgrades by one.
 /// A database written by a newer app is refused (`LibraryIndexError.newerSchema`), never modified.
 enum LibrarySchema {
-    static let currentVersion = 5
+    static let currentVersion = 6
 
     static let pragmas = """
     PRAGMA journal_mode = WAL;
@@ -209,6 +209,18 @@ enum LibrarySchema {
         [
             "ALTER TABLE files ADD COLUMN shared_name TEXT",
             "CREATE INDEX idx_files_shared_name ON files (shared_name) WHERE shared_name IS NOT NULL",
+        ],
+        // 5 -> 6: the frame rate, audio tracks and embedded subtitles read from a file's header when its detail page opens
+        // (#21 C, R192). JSON of FileTrackDetails, tied to the file size it was read from. Empty until a page is opened.
+        [
+            """
+            CREATE TABLE file_tracks (
+                file_id INTEGER PRIMARY KEY,
+                size INTEGER,
+                data TEXT NOT NULL,
+                read_at REAL NOT NULL
+            )
+            """,
         ],
     ]
 }

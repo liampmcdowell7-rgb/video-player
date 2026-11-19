@@ -154,6 +154,9 @@ public protocol LibraryStore: Sendable {
     // Metadata and technical facts
     func setMetadata(itemID: Int64, _ metadata: ItemMetadata) async throws
     func setTechnicalInfo(fileID: Int64, _ info: FileTechnicalInfo) async throws
+    /// #21 C: the frame rate and tracks read from the file's header (nil when not read yet, or the file changed size).
+    func trackDetails(fileID: Int64) async throws -> FileTrackDetails?
+    func setTrackDetails(fileID: Int64, _ details: FileTrackDetails) async throws
 
     // Watch state
     func updateProgress(itemID: Int64, position: Double, duration: Double?, at date: Date) async throws

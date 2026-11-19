@@ -125,6 +125,8 @@ final class FlakyStore: LibraryStore, @unchecked Sendable {
     func sidecars(for fileID: Int64) async throws -> [StoredFile] { try await inner.sidecars(for: fileID) }
     func setMetadata(itemID: Int64, _ metadata: ItemMetadata) async throws { try await inner.setMetadata(itemID: itemID, metadata) }
     func setTechnicalInfo(fileID: Int64, _ info: FileTechnicalInfo) async throws { try await inner.setTechnicalInfo(fileID: fileID, info) }
+    func trackDetails(fileID: Int64) async throws -> FileTrackDetails? { try await inner.trackDetails(fileID: fileID) }
+    func setTrackDetails(fileID: Int64, _ details: FileTrackDetails) async throws { try await inner.setTrackDetails(fileID: fileID, details) }
     func updateProgress(itemID: Int64, position: Double, duration: Double?, at date: Date) async throws { try await inner.updateProgress(itemID: itemID, position: position, duration: duration, at: date) }
     func markWatched(itemIDs: [Int64], watched: Bool, at date: Date) async throws { try await inner.markWatched(itemIDs: itemIDs, watched: watched, at: date) }
     func markSeries(seriesID: Int64, season: Int?, watched: Bool, at date: Date) async throws { try await inner.markSeries(seriesID: seriesID, season: season, watched: watched, at: date) }

@@ -45,8 +45,16 @@ public struct ItemDetailViewModel: Sendable {
     public let store: any LibraryStore
     public let itemID: Int64
     public private(set) var state: ViewState<ItemDetailContent> = .idle
+    /// Reads the preferred file's header for Media Info (#21 C, `MediaTrackProbe`). Nil: the rows keep what the index has.
+    public var trackReader: (@Sendable (StoredFile) async -> FileTrackDetails?)?
+    /// The preferred file of the last load, so `loadTrackDetails` knows what to read.
+    private var preferredFile: StoredFile?
+    private var preferredSidecars: [StoredFile] = []
+    private var preferredSourceName: String?
 
-    public init(store: any LibraryStore, itemID: Int64) { self.store = store; self.itemID = itemID }
+    public init(store: any LibraryStore, itemID: Int64, trackReader: (@Sendable (StoredFile) async -> FileTrackDetails?)? = nil) {
+        self.store = store; self.itemID = itemID; self.trackReader = trackReader
+    }
 
     public mutating func load() async {
         state = .loading
@@ -60,13 +68,34 @@ public struct ItemDetailViewModel: Sendable {
             var sidecars: [StoredFile] = []
             if let preferred { sidecars = try await store.sidecars(for: preferred) }
             let sources = (try? await store.sources()) ?? []
-            state = .loaded(Self.content(item, files: files, sidecars: sidecars, sourceNames: Dictionary(sources.map { ($0.id, $0.name) }, uniquingKeysWith: { a, _ in a })))
+            let sourceNames = Dictionary(sources.map { ($0.id, $0.name) }, uniquingKeysWith: { a, _ in a })
+            preferredFile = files.first { $0.id == preferred }
+            preferredSidecars = sidecars
+            preferredSourceName = preferredFile.flatMap { sourceNames[$0.sourceID] }
+            // What an earlier visit read from the header (dropped when the file's size changed).
+            var cached: FileTrackDetails?
+            if let preferred { cached = (try? await store.trackDetails(fileID: preferred)) ?? nil }
+            state = .loaded(Self.content(item, files: files, sidecars: sidecars, sourceNames: sourceNames, tracks: cached))
         } catch {
             state = .failed(ErrorState.from(error, doing: "load this title"))
         }
     }
 
-    static func content(_ item: LibraryItem, files: [StoredFile], sidecars: [StoredFile], sourceNames: [String: String] = [:]) -> ItemDetailContent {
+    /// Reads the preferred file's header when nothing is cached yet (#21 C), keeps it in the index and rebuilds the page.
+    /// Called after `load()`; a failed or slow read leaves the rows at "Not known".
+    public mutating func loadTrackDetails() async {
+        guard let file = preferredFile, let reader = trackReader, case .loaded(let content) = state else { return }
+        let alreadyRead = (try? await store.trackDetails(fileID: file.id)) ?? nil
+        if alreadyRead != nil { return }
+        guard let details = await reader(file) else { return }
+        try? await store.setTrackDetails(fileID: file.id, details)
+        var updated = content
+        updated.mediaInfo = MediaInfo.rows(file: file, sidecars: preferredSidecars, sourceName: preferredSourceName, tracks: details)
+        state = .loaded(updated)
+    }
+
+    static func content(_ item: LibraryItem, files: [StoredFile], sidecars: [StoredFile], sourceNames: [String: String] = [:],
+                        tracks: FileTrackDetails? = nil) -> ItemDetailContent {
         let card = CardBuilder.card(item)
         var facts: [String] = []
         if item.kind == .episode, let code = DisplayText.episodeCode(season: item.season, episode: item.episode, episodeEnd: item.episodeEnd) { facts.append(code) }
@@ -96,7 +125,7 @@ public struct ItemDetailViewModel: Sendable {
         if let progress, let duration = item.watch.duration ?? item.runtime, duration > 0 {
             timeLeft = DisplayText.remaining(duration * (1 - progress))
         }
-        let mediaInfo = files.first { $0.id == preferred }.map { MediaInfo.rows(file: $0, sidecars: sidecars, sourceName: sourceNames[$0.sourceID]) } ?? []
+        let mediaInfo = files.first { $0.id == preferred }.map { MediaInfo.rows(file: $0, sidecars: sidecars, sourceName: sourceNames[$0.sourceID], tracks: tracks) } ?? []
         return ItemDetailContent(itemID: item.id, kind: item.kind, title: card.title, seriesID: item.seriesID, seriesTitle: item.seriesTitle,
                                  facts: facts.joined(separator: " · "), badges: card.badges, playTitle: playTitle, canStartOver: started,
                                  isWatched: item.watch.watched, isFavorite: item.watch.favorite, progress: progress, timeLeft: timeLeft,

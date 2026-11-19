@@ -38,7 +38,11 @@ struct ItemDetailView: View {
     }
 
     private func reload() async {
-        if model == nil { model = ScreenModel(ItemDetailViewModel(store: services.store, itemID: itemID)) }
+        if model == nil {
+            model = ScreenModel(ItemDetailViewModel(store: services.store, itemID: itemID, trackReader: services.trackDetailsReader))
+        }
         await model?.run { await $0.load() }
+        // #21 C: the frame rate and every audio and subtitle track, read from the file's header once and then kept.
+        await model?.run { await $0.loadTrackDetails() }
     }
 }

@@ -89,6 +89,7 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
         try db.transaction {
             let affected = try db.rows("SELECT DISTINCT item_id FROM files WHERE source_id = ? AND item_id IS NOT NULL", [.text(id)]) { $0.int64(0) }
             try db.run("DELETE FROM files WHERE source_id = ?", [.text(id)])
+            try dropOrphanTrackDetails()
             try db.run("DELETE FROM folders WHERE source_id = ?", [.text(id)])
             try db.run("DELETE FROM scan_queue WHERE source_id = ?", [.text(id)])
             try db.run("DELETE FROM scans WHERE source_id = ?", [.text(id)])
