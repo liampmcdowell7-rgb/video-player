@@ -9,6 +9,10 @@ protocol ArtworkResolving: Sendable {
     func resolve(key: String) async -> ArtworkResult
     /// Title-logo pictures to try, strongest source first (#15 Part 9).
     func logoCandidates(key: String, userLanguage: String?) async -> [LogoCandidate]
+    /// The wide picture behind a movie or show page (#15 6.2).
+    func backdrop(key: String, userLanguage: String?) async -> ArtworkResult
+    /// Synopsis and cast of a movie (#15 6.2), or nil.
+    func details(key: String) async -> TitleDetails?
 }
 
 struct EngineArtworkResolver: ArtworkResolving {
@@ -17,6 +21,8 @@ struct EngineArtworkResolver: ArtworkResolving {
     func logoCandidates(key: String, userLanguage: String?) async -> [LogoCandidate] {
         await engine.logoCandidates(key: key, userLanguage: userLanguage)
     }
+    func backdrop(key: String, userLanguage: String?) async -> ArtworkResult { await engine.backdrop(key: key, userLanguage: userLanguage) }
+    func details(key: String) async -> TitleDetails? { await engine.details(key: key) }
 }
 
 /// Reads a picture file from a source: the first `maxBytes` bytes only.

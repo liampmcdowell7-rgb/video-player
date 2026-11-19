@@ -58,12 +58,18 @@ public protocol OnlineArtworkProviding: Sendable {
     func images(forSeriesID tmdbID: Int) async -> ImageSet?
     /// Turns a logo path into an address.
     func logoURL(path: String) async -> URL?
+    /// Turns a backdrop path into an address (#15 6.2).
+    func backdropURL(path: String) async -> URL?
+    /// Synopsis and cast of the title a movie is already matched to (no new matching), or nil (#15 6.2).
+    func details(forItem item: LibraryItem) async -> TitleDetails?
 }
 
 public extension OnlineArtworkProviding {
     func images(forItem item: LibraryItem) async -> ImageSet? { nil }
     func images(forSeriesID tmdbID: Int) async -> ImageSet? { nil }
     func logoURL(path: String) async -> URL? { nil }
+    func backdropURL(path: String) async -> URL? { nil }
+    func details(forItem item: LibraryItem) async -> TitleDetails? { nil }
 }
 
 /// One title-logo picture to try, in order (#15 9.2). The app decodes it and checks it with `TitleLogoRules.check`; the
@@ -209,6 +215,56 @@ public actor ArtworkEngine {
             return out
         }
         return out
+    }
+
+    // MARK: Backdrops and details (#15 6.2)
+
+    /// The wide picture behind a movie page (`item-N`) or a show page (`series-N`): a fan-art picture next to the media first
+    /// (`fanart`, `backdrop`, `background`, chosen by `SidecarImageFinder`), then the matched title's best online backdrop
+    /// (only with a key). An episode uses its show's. `.none`: the page keeps its plain background.
+    public func backdrop(key text: String, userLanguage: String?) async -> ArtworkResult {
+        guard let key = ArtworkKey(text) else { return .none }
+        do {
+            switch key {
+            case .item(let id):
+                guard let item = try await store.item(id: id) else { return .none }
+                if item.kind == .episode, let seriesID = item.seriesID {
+                    return await backdrop(key: "series-\(seriesID)", userLanguage: userLanguage)
+                }
+                let versions = try await store.versions(of: id)
+                if let file = versions.first(where: { $0.id == item.preferredFileID }) ?? versions.first {
+                    let entries = try await folderEntries(sourceID: file.sourceID, folder: file.parentPath)
+                    let videos = entries.filter { !$0.isDirectory && FileClassifier.fileExtension(of: $0.name).isVideoExtension }.count
+                    let found = SidecarImageFinder.images(forMovie: file.name, in: entries, folderHoldsOneVideo: videos <= 1)
+                    if let hit = found.backdrop, let r = await cached(hit, file.sourceID) { return r }
+                }
+                if let online, let set = await online.images(forItem: item), let ref = set.bestBackdrop(language: userLanguage),
+                   let url = await online.backdropURL(path: ref.path) {
+                    return .remote(url)
+                }
+            case .series(let seriesID):
+                if let hit = try await showFolderEntry(seriesID: seriesID, role: .backdrop), let r = await cached(hit.entry, hit.sourceID) {
+                    return r
+                }
+                if let online, let tmdbID = try await seriesOnlineID(seriesID), let set = await online.images(forSeriesID: tmdbID),
+                   let ref = set.bestBackdrop(language: userLanguage), let url = await online.backdropURL(path: ref.path) {
+                    return .remote(url)
+                }
+            case .remote:
+                return .none
+            }
+        } catch {
+            return .none
+        }
+        return .none
+    }
+
+    /// Synopsis and cast for a movie page, from the online details of the matched title. Nil without a key, without a match,
+    /// or for anything that is not a movie.
+    public func details(key text: String) async -> TitleDetails? {
+        guard let online, case .item(let id)? = ArtworkKey(text), let item = try? await store.item(id: id), item.kind == .movie else { return nil }
+        guard let details = await online.details(forItem: item), !details.isEmpty else { return nil }
+        return details
     }
 
     private func onlineLogos(_ set: ImageSet, _ online: any OnlineArtworkProviding, _ language: String?) async -> [LogoCandidate] {

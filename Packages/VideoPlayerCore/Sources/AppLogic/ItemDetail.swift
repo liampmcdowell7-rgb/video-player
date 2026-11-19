@@ -37,6 +37,8 @@ public struct ItemDetailContent: Equatable, Sendable {
     public var versions: [VersionRow]
     public var extras: [ExtraRow]
     public var artworkKey: String
+    /// #15 6.2: what the preferred file contains, always fully shown. Empty when the title has no file.
+    public var mediaInfo: [MediaInfoRow] = []
 }
 
 public struct ItemDetailViewModel: Sendable {
@@ -57,13 +59,14 @@ public struct ItemDetailViewModel: Sendable {
             let preferred = item.preferredFileID ?? files.first?.id
             var sidecars: [StoredFile] = []
             if let preferred { sidecars = try await store.sidecars(for: preferred) }
-            state = .loaded(Self.content(item, files: files, sidecars: sidecars))
+            let sources = (try? await store.sources()) ?? []
+            state = .loaded(Self.content(item, files: files, sidecars: sidecars, sourceNames: Dictionary(sources.map { ($0.id, $0.name) }, uniquingKeysWith: { a, _ in a })))
         } catch {
             state = .failed(ErrorState.from(error, doing: "load this title"))
         }
     }
 
-    static func content(_ item: LibraryItem, files: [StoredFile], sidecars: [StoredFile]) -> ItemDetailContent {
+    static func content(_ item: LibraryItem, files: [StoredFile], sidecars: [StoredFile], sourceNames: [String: String] = [:]) -> ItemDetailContent {
         let card = CardBuilder.card(item)
         var facts: [String] = []
         if item.kind == .episode, let code = DisplayText.episodeCode(season: item.season, episode: item.episode, episodeEnd: item.episodeEnd) { facts.append(code) }
@@ -93,10 +96,11 @@ public struct ItemDetailViewModel: Sendable {
         if let progress, let duration = item.watch.duration ?? item.runtime, duration > 0 {
             timeLeft = DisplayText.remaining(duration * (1 - progress))
         }
+        let mediaInfo = files.first { $0.id == preferred }.map { MediaInfo.rows(file: $0, sidecars: sidecars, sourceName: sourceNames[$0.sourceID]) } ?? []
         return ItemDetailContent(itemID: item.id, kind: item.kind, title: card.title, seriesID: item.seriesID, seriesTitle: item.seriesTitle,
                                  facts: facts.joined(separator: " · "), badges: card.badges, playTitle: playTitle, canStartOver: started,
                                  isWatched: item.watch.watched, isFavorite: item.watch.favorite, progress: progress, timeLeft: timeLeft,
-                                 versions: versions, extras: extras, artworkKey: card.artworkKey)
+                                 versions: versions, extras: extras, artworkKey: card.artworkKey, mediaInfo: mediaInfo)
     }
 
     static func kindText(_ kind: FileKind) -> String {

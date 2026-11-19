@@ -1,13 +1,19 @@
 import SwiftUI
 import AppLogic
 
-/// The loaded detail page. Everything reachable is a button or a menu, so the remote can scroll to all of it.
+/// The loaded detail page (#15 6.2): backdrop with scrim; title or title logo; "year · duration · rating"; the format line;
+/// the synopsis; the buttons; the cast; then "Media Info", always fully shown. Everything reachable is a button, a menu or
+/// a focusable block, so the remote can scroll to all of it.
 struct ItemDetailContentView: View {
     let content: ItemDetailContent
     let model: ScreenModel<ItemDetailViewModel>
     var onPlay: (Bool) -> Void
     var onFixMatch: () -> Void
     var onSortInfo: () -> Void = {}
+    @Environment(AppServices.self) private var services
+    @State private var details: TitleDetails?
+    /// #15 6.2: Play (or Resume) has focus when the page opens, although the synopsis sits above it.
+    @FocusState private var playFocused: Bool
 
     var body: some View {
         ScrollView {
@@ -25,14 +31,42 @@ struct ItemDetailContentView: View {
                     FittingLine(line: CardBuilder.badgeLine(content.badges), style: .callout)
                         .foregroundStyle(.secondary)
                 }
+                if let overview = details?.overview {
+                    synopsis(overview)
+                }
                 // #15 D3: how much is left, as text, instead of a full-width bar. Fixed in code, verify in next screenshots.
                 if let timeLeft = content.timeLeft {
                     StatusText(timeLeft)
                 }
                 actions
+                if let cast = details?.cast, !cast.isEmpty {
+                    CastShelf(cast: cast)
+                }
+                if !content.mediaInfo.isEmpty {
+                    MediaInfoSection(rows: content.mediaInfo)
+                }
             }
         }
+        .defaultFocus($playFocused, true)
+        .background { BackdropView(artworkKey: content.artworkKey) }
+        .task(id: "\(content.artworkKey)|\(services.online.keyRevision)") {
+            details = content.kind == .movie ? await services.online.details(key: content.artworkKey) : nil
+        }
         .pushedScreen(content.title)
+    }
+
+    /// Three lines of the synopsis; selecting it opens the whole text.
+    private func synopsis(_ text: String) -> some View {
+        NavigationLink {
+            LongTextPage(title: content.title, text: text)
+        } label: {
+            Text(text)
+                .font(.callout)
+                .lineLimit(3)
+                .multilineTextAlignment(.leading)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Shows the whole synopsis")
     }
 
     private var actions: some View {
@@ -40,6 +74,7 @@ struct ItemDetailContentView: View {
         HStack {
             Button { onPlay(false) } label: { SlotLabel(content.playTitle, systemImage: "play.fill") }
                 .buttonStyle(.borderedProminent)
+                .focused($playFocused)
             if content.canStartOver {
                 Button { onPlay(true) } label: { SlotLabel("Start Over", systemImage: "arrow.counterclockwise") }
                     .buttonStyle(.bordered)
@@ -68,5 +103,57 @@ struct ItemDetailContentView: View {
         } label: {
             SlotLabel("More", systemImage: "ellipsis")
         }
+    }
+}
+
+/// The cast, in billing order, as a horizontal shelf of name and role (#15 6.2). Each entry takes focus so the remote can
+/// move along the shelf; there is no person page, so selecting does nothing (OPEN_QUESTIONS R182).
+private struct CastShelf: View {
+    let cast: [TitleDetails.CastMember]
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            Text("Cast")
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+            ScrollView(.horizontal) {
+                LazyHStack(alignment: .top) {
+                    ForEach(cast) { person in
+                        VStack(alignment: .leading) {
+                            FittingText(person.name, style: .callout)
+                            if let role = person.role {
+                                FittingText(role, style: .caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding()
+                        // design-lint:allow a cast entry has no action (no person page), but it must take focus so the remote can move along the shelf
+                        .focusable()
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+            }
+            .scrollClipDisabled()
+        }
+    }
+}
+
+/// "Media Info" (#15 6.2): every row shown, never collapsed. The block takes focus as one piece so the remote scrolls the
+/// page down to it.
+private struct MediaInfoSection: View {
+    let rows: [MediaInfoRow]
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            Text("Media Info")
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+            ForEach(rows) { row in
+                LabeledContent(row.label, value: row.value)
+                    .font(.callout)
+            }
+        }
+        // design-lint:allow the section has no controls, so it takes focus as one block for the remote to scroll to it
+        .focusable()
     }
 }

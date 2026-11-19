@@ -99,10 +99,10 @@ Apple TV app (unverified, from memory):
 | #9 gap | Covered by | Status |
 |---|---|---|
 | Continue Watching shape and progress inside the card | #15 4.1 and D4 | D4 in the shared-components commit; 4.1 pending |
-| Movie detail backdrop, synopsis, cast, Media Info, Play focused | #15 6.2 | pending |
-| Show page backdrop, 16:9 episode stills, episode titles | #15 5.2, 5.3 | pending |
+| Movie detail backdrop, synopsis, cast, Media Info, Play focused | #15 6.2 | built (R182); synopsis and cast need a TMDB key; verify in next screenshots |
+| Show page backdrop, 16:9 episode stills, episode titles | #15 5.2, 5.3 | backdrop built (R182); stills and titles pending |
 | Episode row progress inside the still | #15 D4, 5.2 | pending |
-| Title lettering | #15 Part 9 | pending |
+| Title lettering | #15 Part 9 | built (3e7d8fe, 85fa8a9; R179) |
 | Season posters, Top Shelf shape, Up Next preview image | not in #15 | open list (not built: no new features) |
 | Selection of "which type goes where, with which fallback" in AppLogic | #15 Parts 4 to 6 and 9 (built with each layout) | pending |
 | Screenshot steps for movie, show, season and episode pages | already in the main set (55 to 61) and the accessibility set | done (2bb3f53) |

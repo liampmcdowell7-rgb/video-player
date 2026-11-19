@@ -102,9 +102,13 @@ private final class FakeOnline: OnlineArtworkProviding, @unchecked Sendable {
     func imageURL(path: String) async -> URL? { URL(string: "https://images.example.invalid/w500" + path) }
     private(set) var imageCalls = 0
     var logos: [ImageRef] = []
-    func images(forItem item: LibraryItem) async -> ImageSet? { lock.withLock { imageCalls += 1 }; return item.tmdbID == nil ? nil : ImageSet(logos: logos) }
-    func images(forSeriesID tmdbID: Int) async -> ImageSet? { lock.withLock { imageCalls += 1 }; return ImageSet(logos: logos) }
+    func images(forItem item: LibraryItem) async -> ImageSet? { lock.withLock { imageCalls += 1 }; return item.tmdbID == nil ? nil : ImageSet(backdrops: backdrops, logos: logos) }
+    func images(forSeriesID tmdbID: Int) async -> ImageSet? { lock.withLock { imageCalls += 1 }; return ImageSet(backdrops: backdrops, logos: logos) }
     func logoURL(path: String) async -> URL? { URL(string: "https://images.example.invalid/original" + path) }
+    var backdrops: [ImageRef] = []
+    var details: TitleDetails?
+    func backdropURL(path: String) async -> URL? { URL(string: "https://images.example.invalid/w1280" + path) }
+    func details(forItem item: LibraryItem) async -> TitleDetails? { details }
 }
 
 final class ArtworkEngineTests: XCTestCase {
@@ -293,6 +297,59 @@ final class ArtworkEngineTests: XCTestCase {
         XCTAssertEqual(viaShow.map(\.source), [.localFile])
         let none = await engine.logoCandidates(key: "remote:/x.jpg", userLanguage: nil)
         XCTAssertEqual(none, [])
+    }
+
+    // MARK: Backdrops and details (#15 6.2)
+
+    func testAFanartNextToTheMovieWinsOverTheOnlineBackdrop() async throws {
+        let r = try await rig([("/Movies/Heat (1995)/Heat (1995).mkv", 10_000), ("/Movies/Heat (1995)/fanart.jpg", 5)])
+        r.reader.files["/Movies/Heat (1995)/fanart.jpg"] = Data([4])
+        let id = try await r.lib.movieID("Heat")
+        try await r.lib.store.setMetadata(itemID: id, ItemMetadata(tmdbID: 42))
+        r.online.backdrops = [ImageRef(path: "/b.jpg", width: 1920, language: nil)]
+        let found = await r.engine().backdrop(key: "item-\(id)", userLanguage: "en")
+        guard case .file(let url) = found else { return XCTFail("\(found)") }
+        XCTAssertEqual(try Data(contentsOf: url), Data([4]))
+    }
+
+    func testWithoutAFanartTheMatchedOnlineBackdropIsUsedAndWithoutAKeyNothing() async throws {
+        let r = try await rig([("/Movies/Heat (1995)/Heat (1995).mkv", 10_000)])
+        let id = try await r.lib.movieID("Heat")
+        try await r.lib.store.setMetadata(itemID: id, ItemMetadata(tmdbID: 42))
+        r.online.backdrops = [ImageRef(path: "/b.jpg", width: 1920, language: nil)]
+        let online = await r.engine().backdrop(key: "item-\(id)", userLanguage: "en")
+        XCTAssertEqual(online, .remote(URL(string: "https://images.example.invalid/w1280/b.jpg")!))
+        let off = await r.engine(withOnline: false).backdrop(key: "item-\(id)", userLanguage: "en")
+        XCTAssertEqual(off, .none)
+    }
+
+    func testAnEpisodeUsesItsShowsFanart() async throws {
+        let r = try await rig([("/TV/Show One (2010)/Season 1/Show One - S01E01 - A.mkv", 1_000), ("/TV/Show One (2010)/fanart.jpg", 5)])
+        r.reader.files["/TV/Show One (2010)/fanart.jpg"] = Data([6])
+        let shows = try await r.lib.episodes(ofSeriesTitle: "Show One")
+        let ep = try XCTUnwrap(shows.first)
+        let engine = r.engine(withOnline: false)
+        let viaEpisode = await engine.backdrop(key: "item-\(ep.id)", userLanguage: nil)
+        let viaShow = await engine.backdrop(key: "series-\(try XCTUnwrap(ep.seriesID))", userLanguage: nil)
+        XCTAssertEqual(viaEpisode, viaShow)
+        guard case .file = viaShow else { return XCTFail("\(viaShow)") }
+    }
+
+    func testDetailsOnlyForAMovieAndOnlyWithAKey() async throws {
+        let r = try await rig([("/Movies/Heat (1995)/Heat (1995).mkv", 10_000), ("/TV/Show One (2010)/Season 1/Show One - S01E01 - A.mkv", 1_000)])
+        let id = try await r.lib.movieID("Heat")
+        r.online.details = TitleDetails(overview: "A synopsis.", cast: [.init(id: 1, name: "Sample Actor", role: "Sample Role")])
+        let found = await r.engine().details(key: "item-\(id)")
+        XCTAssertEqual(found?.overview, "A synopsis.")
+        let off = await r.engine(withOnline: false).details(key: "item-\(id)")
+        XCTAssertNil(off)
+        let shows = try await r.lib.episodes(ofSeriesTitle: "Show One")
+        let ep = try XCTUnwrap(shows.first)
+        let episode = await r.engine().details(key: "item-\(ep.id)")
+        XCTAssertNil(episode, "episode pages have no cast shelf")
+        r.online.details = TitleDetails(overview: nil, cast: [])
+        let empty = await r.engine().details(key: "item-\(id)")
+        XCTAssertNil(empty)
     }
 
     func testKeysParse() {

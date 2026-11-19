@@ -130,6 +130,11 @@ tested on any screen: **unproven everywhere**, and nothing was run with those se
 - 13 Title, facts and badges on one line: changed (R165). Unproven.
 - 8 Playback (resume, skip, next episode, system pickers, errors): unproven (Playing video; AVKit). No player
   screenshot exists by design (R161).
+- #15 6.2 (R182): backdrop drawn dimmed, no hand-made scrim (DESIGN_SYSTEM detail-page row: system scroll edge effect,
+  HIG Layout); Play has default focus through `defaultFocus(_:_:priority:)` (checked on Apple's page: tvOS 16.0+); the
+  cast shelf uses `scrollClipDisabled(_:)` (checked: tvOS 17.0+) so focused entries are not cut. Cast entries and the
+  Media Info block take focus with `.focusable()` and no action; whether tvOS draws a focus look for them is unproven.
+  Fixed in code, verify in next screenshots.
 
 ### Files (sources and folders)
 - 12 Icon against label: **fail (run 44401030622)**: the drive symbol touched the text. The row was already a system

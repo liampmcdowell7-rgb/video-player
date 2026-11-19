@@ -62,6 +62,14 @@ public struct TMDBArtworkProvider: OnlineArtworkProviding {
 
     public func logoURL(path: String) async -> URL? { await client.imageURLBuilder().url(path: path, kind: .logo) }
 
+    public func backdropURL(path: String) async -> URL? { await client.imageURLBuilder().url(path: path, kind: .backdrop) }
+
+    /// #15 6.2: overview and cast come with the same cached title details (`append_to_response=credits`).
+    public func details(forItem item: LibraryItem) async -> TitleDetails? {
+        guard item.kind == .movie, let id = item.tmdbID, let movie = try? await client.movie(id: id) else { return nil }
+        return TitleDetails(overview: movie.overview, people: movie.credits.cast)
+    }
+
     private func poster(kind: TitleKind, id: Int) async -> URL? {
         let path: String?
         switch kind {

@@ -55,6 +55,8 @@ struct SeasonsList: View {
                 }
             }
         }
+        // #15 5.2: the show's fan art (or its matched online backdrop) behind the page, as on the movie page.
+        .background { BackdropView(artworkKey: "series-\(seriesID)") }
         .pushedScreen(content.seriesTitle)
     }
 }

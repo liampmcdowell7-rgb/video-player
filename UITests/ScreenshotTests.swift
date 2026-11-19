@@ -504,8 +504,8 @@ final class ScreenshotTests: XCTestCase {
 
     /// The first five screens of the accessibility set (rule 17), as before #16 item 1.10.
     static let coreAccessibilityScreens = ["home", "movies", "settings", "files-root", "movie-detail"]
-    /// #16 item 1.10 and #17 E: the rest of the set. "movie-detail-logo" is Sample Movie 2, the sample title with a title
-    /// logo once #15 Part 9 gives it one (until then its page shows the text title); "settings-backup" is the Backup page
+    /// #16 item 1.10 and #17 E: the rest of the set. "movie-detail-logo" is Sample Movie 2 and "show-page" is Sample Show 1,
+    /// the two sample titles with a generated title logo (#15 Part 9, UITestFixtures.logos); "settings-backup" is the Backup page
     /// (#17 D, captured at the default size, Larger Text and Bold Text); "source-form" is the WebDAV form.
     static let moreAccessibilityScreens = ["movie-detail-logo", "show-page", "settings-backup", "add-source", "source-form", "search"]
 

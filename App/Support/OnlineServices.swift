@@ -99,6 +99,14 @@ final class OnlineServices {
         await resolver.logoCandidates(key: key, userLanguage: Locale.preferredLanguages.first)
     }
 
+    /// The backdrop of a movie or show page (#15 6.2): fan art next to the media, then the matched online backdrop.
+    func backdrop(key: String) async -> ArtworkResult {
+        await resolver.backdrop(key: key, userLanguage: Locale.preferredLanguages.first)
+    }
+
+    /// Synopsis and cast of a movie page from the cached online details (#15 6.2). Nil without a key.
+    func details(key: String) async -> TitleDetails? { await resolver.details(key: key) }
+
     /// Bytes of one picture for the Top Shelf folder (a cached file, or a download of the matched poster). Nil when there is none.
     func artworkBytes(key: String) async -> Data? {
         switch await resolver.resolve(key: key) {
