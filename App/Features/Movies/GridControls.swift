@@ -11,7 +11,8 @@ struct GridControls: View {
 
     var body: some View {
         VStack(alignment: .leading) {
-            HStack {
+            // #15 4.5: the same row as on Shows (`GridToolbar`), so both grids start at the same height.
+            GridToolbar(count: model.screen.countText) {
                 SortMenu(model: model)
                 FilterMenu(model: model)
                 SavedViewsMenu(model: model, onSave: onSave)
@@ -20,10 +21,6 @@ struct GridControls: View {
                     AlphabetJumpMenu(letters: grid.alphabet.map { AlphabetJumpEntry(letter: $0.letter, count: $0.count) }) { letter in
                         Task { await model.run { await $0.jump(to: letter) } }
                     }
-                }
-                if let count = model.screen.countText {
-                    Text(count)
-                        .foregroundStyle(.secondary)
                 }
             }
             if !model.screen.chips.isEmpty {

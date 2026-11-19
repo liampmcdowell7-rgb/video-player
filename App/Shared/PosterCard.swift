@@ -9,13 +9,15 @@ import AppLogic
 /// follow rule S1 (`FittingLine`): one line, scaled to the readable minimum, never cut with "…".
 struct PosterCard: View {
     let card: ItemCard
+    /// #15 4.1: a 16:9 card for Continue Watching (OPEN_QUESTIONS R185); portrait everywhere else.
+    var wide = false
 
     var body: some View {
         VStack(alignment: .leading) {
             NavigationLink(value: Route.item(card.id)) {
                 // #15 D4: the progress sits inside the artwork's bottom edge, so it moves and lifts with the focused card
                 // and every card keeps the same height. Fixed in code, verify in next screenshots.
-                ArtworkView(key: card.artworkKey, symbol: card.kind == .movie ? "film" : "tv")
+                ArtworkView(key: card.artworkKey, symbol: card.kind == .movie ? "film" : "tv", wide: wide)
                     .overlay(alignment: .bottom) {
                         if let progress = card.progress {
                             ProgressView(value: progress)

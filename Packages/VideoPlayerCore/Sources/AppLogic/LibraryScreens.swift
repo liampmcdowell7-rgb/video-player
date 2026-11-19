@@ -385,6 +385,12 @@ public struct ShowsViewModel: Sendable {
             state = .failed(ErrorState.from(error, doing: "load your shows"))
         }
     }
+
+    /// "2 shows" or "1 show", in the same place as the Movies count (#15 4.5).
+    public var countText: String? {
+        guard case .loaded(let series) = state else { return nil }
+        return series.count == 1 ? "1 show" : "\(series.count) shows"
+    }
 }
 
 public struct EpisodeRow: Equatable, Sendable, Identifiable {

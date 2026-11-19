@@ -287,6 +287,8 @@ final class LibraryScreenTests: XCTestCase {
         XCTAssertEqual(list[0].seasonsText, "2 seasons")
         XCTAssertEqual(list[1].seasonsText, "1 season")
         XCTAssertEqual(list[0].unwatchedCount, 5)
+        // #15 4.5: the count, in the same place as the Movies count.
+        XCTAssertEqual(shows.countText, "2 shows")
     }
 
     func testShowsEmptyLibrary() async throws {
@@ -295,6 +297,7 @@ final class LibraryScreenTests: XCTestCase {
         await shows.load()
         guard case .empty(let e) = shows.state else { return XCTFail("\(shows.state)") }
         XCTAssertEqual(e.reason, .noSources)
+        XCTAssertNil(shows.countText, "no count without shows")
     }
 
     func testSeasonsAreOrderedWithSpecialsLastAndPlayPicksTheRightEpisode() async throws {

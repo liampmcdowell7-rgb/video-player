@@ -16,7 +16,7 @@ struct ShowsView: View {
                     NeedsReviewButton(count: reviewCount)
                 }
                 ScreenStateView(state: model.screen.state, onEmptyAction: { showSetup = true }, onRetry: { Task { await reload() } }) { series in
-                    ShowsGrid(series: series, reviewCount: reviewCount)
+                    ShowsGrid(series: series, reviewCount: reviewCount, countText: model.screen.countText)
                 }
             } else {
                 LoadingView()
@@ -37,12 +37,16 @@ struct ShowsView: View {
 private struct ShowsGrid: View {
     let series: [SeriesSummary]
     let reviewCount: Int
+    let countText: String?
 
     var body: some View {
         let targets = AlphabetJump.targets(for: series)
         ScrollViewReader { proxy in
             VStack(alignment: .leading) {
-                HStack {
+                // #15 4.5: the same row as on Movies (`GridToolbar`) with the count. Shows has no sort, filter or saved
+                // views yet (OPEN_QUESTIONS R185); the controls it has keep the Movies order.
+                GridToolbar(count: countText) {
+                    NeedsReviewButton(count: reviewCount)
                     if !targets.isEmpty {
                         AlphabetJumpMenu(letters: targets.map { AlphabetJumpEntry(letter: $0.letter, count: $0.count) }) { letter in
                             if let target = targets.first(where: { $0.letter == letter }) {
@@ -50,7 +54,6 @@ private struct ShowsGrid: View {
                             }
                         }
                     }
-                    NeedsReviewButton(count: reviewCount)
                 }
                 PosterGridLayout {
                     ForEach(series) { show in

@@ -114,6 +114,11 @@ tested on any screen: **unproven everywhere**, and nothing was run with those se
 - 19 Wording: episode cards titled with the episode code. Changed: show name as title, "S2 E1 · Title" or "S2 E1"
   underneath (unit-tested in WSL; unproven on screen).
 - 18 Real names as text ("Dolby Vision", "Dolby Atmos"): pass in code (unit test); unproven on screen.
+- #15 4.3 cyan outline on the focused card (51, 52): no custom focus code exists (no border, stroke, tint, focus or hover
+  effect in App/); cards use the system `.card` button style, so the outline is the system focus look. Unverified which
+  system element draws it (unverified, from memory: the tvOS 26+ focus highlight).
+- #15 4.1 (R185): Continue Watching as 16:9 cards; Recently Added stays portrait. Fixed in code, verify in next screenshots.
+- #15 4.5: one `GridToolbar` row on Movies and Shows, with "2 shows". Fixed in code, verify in next screenshots.
 
 ### Movies and Shows grids
 - 12 Equal and aligned: **fail (run 44401030622)**: posters at different heights. Changed: grid cells top-aligned
@@ -135,6 +140,8 @@ tested on any screen: **unproven everywhere**, and nothing was run with those se
   cast shelf uses `scrollClipDisabled(_:)` (checked: tvOS 17.0+) so focused entries are not cut. Cast entries and the
   Media Info block take focus with `.focusable()` and no action; whether tvOS draws a focus look for them is unproven.
   Fixed in code, verify in next screenshots.
+- #15 8.1 (R183): a title that cannot be played is a system alert over the unchanged page, with "Try Again" when it
+  can help and "Done" (was a view inside the player cover). Fixed in code, verify in next screenshots (49, 62).
 
 ### Files (sources and folders)
 - 12 Icon against label: **fail (run 44401030622)**: the drive symbol touched the text. The row was already a system

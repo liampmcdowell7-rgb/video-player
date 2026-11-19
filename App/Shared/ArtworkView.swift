@@ -7,18 +7,24 @@ import AppLogic
 struct ArtworkView: View {
     let key: String
     let symbol: String
+    /// #15 4.1: a 16:9 card (Continue Watching). An episode shows its still; a movie its backdrop, else its poster.
+    var wide = false
     @Environment(AppServices.self) private var services
     @State private var result: ArtworkResult = .none
 
     var body: some View {
-        // One shape for every card (screenshot review item 3c): a 2:3 frame that the picture FILLS and is clipped to. Before,
-        // the filled picture was the frame's child without a clip, so a 16:9 picture (an episode still or a fan-art image)
-        // reported its own wider size and its card came out wider than the posters next to it.
+        // One shape per card kind (screenshot review item 3c): a 2:3 (or 16:9) frame that the picture FILLS and is clipped
+        // to. Before, the filled picture was the frame's child without a clip, so a 16:9 picture (an episode still or a
+        // fan-art image) reported its own wider size and its card came out wider than the posters next to it.
         Color.clear
-            .aspectRatio(2.0 / 3.0, contentMode: .fit)
+            .aspectRatio(wide ? 16.0 / 9.0 : 2.0 / 3.0, contentMode: .fit)
             .overlay { content }
             .clipped()
-            .task(id: "\(key)|\(services.online.keyRevision)") {
+            .task(id: "\(key)|\(services.online.keyRevision)|\(wide)") {
+                if wide && symbol == "film" {
+                    let backdrop = await services.online.backdrop(key: key)
+                    if backdrop != .none { result = backdrop; return }
+                }
                 result = await services.online.resolveArtwork(key: key)
             }
     }

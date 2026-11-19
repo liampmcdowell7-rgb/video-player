@@ -65,6 +65,7 @@ Pages that do not exist or were not found: none looked for and missing. One inco
 |---|---|---|
 | Safe area, tvOS | 60 pt top and bottom, 80 pt left and right | HIG Layout [V] |
 | Grid, unfocused content width / horizontal spacing / minimum vertical spacing | 2 columns 860 / 40 / 100; 3: 560; 4: 410; 5: 320; 6: 260; 7: 217; 8: 184; 9: 160 (all spacing 40 and 100 pt) | HIG Layout [V] |
+| Card widths in this app (#15 4.2) | exactly two poster widths: 260 pt on shelves (six to the width, `CardRow`) and 320 pt in grids (five columns, `PosterGridLayout`); Continue Watching 16:9 cards are three to the width (about 560 pt, the 3-column grid width; R185). No other card width: widths come from `containerRelativeFrame` and grid columns, never a number (lint `hard-padding`) | HIG Layout [V] grid widths |
 | Poster proportion (Top Shelf row images) | 2:3: actual 404x608, focused/safe 380x570, unfocused 333x570 pt; square 608; 16:9 908x512 | HIG Top Shelf [V] |
 | Tab bar | height 68 pt, top edge 46 pt from the top of the screen, "you can't change either"; translucent, only the selected tab opaque | HIG Tab bars, tvOS [V] |
 | Text styles (tvOS, weight / size / leading pt) | Title 1 Medium 76/96; Title 2 Medium 57/66; Title 3 Medium 48/56; Headline Medium 38/46; Subtitle 1 Regular 38/46; Callout Medium 31/38; Body Medium 29/36; Caption 1 Medium 25/32; Caption 2 Medium 23/30 | HIG Typography [V] |
