@@ -23,7 +23,7 @@ struct FittingLine: View {
             // design-lint:allow rule S1 (OPEN_QUESTIONS R165): the system text style shrinks to fit, never below Apple's 23 pt minimum (HIG Typography)
             .minimumScaleFactor(scale)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .onGeometryChange(for: Double.self) { $0.size.width } action: { available = $0 }
+            .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { available = $0 }
             .background(alignment: .leading) {
                 // Natural one-line width of every candidate, measured off screen (hidden: not drawn, not spoken).
                 ZStack(alignment: .leading) {
@@ -32,7 +32,7 @@ struct FittingLine: View {
                             .font(style.font)
                             .lineLimit(1) // design-lint:allow hidden measurement of the natural width, never drawn or spoken (rule S1 is applied to the visible line above)
                             .fixedSize()
-                            .onGeometryChange(for: Double.self) { $0.size.width } action: { widths[candidate] = $0 }
+                            .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { widths[candidate] = $0 }
                     }
                 }
                 .hidden()

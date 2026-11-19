@@ -84,7 +84,7 @@ final class SourceFactory {
 
     /// One file as random-access bytes (the converting player and the range proxy read through this).
     func byteReader(for file: StoredFile) async throws -> any ByteRangeReader {
-        let definition = try definition(for: file.sourceID)
+        let definition = try self.definition(for: file.sourceID)
         let live = try source(for: definition)
         return try await MediaSourceReader.open(source: live, path: file.path)
     }
@@ -92,7 +92,7 @@ final class SourceFactory {
     /// What to hand the player for this file. Never starts anything for a source whose certificate or key is refused: the
     /// refusal is thrown (and shown) instead.
     func playbackLocation(for file: StoredFile) async throws -> PlaybackLocation {
-        let definition = try definition(for: file.sourceID)
+        let definition = try self.definition(for: file.sourceID)
         let live = try source(for: definition)
         let access = try await live.playbackAccess(for: file.path)
         let pinnedTLS = SourceBuilder.trustKind(for: definition) == .tlsCertificate && definition.hasApprovedFingerprint

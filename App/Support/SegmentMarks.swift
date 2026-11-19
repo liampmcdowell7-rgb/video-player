@@ -17,7 +17,7 @@ struct SegmentMarks {
     /// Marks the playhead. `duration` is the length of the file when the player knows it; without it the library's length is used.
     @discardableResult
     func mark(kind: SegmentType, itemID: Int64, at position: TimeInterval?, duration: TimeInterval? = nil) async -> MarkOutcome {
-        guard let session = await session(forItem: itemID) else { return .notStored }
+        guard let session = await self.session(forItem: itemID) else { return .notStored }
         let length = await lengthOfFile(itemID: itemID, given: duration)
         return session.press(kind, at: position, duration: length)
     }
@@ -25,21 +25,21 @@ struct SegmentMarks {
     /// Removes the saved mark of this kind.
     @discardableResult
     func deleteMark(kind: SegmentType, itemID: Int64) async -> MarkOutcome {
-        guard let session = await session(forItem: itemID) else { return .notStored }
+        guard let session = await self.session(forItem: itemID) else { return .notStored }
         return session.delete(kind)
     }
 
     /// Forgets a start that was marked and not finished.
     @discardableResult
     func cancelPendingMark(itemID: Int64) async -> MarkOutcome {
-        guard let session = await session(forItem: itemID) else { return .notStored }
+        guard let session = await self.session(forItem: itemID) else { return .notStored }
         return session.cancelPending()
     }
 
     /// Reverts the last change made in this playback.
     @discardableResult
     func undoLastMark(itemID: Int64) async -> MarkOutcome {
-        guard let session = await session(forItem: itemID) else { return .notStored }
+        guard let session = await self.session(forItem: itemID) else { return .notStored }
         return session.undo()
     }
 
