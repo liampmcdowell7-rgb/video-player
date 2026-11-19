@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CI only (compile-check.yml, jobs "screenshots" and "accessibility-screenshots": both build exactly this way).
+# CI only (compile-check.yml, jobs "screenshots", "accessibility-screenshots" and "accessibility-settings-screenshots": all build exactly this way).
 # Builds the app and the UI tests for the booted simulator ($SIM_UDID), Debug, AD-HOC signed (identity "-", no team, no
 # profile, no secret; OPEN_QUESTIONS R164); if that build fails, builds again unsigned and says so.
 # Writes SIGNING and APP_PATH to $GITHUB_ENV for the later steps. Log: $OUT/test.log.

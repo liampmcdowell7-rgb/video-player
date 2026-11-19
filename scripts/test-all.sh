@@ -77,6 +77,11 @@ if bash "$HERE/scripts/test-ci-sim.sh" >"$LOG/ci-sim-tests.log" 2>&1; then CST=o
 SUMMARY="$SUMMARY
 ci-sim self-test ($CST): $(tail -1 "$LOG/ci-sim-tests.log")"
 
+# 0b7. The Larger Text / Bold Text against default comparison (scripts/ci-a11y-compare.py, #17 A) on generated PNGs.
+if bash "$HERE/scripts/test-ci-a11y-compare.sh" >"$LOG/a11y-compare-tests.log" 2>&1; then ACT=ok; else ACT=bad; fi
+SUMMARY="$SUMMARY
+a11y-compare self-test ($ACT): $(tail -1 "$LOG/a11y-compare-tests.log")"
+
 # 0c. Syntax check of the app and extension sources (swiftc -parse). SYNTAX ONLY: it cannot see missing imports, wrong
 # labels or unknown names, because the Apple frameworks do not exist here. A pass is never "it compiles".
 if bash "$HERE/scripts/parse-app.sh" >"$LOG/parse-app.log" 2>&1; then PA=ok; else PA=bad; fi

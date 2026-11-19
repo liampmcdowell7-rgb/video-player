@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CI only (compile-check.yml, jobs "screenshots" and "accessibility-screenshots").
+# CI only (compile-check.yml, jobs "screenshots", "accessibility-screenshots" and "accessibility-settings-screenshots").
 # Usage: ci-export-screenshots.sh RESULT.xcresult OUT_DIR
 # Exports the attachments of one result bundle and puts the screenshots in viewing order (01-..., 02-...) with index.md in
 # OUT_DIR (scripts/ci-screenshots-index.py). Crash reports, screen recordings and text attachments go to $OUT/attachments

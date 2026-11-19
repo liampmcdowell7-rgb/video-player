@@ -16,7 +16,7 @@ import re
 import shutil
 import sys
 
-NAME = re.compile(r"^(\d\d)-([A-Za-z0-9][A-Za-z0-9-]*?)(-NOT-REACHED)?(?:_\d+)?(?:_[0-9A-Fa-f-]{8,})?(?:\.[A-Za-z0-9]+)?$")
+NAME = re.compile(r"^(\d{2,3})-([A-Za-z0-9][A-Za-z0-9-]*?)(-NOT-REACHED)?(?:_\d+)?(?:_[0-9A-Fa-f-]{8,})?(?:\.[A-Za-z0-9]+)?$")
 
 
 def entries(node):
@@ -46,7 +46,17 @@ def main():
         m = NAME.match(os.path.basename(human))
         src = os.path.join(raw, exported)
         if not m or not os.path.exists(src):
-            unnamed.append("%s (%s)" % (human, exported))
+            # #17 E: "Complete Issue Description.txt" was listed here but not in the artifact. Text attachments without a
+            # numbered name (such as the full text of a test issue) are now copied into other-attachments/ and linked;
+            # pictures are not (an unnumbered picture would break the artifact check, ci-artifact-contents.sh).
+            if os.path.exists(src) and not exported.lower().endswith((".png", ".jpg", ".jpeg", ".heic")):
+                safe = re.sub(r"[^A-Za-z0-9._-]+", "-", os.path.splitext(os.path.basename(human))[0]).strip("-") or "attachment"
+                dest_name = "%s-%s" % (safe, os.path.basename(exported))
+                os.makedirs(os.path.join(out, "other-attachments"), exist_ok=True)
+                shutil.copyfile(src, os.path.join(out, "other-attachments", dest_name))
+                unnamed.append("[%s](other-attachments/%s)" % (human, dest_name))
+            else:
+                unnamed.append("%s (%s)" % (human, exported))
             continue
         key = "%s-%s" % (m.group(1), m.group(2))
         if m.group(3):
@@ -63,14 +73,19 @@ def main():
              "Made by the UI tests in UITests/ScreenshotTests.swift on the tvOS Simulator, with the debug-only sample library",
              "(synthetic titles and generated pictures; see OPEN_QUESTIONS R160). Not a device: colours, HDR and focus effects",
              "can differ on a real Apple TV.", ""]
-    for key in sorted(set(shots) | set(missing)):
+    # Numeric order (NN may have three digits since #16 item 1.10: 80-112 in the accessibility set), then by name.
+    def order(key):
+        number, _, rest = key.partition("-")
+        return (int(number) if number.isdigit() else 0, rest)
+
+    for key in sorted(set(shots) | set(missing), key=order):
         if key in shots:
             lines.append("- [%s](%s)" % (key, shots[key]))
         if key in missing:
             lines.append("- %s: NOT REACHED. %s" % (key, missing[key]))
     lines += ["", "Screenshots: %d. Screens not reached: %d." % (len(shots), len(missing))]
     if unnamed:
-        lines += ["", "Attachments without a numbered name (not renamed):"] + ["- " + u for u in unnamed]
+        lines += ["", "Attachments without a numbered name (text ones copied to other-attachments/, pictures not copied):"] + ["- " + u for u in unnamed]
     with open(os.path.join(out, "index.md"), "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
     print("\n".join(lines))

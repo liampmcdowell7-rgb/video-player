@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
 # Lists what a screenshot artifact folder holds and checks it is the right set (#15 item 1.2).
 #
-#   bash scripts/ci-artifact-contents.sh DIR main|accessibility
+#   bash scripts/ci-artifact-contents.sh DIR main|accessibility|accessibility-settings
 #
 # Why: a review of the CI run for 8bb0f0c found the accessibility pictures where the main set was expected. The workflow
 # keeps them apart (job "screenshots" uploads screenshots/, job "accessibility-screenshots" uploads accessibility-screenshots/),
 # so this check runs in each job just before its upload and fails loudly if the folder holds the other set.
 #
 #   main           index.md at the top; pictures at the top only, each named NN-... with NN from 01 to 79.
-#   accessibility  pictures only in the setting folders (text, contrast, transparency, motion), each NN-... with NN 80 or
-#                  more; at least one picture in text/ (Larger Text and Bold Text, 80 to 89).
+#   accessibility  pictures only in text/ (Larger Text, Bold Text and the default screens, 80 to 112), each NN-... with
+#                  NN 80 or more (two or three digits); at least one picture in text/.
+#   accessibility-settings
+#                  pictures only in contrast/, transparency/ or motion/ (the simulator settings, 113 and up), each NN 80 or
+#                  more; settings-applied.txt at the top (it says which settings were applied; one that was not has no
+#                  pictures, so none at all is allowed).
+#   (#16 item 1.10: the accessibility job was split in two, one artifact each.)
 #
 # Writes DIR/CONTENTS.txt (every file with its size, then the counts) so the artifact says what it is, prints the same,
 # and prints "ARTIFACT OK (<set>)" or one "ARTIFACT PROBLEM: ..." line per problem (exit 1).
 # Self-test on fake folders: scripts/test-ci-artifact-contents.sh.
 set -u
-dir="${1:?usage: ci-artifact-contents.sh DIR main|accessibility}"; set_name="${2:?usage: ci-artifact-contents.sh DIR main|accessibility}"
-case "$set_name" in main|accessibility) ;; *) echo "ci-artifact-contents: set must be main or accessibility" >&2; exit 2;; esac
+dir="${1:?usage: ci-artifact-contents.sh DIR main|accessibility|accessibility-settings}"; set_name="${2:?usage: ci-artifact-contents.sh DIR main|accessibility|accessibility-settings}"
+case "$set_name" in main|accessibility|accessibility-settings) ;; *) echo "ci-artifact-contents: set must be main, accessibility or accessibility-settings" >&2; exit 2;; esac
 problems=()
 if [ ! -d "$dir" ]; then
   echo "ARTIFACT PROBLEM: no folder $dir (nothing would be uploaded)"
@@ -30,7 +35,7 @@ while IFS= read -r f; do
   case "$f" in *.png|*.jpg|*.jpeg|*.heic) ;; *) continue;; esac
   pictures=$((pictures + 1))
   base="${f##*/}"; folder=""; [ "$f" != "$base" ] && folder="${f%/*}"
-  num="$(printf '%s' "$base" | sed -nE 's/^([0-9]{2})-.*/\1/p')"
+  num="$(printf '%s' "$base" | sed -nE 's/^([0-9]{2,3})-.*/\1/p')"
   if [ -z "$num" ]; then problems+=("$f has no NN- number"); continue; fi
   n=$((10#$num))
   if [ "$set_name" = main ]; then
@@ -38,10 +43,14 @@ while IFS= read -r f; do
     [ "$n" -ge 1 ] && [ "$n" -le 79 ] || problems+=("$f is numbered $num; the main set is 01 to 79 (80 and above are the accessibility set)")
     [ -z "$folder" ] && top=$((top + 1))
   else
-    case "$folder" in
-      text|contrast|transparency|motion) ;;
-      "") problems+=("$f is at the top; accessibility pictures go in text/, contrast/, transparency/ or motion/");;
-      *) problems+=("$f is in an unknown folder '$folder'");;
+    if [ "$set_name" = accessibility ]; then allowed="text"; else allowed="contrast transparency motion"; fi
+    case " $allowed " in
+      *" $folder "*) [ -n "$folder" ] || problems+=("$f is at the top; pictures of this set go in: $allowed");;
+      *) case "$folder" in
+           "") problems+=("$f is at the top; pictures of this set go in: $allowed");;
+           text|contrast|transparency|motion) problems+=("$f is in $folder/, which belongs to the other accessibility artifact (this set: $allowed)");;
+           *) problems+=("$f is in an unknown folder '$folder'");;
+         esac;;
     esac
     [ "$n" -ge 80 ] || problems+=("$f is numbered $num; the accessibility set is 80 and above (01 to 79 are the main set)")
     [ "$folder" = text ] && text=$((text + 1))
@@ -53,8 +62,10 @@ EOF
 if [ "$set_name" = main ]; then
   [ -f "$dir/index.md" ] || problems+=("no index.md at the top")
   [ "$top" -gt 0 ] || problems+=("no picture at the top (the main screenshots were not copied here)")
+elif [ "$set_name" = accessibility ]; then
+  [ "$text" -gt 0 ] || problems+=("no picture in text/ (Larger Text, Bold Text and the default screens)")
 else
-  [ "$text" -gt 0 ] || problems+=("no picture in text/ (Larger Text and Bold Text, 80 to 89)")
+  [ -f "$dir/settings-applied.txt" ] || problems+=("no settings-applied.txt (which simulator settings were applied)")
 fi
 
 {

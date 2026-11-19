@@ -286,9 +286,10 @@ The run's **Summary** page shows the same short list, so you can also copy it fr
 
    *If it says "no artifact":* the run failed before the upload step. Open the run in the browser and read its last red step.
 
-## Part F: the five jobs and their downloads (third compile check onwards, OPEN_QUESTIONS R161)
+## Part F: the six jobs and their downloads (third compile check onwards, OPEN_QUESTIONS R161)
 
-One press of **Run workflow** now starts five jobs at the same time. Each has its own line on the run page, its own
+One press of **Run workflow** now starts six jobs at the same time (five until #16 item 1.10, which split the
+accessibility job in two). Each has its own line on the run page, its own
 tick or cross, and its own download. One red job does not stop the others. Each job has its own 30-minute limit.
 
 | Job (name on the run page) | What a green tick proves | Download (Artifacts list) | What is inside |
@@ -297,14 +298,15 @@ tick or cross, and its own download. One red job does not stop the others. Each 
 | Build app + Top Shelf (Apple TV device, Release, unsigned) | The same compile for a real Apple TV, and the device slices of the codec frameworks, libnfs and the Dolby Vision RPU library link | `device-build-results` | `errors.txt`, `build.log`, `embedded-frameworks.txt`, `macho-report.txt`, `static-libraries.txt`, `release-strings.txt` |
 | Package tests (tvOS Simulator) | The package unit tests build and pass on tvOS (tests that need a server, iCloud or a tool are skipped, not failed) | `simulator-test-results` | `test-report.md` (passed / skipped / failed per test target, then the failures), `test.log` |
 | Screenshots of every screen (tvOS Simulator, UI tests) | The UI tests ran and took pictures | `screenshots` and `screenshots-logs` | `01-….png`, `02-….png` … in viewing order and `index.md` (the list, plus every screen that could not be reached and why) |
-| Accessibility screenshots (tvOS Simulator, UI tests) | Five screens were drawn with each accessibility setting (OPEN_QUESTIONS R170) | `accessibility-screenshots` and `accessibility-screenshots-logs` | folders `text` (80–84 Larger Text, 85–89 Bold Text), `contrast`, `transparency`, `motion`, each with its own `index.md`, plus `settings-applied.txt` |
+| Accessibility screenshots (tvOS Simulator, UI tests) | Eleven screens were drawn with Larger Text and Bold Text (the app's imitation of those settings) and at the default size, and each Larger Text and Bold Text picture differs from its default one outside the tab bar (OPEN_QUESTIONS R170, #17 A) | `accessibility-screenshots` and `accessibility-screenshots-logs` | folder `text` with its `index.md`: 80–84 and 90–95 Larger Text, 85–89 and 96–101 Bold Text, 102–112 the same screens at the default size; `a11y-compare.txt` (the comparison) |
+| Accessibility screenshots, simulator settings (tvOS Simulator, UI tests) | Five screens were drawn with each of three settings turned on in the simulator (OPEN_QUESTIONS R170) | `accessibility-settings-screenshots` and `accessibility-settings-screenshots-logs` | folders `contrast`, `transparency`, `motion` (113–117 each), each with its own `index.md`, plus `settings-applied.txt` |
 
 **Partial runs still give you files.** Every upload step runs even when an earlier step failed or ran out of time, so a
 red job still uploads whatever it captured. The long steps have their own time limits (screenshots: UI tests 20
-minutes; accessibility: Larger/Bold Text 8 minutes, each other setting 4 minutes), which leaves time for the uploads
+minutes; accessibility: Larger/Bold Text and default 20 minutes; accessibility settings: each setting 5 minutes), which leaves time for the uploads
 inside the 30 minutes. If a whole job hits its 30-minute limit, GitHub may stop it before the upload; that case has not
 been tried. So the test runs also have a deadline counted from the job's first stage (`CI_TEST_DEADLINE_SECONDS`, #16
-item 1.8): 22 minutes in both screenshot jobs, 25 minutes in the package-test job. A test run still going then is stopped
+item 1.8): 22 minutes in the three screenshot jobs, 25 minutes in the package-test job. A test run still going then is stopped
 and the log says `TIME BUDGET: stopping`; a run that would start after it says `TIME BUDGET: not started`. The pictures
 taken until then are still exported and uploaded (whether a stopped run leaves a readable result bundle is unproven).
 
@@ -324,7 +326,7 @@ the app is in front; otherwise the test fails and `index.md` lists the screen as
 **When the simulator itself fails (a runner problem, not our code).** Run 44424319207: the package tests job stopped with
 0 tests, and its log said `Failed to load requested runtime bundle (.../tvOS 27.0.simruntime)` and
 `Malformed bundle does not contain an identifier`. The same runner image had worked the run before. Since then, the three
-jobs that use the simulator (Package tests, Screenshots, Accessibility screenshots) do this (scripts/ci-sim.sh):
+jobs that use the simulator (Package tests, Screenshots, both Accessibility screenshots jobs) do this (scripts/ci-sim.sh):
 
 - They print `xcrun simctl list runtimes` and `xcrun simctl runtime list` in the step "Pick and boot the simulator", and
   the same lists sit in the job summary under "Simulator runtimes on this runner" (and in `sim-runtimes.txt` in the
@@ -344,18 +346,22 @@ summary.
 **Step by step after the run has finished:**
 
 1. Open the run. Scroll to **Artifacts** at the bottom.
-2. Click each of the seven names above to download a zip file: `compile-check-results`, `device-build-results`,
+2. Click each of the nine names above to download a zip file: `compile-check-results`, `device-build-results`,
    `simulator-test-results`, `screenshots`, `screenshots-logs`, `accessibility-screenshots`,
-   `accessibility-screenshots-logs` (the two `-logs` ones only matter if their job is red).
+   `accessibility-screenshots-logs`, `accessibility-settings-screenshots`, `accessibility-settings-screenshots-logs`
+   (the three `-logs` ones only matter if their job is red).
 3. Make a new folder `Downloads\run-3` and unzip each zip into its own subfolder there. Do not unzip into the project folder.
 4. Open `screenshots\index.md` (any text editor) and look at the pictures in number order. Then open
-   `accessibility-screenshots`: `text` holds pictures 80–84 (Larger Text) and 85–89 (Bold Text); `contrast`,
-   `transparency` and `motion` (each with its own `index.md`) hold the same five screens with Increase Contrast, Reduce
-   Transparency or Reduce Motion turned on in the simulator; `settings-applied.txt` says which of these were really
-   applied (OPEN_QUESTIONS R170).
-   Each of the two screenshot zips has a `CONTENTS.txt` at the top: every file in it, and which set it should be. The job
-   checks this before uploading (`scripts/ci-artifact-contents.sh`, #15 item 1.2): `screenshots` must hold only 01–79
-   at the top with `index.md`, and `accessibility-screenshots` only 80 and above in its setting folders. A wrong set
+   `accessibility-screenshots`: `text` holds the Larger Text pictures (80–84, 90–95), the Bold Text pictures (85–89,
+   96–101) and the same eleven screens at the default size (102–112), so each can be compared with its default one;
+   `a11y-compare.txt` says for each whether it differs from the default outside the tab bar (#17 A). Then open
+   `accessibility-settings-screenshots`: `contrast`, `transparency` and `motion` (each with its own `index.md`) hold five
+   screens with Increase Contrast, Reduce Transparency or Reduce Motion turned on in the simulator (113–117);
+   `settings-applied.txt` says which of these were really applied (OPEN_QUESTIONS R170).
+   Each of the three screenshot zips has a `CONTENTS.txt` at the top: every file in it, and which set it should be. The
+   job checks this before uploading (`scripts/ci-artifact-contents.sh`, #15 item 1.2): `screenshots` must hold only
+   01–79 at the top with `index.md`, `accessibility-screenshots` only 80 and above in `text/`, and
+   `accessibility-settings-screenshots` only its three setting folders. A wrong set
    turns the step "List and check what the … artifact holds" red, with one `ARTIFACT PROBLEM:` line per file. Unzip each
    zip into its OWN folder: zips unzipped into one folder overwrite each other's `index.md`.
 5. Send back, in this order of importance:
@@ -363,7 +369,8 @@ summary.
    - `device-build-results\embedded-frameworks.txt`, `static-libraries.txt` and `release-strings.txt`;
    - `simulator-test-results\test-report.md`;
    - `screenshots\index.md` and the screenshots (the whole folder, or the ones that look wrong);
-   - `accessibility-screenshots\settings-applied.txt` and any accessibility picture that looks wrong;
+   - `accessibility-screenshots\a11y-compare.txt`, `accessibility-settings-screenshots\settings-applied.txt` and any
+     accessibility picture that looks wrong;
    - the "Stage times" table of any job that took longer than 25 minutes;
    - for any red job without an `errors.txt`: the name of its last red step and the last 30 lines of that step.
 

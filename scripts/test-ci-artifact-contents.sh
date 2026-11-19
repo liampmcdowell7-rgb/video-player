@@ -16,11 +16,29 @@ OUT="$(bash "$CHECK" "$M" main 2>&1)"; RC=$?
 [ "$RC" -eq 0 ] && has "ARTIFACT OK (main): 3 pictures"; check "a main set (01-79 at the top, index.md) passes" $?
 grep -qF "57-movie-detail.png" "$M/CONTENTS.txt" && grep -qF "Pictures: 3." "$M/CONTENTS.txt"; check "CONTENTS.txt lists every file and the count" $?
 
-# A good accessibility set.
-A="$TMP/accessibility-screenshots"; pic "$A/text/80-larger-text-home.png"; pic "$A/text/85-bold-text-home.png"; pic "$A/contrast/90-increase-contrast-home.png"
-echo "# index" >"$A/text/index.md"; echo "contrast: applied" >"$A/settings-applied.txt"
+# A good accessibility set (text/ only, two- and three-digit numbers).
+A="$TMP/accessibility-screenshots"; pic "$A/text/80-larger-text-home.png"; pic "$A/text/85-bold-text-home.png"; pic "$A/text/102-default-home.png"
+echo "# index" >"$A/text/index.md"
 OUT="$(bash "$CHECK" "$A" accessibility 2>&1)"; RC=$?
-[ "$RC" -eq 0 ] && has "ARTIFACT OK (accessibility): 3 pictures"; check "an accessibility set (80+ in setting folders) passes" $?
+[ "$RC" -eq 0 ] && has "ARTIFACT OK (accessibility): 3 pictures"; check "an accessibility set (80+ in text/, NN or NNN) passes" $?
+
+# A good accessibility-settings set, and one where no setting could be applied (no pictures).
+S="$TMP/accessibility-settings-screenshots"; pic "$S/contrast/113-increase-contrast-home.png"; pic "$S/motion/117-reduce-motion-movie-detail.png"
+echo "contrast: applied" >"$S/settings-applied.txt"
+OUT="$(bash "$CHECK" "$S" accessibility-settings 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && has "ARTIFACT OK (accessibility-settings): 2 pictures"; check "an accessibility-settings set (113+ in setting folders) passes" $?
+N="$TMP/settings-none"; mkdir -p "$N"; echo "contrast: NOT APPLIED" >"$N/settings-applied.txt"
+OUT="$(bash "$CHECK" "$N" accessibility-settings 2>&1)"; RC=$?
+[ "$RC" -eq 0 ]; check "no setting applied (no pictures, settings-applied.txt says so) passes" $?
+rm "$N/settings-applied.txt"
+OUT="$(bash "$CHECK" "$N" accessibility-settings 2>&1)"; RC=$?
+[ "$RC" -eq 1 ] && has "no settings-applied.txt"; check "accessibility-settings without settings-applied.txt fails" $?
+
+# Each accessibility artifact checked as the other one.
+OUT="$(bash "$CHECK" "$S" accessibility 2>&1)"; RC=$?
+[ "$RC" -eq 1 ] && has "belongs to the other accessibility artifact" && has "no picture in text/"; check "the settings set checked as accessibility fails" $?
+OUT="$(bash "$CHECK" "$A" accessibility-settings 2>&1)"; RC=$?
+[ "$RC" -eq 1 ] && has "text/80-larger-text-home.png is in text/"; check "the text set checked as accessibility-settings fails" $?
 
 # The failure from the review: the accessibility pictures uploaded under the main name.
 OUT="$(bash "$CHECK" "$A" main 2>&1)"; RC=$?
@@ -46,9 +64,9 @@ OUT="$(bash "$CHECK" "$TMP/missing" main 2>&1)"; RC=$?
 [ "$RC" -eq 1 ] && has "no folder"; check "a missing folder fails" $?
 
 # A picture with no number, and an unknown setting folder.
-pic "$A/other/91-x.png"; pic "$A/text/home.png"
+pic "$A/other/91-x.png"; pic "$A/text/home.png"; pic "$A/text/7-x.png"
 OUT="$(bash "$CHECK" "$A" accessibility 2>&1)"; RC=$?
-[ "$RC" -eq 1 ] && has "unknown folder 'other'" && has "text/home.png has no NN- number"; check "unknown folder and unnumbered picture fail" $?
+[ "$RC" -eq 1 ] && has "unknown folder 'other'" && has "text/home.png has no NN- number" && has "text/7-x.png has no NN- number"; check "unknown folder and unnumbered or one-digit picture fail" $?
 
 echo "artifact-contents tests: passed $P, failed $X"
 [ "$X" -eq 0 ]

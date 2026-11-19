@@ -1,4 +1,4 @@
-# Compile check: FIVE INDEPENDENT JOBS that run in parallel from one press of "Run workflow" (OPEN_QUESTIONS R161).
+# Compile check: SIX INDEPENDENT JOBS that run in parallel from one press of "Run workflow" (OPEN_QUESTIONS R161).
 # No job depends on another (no `needs:`), so a failing job never stops or hides the others. Each job has its own
 # 30-minute timeout, its own error summary in the run page and its own artifact. Every upload step has `if: always()`, so
 # it runs after a failed step too; the long steps have their own (shorter) timeout-minutes so that a slow step still
@@ -10,8 +10,11 @@
 #   4. screenshots       a launch smoke (the app must still be running 8 s after launch, plain and -UITestEmpty; the
 #                        cause is printed in the log if not), then UI tests that take a named screenshot of every screen
 #                        they can reach, with debug-only sample data
-#   5. accessibility-screenshots   the same five main screens under Larger Text, Bold Text, Increase Contrast, Reduce
-#                        Transparency and Reduce Motion (rule 17, R170); built exactly as job 4
+#   5. accessibility-screenshots   eleven screens under Larger Text and Bold Text (drawn by the app) and at the default
+#                        size, and a check that the first two differ from the default outside the tab bar (rule 17, R170)
+#   6. accessibility-settings-screenshots   five screens under Increase Contrast, Reduce Transparency and Reduce Motion,
+#                        each turned on in the simulator. Jobs 5 and 6 were one job until #16 item 1.10: with eleven
+#                        screens it would not fit in 30 minutes. Both are built exactly as job 4
 # docs/GITHUB_ACTIONS_RUNBOOK.md says what to download and what to send back.
 #
 # MANUAL ONLY: the only trigger is workflow_dispatch (the "Run workflow" button on the Actions tab). Nothing runs on push,
@@ -494,7 +497,8 @@ jobs:
           exit $status
 
       # The UI tests run even when the smoke step failed, so the xcresult (with its crash reports and screen recording)
-      # exists for the export below. Tests 06-09 are the accessibility screenshots: job 5 runs them, this job skips them.
+      # exists for the export below. Tests 06-09 and 11 are the accessibility screenshots: jobs 5 and 6 run them, this
+      # job skips them.
       # Step cap 20 minutes: whatever the tests captured until then is still exported and uploaded.
       - name: Run the screenshot UI tests (Debug, simulator, built above)
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
@@ -514,7 +518,8 @@ jobs:
             -skip-testing:VideoPlayerUITests/ScreenshotTests/test06_LargerTextAndBoldText \
             -skip-testing:VideoPlayerUITests/ScreenshotTests/test07_IncreaseContrast \
             -skip-testing:VideoPlayerUITests/ScreenshotTests/test08_ReduceTransparency \
-            -skip-testing:VideoPlayerUITests/ScreenshotTests/test09_ReduceMotion
+            -skip-testing:VideoPlayerUITests/ScreenshotTests/test09_ReduceMotion \
+            -skip-testing:VideoPlayerUITests/ScreenshotTests/test11_AccessibilityDefaults
 
       - name: Summarise errors (file, line, message)
         if: always()
@@ -562,13 +567,15 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  # JOB 5. Accessibility screenshots (rule 17, docs/DESIGN_REFERENCES.md; OPEN_QUESTIONS R170): the same five main screens
-  # under Larger Text, Bold Text, Increase Contrast, Reduce Transparency and Reduce Motion. Its own job and its own 30-minute
-  # cap, built exactly as job 4, so a slow run here never costs the main screenshots.
-  #   Larger Text and Bold Text are drawn by the app (launch arguments, test06). Increase Contrast, Reduce Transparency and
-  #   Reduce Motion are read-only in SwiftUI, so each is turned on in the simulator (scripts/ci-a11y-setting.sh reads
-  #   `xcrun simctl help ui` for the option name), its test runs alone into its own result bundle, and the setting is turned
-  #   off again. A setting simctl does not offer is written down as NOT APPLIED and gets no screenshots.
+  # JOB 5. Accessibility screenshots, text (rule 17, docs/DESIGN_REFERENCES.md; OPEN_QUESTIONS R170; #16 item 1.10):
+  # eleven screens (Home, Movies, Settings, a Files folder, two movie pages, a show page, the Backup page, Add a Source, a
+  # source form, Search) under Larger Text and Bold Text, drawn by the app from launch arguments (test06; an imitation of
+  # the system settings, docs/COVERAGE.md), then the same screens with no override (test11). scripts/ci-a11y-compare.py
+  # then fails the job when a Larger Text or Bold Text screenshot equals its default one outside the tab bar (#17 A).
+  # Its own job and its own 30-minute cap, built exactly as job 4, so a slow run here never costs the main screenshots.
+  # Expected time (#16 item 1.9; an ESTIMATE, not measured: no stage-time table of an earlier run could be read here):
+  # prepare + boot + build as in job 4, then 33 launches of about 15-25 s each (11-14 min). The 1320 s time budget
+  # (scripts/ci-sim.sh) stops the tests in time for the export and upload whatever the build took.
   accessibility-screenshots:
     name: Accessibility screenshots (tvOS Simulator, UI tests)
     runs-on: xcode-27
@@ -604,34 +611,19 @@ jobs:
         id: build
         run: bash scripts/ci-build-uitests.sh
 
-      - name: Larger Text and Bold Text (drawn by the app; screenshots 80-89)
+      - name: Larger Text, Bold Text and the default screens (drawn by the app; screenshots 80-112)
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        timeout-minutes: 8
+        timeout-minutes: 20
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Larger Text and Bold Text (drawn by the app; screenshots 80-89)"
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Larger Text, Bold Text and the default screens (drawn by the app; screenshots 80-112)"
           set -uo pipefail
           bash scripts/ci-sim.sh test "$OUT/test.log" -- xcodebuild test-without-building \
             -project VideoPlayer.xcodeproj -scheme VideoPlayerUITests -configuration Debug \
             -destination "platform=tvOS Simulator,id=$SIM_UDID" \
             -clonedSourcePackagesDirPath build/SourcePackages -derivedDataPath build/DerivedData \
             -resultBundlePath "$OUT/A11y-text.xcresult" -parallel-testing-enabled NO \
-            -only-testing:VideoPlayerUITests/ScreenshotTests/test06_LargerTextAndBoldText
-
-      # One step per setting, each with its own cap, so one slow setting does not cost the others.
-      - name: Increase Contrast (simulator setting)
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        timeout-minutes: 4
-        run: bash scripts/ci-a11y-run.sh contrast test07_IncreaseContrast
-
-      - name: Reduce Transparency (simulator setting)
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        timeout-minutes: 4
-        run: bash scripts/ci-a11y-run.sh transparency test08_ReduceTransparency
-
-      - name: Reduce Motion (simulator setting)
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        timeout-minutes: 4
-        run: bash scripts/ci-a11y-run.sh motion test09_ReduceMotion
+            -only-testing:VideoPlayerUITests/ScreenshotTests/test06_LargerTextAndBoldText \
+            -only-testing:VideoPlayerUITests/ScreenshotTests/test11_AccessibilityDefaults
 
       - name: Summarise errors (file, line, message)
         if: always()
@@ -639,25 +631,32 @@ jobs:
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Summarise errors (file, line, message)"
           bash scripts/ci-summarise-errors.sh "Accessibility screenshots: build and UI tests" "$OUT/test.log" "$OUT/resolve.log" "$OUT/xcodegen.log"
           python3 scripts/ci-test-report.py "$OUT/test.log" "$OUT/test-report.md" | tee -a "$GITHUB_STEP_SUMMARY"
-          { echo "## Accessibility settings in the simulator"; echo; sed 's/^/    /' "$OUT/a11y-settings.txt" 2>/dev/null || echo "    (none tried)"; } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Export the screenshots (one folder per setting, each with index.md)
+      - name: Export the screenshots (text/, with index.md)
         if: always()
         timeout-minutes: 4
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Export the screenshots (one folder per setting, each with index.md)"
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Export the screenshots (text/, with index.md)"
           set -uo pipefail
-          status=1
-          for word in text contrast transparency motion; do
-            [ -d "$OUT/A11y-$word.xcresult" ] || { echo "no result bundle for $word"; continue; }
-            bash scripts/ci-export-screenshots.sh "$OUT/A11y-$word.xcresult" "$GITHUB_WORKSPACE/accessibility-screenshots/$word" && status=0
-          done
-          [ -f "$OUT/a11y-settings.txt" ] && cp "$OUT/a11y-settings.txt" "$GITHUB_WORKSPACE/accessibility-screenshots/settings-applied.txt"
-          exit $status
+          [ -d "$OUT/A11y-text.xcresult" ] || { echo "no result bundle for text"; exit 1; }
+          bash scripts/ci-export-screenshots.sh "$OUT/A11y-text.xcresult" "$GITHUB_WORKSPACE/accessibility-screenshots/text"
 
-      # #15 item 1.2: the artifact "accessibility-screenshots" holds only 80 and above, in text/ (80-89) and the setting
-      # folders. Writes accessibility-screenshots/CONTENTS.txt and fails with "ARTIFACT PROBLEM: ..." otherwise.
-      - name: List and check what the accessibility artifact holds (80 and above)
+      # #17 A: a Larger Text or Bold Text screenshot that equals the default one outside the tab bar means the override did
+      # not reach the app's own text. The result is kept in the artifact (a11y-compare.txt) and fails this step.
+      - name: Compare Larger Text and Bold Text with the default screens (outside the tab bar)
+        if: always()
+        timeout-minutes: 5
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Compare Larger Text and Bold Text with the default screens (outside the tab bar)"
+          mkdir -p "$GITHUB_WORKSPACE/accessibility-screenshots"
+          python3 scripts/ci-a11y-compare.py "$GITHUB_WORKSPACE/accessibility-screenshots/text" 2>&1 | tee "$GITHUB_WORKSPACE/accessibility-screenshots/a11y-compare.txt"
+          status="${PIPESTATUS[0]}"
+          { echo "## Larger Text and Bold Text against the default screens"; echo; sed 's/^/    /' "$GITHUB_WORKSPACE/accessibility-screenshots/a11y-compare.txt"; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      # #15 item 1.2: the artifact "accessibility-screenshots" holds only 80 and above, in text/ (80-112). Writes
+      # accessibility-screenshots/CONTENTS.txt and fails with "ARTIFACT PROBLEM: ..." otherwise.
+      - name: List and check what the accessibility artifact holds (80 and above, text/)
         if: always()
         timeout-minutes: 2
         run: bash scripts/ci-artifact-contents.sh "$GITHUB_WORKSPACE/accessibility-screenshots" accessibility 2>&1 | tee "$OUT/artifact-contents.txt"; exit "${PIPESTATUS[0]}"
@@ -680,6 +679,117 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: accessibility-screenshots-logs
+          path: |
+            build/ci/*.txt
+            build/ci/*.log
+            build/ci/*.md
+            build/ci/attachments/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # JOB 6. Accessibility screenshots, simulator settings (rule 17; OPEN_QUESTIONS R170; split from job 5 in #16 item 1.10):
+  # the first five screens under Increase Contrast, Reduce Transparency and Reduce Motion (screenshots 113-117, one folder
+  # each). These three are read-only in SwiftUI, so each is turned on in the simulator (scripts/ci-a11y-setting.sh reads
+  # `xcrun simctl help ui` for the option name), its test runs alone into its own result bundle, and the setting is turned
+  # off again. A setting simctl does not offer is written down as NOT APPLIED and gets no screenshots. Whether the
+  # simulator setting matches a device is unproven (docs/COVERAGE.md); the device checklist is the proof.
+  # Expected time (an ESTIMATE, not measured): set-up as in job 4, then 15 launches of about 15-25 s (4-7 min).
+  accessibility-settings-screenshots:
+    name: Accessibility screenshots, simulator settings (tvOS Simulator, UI tests)
+    runs-on: xcode-27
+    timeout-minutes: 30
+    env:
+      XCODE_APP: /Applications/Xcode_27.2.app
+      XCODEGEN_VERSION: "2.46.0"
+      XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
+      OUT: build/ci
+      # Same time budget as job 5 (scripts/ci-sim.sh): the tests end 1320 s after the first stage.
+      CI_TEST_DEADLINE_SECONDS: "1320"
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          lfs: false
+          persist-credentials: false
+
+      - name: Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)"
+          bash scripts/ci-prepare.sh
+
+      - name: Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)
+        timeout-minutes: 8
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)"
+          bash scripts/ci-sim.sh prepare
+
+      - name: Build the app and the UI tests (Debug, simulator, ad-hoc signed; unsigned if that fails)
+        id: build
+        run: bash scripts/ci-build-uitests.sh
+
+      # One step per setting, each with its own cap, so one slow setting does not cost the others.
+      - name: Increase Contrast (simulator setting)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 5
+        run: bash scripts/ci-a11y-run.sh contrast test07_IncreaseContrast
+
+      - name: Reduce Transparency (simulator setting)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 5
+        run: bash scripts/ci-a11y-run.sh transparency test08_ReduceTransparency
+
+      - name: Reduce Motion (simulator setting)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 5
+        run: bash scripts/ci-a11y-run.sh motion test09_ReduceMotion
+
+      - name: Summarise errors (file, line, message)
+        if: always()
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Summarise errors (file, line, message)"
+          bash scripts/ci-summarise-errors.sh "Accessibility settings screenshots: build and UI tests" "$OUT/test.log" "$OUT/resolve.log" "$OUT/xcodegen.log"
+          python3 scripts/ci-test-report.py "$OUT/test.log" "$OUT/test-report.md" | tee -a "$GITHUB_STEP_SUMMARY"
+          { echo "## Accessibility settings in the simulator"; echo; sed 's/^/    /' "$OUT/a11y-settings.txt" 2>/dev/null || echo "    (none tried)"; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Export the screenshots (one folder per setting, each with index.md)
+        if: always()
+        timeout-minutes: 4
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Export the screenshots (one folder per setting, each with index.md)"
+          set -uo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/accessibility-settings-screenshots"
+          if [ -f "$OUT/a11y-settings.txt" ]; then cp "$OUT/a11y-settings.txt" "$GITHUB_WORKSPACE/accessibility-settings-screenshots/settings-applied.txt"
+          else echo "No setting was tried (the build failed or the job was stopped)." > "$GITHUB_WORKSPACE/accessibility-settings-screenshots/settings-applied.txt"; fi
+          status=0
+          for word in contrast transparency motion; do
+            [ -d "$OUT/A11y-$word.xcresult" ] || { echo "no result bundle for $word"; continue; }
+            bash scripts/ci-export-screenshots.sh "$OUT/A11y-$word.xcresult" "$GITHUB_WORKSPACE/accessibility-settings-screenshots/$word" || status=1
+          done
+          exit $status
+
+      - name: List and check what the accessibility settings artifact holds (113 and above, setting folders)
+        if: always()
+        timeout-minutes: 2
+        run: bash scripts/ci-artifact-contents.sh "$GITHUB_WORKSPACE/accessibility-settings-screenshots" accessibility-settings 2>&1 | tee "$OUT/artifact-contents.txt"; exit "${PIPESTATUS[0]}"
+
+      - name: Stage times
+        if: always()
+        run: bash scripts/ci-stage.sh --summary "Accessibility settings screenshots"
+
+      - name: Upload the accessibility settings screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: accessibility-settings-screenshots
+          path: ${{ github.workspace }}/accessibility-settings-screenshots/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload the accessibility settings job logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: accessibility-settings-screenshots-logs
           path: |
             build/ci/*.txt
             build/ci/*.log

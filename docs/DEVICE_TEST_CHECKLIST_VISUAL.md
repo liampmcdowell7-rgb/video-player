@@ -26,8 +26,8 @@ Write a result next to each item: **Pass**, **Fail** (what you saw), or **Not te
 - V-14 (when built) Source setup: the text-entry keyboard is the system one; fields look like system fields.
 
 ## Accessibility (set each in Apple TV Settings > Accessibility, test, set back)
-- V-15 Larger Text at the largest size: no text cut off or overlapping on any screen; layout reflows. Also look at the tab bar: are all six labels complete (Home, Movies, Shows, Files, Search, Settings)? Write down exactly what it shows (OPEN_QUESTIONS R175).
-- V-16 Bold Text on.
+- V-15 Larger Text at the largest size (Settings > Accessibility > Display > Text Size, slider at the right end; path from Apple's guide https://support.apple.com/guide/tv/display-bold-text-or-change-the-text-size-atvb0222141c/tvos). This is the REAL setting; the CI screenshots only imitate it (docs/COVERAGE.md): no text cut off or overlapping on any screen; layout reflows. Also look at the tab bar: are all six labels complete (Home, Movies, Shows, Files, Search, Settings)? Write down exactly what it shows (OPEN_QUESTIONS R175).
+- V-16 Bold Text on (Settings > Accessibility > Display > Bold Text; the REAL setting, which the CI screenshots 85–89 and 96–101 only imitate). Pass: the app's own text (titles, rows, card text, the Backup page) is bold, not only the tab bar, and nothing is cut off. Write down any screen where the app's text stays regular.
 - V-17 Reduce Transparency on: bars and menus become solid and stay readable. **Device-only** (#15 item 1.4): the tvOS simulator cannot set it, so no CI picture proves it.
 - V-18 Increase Contrast on: labels and focus still clear. **Device-only**, same reason.
 - V-19 Reduce Motion on: no large movement from the app's own animations. **Device-only**, same reason; a still picture could not show it anyway.

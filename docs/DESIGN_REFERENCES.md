@@ -194,8 +194,11 @@ a CI screenshot), **n/a**.
 16. Every focusable element has a spoken label, a value where it has one, a hint only where the action is not obvious;
     headers have the header trait; VoiceOver reaches and operates every screen. (VoiceOver; Accessibility)
 17. Works with Larger Text, Bold Text, Reduce Transparency, Increase Contrast and Reduce Motion, with what was tested
-    written down. Larger Text and Bold Text: CI screenshots 80 to 89 (drawn by the app). Increase Contrast, Reduce
-    Transparency and Reduce Motion: device-only, the tvOS simulator cannot set them (#15 item 1.4; V-17 to V-19).
+    written down. Larger Text and Bold Text: CI screenshots 80 to 101, drawn by the app as an imitation of the two
+    settings, with the same eleven screens at the default size (102 to 112) to compare against (#16 item 1.10, #17 A,
+    docs/A11Y_SHOTS.md); the real settings (Settings > Accessibility > Display > Text Size and Bold Text) are V-15 and
+    V-16. Increase Contrast, Reduce Transparency and Reduce Motion: device-only proof (#15 item 1.4; V-17 to V-19); CI
+    job 6 tries them in the simulator and writes down whether each was applied.
     (Accessibility; Typography; Materials)
 
 ### Identity and wording

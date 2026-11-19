@@ -496,51 +496,119 @@ final class ScreenshotTests: XCTestCase {
 
     // MARK: Accessibility settings (rule 17, docs/DESIGN_REFERENCES.md)
 
-    /// The five main screens (Home, Movies, Settings, a Files folder, a movie page) under one accessibility setting, numbered
-    /// from `first` and named "NN-<variant>-<screen>". Every wait is at most 10 s; a screen that does not appear in time is a
-    /// NOT-REACHED note, never a long wait.
-    func accessibilityShots(_ variant: String, first: Int, extra: [String] = []) {
-        let wait: TimeInterval = 10
-        func name(_ offset: Int, _ screen: String) -> String { String(format: "%02d", first + offset) + "-\(variant)-\(screen)" }
-        for (offset, tab, ready) in [(0, "home", "Sample"), (1, "movies", "Sample"), (2, "settings", "Playback")] {
-            let app = launch("-UITestFixtures", tab: tab, extra: extra, launchTimeout: wait)
-            if waitForScreen("screen.\(tab)", in: app, timeout: wait), waitFor(ready, in: app, timeout: wait) {
-                settle(); shot(name(offset, tab))
-                // #15 item 1.5: "Settings" was cut to "Sett" under Larger Text; the tab bar must read TAB BAR OK here too.
-                if offset == 0 { tabBarCheck(name(offset, tab), in: app) }
-            }
-            else { notReached(name(offset, tab), "The \(tab) screen with “\(ready)” did not appear within \(Int(wait)) s.") }
-            app.terminate()
-        }
-        var app = launch("-UITestFixtures", tab: "files", extra: extra, launchTimeout: wait)
-        if waitForScreen("screen.files", in: app, timeout: wait), waitFor("Sample Library", in: app, timeout: wait) {
-            // `open` writes its own NOT-REACHED note when the row cannot be focused.
-            if open("Sample Library", in: app, name: name(3, "files-root")) { settle(); shot(name(3, "files-root")) }
-        } else { notReached(name(3, "files-root"), "The sample source did not appear in Files within \(Int(wait)) s.") }
-        app.terminate()
-        app = launch("-UITestFixtures", open: "Sample Movie 1", extra: extra, launchTimeout: wait)
-        if waitForScreen("screen.item", in: app, timeout: wait), waitFor("Sample Movie 1", in: app, timeout: wait) {
-            settle(); shot(name(4, "movie-detail"))
-        } else { notReached(name(4, "movie-detail"), "The movie page did not open within \(Int(wait)) s.") }
-        app.terminate()
+    /// The first five screens of the accessibility set (rule 17), as before #16 item 1.10.
+    static let coreAccessibilityScreens = ["home", "movies", "settings", "files-root", "movie-detail"]
+    /// #16 item 1.10 and #17 E: the rest of the set. "movie-detail-logo" is Sample Movie 2, the sample title with a title
+    /// logo once #15 Part 9 gives it one (until then its page shows the text title); "settings-backup" is the Backup page
+    /// (#17 D, captured at the default size, Larger Text and Bold Text); "source-form" is the WebDAV form.
+    static let moreAccessibilityScreens = ["movie-detail-logo", "show-page", "settings-backup", "add-source", "source-form", "search"]
+
+    /// Numbers for `keys`, counting from `first`.
+    func numbered(_ keys: [String], from first: Int) -> [(Int, String)] {
+        keys.enumerated().map { (first + $0.offset, $0.element) }
     }
 
-    /// Larger Text and Bold Text, drawn by the app itself in UI-test mode (App/Support/UITestAccessibility.swift): SwiftUI lets
-    /// an app set these two. The system's own parts (the tab bar) keep the simulator's setting, so they do NOT grow here.
+    /// Launches with `extra` and goes to the accessibility-set screen `key`. Returns the app when that screen is shown;
+    /// otherwise writes a NOT-REACHED note for `name`, closes the app and returns nil. Every wait is at most 10 s.
+    func reachAccessibilityScreen(_ key: String, name: String, extra: [String]) -> XCUIApplication? {
+        let wait: TimeInterval = 10
+        func fail(_ app: XCUIApplication, _ reason: String) -> XCUIApplication? {
+            notReached(name, reason); app.terminate(); return nil
+        }
+        // `open` writes its own NOT-REACHED note when a row cannot be focused.
+        func step(_ app: XCUIApplication, _ text: String) -> Bool {
+            if open(text, in: app, name: name) { return true }
+            app.terminate(); return false
+        }
+        switch key {
+        case "home", "movies", "settings", "search":
+            let ready = ["home": "Sample", "movies": "Sample", "settings": "Playback", "search": ""][key] ?? ""
+            let app = launch("-UITestFixtures", tab: key, extra: extra, launchTimeout: wait)
+            guard waitForScreen("screen.\(key)", in: app, timeout: wait), ready.isEmpty || waitFor(ready, in: app, timeout: wait) else {
+                return fail(app, "The \(key) screen did not appear (or showed no “\(ready)”) within \(Int(wait)) s.")
+            }
+            return app
+        case "files-root":
+            let app = launch("-UITestFixtures", tab: "files", extra: extra, launchTimeout: wait)
+            guard waitForScreen("screen.files", in: app, timeout: wait), waitFor("Sample Library", in: app, timeout: wait) else {
+                return fail(app, "The sample source did not appear in Files within \(Int(wait)) s.")
+            }
+            return step(app, "Sample Library") ? app : nil
+        case "movie-detail", "movie-detail-logo":
+            let title = key == "movie-detail" ? "Sample Movie 1" : "Sample Movie 2"
+            let app = launch("-UITestFixtures", open: title, extra: extra, launchTimeout: wait)
+            guard waitForScreen("screen.item", in: app, timeout: wait), waitFor(title, in: app, timeout: wait) else {
+                return fail(app, "The page of \(title) did not open within \(Int(wait)) s.")
+            }
+            return app
+        case "show-page":
+            let app = launch("-UITestFixtures", open: "Sample Show 1", extra: extra, launchTimeout: wait)
+            guard waitForScreen("screen.series", in: app, timeout: wait), waitFor("Season 1", in: app, timeout: wait) else {
+                return fail(app, "The page of Sample Show 1 did not open within \(Int(wait)) s.")
+            }
+            return app
+        case "settings-backup":
+            let app = launch("-UITestFixtures", tab: "settings", extra: extra, launchTimeout: wait)
+            guard waitForScreen("screen.settings", in: app, timeout: wait), waitFor("Playback", in: app, timeout: wait) else {
+                return fail(app, "Settings did not open within \(Int(wait)) s.")
+            }
+            return step(app, "Backup") ? app : nil
+        case "add-source", "source-form":
+            let app = launch("-UITestEmpty", extra: extra, launchTimeout: wait)
+            guard waitForScreen("screen.home", in: app, timeout: wait), waitFor("Add a Source", in: app, timeout: wait) else {
+                return fail(app, "Home with “Add a Source” did not appear within \(Int(wait)) s.")
+            }
+            guard step(app, "Add a Source") else { return nil }
+            guard waitFor("Type an Address", in: app, timeout: wait) else { return fail(app, "The source type list did not open.") }
+            if key == "add-source" { return app }
+            return step(app, "WebDAV") ? app : nil
+        default:
+            XCTFail("Unknown accessibility screen \(key)")
+            return nil
+        }
+    }
+
+    /// The screens `screens` (number, key) under one accessibility variant, named "NN-<variant>-<key>" (NN may have three
+    /// digits). A screen that is not reached is a NOT-REACHED note, never a long wait.
+    func accessibilityShots(_ variant: String, screens: [(Int, String)], extra: [String] = []) {
+        for (number, key) in screens {
+            let name = String(format: "%02d", number) + "-\(variant)-\(key)"
+            guard let app = reachAccessibilityScreen(key, name: name, extra: extra) else { continue }
+            settle(); shot(name)
+            // #15 item 1.5: "Settings" was cut to "Sett" under Larger Text; the tab bar must read TAB BAR OK here too.
+            if key == "home" { tabBarCheck(name, in: app) }
+            app.terminate()
+        }
+    }
+
+    /// Larger Text and Bold Text, drawn by the app itself in UI-test mode (App/Support/UITestAccessibility.swift): an
+    /// imitation of the system settings, not the settings themselves (docs/COVERAGE.md). The system's own parts (the tab
+    /// bar) keep the simulator's setting, so they do NOT change here. Numbers: the first five screens keep 80-84 (Larger
+    /// Text) and 85-89 (Bold Text); the rest of the set is 90-95 (Larger Text) and 96-101 (Bold Text).
     func test06_LargerTextAndBoldText() {
-        accessibilityShots("larger-text", first: 80, extra: ["-UITestTextSize", "accessibility3"])
-        accessibilityShots("bold-text", first: 85, extra: ["-UITestBoldText"])
+        let larger = ["-UITestTextSize", "accessibility3"], bold = ["-UITestBoldText"]
+        accessibilityShots("larger-text", screens: numbered(Self.coreAccessibilityScreens, from: 80), extra: larger)
+        accessibilityShots("bold-text", screens: numbered(Self.coreAccessibilityScreens, from: 85), extra: bold)
+        accessibilityShots("larger-text", screens: numbered(Self.moreAccessibilityScreens, from: 90), extra: larger)
+        accessibilityShots("bold-text", screens: numbered(Self.moreAccessibilityScreens, from: 96), extra: bold)
+    }
+
+    /// The same eleven screens with no override (102-112), in the same job: scripts/ci-a11y-compare.py compares every
+    /// Larger Text and Bold Text screenshot with these and fails when one is identical outside the tab bar (#17 A: in the
+    /// reviewed CI run the Bold Text screenshots differed from the normal ones only in the tab bar).
+    func test11_AccessibilityDefaults() {
+        accessibilityShots("default", screens: numbered(Self.coreAccessibilityScreens + Self.moreAccessibilityScreens, from: 102))
     }
 
     // The next three are run only by the CI job, each on its own, AFTER it has turned the setting on in the simulator
     // (scripts/ci-a11y-setting.sh). In the main run they are skipped (-skip-testing), because there they would only repeat
-    // the normal screens under a misleading name.
+    // the normal screens under a misleading name. Numbers 113-117 (each setting has its own folder).
 
-    func test07_IncreaseContrast() { accessibilityShots("increase-contrast", first: 90) }
+    func test07_IncreaseContrast() { accessibilityShots("increase-contrast", screens: numbered(Self.coreAccessibilityScreens, from: 113)) }
 
-    func test08_ReduceTransparency() { accessibilityShots("reduce-transparency", first: 90) }
+    func test08_ReduceTransparency() { accessibilityShots("reduce-transparency", screens: numbered(Self.coreAccessibilityScreens, from: 113)) }
 
-    func test09_ReduceMotion() { accessibilityShots("reduce-motion", first: 90) }
+    func test09_ReduceMotion() { accessibilityShots("reduce-motion", screens: numbered(Self.coreAccessibilityScreens, from: 113)) }
 
     // MARK: Sorting screens (docs/SORTING.md, addendum #18 B and C)
 
