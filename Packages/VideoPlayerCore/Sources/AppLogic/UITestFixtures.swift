@@ -122,9 +122,20 @@ public enum UITestFixtures {
         ("/Shows/Sample Show 2", [3], 0.95),
     ]
 
+    /// D7: invented, generic episode titles for Show 1 (the parser reads "Show - S01E01 - Title"), one of them long enough
+    /// to need the code-first rule S1 on an episode card. Show 2 is the item with missing data (D7): no episode titles,
+    /// no poster and no fan art, so the screens show their fallbacks.
+    static let episodeTitles = [
+        "A quiet beginning", "The long way round", "Lights over the harbor", "Small hours",
+        "A very long episode title that is wider than any episode card on the show page", "Second chances", "The last stop",
+    ]
+
     static func episodePath(show: String, season: Int, episode: Int) -> String {
         let name = (show as NSString).lastPathComponent
-        return "\(show)/Season \(season)/\(name) - S\(two(season))E\(two(episode)).mkv"
+        let base = "\(show)/Season \(season)/\(name) - S\(two(season))E\(two(episode))"
+        guard show == shows[0].folder else { return base + ".mkv" }
+        let index = shows[0].seasons.prefix(season - 1).reduce(0, +) + episode - 1
+        return base + " - " + episodeTitles[index % episodeTitles.count] + ".mkv"
     }
 
     static func two(_ n: Int) -> String { n < 10 ? "0\(n)" : "\(n)" }
@@ -159,7 +170,7 @@ public enum UITestFixtures {
                 files[movie.folder + "/" + stem + ".en.sup"] = .init(size: 2_400_000, data: nil)
             }
         }
-        for show in shows {
+        for show in shows where show.folder == shows[0].folder {
             files[show.folder + "/poster.png"] = .init(data: GradientPNG.make(width: 240, height: 360, hue: show.hue))
             files[show.folder + "/fanart.png"] = .init(data: GradientPNG.make(width: 480, height: 270, hue: show.hue + 0.08))
         }

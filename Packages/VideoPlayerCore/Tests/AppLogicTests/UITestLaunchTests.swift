@@ -76,10 +76,28 @@ final class UITestLaunchTests: XCTestCase {
     #if DEBUG // the sample library exists only in debug builds (tests are built debug)
     // MARK: Sample library content
 
+    /// D7: Show 1's episodes carry invented titles the parser reads; Show 2 is the item with missing data (no titles,
+    /// no poster, no fan art).
+    func testShowOneHasEpisodeTitlesAndShowTwoHasMissingData() {
+        let files = UITestFixtures.files().keys
+        let one = UITestFixtures.shows[0].folder, two = UITestFixtures.shows[1].folder
+        let titles = files.filter { $0.hasPrefix(one + "/Season") }.compactMap {
+            FilenameParser.parse(fileName: ($0 as NSString).lastPathComponent).episodeTitle
+        }
+        XCTAssertEqual(titles.count, 7, "\(titles)")
+        XCTAssertTrue(titles.contains { $0.count > 60 }, "one title longer than any card")
+        let twoEpisodes = files.filter { $0.hasPrefix(two + "/Season") }
+        XCTAssertEqual(twoEpisodes.count, 3)
+        XCTAssertTrue(twoEpisodes.allSatisfy { FilenameParser.parse(fileName: ($0 as NSString).lastPathComponent).episodeTitle == nil })
+        XCTAssertFalse(files.contains(two + "/poster.png"))
+        XCTAssertFalse(files.contains(two + "/fanart.png"))
+    }
+
     func testTheSampleLibraryUsesOnlyGenericNames() {
         let allowed = try! NSRegularExpression(pattern:
-            // "( [A-Za-z]+)*": plain words after the number, for the long-title fixture (#17 C).
-            #"^(Movies|Shows|Season \d+|poster\.png|fanart\.png|clearlogo\.png|Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?( - S\d\dE\d\d)?( - )?( ?(2160p|1080p|720p))?(\.en)?\.(mkv|mp4|srt|sup))$|^Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?$|^Unsorted$|^Sample (Clip|Unsorted [A-Za-z0-9 -]+)\.(mkv|mp4|m4v)$"#)
+            // "( [A-Za-z]+)*": plain words after the number, for the long-title fixture (#17 C). "( - [A-Z][a-z]*( [a-z]+)*)?":
+            // an invented sentence-case episode title (D7): one capital letter, then lower-case words only.
+            #"^(Movies|Shows|Season \d+|poster\.png|fanart\.png|clearlogo\.png|Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?( - S\d\dE\d\d( - [A-Z][a-z]*( [a-z]+)*)?)?( - )?( ?(2160p|1080p|720p))?(\.en)?\.(mkv|mp4|srt|sup))$|^Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?$|^Unsorted$|^Sample (Clip|Unsorted [A-Za-z0-9 -]+)\.(mkv|mp4|m4v)$"#)
         for path in UITestFixtures.files().keys {
             for part in path.split(separator: "/") {
                 let s = String(part)
