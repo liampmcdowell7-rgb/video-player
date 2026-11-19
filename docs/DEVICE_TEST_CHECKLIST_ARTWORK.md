@@ -12,6 +12,17 @@ New items from docs/ARTWORK_DISCOVER.md. The parent merges them into the main ch
 - A6. Remove Key. Pass: a confirmation; afterwards the screens say a key is needed again.
 - A7. Sign in on a second device with the same iCloud account (Apple Account). Pass: the key arrives (masked) after the first launch. Record how long.
 
+### #26: one key for the whole app, key-free sources (docs/DATA_SOURCES.md)
+
+- K1. Enter the TMDB key once in Settings > Online Lookup. Add a second source of another type (for example SMB after WebDAV). Pass: no form asks for a key; pictures and details work for both sources and both libraries.
+- K2. Two real Apple TVs on the same iCloud account (Apple Account). Enter the key on the first only. Launch the app on the second. Pass: the key arrives (masked, "On") without being asked; record how long. This is the encrypted iCloud copy: tvOS does not sync keychain items (OPEN_QUESTIONS R207).
+- K3. Delete and reinstall the app on one Apple TV. Pass: after the first launch the key is back without asking. Record whether the Keychain item survived the reinstall or the iCloud copy brought it back (Settings shows the same either way; a network log tells them apart).
+- K4. An Apple TV that had a key before #26: update the app. Pass: the key is still set (moved to the new items) and source passwords still work.
+- K5. Online Lookup > TMDB > Enter Key: a long key. Record whether a nearby iPhone or iPad offered to type (R218), and whether pasting worked. Pass: the key saves and shows as dots plus its last four characters.
+- K6. Free Data Sources on, no TMDB key: open a movie with no NFO. Pass: a cast list may appear (from Wikidata) and the page says in one line that the synopsis needs your TMDB key. Watch the network: only query.wikidata.org and api.introdb.app, nothing else.
+- K7. Free Data Sources on: play an episode with no chapters and no sidecar. Pass: if IntroDB knows it, Skip Intro appears at the right time; if not, File Details says why and there is no button. Turn Wi-Fi off and play again: no crash, no button (unless the answer was cached).
+- K8. Record coverage on a real library: for 20 titles, which layer gave the cast and synopsis (source, Wikidata, TMDB) — the source layer is expected to give nothing yet (R210).
+
 ## Artwork
 
 - A8. A movie with poster.jpg or folder.jpg next to it. Pass: the card shows it without any key.

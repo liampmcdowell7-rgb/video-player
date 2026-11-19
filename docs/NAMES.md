@@ -130,6 +130,11 @@ Rotten Tomatoes
 Metacritic
 JustWatch
 TVDB
+# Key-free data sources (#26, Free Data Sources; text credits in Settings > About > Data Sources)
+Wikidata
+Wikimedia Foundation
+Wikimedia
+IntroDB
 # Apple technologies
 Apple TV 4K
 Apple TV
@@ -255,6 +260,8 @@ BSD-2-Clause
 Apache-2.0
 MIT
 U.S.
+# The Wikidata licence (Creative Commons public-domain dedication), named in About > Data Sources (#26)
+CC0
 # Parts of Matroska codec IDs compared in code (A_DTS/LOSSLESS, A_DTS/EXPRESS, "MA"): not shown as words
 LOSSLESS
 EXPRESS
@@ -333,6 +340,8 @@ Season
 # The setting name "Show Title Logos" (#15 Part 9), quoted in the What Is Sent text
 Title
 Logos
+# The switch name "Free Data Sources" (#26, Settings > Online Lookup), named in the What Is Sent text and About
+Free
 # The row name "Search Your Network" (#15 2.1), quoted in the Add a Source summary
 Network
 # PNG chunk type names written by the sample library's picture generator (PNG specification, not brands)
