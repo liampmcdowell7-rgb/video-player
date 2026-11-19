@@ -331,6 +331,8 @@ Season
 # The setting name "Show Title Logos" (#15 Part 9), quoted in the What Is Sent text
 Title
 Logos
+# The row name "Search Your Network" (#15 2.1), quoted in the Add a Source summary
+Network
 # PNG chunk type names written by the sample library's picture generator (PNG specification, not brands)
 IHDR
 IDAT

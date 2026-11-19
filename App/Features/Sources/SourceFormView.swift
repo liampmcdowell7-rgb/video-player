@@ -14,26 +14,21 @@ struct SourceFormView: View {
     private var problems: [FieldProblem] { attempted ? SourceDraftValidator.problems(draft) : [] }
     private var phase: SetupPhase { model?.screen.phase ?? .editing }
 
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
-        Form {
-            Section {
-                Text(info.statusLine)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                if let caveat = info.caveat {
-                    Text(caveat)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-            }
+        // #15 2.2 (R188): the status and caveat are plain text in the left column, not rows or pills (L3); the fields are
+        // system Form rows in the right half; Connect and Cancel sit together at the end, reached by normal scrolling.
+        // Fixed in code, verify in next screenshots (11 to 19).
+        SettingsPane(title: info.title, summary: info.summary, status: [info.statusLine, info.caveat ?? ""]) {
             ForEach(info.fields) { spec in
                 SourceFieldRow(spec: spec, text: binding(spec.kind), problem: problems.first { $0.field == spec.kind }?.message)
             }
             Section {
                 connectRow
+                Button("Cancel", role: .cancel) { dismiss() }
             }
         }
-        .pushedScreen(info.title)
         .onChange(of: phase) { _, newPhase in
             if case .saved = newPhase {
                 services.sourceAdded()
