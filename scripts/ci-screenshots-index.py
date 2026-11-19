@@ -46,12 +46,45 @@ VERIFY = [
     ("The show page has the movie page's synopsis and cast (#22 B, R193)",
      "three lines of synopsis above Play that open the whole text, the cast shelf under the buttons, nothing cut off; "
      "Sample Show 2 has no empty band", ["77-show-long-synopsis", "78-show-no-synopsis-or-cast"]),
-    ("About scrolls: its text rows take the focus (#24 C)",
-     "41-about-scrolled-1, 2 and 3 each show a later part of the page than 40, down to the licence notices; the focused "
-     "row is highlighted the system way", ["40-about", "41-about-scrolled"]),
+    ("About: short page, long legal texts on Learn More pages (#24 C, #25 B9)",
+     "40 shows the version, data note, TMDB logo at the row's leading edge with its notice, then Source Code, Full Licence "
+     "Texts, Licence Notices and Trademarks rows; 41 scrolls to the end (an UNCHANGED warning is expected once the page "
+     "ends); the soft scroll-edge effect under the tab bar", ["40-about", "41-about-scrolled"]),
     ("The Sort by Filename toggle with and without the focus (#24 C)",
      "69 has the focus on Check Connection, 69-…-focused on the toggle; the two pictures differ",
      ["69-source-sort-by-filename"]),
+    ("#25 B1: the Add a Source sheet is one column",
+     "the title on top, each type one row with its name and ONE short line, nothing cut with an ellipsis, placeholders in "
+     "full; the type notes on the About Source Types page; the same at Larger Text and Bold Text",
+     ["10-add-source", "11-form", "12-form", "13-form", "14-form", "15-form", "16-form", "17-form", "18-form", "19-form",
+      "93-larger-text-add-source", "94-larger-text-source-form", "99-bold-text-add-source", "100-bold-text-source-form",
+      "110-default-add-source", "111-default-source-form"]),
+    ("#25 B2: the Movies and Shows toolbars on one line",
+     "all controls one height on one line; at Larger Text Saved Views, Needs Review and Jump to Letter are in a More menu",
+     ["53-movies", "07-shows-toolbar", "63-movies-needs-review-button", "81-larger-text-movies"]),
+    ("#25 B3 and B11: Settings rows on one line",
+     "Backup shows \"iCloud Sync\" as the value, the longer wording in the footer; no row label or value wraps; the "
+     "Jellyfin/Emby toggle reads \"Sort by Filename\"", ["92-larger-text-settings-backup", "69-source-sort-by-filename"]),
+    ("#25 B4: titles shrink to fit instead of “…”",
+     "Continue Watching and file names on one line, smaller where needed, never cut", ["50-home-rows", "51-home-rows-lower",
+                                                                                    "80-larger-text-home", "73-files-movie-folder"]),
+    ("#25 B5 and B6: movie page buttons and Media Info",
+     "each button's symbol next to its title with the system gap, all buttons one height; Media Info rows with separators, "
+     "\"Not checked yet\" for an unread file, frame rate and audio tracks shown", ["57-movie-detail", "58-movie-detail-scrolled",
+                                                                                    "60-movie-detail-two-versions", "61-movie-detail-two-versions-scrolled"]),
+    ("#25 B7: show page order and cast",
+     "the cast after the episode shelves, a person symbol in a circle where there is no photo, a role under every name; "
+     "episode labels \"S2 E1 · Second chances\"", ["55-show-page", "56-show-season-2-episode-row", "77-show-long-synopsis-cast"]),
+    ("#25 B9: File Details and the Files title",
+     "File Details has no empty button: name, size, date, location and Done; Files shows its title", ["70-files-sources", "74-file-details"]),
+    ("#25 B10: the movie page opens with Play focused",
+     "Play is focused in 57 and 78 (the -FOCUS notes say FOCUS OK)", ["57-movie-detail", "78-movie-no-synopsis-or-cast"]),
+    ("#25 A3: menus open in their pictures",
+     "the menu is open in each: Shows Sort, Filter, Saved Views (07), the card menu (08, 52), More (44 to 46), Versions (47), "
+     "Extras (48), Fix Match (59), the player's audio and subtitles menus (25, 26), Needs Review choice (65), and the move "
+     "sheet after its animation (66)", ["07-shows-toolbar", "08-card", "52-card-long-press-menu", "44-movie-more-menu", "45-movie",
+                                       "46-movie", "47-movie-versions-menu", "48-movie-extras", "59-fix-match", "25-player",
+                                       "26-player", "65-needs-review-choice", "66-move-sheet"]),
 ]
 
 NAME = re.compile(r"^(\d{2,3})-([A-Za-z0-9][A-Za-z0-9-]*?)(-NOT-REACHED)?(?:_\d+)?(?:_[0-9A-Fa-f-]{8,})?(?:\.[A-Za-z0-9]+)?$")

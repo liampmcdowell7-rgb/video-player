@@ -55,7 +55,7 @@ check "all pass: exit 0, pictures of both tests in DEST" "[ $rc -eq 0 ] && [ -f 
 check "all pass: one xcodebuild call per test, its own result bundle" "[ -d '$S/out/xcresult/$T1.xcresult' ] && [ -d '$S/out/xcresult/$T2.xcresult' ] && [ \$(grep -c 'running test' '$S/stdout') -eq 2 ]"
 check "index.md: tests table with seconds per picture" "grep -qF '| $T1 | passed |' '$S/dest/index.md' && grep -qE '\| $T1 \| passed \| 0:0[0-9] \| 2 \|' '$S/dest/index.md'"
 check "index.md: every picture with its size" "grep -qE '^- \[02-home-empty\]\(02-home-empty.png\) [0-9]+ KB' '$S/dest/index.md'"
-check "index.md: counts against the plan (17 planned for test01+test02, 4 taken)" "grep -qF 'Planned: 17. Taken: 4. Missing: 13. Failed (not reached): 0. Warnings (unchanged): 2.' '$S/dest/index.md'"
+check "index.md: counts against the plan (18 planned for test01+test02, 4 taken)" "grep -qF 'Planned: 18. Taken: 4. Missing: 14. Failed (not reached): 0. Warnings (unchanged): 2.' '$S/dest/index.md'"
 check "index.md: an unchanged picture is a WARNING line, and the picture is kept" "grep -qF -- '- WARNING: 03-movies-empty: Identical to 02-home-empty' '$S/dest/index.md' && [ -f '$S/dest/03-movies-empty.png' ] && [ -f '$S/dest/notes/03-movies-empty-UNCHANGED.txt' ]"
 check "results file has one row per test" "[ \$(grep -c '	passed	' '$S/out/ui-tests.tsv') -eq 2 ]"
 check "the main-set artifact check passes on DEST" "bash '$here/ci-artifact-contents.sh' '$S/dest' main > /dev/null 2>&1"
@@ -105,7 +105,7 @@ lit="$(grep -oE 'shot\("[0-9]{2,3}-[a-z0-9-]+"\)' "$here/../UITests/ScreenshotTe
 miss="$(while IFS= read -r n; do [ -n "$n" ] && ! cut -f2 "$here/screenshot-plan.tsv" | grep -qx "$n" && echo "$n"; done <<< "$lit")"
 S="$(mktemp -d)"; echo "not planned: $miss" > "$S/stdout"
 check "plan: every literal shot name in ScreenshotTests.swift is in screenshot-plan.tsv" "[ -z \"$miss\" ] && [ -n \"$lit\" ]"
-check "plan: 139 planned pictures (80 part 1, 26 part 2, 33 accessibility)" "[ \$(grep -vc '^#' '$here/screenshot-plan.tsv') -eq 139 ]"
+check "plan: 140 planned pictures (81 part 1, 26 part 2, 33 accessibility; #25 adds 10-add-source-learn-more)" "[ \$(grep -vc '^#' '$here/screenshot-plan.tsv') -eq 140 ]"
 
 echo "ci-ui-tests self-test: passed $passed, failed $failed"
 [ "$failed" -eq 0 ]

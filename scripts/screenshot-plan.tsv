@@ -18,6 +18,7 @@ test02_AddASource	18-form-emby
 test02_AddASource	19-form-web-link
 test02_AddASource	20-add-source-not-available
 test02_AddASource	21-search-your-network
+test02_AddASource	10-add-source-learn-more
 test03_Settings	30-settings
 test03_Settings	31-settings-playback
 test03_Settings	32-settings-home-screen

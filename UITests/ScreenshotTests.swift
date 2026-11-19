@@ -156,23 +156,114 @@ final class ScreenshotTests: XCTestCase {
     /// Order: a label exactly `text`, then a label starting with `text` and a separator (", " or " "), then any label
     /// containing it. Before this, "Movies" matched the Movies TAB before the Movies folder row (so 72 showed the Movies tab
     /// and 73 was not reached), and "FTP" matched the SFTP row first (14 and 15 identical).
+    ///
+    /// #25 A1: also menu buttons, and any button, cell or menu button that has a descendant StaticText with that label. The
+    /// run on 1fe5d50 (library notes/57-movie-detail-HIERARCHY.txt) showed Extras and More as Button elements with NO label
+    /// of their own; the label was on a child StaticText, so no label query found them.
     func control(_ text: String, in app: XCUIApplication) -> XCUIElement {
+        control(id: nil, label: text, in: app)
+    }
+
+    /// #25 A1 and A2: the control with the accessibility identifier `id` (ControlID, App/Shared/ControlID.swift) when one is
+    /// given and present, otherwise the control labelled `label` as in `control(_:in:)`. Never a tab-bar button. Nothing is
+    /// tapped: `open` and `focus` move the focus with the remote.
+    func control(id: String?, label: String, in app: XCUIApplication) -> XCUIElement {
         let tabBar = app.tabBars.firstMatch
         let tabFrame = tabBar.exists ? tabBar.frame : .null
-        let predicates = [NSPredicate(format: "label == %@", text),
-                          NSPredicate(format: "label BEGINSWITH %@ OR label BEGINSWITH %@", text + ",", text + " "),
-                          NSPredicate(format: "label CONTAINS %@", text)]
+        func outsideTabBar(_ element: XCUIElement) -> Bool {
+            tabFrame.isNull || !tabFrame.contains(CGPoint(x: element.frame.midX, y: element.frame.midY))
+        }
+        if let id {
+            for element in app.descendants(matching: .any).matching(identifier: id).allElementsBoundByIndex.prefix(6)
+            where element.exists && outsideTabBar(element) {
+                return element
+            }
+        }
+        let predicates = [NSPredicate(format: "label == %@", label),
+                          NSPredicate(format: "label BEGINSWITH %@ OR label BEGINSWITH %@", label + ",", label + " "),
+                          NSPredicate(format: "label CONTAINS %@", label)]
         for predicate in predicates {
-            // #24 C: switches too (the Sort by Filename toggle on a source page).
-            for query in [app.buttons.matching(predicate), app.cells.matching(predicate), app.switches.matching(predicate)] {
-                for element in query.allElementsBoundByIndex.prefix(12) where element.exists {
-                    if !tabFrame.isNull, tabFrame.contains(CGPoint(x: element.frame.midX, y: element.frame.midY)) { continue }
+            // #24 C: switches too (the Sort by Filename toggle on a source page). #25 A1: menu buttons, then the
+            // containers whose own label is empty but whose child StaticText carries it.
+            let queries = [app.buttons.matching(predicate), app.cells.matching(predicate), app.menuButtons.matching(predicate),
+                           app.switches.matching(predicate),
+                           app.buttons.containing(predicate), app.menuButtons.containing(predicate), app.cells.containing(predicate)]
+            for query in queries {
+                for element in query.allElementsBoundByIndex.prefix(12) where element.exists && outsideTabBar(element) {
                     return element
                 }
             }
         }
         // Nothing yet (a lazy list may not have built the row): a query that `focus` can wait on while moving down.
-        return app.cells.matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
+        if let id { return app.descendants(matching: .any).matching(identifier: id).firstMatch }
+        return app.cells.matching(NSPredicate(format: "label CONTAINS %@", label)).firstMatch
+    }
+
+    /// #25 A2: an identifier must be exposed once. More than one element with it (a Menu and its label both carrying it, or
+    /// the same control twice on screen) is written as "NN-name-ID-COUNT", with the tree; never a test failure.
+    func checkExposedOnce(_ id: String, name: String, in app: XCUIApplication) {
+        let count = app.descendants(matching: .any).matching(identifier: id).count
+        if count != 1 {
+            note(name + "-ID-COUNT", "The identifier “\(id)” is exposed \(count) times (expected once).\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
+        }
+    }
+
+    /// #25 A3: waits until the element stops moving (two reads 0.5 s apart with the same frame), e.g. the last row of a sheet
+    /// after its presentation animation, instead of a fixed time. True when it exists and stood still within `timeout`.
+    func waitUntilStill(_ element: XCUIElement, timeout: TimeInterval = 10) -> Bool {
+        guard element.waitForExistence(timeout: timeout) else { return false }
+        let end = Date().addingTimeInterval(timeout)
+        var last = element.frame
+        while Date() < end {
+            usleep(500_000)
+            let now = element.frame
+            if now == last, !now.isEmpty { return true }
+            last = now
+        }
+        return false
+    }
+
+    /// #25 B10: where the focus is when a page opens. Written as "NN-name-FOCUS" with the focused element's identifier, label
+    /// and frame and "FOCUS OK" (the element with identifier `expected`, or the element around it, has the focus) or
+    /// "FOCUS PROBLEM"; the run on 1fe5d50 showed the tab bar focused on the movie page (78). Never a test failure.
+    func focusCheck(_ name: String, expected: String, in app: XCUIApplication) {
+        let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        let target = app.descendants(matching: .any).matching(identifier: expected).firstMatch
+        var lines = ["expected: \(expected) (present: \(target.exists))"]
+        guard focused.exists else {
+            note(name + "-FOCUS", (lines + ["focused: none", "FOCUS PROBLEM: nothing has the focus"]).joined(separator: "\n"))
+            return
+        }
+        lines.append("focused: identifier “\(focused.identifier)”, label “\(focused.label)”, frame \(String(describing: focused.frame))")
+        let f = focused.frame, t = target.exists ? target.frame : .null
+        let ok = focused.identifier == expected
+            || (!t.isNull && (f.contains(CGPoint(x: t.midX, y: t.midY)) || t.contains(CGPoint(x: f.midX, y: f.midY))))
+        lines.append(ok ? "FOCUS OK" : "FOCUS PROBLEM: the focus is not on \(expected)")
+        note(name + "-FOCUS", lines.joined(separator: "\n"))
+    }
+
+    /// #25 A3: waits for any of `labels` (items of a menu that has just opened), so a menu picture shows the menu open.
+    func waitForAny(_ labels: [String], in app: XCUIApplication, timeout: TimeInterval = 5) -> String? {
+        let end = Date().addingTimeInterval(timeout)
+        repeat {
+            for label in labels where app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch.exists {
+                return label
+            }
+            usleep(300_000)
+        } while Date() < end
+        return nil
+    }
+
+    /// #25 A3: moves the focus from the tab bar (where it starts on a tab's root) into the content: Down until the focused
+    /// element is outside the tab bar. True when it is.
+    func focusContent(in app: XCUIApplication, maxPresses: Int = 4) -> Bool {
+        let tabBar = app.tabBars.firstMatch
+        for _ in 0..<maxPresses {
+            let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+            if focused.exists, !(tabBar.exists && tabBar.frame.contains(CGPoint(x: focused.frame.midX, y: focused.frame.midY))) { return true }
+            XCUIRemote.shared.press(.down); usleep(500_000)
+        }
+        return false
     }
 
     /// The label of the element that has the focus now ("none" when nothing has it), for NOT-REACHED reasons.
@@ -243,18 +334,31 @@ final class ScreenshotTests: XCTestCase {
     }
 
     /// Focuses the control labelled `text` and presses Select. False (with a NOT-REACHED note for `name`) when it cannot.
-    func open(_ text: String, in app: XCUIApplication, name: String) -> Bool {
-        let target = control(text, in: app)
+    /// #25 A2: with `id`, the control is looked up by its identifier first (and checked to be exposed once), then by `text`.
+    /// #25 A4: a NOT-REACHED note names the identifier and label searched and carries the element dump.
+    func open(_ text: String, id: String? = nil, in app: XCUIApplication, name: String) -> Bool {
+        let searched = id.map { "identifier “\($0)” or label “\(text)”" } ?? "label “\(text)”"
+        let target = control(id: id, label: text, in: app)
         guard target.waitForExistence(timeout: 10) else {
-            notReached(name, "No button or row labelled “\(text)” was found on the screen before it.")
+            notReached(name, "No control with the \(searched) was found (buttons, cells, menu buttons, switches, and containers of a StaticText with that label).\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
             return false
         }
+        if let id, target.identifier == id { checkExposedOnce(id, name: name, in: app) }
         guard focus(target, in: app, maxPresses: 40) else {
-            notReached(name, "The focus could not be moved to “\(text)” with the remote's arrows (focus stayed on \(focusedLabel(in: app))).")
+            notReached(name, "The focus could not be moved to the \(searched) with the remote's arrows (focus stayed on \(focusedLabel(in: app))).\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
             return false
         }
         XCUIRemote.shared.press(.select)
         return true
+    }
+
+    /// #25 B2: a toolbar control of Movies or Shows. When the row does not fit (Larger Text) the toolbar folds Saved Views,
+    /// Needs Review and Jump to Letter into its More menu (ControlID.moreControls); then More is opened first.
+    func openToolbarControl(_ text: String, id: String, in app: XCUIApplication, name: String) -> Bool {
+        if control(id: id, label: text, in: app).waitForExistence(timeout: 5) { return open(text, id: id, in: app, name: name) }
+        guard open("More", id: ControlID.moreControls, in: app, name: name) else { return false }
+        sleep(1)
+        return open(text, id: id, in: app, name: name)
     }
 
     /// The tab bar from the accessibility tree (OPEN_QUESTIONS R167 (c)): six tabs Home, Movies, Shows, Files, Search,
@@ -311,17 +415,30 @@ final class ScreenshotTests: XCTestCase {
         let app = launch("-UITestEmpty")
         guard waitForScreen("screen.home", in: app), waitFor("Add a Source", in: app),
               open("Add a Source", in: app, name: "10-add-source-types") else { return }
-        guard waitFor("Type an Address", in: app) else { return notReached("10-add-source-types", "The source type list did not open.") }
+        // #25 A3: the list is ready when its first row (identifier control.searchYourNetwork) is there; "Type an Address" is a
+        // section header further down that a lazy list may not have built yet.
+        guard waitForScreen(ControlID.searchYourNetwork, in: app, timeout: 15) else {
+            return notReached("10-add-source-types", "The source type list did not open (no element with the identifier “\(ControlID.searchYourNetwork)”).\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
+        }
+        checkExposedOnce(ControlID.searchYourNetwork, name: "10-add-source-types", in: app)
         settle()
         shot("10-add-source-types")
-        let kinds = [("11", "WebDAV"), ("12", "SMB"), ("13", "NFS"), ("14", "SFTP"), ("15", "FTP"), ("16", "UPnP/DLNA"),
-                     ("17", "Jellyfin"), ("18", "Emby"), ("19", "Web Link")]
-        for (n, kind) in kinds {
+        hierarchy("10-add-source-types", of: app)
+        // #25 A2: each type row by its identifier ("sourceKind." + SourceKind raw value), the label as the fallback.
+        let kinds = [("11", "WebDAV", "webdav"), ("12", "SMB", "smb"), ("13", "NFS", "nfs"), ("14", "SFTP", "sftp"), ("15", "FTP", "ftp"),
+                     ("16", "UPnP/DLNA", "upnp"), ("17", "Jellyfin", "jellyfin"), ("18", "Emby", "emby"), ("19", "Web Link", "directLink")]
+        for (n, kind, raw) in kinds {
             let name = "\(n)-form-" + kind.lowercased().replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: " ", with: "-")
-            guard open(kind, in: app, name: name) else { continue }
-            settle()
+            guard open(kind, id: ControlID.sourceKind(raw), in: app, name: name) else { continue }
+            // The form is ready when its Cancel row (the last row but one) stands still.
+            _ = waitUntilStill(control(id: ControlID.sourceCancel, label: "Cancel", in: app))
             shot(name)
             back()
+            _ = waitForScreen(ControlID.searchYourNetwork, in: app, timeout: 5)
+        }
+        // #25 B1: the type notes moved to "About Source Types" (Learn More); its page, once.
+        if open("About Source Types", id: ControlID.learnMore, in: app, name: "10-add-source-learn-more") {
+            settle(); shot("10-add-source-learn-more"); back()
         }
         app.terminate()
 
@@ -330,7 +447,7 @@ final class ScreenshotTests: XCTestCase {
         // "Not Available Yet" rows above it are not focusable).
         let end = launch("-UITestEmpty")
         if waitForScreen("screen.home", in: end), waitFor("Add a Source", in: end), open("Add a Source", in: end, name: "20-add-source-not-available"),
-           waitFor("Type an Address", in: end) {
+           waitForScreen(ControlID.searchYourNetwork, in: end, timeout: 15) {
             if moveFocusToEnd(in: end), waitFor("Not Available Yet", in: end, timeout: 5) { settle(); shot("20-add-source-not-available") }
             else { notReached("20-add-source-not-available", "Moving down did not reach “Not Available Yet” (focus on \(focusedLabel(in: end))).") }
             // Network search last: it may ask for local-network permission, which a test cannot answer reliably.
@@ -338,7 +455,8 @@ final class ScreenshotTests: XCTestCase {
         }
         let network = launch("-UITestEmpty")
         if waitForScreen("screen.home", in: network), waitFor("Add a Source", in: network), open("Add a Source", in: network, name: "21-search-your-network"),
-           waitFor("Type an Address", in: network), open("Search Your Network", in: network, name: "21-search-your-network") {
+           waitForScreen(ControlID.searchYourNetwork, in: network, timeout: 15),
+           open("Search Your Network", id: ControlID.searchYourNetwork, in: network, name: "21-search-your-network") {
             sleep(4); shot("21-search-your-network")
         }
     }
@@ -381,7 +499,8 @@ final class ScreenshotTests: XCTestCase {
             sleep(1)
             shot("41-about-scrolled-\(step)")
         }
-        if open("Full Licence Texts", in: about, name: "42-licence-texts") {
+        // #25 A2: by its identifier; the long notices moved to Learn More pages (B9), so the link is nearer the top.
+        if open("Full Licence Texts", id: ControlID.fullLicenceTexts, in: about, name: "42-licence-texts") {
             settle(); shot("42-licence-texts")
             for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); shot("43-licence-texts-scrolled-\(step)") }
         }
@@ -393,10 +512,13 @@ final class ScreenshotTests: XCTestCase {
         var app = launch("-UITestFixtures", tab: "home")
         if waitForScreen("screen.home", in: app), waitFor("Sample", in: app, timeout: 60) { settle(); shot("50-home-rows"); XCUIRemote.shared.press(.down); sleep(1); shot("51-home-rows-lower") }
         else { notReached("50-home-rows", "No sample title appeared on Home within 60 s (the sample library did not load).") }
-        // The card long-press menu on the focused Home card.
-        XCUIRemote.shared.press(.select, forDuration: 1.5)
-        sleep(1)
-        shot("52-card-long-press-menu")
+        // The card long-press menu on the focused Home card. #25 A3: the focus starts on the tab bar, so move it into the
+        // content first, and wait for the menu's items before the picture.
+        if focusContent(in: app) {
+            XCUIRemote.shared.press(.select, forDuration: 1.5)
+            if waitForAny(["Mark as Watched", "Mark as Unwatched"], in: app) != nil { sleep(1); shot("52-card-long-press-menu") }
+            else { notReached("52-card-long-press-menu", "The long-press menu did not open (no “Mark as Watched/Unwatched” item; focus on \(focusedLabel(in: app))).\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))") }
+        } else { notReached("52-card-long-press-menu", "The focus could not leave the tab bar for a card (focus on \(focusedLabel(in: app))).") }
         app.terminate()
 
         for (n, tab) in [("53", "movies"), ("54", "shows")] {
@@ -420,11 +542,13 @@ final class ScreenshotTests: XCTestCase {
         app = launch("-UITestFixtures", open: "Sample Movie 1")
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 1", in: app) {
             settle(); shot("57-movie-detail"); hierarchy("57-movie-detail", of: app)
+            focusCheck("57-movie-detail", expected: ControlID.play, in: app)
             for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); shot("58-movie-detail-scrolled-\(step)") }
             // Fix Match is in the More menu (ItemDetailContentView.moreMenu), not a button on the page: the old test looked for
             // it on the page and never found it (#15 item 1.3). Up to the action row first: the focus is below it after 58.
             for _ in 0..<6 { XCUIRemote.shared.press(.up) }; sleep(1)
-            if open("More", in: app, name: "59-fix-match"), waitFor("Fix Match", in: app, timeout: 5), open("Fix Match", in: app, name: "59-fix-match") {
+            if open("More", id: ControlID.more, in: app, name: "59-fix-match"), waitForAny(["Fix Match"], in: app) != nil,
+               open("Fix Match", in: app, name: "59-fix-match") {
                 settle(); shot("59-fix-match"); back()
             }
         } else { hierarchy("57-movie-detail", of: app); notReached("57-movie-detail", "The movie detail page did not open.") }
@@ -433,6 +557,7 @@ final class ScreenshotTests: XCTestCase {
         app = launch("-UITestFixtures", open: "Sample Movie 2")
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 2", in: app) {
             settle(); shot("60-movie-detail-two-versions")
+            focusCheck("60-movie-detail-two-versions", expected: ControlID.play, in: app)
             for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); shot("61-movie-detail-two-versions-scrolled-\(step)") }
         } else { notReached("60-movie-detail-two-versions", "The detail page did not open.") }
         app.terminate()
@@ -441,7 +566,7 @@ final class ScreenshotTests: XCTestCase {
 
         // Pressing Play on a sample file shows the playback error screen (sample files have no video).
         app = launch("-UITestFixtures", open: "Sample Movie 5")
-        if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 5", in: app), open("Play", in: app, name: "62-playback-error") {
+        if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 5", in: app), open("Play", id: ControlID.play, in: app, name: "62-playback-error") {
             sleep(5); shot("62-playback-error")
         }
         app.terminate()
@@ -464,16 +589,16 @@ final class ScreenshotTests: XCTestCase {
         // 44: the More menu open; 45: after Mark as Watched, More again (it must now offer Mark as Unwatched);
         // 46: after Add to Favorites, More again (it must now offer Remove from Favorites).
         if let app = openMovie("Sample Movie 1", "44-movie-more-menu") {
-            if open("More", in: app, name: "44-movie-more-menu"), waitFor("Mark as Watched", in: app, timeout: 5) {
+            if open("More", id: ControlID.more, in: app, name: "44-movie-more-menu"), waitForAny(["Mark as Watched"], in: app) != nil {
                 sleep(1); shot("44-movie-more-menu")
                 if open("Mark as Watched", in: app, name: "45-movie-mark-watched-result") {
                     sleep(2)
-                    if open("More", in: app, name: "45-movie-mark-watched-result"), waitFor("Mark as Unwatched", in: app, timeout: 5) {
+                    if open("More", id: ControlID.more, in: app, name: "45-movie-mark-watched-result"), waitForAny(["Mark as Unwatched"], in: app) != nil {
                         sleep(1); shot("45-movie-mark-watched-result")
                     } else { notReached("45-movie-mark-watched-result", "After Mark as Watched, More did not offer “Mark as Unwatched”.") }
                     if open("Add to Favorites", in: app, name: "46-movie-add-favorite-result") {
                         sleep(2)
-                        if open("More", in: app, name: "46-movie-add-favorite-result"), waitFor("Remove from Favorites", in: app, timeout: 5) {
+                        if open("More", id: ControlID.more, in: app, name: "46-movie-add-favorite-result"), waitForAny(["Remove from Favorites"], in: app) != nil {
                             sleep(1); shot("46-movie-add-favorite-result")
                         } else { notReached("46-movie-add-favorite-result", "After Add to Favorites, More did not offer “Remove from Favorites”.") }
                     }
@@ -484,19 +609,23 @@ final class ScreenshotTests: XCTestCase {
 
         // 47: the Versions menu open (two versions).
         if let app = openMovie("Sample Movie 2", "47-movie-versions-menu") {
-            if open("Versions", in: app, name: "47-movie-versions-menu") { sleep(1); shot("47-movie-versions-menu") }
+            if open("Versions", id: ControlID.versions, in: app, name: "47-movie-versions-menu") {
+                // The menu lists the two versions by their names (2160p and 1080p in the sample library).
+                if waitForAny(["2160p", "1080p"], in: app) == nil { print("47: no version item seen before the picture") }
+                sleep(1); shot("47-movie-versions-menu")
+            }
             app.terminate()
         }
 
         // 48: the Extras menu open.
         if let app = openMovie("Sample Movie 1", "48-movie-extras") {
-            if open("Extras", in: app, name: "48-movie-extras") { sleep(1); shot("48-movie-extras") }
+            if open("Extras", id: ControlID.extras, in: app, name: "48-movie-extras") { sleep(1); shot("48-movie-extras") }
             app.terminate()
         }
 
         // 49: Start Over focused, then what selecting it shows (sample files have no video: the playback error).
         if let app = openMovie("Sample Movie 1", "49-movie-start-over") {
-            if focus(control("Start Over", in: app), in: app) {
+            if focus(control(id: ControlID.startOver, label: "Start Over", in: app), in: app) {
                 sleep(1); shot("49-movie-start-over")
                 XCUIRemote.shared.press(.select); sleep(5); shot("49-movie-start-over-result")
             } else { notReached("49-movie-start-over", "No “Start Over” button could be focused (focus on \(focusedLabel(in: app))).") }
@@ -518,7 +647,7 @@ final class ScreenshotTests: XCTestCase {
         }
         settle()
         // S01E01 is watched in the sample library, so its button says "Play Again" ("Play" matches it).
-        guard open("Play", in: app, name: "22-player-skip-intro") else { app.terminate(); return }
+        guard open("Play", id: ControlID.play, in: app, name: "22-player-skip-intro") else { app.terminate(); return }
         // The clip is written on first use (a few seconds), then plays; Skip Intro shows from 2 s to 20 s.
         if waitFor("Skip Intro", in: app, timeout: 30) { sleep(1); shot("22-player-skip-intro") }
         else { shot("22-player-skip-intro-missing"); notReached("22-player-skip-intro", "No “Skip Intro” within 30 s of Play.") }
@@ -530,7 +659,12 @@ final class ScreenshotTests: XCTestCase {
         XCUIRemote.shared.press(.up); sleep(1)
         // The audio and subtitle menus of the system player (two tracks each, English and French).
         for (number, label) in [("25-player-audio-menu", "Audio"), ("26-player-subtitles-menu", "Subtitles")] {
-            if open(label, in: app, name: number) { sleep(1); shot(number); XCUIRemote.shared.press(.menu); sleep(1) }
+            // #25 A3: the system player's own menus carry no identifier we can set; by label. The picture waits for the
+            // menu's items (the two tracks), so it shows the menu open.
+            if open(label, in: app, name: number) {
+                if waitForAny(["English", "French", "Off"], in: app) == nil { print("\(number): no track item seen before the picture") }
+                sleep(1); shot(number); XCUIRemote.shared.press(.menu); sleep(1)
+            }
             else { shot(number + "-missing") }
         }
 
@@ -557,6 +691,7 @@ final class ScreenshotTests: XCTestCase {
         app = launch("-UITestFixtures", open: "Sample Movie 6")
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 6", in: app) {
             settle(); shot("78-movie-no-synopsis-or-cast")
+            focusCheck("78-movie-no-synopsis-or-cast", expected: ControlID.play, in: app)
         } else { notReached("78-movie-no-synopsis-or-cast", "The page did not open.") }
         app.terminate()
 
@@ -566,8 +701,8 @@ final class ScreenshotTests: XCTestCase {
         if waitForScreen("screen.series", in: app, timeout: 60), waitFor("Season 1", in: app, timeout: 20), waitFor("Sample synopsis", in: app, timeout: 10) {
             settle(); shot("77-show-long-synopsis")
             if open("Sample synopsis", in: app, name: "77-show-long-synopsis-page") { settle(); shot("77-show-long-synopsis-page"); back() }
-            // Play has the focus; one press down reaches the cast shelf below the buttons.
-            XCUIRemote.shared.press(.down); sleep(1); shot("77-show-long-synopsis-cast")
+            // #25 B7: the cast is after the episode shelves now; Down until the focus stops reaches it (the last shelf).
+            _ = moveFocusToEnd(in: app, maxPresses: 12); sleep(1); shot("77-show-long-synopsis-cast")
         } else { hierarchy("77-show-long-synopsis", of: app); notReached("77-show-long-synopsis", "The show page or its fake synopsis did not appear.") }
         app.terminate()
 
@@ -585,8 +720,13 @@ final class ScreenshotTests: XCTestCase {
         var app = launch("-UITestFixtures", tab: "shows")
         if waitForScreen("screen.shows", in: app), waitFor("Sample", in: app, timeout: 60) {
             settle(); shot("07-shows-toolbar")
-            for (label, name) in [("Sort", "07-shows-toolbar-sort-menu"), ("Filter", "07-shows-toolbar-filter-menu"), ("Saved Views", "07-shows-toolbar-saved-views-menu")] {
-                if open(label, in: app, name: name) { sleep(1); shot(name); back() }
+            // #25 A2: by identifier; Saved Views may sit in the toolbar's More menu when the row does not fit (B2).
+            for (label, id, name) in [("Sort", ControlID.sort, "07-shows-toolbar-sort-menu"), ("Filter", ControlID.filter, "07-shows-toolbar-filter-menu"),
+                                      ("Saved Views", ControlID.savedViews, "07-shows-toolbar-saved-views-menu")] {
+                if openToolbarControl(label, id: id, in: app, name: name) {
+                    sleep(1); shot(name); back()
+                    _ = focusContent(in: app)
+                }
             }
         } else { notReached("07-shows-toolbar", "No sample show appeared.") }
         app.terminate()
@@ -594,10 +734,20 @@ final class ScreenshotTests: XCTestCase {
         app = launch("-UITestFixtures", tab: "home")
         if waitForScreen("screen.home", in: app), waitFor("Sample", in: app, timeout: 60) {
             settle()
+            // #25 A3: into the content first (the focus starts on the tab bar), then the long press; the picture waits
+            // for the menu's Go to item, so it shows the menu open.
+            guard focusContent(in: app) else {
+                notReached("08-card-long-press-go-to", "The focus could not leave the tab bar for a card (focus on \(focusedLabel(in: app)))."); app.terminate(); return
+            }
             XCUIRemote.shared.press(.select, forDuration: 1.5)
+            guard let label = waitForAny(["Go to Show", "Go to Movie"], in: app) else {
+                notReached("08-card-long-press-go-to", "The long-press menu showed no “Go to Movie/Show” item (identifier “\(ControlID.goToTitle)”).\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))"); app.terminate(); return
+            }
             sleep(1); shot("08-card-long-press-go-to")
-            let label = waitFor("Go to Show", in: app, timeout: 3) ? "Go to Show" : "Go to Movie"
-            if open(label, in: app, name: "08-card-go-to-result") { settle(); shot("08-card-go-to-result") }
+            if open(label, id: ControlID.goToTitle, in: app, name: "08-card-go-to-result") {
+                _ = waitForScreen(label == "Go to Show" ? "screen.series" : "screen.item", in: app, timeout: 10)
+                settle(); shot("08-card-go-to-result")
+            }
         } else { notReached("08-card-long-press-go-to", "No sample title appeared on Home within 60 s.") }
         app.terminate()
     }
@@ -624,7 +774,10 @@ final class ScreenshotTests: XCTestCase {
                     }
                     if open("Sample Movie 1 (2021)", in: app, name: "73-files-movie-folder") {
                         settle(); shot("73-files-movie-folder")
-                        if open("2160p.mkv", in: app, name: "74-file-details") { settle(); shot("74-file-details") }
+                        // #25 B9: the picture waits for the sheet's last element (Done) to stand still.
+                        if open("2160p.mkv", in: app, name: "74-file-details") {
+                            _ = waitUntilStill(control(id: nil, label: "Done", in: app)); shot("74-file-details"); hierarchy("74-file-details", of: app)
+                        }
                     }
                 }
             }
@@ -727,11 +880,13 @@ final class ScreenshotTests: XCTestCase {
             // #24 C: 93, 94, 99 and 100 were NOT REACHED here. "Type an Address" is a section header further down the list;
             // at Larger Text it is below the screen, and a lazy list does not build it yet. "Search Your Network" is the
             // first row (App/Features/Sources/SourceKindListView.swift), on screen at every text size.
-            guard waitFor("Search Your Network", in: app, timeout: wait) else {
+            guard waitForScreen(ControlID.searchYourNetwork, in: app, timeout: wait) else {
                 return fail(app, "The source type list did not open (no “Search Your Network” row within \(Int(wait)) s).")
             }
             if key == "add-source" { return app }
-            return step(app, "WebDAV") ? app : nil
+            guard open("WebDAV", id: ControlID.sourceKind("webdav"), in: app, name: name) else { app.terminate(); return nil }
+            _ = waitUntilStill(control(id: ControlID.sourceCancel, label: "Cancel", in: app))
+            return app
         default:
             XCTFail("Unknown accessibility screen \(key)")
             return nil
@@ -787,23 +942,31 @@ final class ScreenshotTests: XCTestCase {
     /// each at the default size and the main ones again with Larger Text. Numbers 63 to 69 (free in the main set).
     func sortingShots(suffix: String, extra: [String]) {
         var app = launch("-UITestFixtures", tab: "movies", extra: extra)
-        guard waitForScreen("screen.movies", in: app), waitFor("Needs Review", in: app, timeout: 60) else {
+        guard waitForScreen("screen.movies", in: app), waitFor("Sample", in: app, timeout: 60) else {
             return notReached("63-movies-needs-review-button\(suffix)", "Movies showed no “Needs Review” button within 60 s.")
         }
         settle(); shot("63-movies-needs-review-button\(suffix)")
-        if open("Needs Review", in: app, name: "64-needs-review\(suffix)"), waitForScreen("screen.needsReview", in: app) {
+        if openToolbarControl("Needs Review", id: ControlID.needsReview, in: app, name: "64-needs-review\(suffix)"), waitForScreen("screen.needsReview", in: app) {
             settle(); shot("64-needs-review\(suffix)"); hierarchy("64-needs-review\(suffix)", of: app)
             for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); shot("64-needs-review-scrolled-\(step)\(suffix)") }
             if open("Sample Clip", in: app, name: "65-needs-review-choice\(suffix)") {
-                settle(); shot("65-needs-review-choice\(suffix)")
-                if open("Move to Shows", in: app, name: "66-move-sheet\(suffix)") { settle(); shot("66-move-sheet\(suffix)"); back() }
+                // #25 A3: the choice is open when its Move to Shows item is there.
+                if waitForAny(["Move to Shows"], in: app) != nil { sleep(1); shot("65-needs-review-choice\(suffix)") }
+                else { notReached("65-needs-review-choice\(suffix)", "The choice did not open (no “Move to Shows” item).\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))") }
+                if open("Move to Shows", in: app, name: "66-move-sheet\(suffix)") {
+                    // #25 A3: retaken after the sheet's animation: wait for its last element (Cancel) to stand still.
+                    if waitUntilStill(control(id: nil, label: "Cancel", in: app)) { shot("66-move-sheet\(suffix)") }
+                    else { notReached("66-move-sheet\(suffix)", "The move sheet's Cancel button did not appear or kept moving.\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))") }
+                    back()
+                }
             }
         }
         app.terminate()
 
         app = launch("-UITestFixtures", open: "Sample Movie 1", extra: extra)
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 1", in: app) {
-            if open("More", in: app, name: "67-sorted-how\(suffix)"), open("How This Was Sorted", in: app, name: "67-sorted-how\(suffix)") {
+            if open("More", id: ControlID.more, in: app, name: "67-sorted-how\(suffix)"), waitForAny(["How This Was Sorted"], in: app) != nil,
+               open("How This Was Sorted", in: app, name: "67-sorted-how\(suffix)") {
                 settle(); shot("67-sorted-how\(suffix)")
             }
         } else { notReached("67-sorted-how\(suffix)", "The movie page did not open.") }
