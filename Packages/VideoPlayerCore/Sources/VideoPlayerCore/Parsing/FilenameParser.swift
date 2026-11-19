@@ -69,8 +69,14 @@ public enum FilenameParser {
     ///   - weakMarkers: false ignores the weak episode markers (episode number alone, special, season alone, absolute
     ///     number), for reading a file that was decided to be a movie (docs/SORTING.md).
     public static func parse(fileName: String, folders: [String] = [], weakMarkers: Bool = true) -> ParsedMedia {
-        var p = parseName(fileName, weakMarkers: weakMarkers)
-        let infos = folders.map(parseFolderName)
+        withFolders(parseName(fileName, weakMarkers: weakMarkers), folderInfos: folders.map(parseFolderName))
+    }
+
+    /// `parse(fileName:folders:)` in two steps, so a caller that needs the name on its own and with its folders, or
+    /// reads many files of one folder, parses each name and each folder once (addendum #19 A):
+    /// `parse(fileName: n, folders: f, weakMarkers: w) == withFolders(parseName(n, weakMarkers: w), folderInfos: f.map(parseFolderName))`.
+    public static func withFolders(_ own: ParsedMedia, folderInfos infos: [FolderInfo]) -> ParsedMedia {
+        var p = own
 
         // The nearest season folder, looking at the two closest folders.
         let seasonInfo = infos.prefix(2).first { $0.season != nil }
@@ -118,7 +124,8 @@ public enum FilenameParser {
 
     // MARK: Name parsing
 
-    static func parseName(_ raw: String, weakMarkers: Bool = true) -> ParsedMedia {
+    /// The file name alone, without folder hints.
+    public static func parseName(_ raw: String, weakMarkers: Bool = true) -> ParsedMedia {
         var p = ParsedMedia()
         // Servers may return decomposed (NFD) names; compare everything in composed (NFC) form.
         var s = stripExtension(raw.precomposedStringWithCanonicalMapping)
@@ -342,6 +349,14 @@ public enum FilenameParser {
 
     static func protectCompounds(_ input: String) -> String {
         var s = input
+        for (rx, template) in compounds {
+            s = rx.replace(in: s, with: template)
+        }
+        return s
+    }
+
+    /// Built once (addendum #19 A: building them on every call was most of the sorting time).
+    private static let compounds: [(Rx, String)] = {
         let replacements: [(String, String)] = [
             (#"(?<![a-z0-9])h[ .]?26([45])(?![0-9])"#, "h26$1"),
             (#"(?<![a-z0-9])x[ .]?26([45])(?![0-9])"#, "x26$1"),
@@ -360,11 +375,8 @@ public enum FilenameParser {
             (#"(?<![0-9])([1-9])\.([0-2])(?![0-9])"#, "$1ch$2"),
             (#"([A-Za-z])([1-9]ch[0-2])"#, "$1 $2")
         ]
-        for (pattern, template) in replacements {
-            s = Rx(pattern).replace(in: s, with: template)
-        }
-        return s
-    }
+        return replacements.map { (Rx($0.0), $0.1) }
+    }()
 
     static func cleanTitle(_ text: String) -> String {
         var s = Rx.spaces.replace(in: text, with: " ")
@@ -382,8 +394,23 @@ public enum FilenameParser {
         String(s.lowercased().unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
     }
 
+    /// Every pattern `fillTechnical` asks about, compiled once (addendum #19 A). A pattern missing here still works, it is
+    /// only compiled on each call.
+    private static let technicalPatterns: [String: Rx] = {
+        let patterns = [
+            "2160p|4k|uhd|8k", "1080p|1080i", "720p", "576p", "480p",
+            "remux|bdremux", "bluray|bdrip|brrip", "webdl", "webrip", "hdtv|pdtv", "dvdrip|dvdscr",
+            "hevc|x265|h265", "x264|h264|avc", "av1", "xvid", "divx",
+            "atmos", "truehd", "dtshd", "dtsx", "dts|dtses", "ddp|eac3", "dd|ac3", "aac", "flac",
+            "dolbyvision|dovi|dv", "hdr10plus", "hdr10", "hdr", "hlg",
+        ]
+        return Dictionary(uniqueKeysWithValues: patterns.map { ($0, technicalRx($0)) })
+    }()
+
+    private static func technicalRx(_ pattern: String) -> Rx { Rx("(?<![a-z0-9])(?:" + pattern + ")(?![a-z0-9])") }
+
     private static func fillTechnical(_ p: inout ParsedMedia, from s: String) {
-        func has(_ pattern: String) -> Bool { Rx("(?<![a-z0-9])(?:" + pattern + ")(?![a-z0-9])").firstMatch(in: s) != nil }
+        func has(_ pattern: String) -> Bool { (technicalPatterns[pattern] ?? technicalRx(pattern)).firstMatch(in: s) != nil }
         if has("2160p|4k|uhd|8k") { p.resolution = "2160p" }
         else if has("1080p|1080i") { p.resolution = "1080p" }
         else if has("720p") { p.resolution = "720p" }
@@ -477,22 +504,22 @@ struct Rx {
     }
 
     func firstMatch(in s: String, from: Int = 0) -> NSTextCheckingResult? {
-        let length = (s as NSString).length
+        let length = s.utf16.count
         guard from <= length else { return nil }
         return re.firstMatch(in: s, options: [.withTransparentBounds, .withoutAnchoringBounds], range: NSRange(location: from, length: length - from))
     }
 
     func matches(in s: String) -> [NSTextCheckingResult] {
-        re.matches(in: s, options: [], range: NSRange(location: 0, length: (s as NSString).length))
+        re.matches(in: s, options: [], range: NSRange(location: 0, length: s.utf16.count))
     }
 
     func replace(in s: String, with template: String) -> String {
-        re.stringByReplacingMatches(in: s, options: [], range: NSRange(location: 0, length: (s as NSString).length), withTemplate: template)
+        re.stringByReplacingMatches(in: s, options: [], range: NSRange(location: 0, length: s.utf16.count), withTemplate: template)
     }
 
     /// True when the whole string matches the pattern.
     func matches(whole s: String) -> Bool {
-        let length = (s as NSString).length
+        let length = s.utf16.count
         guard let m = re.firstMatch(in: s, options: [], range: NSRange(location: 0, length: length)) else { return false }
         return m.range.location == 0 && m.range.length == length
     }

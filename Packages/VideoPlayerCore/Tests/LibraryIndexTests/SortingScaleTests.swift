@@ -60,8 +60,10 @@ final class SortingScaleTests: XCTestCase {
             let names = files.map { ($0 as NSString).lastPathComponent }
             let siblings = SiblingIndex(names: names)
             let ancestors = LibraryPath.ancestorNames(of: folder + "/x")
+            // Once per folder, as LibrarySyncer.scanFolder does.
+            let ancestorInfos = ancestors.map(FilenameParser.parseFolderName)
             for name in names {
-                let d = MediaSorter.decide(fileName: name, context: SortContext(folders: ancestors, siblings: siblings))
+                let d = MediaSorter.decide(fileName: name, context: SortContext(folders: ancestors, folderInfos: ancestorInfos, siblings: siblings))
                 _ = ItemGrouping.seed(parsed: d.parsed, fileName: name)
                 counts[d.outcome, default: 0] += 1
             }
@@ -70,7 +72,44 @@ final class SortingScaleTests: XCTestCase {
         print("SORT-TIMING classifier \(Self.fileCount) files: \(String(format: "%.3f", elapsed)) s; \(counts.map { "\($0.key.rawValue) \($0.value)" }.sorted().joined(separator: ", "))")
         XCTAssertEqual(counts.values.reduce(0, +), Self.fileCount)
         XCTAssertGreaterThan(counts[.needsReview] ?? 0, 0, "the library has files that end in Needs Review")
+        // The same decisions as before the speed-up of addendum #19 A (measured on the old code).
+        XCTAssertEqual(counts, [.episode: 4190, .movie: 4150, .needsReview: 1660])
         XCTAssertLessThan(elapsed, Self.classifierBox, "sorting 10,000 file names took \(elapsed) s")
+    }
+
+    /// Addendum #19 A: where the time goes. Each stage runs over all 10,000 files on its own and prints its time, so the
+    /// log shows which one dominates. Only the totals are asserted (each stage is part of the classifier box above).
+    func testSortingStageTimes() {
+        let paths = Self.library()
+        let names = paths.map { ($0 as NSString).lastPathComponent }
+        let byFolder = Dictionary(grouping: paths) { LibraryPath.parent(of: $0) }
+        func time(_ label: String, _ body: () -> Void) -> Double {
+            let start = DispatchTime.now().uptimeNanoseconds
+            body()
+            let t = Self.seconds(start)
+            print("SORT-STAGE \(label): \(String(format: "%.3f", t)) s (\(String(format: "%.3f", t * 1000 / Double(Self.fileCount))) ms per file)")
+            return t
+        }
+        var sink = 0
+        _ = time("name normalisation (LibraryText.normalize)") { for n in names { sink &+= LibraryText.normalize(n).count } }
+        _ = time("pattern matching, file name only (FilenameParser.parse)") { for n in names { sink &+= FilenameParser.parse(fileName: n).title.count } }
+        _ = time("folder names (parseFolderName, each folder of each file)") {
+            for p in paths { for f in LibraryPath.ancestorNames(of: p) { sink &+= FilenameParser.parseFolderName(f).title.count } }
+        }
+        _ = time("sibling index (once per folder)") { for (_, files) in byFolder { sink &+= SiblingIndex(names: files.map { ($0 as NSString).lastPathComponent }).marked.count } }
+        var decisions: [(SortDecision, String)] = []
+        decisions.reserveCapacity(Self.fileCount)
+        let siblings = byFolder.mapValues { SiblingIndex(names: $0.map { ($0 as NSString).lastPathComponent }) }
+        _ = time("decision (MediaSorter.decide, siblings ready)") {
+            for p in paths {
+                let folder = LibraryPath.parent(of: p)
+                let name = (p as NSString).lastPathComponent
+                decisions.append((MediaSorter.decide(fileName: name, context: SortContext(folders: LibraryPath.ancestorNames(of: p), siblings: siblings[folder]!)), name))
+            }
+        }
+        _ = time("grouping (ItemGrouping.seed)") { for (d, n) in decisions { sink &+= ItemGrouping.seed(parsed: d.parsed, fileName: n).key.count } }
+        XCTAssertGreaterThan(sink, 0)
+        XCTAssertEqual(decisions.count, Self.fileCount)
     }
 
     /// The one-time re-sort of an existing library: a first scan, then every sort record dropped (what the upgrade looks like)
@@ -93,8 +132,11 @@ final class SortingScaleTests: XCTestCase {
         XCTAssertLessThan(elapsed, Self.resortBox, "the one-time re-sort of 10,000 files took \(elapsed) s")
     }
 
-    /// Measured 2026-11-18 on the Linux test machine. Debug: classifier 47.9 to 50.9 s, first scan 55.7 to 58.2 s,
-    /// re-sort 55.8 to 58.1 s. Release: classifier 45.8 s, first scan 47.6 s, re-sort 44.4 s. Boxes are about 3x that.
-    static let classifierBox = 150.0
-    static let resortBox = 180.0
+    /// Measured 2026-11-18 on the Linux test machine.
+    /// Before addendum #19 A (55 patterns compiled on every parse, each name parsed up to 6 times): Debug classifier 47.9 to
+    /// 50.9 s, re-sort 55.8 to 58.1 s; Release classifier 45.8 s, re-sort 44.4 s.
+    /// After: Debug classifier 8.1 s (0.81 ms per file), re-sort 13.3 to 13.4 s; Release classifier 7.1 s, re-sort 12.8 s.
+    /// Boxes are about 3x the Debug times, so a real regression fails.
+    static let classifierBox = 25.0
+    static let resortBox = 40.0
 }

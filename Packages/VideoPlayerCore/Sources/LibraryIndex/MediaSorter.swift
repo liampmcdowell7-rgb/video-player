@@ -50,14 +50,18 @@ public struct SiblingIndex: Equatable, Sendable {
 
 public struct SortContext: Equatable, Sendable {
     /// Ancestor folder names, nearest first.
-    public var folders: [String]
+    public var folders: [String] { didSet { folderInfos = folders.map(FilenameParser.parseFolderName) } }
+    /// `folders`, each parsed once (addendum #19 A); a scan passes the same array for every file of one folder.
+    public private(set) var folderInfos: [FilenameParser.FolderInfo]
     public var siblings: SiblingIndex
     public var serverType: ServerItemType?
     /// The source setting "Sort by filename instead of server library types" (PROVISIONAL, default off).
     public var preferFilename: Bool
 
-    public init(folders: [String] = [], siblings: SiblingIndex = SiblingIndex(), serverType: ServerItemType? = nil, preferFilename: Bool = false) {
+    public init(folders: [String] = [], folderInfos: [FilenameParser.FolderInfo]? = nil, siblings: SiblingIndex = SiblingIndex(),
+                serverType: ServerItemType? = nil, preferFilename: Bool = false) {
         self.folders = folders
+        self.folderInfos = folderInfos ?? folders.map(FilenameParser.parseFolderName)
         self.siblings = siblings
         self.serverType = serverType
         self.preferFilename = preferFilename
@@ -106,12 +110,12 @@ public enum MediaSorter {
         }
         // The file name is not clear: the server's type decides, if the file can be filed that way.
         if server == .movie {
-            var p = FilenameParser.parse(fileName: fileName, folders: c.folders, weakMarkers: false)
+            var p = FilenameParser.withFolders(FilenameParser.parseName(fileName, weakMarkers: false), folderInfos: c.folderInfos)
             p.kind = .movie
             if showKey(p.title).isEmpty { return review(p, "The server says movie, but the file name has no title.") }
             return SortDecision(outcome: .movie, signal: .serverType, parsed: p, note: "The server says movie.")
         }
-        var p = FilenameParser.parse(fileName: fileName, folders: c.folders)
+        var p = FilenameParser.withFolders(FilenameParser.parseName(fileName), folderInfos: c.folderInfos)
         if !p.episodes.isEmpty || p.absoluteEpisode != nil || p.airDate != nil, !showKey(p.title).isEmpty {
             p.kind = .episode
             return SortDecision(outcome: .episode, signal: .serverType, parsed: p, note: "The server says episode.")
@@ -121,10 +125,11 @@ public enum MediaSorter {
     }
 
     private static func byFileName(_ name: String, _ c: SortContext) -> SortDecision {
-        let own = FilenameParser.parse(fileName: name)
-        var p = FilenameParser.parse(fileName: name, folders: c.folders)
+        // Each name and each folder is parsed once per kind of reading (addendum #19 A).
+        let folderInfos = c.folderInfos
+        let own = FilenameParser.withFolders(FilenameParser.parseName(name), folderInfos: [])
+        var p = FilenameParser.withFolders(own, folderInfos: folderInfos)
         let key = showKey(p.title)
-        let folderInfos = c.folders.map(FilenameParser.parseFolderName)
         let seasonFolder = folderInfos.prefix(2).first { $0.season != nil }
         let others = c.siblings.others(showKey: showKey(own.title), selfMarked: own.episodeMarker != nil && own.episodeMarker != .seasonOnly)
         let hasNumber = !p.episodes.isEmpty || p.absoluteEpisode != nil
@@ -136,9 +141,10 @@ public enum MediaSorter {
         }
         func movieOrReview(_ fallbackNote: String) -> SortDecision {
             // b. A year in the file name and no clear episode pattern: a movie (weak markers are read as part of the title).
-            var m = FilenameParser.parse(fileName: name, folders: c.folders, weakMarkers: false)
+            let ownMovie = FilenameParser.withFolders(FilenameParser.parseName(name, weakMarkers: false), folderInfos: [])
+            var m = FilenameParser.withFolders(ownMovie, folderInfos: folderInfos)
             m.kind = .movie
-            let ownYear = FilenameParser.parse(fileName: name, weakMarkers: false).year
+            let ownYear = ownMovie.year
             if ownYear != nil, !showKey(m.title).isEmpty {
                 return SortDecision(outcome: .movie, signal: .moviePattern, parsed: m, note: "A year in the file name and no episode pattern.")
             }

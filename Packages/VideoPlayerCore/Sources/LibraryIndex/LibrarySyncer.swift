@@ -153,6 +153,8 @@ public struct LibrarySyncer: Sendable {
         var unchanged = 0
         var filesSeen = 0
         let ancestors = LibraryPath.ancestorNames(of: pending.path + "/x")
+        // The folder names, parsed once for every file of this folder (addendum #19 A).
+        let ancestorInfos = ancestors.map(FilenameParser.parseFolderName)
         // The other videos in this folder, read only when a file needs sorting.
         var siblingCache: SiblingIndex?
         func siblings() -> SiblingIndex {
@@ -177,7 +179,7 @@ public struct LibrarySyncer: Sendable {
                     unchanged += 1
                     continue
                 }
-                let sorted = sortFile(e, override: overrides[e.path], inputs: inputs, ancestors: ancestors, siblings: siblings)
+                let sorted = sortFile(e, override: overrides[e.path], inputs: inputs, ancestors: ancestors, ancestorInfos: ancestorInfos, siblings: siblings)
                 if let before = old.sort, before.needsReview, sorted.record.needsReview, before.revision == sorted.record.revision, before.inputs == inputs {
                     unchanged += 1   // still in Needs Review: nothing to write
                     continue
@@ -192,7 +194,7 @@ public struct LibrarySyncer: Sendable {
             var tech: FileTechnicalInfo?
             var sort: FileSortRecord?
             if kind == .video {
-                let sorted = sortFile(e, override: overrides[e.path], inputs: inputs, ancestors: ancestors, siblings: siblings)
+                let sorted = sortFile(e, override: overrides[e.path], inputs: inputs, ancestors: ancestors, ancestorInfos: ancestorInfos, siblings: siblings)
                 seed = sorted.seed
                 sort = sorted.record
                 tech = annotator.technicalInfo(for: e, parsed: sorted.parsed)
@@ -239,10 +241,10 @@ public struct LibrarySyncer: Sendable {
         return old.revision < MediaSorter.revision || old.inputs != inputs || old.needsReview
     }
 
-    func sortFile(_ e: SourceEntry, override: SortOverride?, inputs: String, ancestors: [String], siblings: () -> SiblingIndex)
+    func sortFile(_ e: SourceEntry, override: SortOverride?, inputs: String, ancestors: [String], ancestorInfos: [FilenameParser.FolderInfo]? = nil, siblings: () -> SiblingIndex)
         -> (seed: ItemSeed, record: FileSortRecord, parsed: ParsedMedia) {
         let decision = override.map { MediaSorter.apply($0, to: e.name, folders: ancestors) }
-            ?? MediaSorter.decide(fileName: e.name, context: SortContext(folders: ancestors, siblings: siblings(), serverType: e.serverItemType, preferFilename: preferFilename))
+            ?? MediaSorter.decide(fileName: e.name, context: SortContext(folders: ancestors, folderInfos: ancestorInfos, siblings: siblings(), serverType: e.serverItemType, preferFilename: preferFilename))
         var outcome = decision.outcome
         var note = decision.note
         var seed = ItemGrouping.seed(parsed: decision.parsed, fileName: e.name)

@@ -136,11 +136,22 @@ Measured on a synthetic 10,000-file library (`LibraryIndexTests/SortingScaleTest
 
 | Build | Classifier only (decide + group) | First scan | One-time re-sort |
 |---|---|---|---|
-| Debug (`swift test`) | 47.9 to 50.9 s | 55.7 to 58.2 s | 55.8 to 58.1 s |
-| Release (`swift test -c release`) | 45.8 s | 47.6 s | 44.4 s |
+| Debug (`swift test`), before #19 A | 47.9 to 50.9 s | 55.7 to 58.2 s | 55.8 to 58.1 s |
+| Release (`swift test -c release`), before #19 A | 45.8 s | 47.6 s | 44.4 s |
+| **Debug, after #19 A** | **8.1 s (0.81 ms per file)** | 13.1 to 13.4 s | 13.3 to 13.4 s |
+| **Release, after #19 A** | **7.1 s (0.71 ms per file)** | 11.7 s | 12.8 s |
 
-That is about 4.5 to 5 ms per file. The tests are time-boxed at 150 s (classifier) and 180 s (re-sort), about three times
-the measured time, so a large slowdown fails them. The Apple TV time is not measured.
+Where the time went (addendum #19 A, `testSortingStageTimes`, Debug, per file): before, one parse of a file name took
+0.84 ms and a decision 4.2 ms, because `protectCompounds` and `fillTechnical` compiled 55 regular expressions on every
+parse, and a decision parsed the name up to three times and every folder name again each time. Name normalisation
+(0.02 ms) and grouping (0.01 ms) were never the cost; database writes were already one transaction per folder (about
+0.5 ms per file including listing). Fixed: the patterns are compiled once; a decision parses the name once per reading
+and each folder name once per folder (`FilenameParser.parseName` + `withFolders`, `SortContext.folderInfos`); the
+pattern helpers no longer convert every string to `NSString` for its length. Now a parse takes 0.22 ms and a decision
+0.72 ms (Debug; less when the folder names are already parsed). Release is barely faster than Debug, before and after:
+the time is inside Foundation's regular expression engine (ICU), which is optimised in both builds. The decisions for
+all 10,000 files are the same as before (asserted). The tests are time-boxed at 25 s (classifier) and 40 s (re-sort),
+about three times the Debug time, so a real regression fails them. The Apple TV time is not measured.
 
 ### Shows with one name and different years (addendum #18 D, PROVISIONAL, OPEN_QUESTIONS R174)
 
@@ -220,7 +231,7 @@ Accepted on purpose but can be wrong:
 - The online check against the real TMDB service (tested with a fake lookup only).
 - Server item types against a live Jellyfin or Emby server (recorded fixtures only).
 - A Move choice reaching a second Apple TV through iCloud (ledger sync is tested in memory only).
-- The first scan after the upgrade on a large library on the Apple TV: measured on Linux only (about 45 to 58 s per
+- The first scan after the upgrade on a large library on the Apple TV: measured on Linux only (about 12 to 13 s per
   10,000 files, see Re-sorting); the device time is unknown.
 - Shows with one name and different years: Linux tests only; how the split shows look on screen is unchecked.
 - With "trust unchanged folders" on (`ScanOptions.trustFolderVersions`, off in the app), a Move in an unchanged folder
