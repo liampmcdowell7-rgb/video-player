@@ -50,6 +50,36 @@ design-lint has one rule for that error class (`section-title-closure`); it is a
 Jobs 2 to 4 first ran in run 44401030622 (commit 92f7724): launch OK, device-build inspection clean, 5 package-test
 failures (fixed in ccf88b1), screenshots of 16 screens. A job proves nothing until a run of it is green.
 
+### UI-test jobs: the split and the expected times (#24 B, 2026-11-19)
+
+The run on fa00af8 delivered **no picture at all**: each UI job ran all its tests in one xcodebuild call, the time budget
+stopped it, and the incomplete result bundle could not be exported. Since #24 every test is its own call
+(scripts/ci-ui-tests.sh) and writes its pictures as PNG files too, so the pictures before a stop or a failure are kept.
+The budget is **25 minutes from the start of the first UI test** (`CI_TEST_BUDGET_SECONDS` 1500); each job's hard cap is
+60 minutes. Times marked "measured" are from fa00af8; the others are estimates.
+
+| Job | Tests, in run order | Planned pictures | UI tests | Job, start to end (estimate) |
+|---|---|---|---|---|
+| Screenshots, part 1 | 01 (68 s), 02 (36 s), 03 (148 s), 05 (39 s), 12, 13, 14 (never reached on fa00af8: about 90 s each), 10 (312 s) | 5 + 12 + 16 + 7 + 6 + 8 + 6 + 20 = **80** | about 14:30 (10:03 measured + 4:30 estimated) | about 28 min |
+| Screenshots, part 2 (`screenshots-library`) | 04 alone (436 s) | **26** | 7:16 measured | about 21 min |
+| Accessibility screenshots | 06 (628 s), then 11 (about 315 s: half as many screens) | 22 + 11 = **33** | about 15:45 | about 28 min |
+
+Before the tests every UI job spends about 12 minutes (fa00af8, measured: prepare 1:18, pick and boot 1:29, build
+7:37-7:48, launch smoke 1:11-1:21; the accessibility job has no smoke). The collect, check and upload steps after the
+tests take about 1-2 minutes. Each job stays well inside its budget (part 1 and accessibility use about 60% of the 25
+minutes). Total planned: **139 pictures**. The plan is scripts/screenshot-plan.tsv; every index.md counts taken, missing
+and failed pictures against it.
+
+Two deviations from the #24 request, with the reason:
+- test06 (Larger Text and Bold Text) and test11 (the default screens) share one job. scripts/ci-a11y-compare.py compares
+  each Larger/Bold picture with its default one, so both sets must be in one folder; together they need about 16 of
+  the 25 minutes. Each is still its own xcodebuild call, so a stop in test11 cannot lose test06's pictures.
+- No shared build (one build-for-testing artifact for the three UI jobs). It would save about 2 × 7:45 of runner time
+  per run, but the size of the build products has never been measured, and every UI job would wait for the upload
+  first. ci-build-uitests.sh now prints the size (`build-products-size.txt` in each `-logs` download); decide from that
+  number. Public repositories have no artifact-storage charge for standard use (unverified, from memory), but large
+  artifacts slow every job down.
+
 ### What the ad-hoc signed simulator build cannot prove (stays unproven until a signed build runs on an Apple TV)
 
 The screenshots job (job 4) signs the simulator app ad hoc: identity "-", no team, no provisioning profile, no certificate
@@ -88,11 +118,11 @@ Each row stays **unproven** until the proof in the last column has been done and
 | iCloud restore at launch (R169): the 8-second wait (`TimeBox.launchWait`) and the local copy shown first | Tested only with a simulated iCloud and a fake clock (AppLogic unit tests) | DEVICE_TEST_CHECKLIST_PLATFORM.md U4 (normal, slow and offline iCloud on a device) |
 | Larger Text (the real setting) | The CI screenshots 80–84 and 90–95 IMITATE it: the app sets its own `dynamicTypeSize` to accessibility3 from a launch argument (App/Support/UITestAccessibility.swift). That proves the layouts at that size, not what the real setting does. tvOS has the real setting: Apple's guide names "Accessibility > Display" with "Text Size", a slider, and says "Apps that support Dynamic Type automatically adjust to the Text Size setting" (https://support.apple.com/guide/tv/display-bold-text-or-change-the-text-size-atvb0222141c/tvos) | DEVICE_TEST_CHECKLIST_VISUAL.md V-15 (Settings > Accessibility > Display > Text Size at its largest) |
 | Bold Text (the real setting) | The CI screenshots 85–89 and 96–101 IMITATE it with SwiftUI `bold(_:)` (#17 A: setting `legibilityWeight` alone changed nothing in the app's text). Apple's pages do not say which weights the real setting gives; `scripts/ci-a11y-compare.py` only proves the imitation changes the app's text (each picture must differ from its default one, 102–112, outside the tab bar) | DEVICE_TEST_CHECKLIST_VISUAL.md V-16 (Settings > Accessibility > Display > Bold Text) |
-| Increase Contrast | Device-only: the tvOS simulator cannot set it (`simctl` offers no option for it on tvOS; the CI step records NOT APPLIED and takes no pictures) | DEVICE_TEST_CHECKLIST_VISUAL.md V-18 |
+| Increase Contrast | Device-only: the tvOS simulator cannot set it (`simctl` offers no option for it on tvOS). Since #24 no CI job tries (the accessibility-settings job is removed, OPEN_QUESTIONS R197) | DEVICE_TEST_CHECKLIST_VISUAL.md V-18 |
 | Reduce Transparency | Device-only, same reason | DEVICE_TEST_CHECKLIST_VISUAL.md V-17 |
 | Reduce Motion | Device-only, same reason; also cannot be judged from still pictures | DEVICE_TEST_CHECKLIST_VISUAL.md V-19 |
 | The simulator retry in scripts/ci-sim.sh (8bb0f0c) | Passes its self-test with a fake `xcrun` (scripts/test-ci-sim.sh, 20 checks, in test-all.sh), but no runner has really failed to load the runtime since it was added | A CI run where it happens: the log shows `SIMULATOR RETRY: <reason>` (also a `::warning::` annotation) and the job summary shows `Simulator ready after N s (retries: 1/1)`. Not a device item |
-| Upload after a job hits its time cap | Not tried. Now guarded: every test run ends `CI_TEST_DEADLINE_SECONDS` after the job's first stage (1320 s in the three screenshot jobs, 1500 s in the package-test job), leaving 8 and 5 minutes for export and upload | A CI run that reaches it: the log shows `TIME BUDGET: stopping` (or `not started`) and the artifacts are still there. Whether a stopped xcodebuild leaves a readable result bundle is also open. Not a device item |
+| Pictures after a test run is stopped or fails (#24 A) | The run on fa00af8 lost every picture when the time budget stopped the one xcodebuild call per job. Now each test is its own call, writes PNG files, and its pictures are copied right after it; at the budget the running test gets SIGINT and 60 s to finish its bundle. Passes its self-tests with a fake xcodebuild (scripts/test-ci-ui-tests.sh 23 checks, scripts/test-ci-sim.sh 35, scripts/test-ci-artifact-contents.sh 19). Unproven on a runner: that xcodebuild hands TEST_RUNNER_SCREENSHOT_DIR to the runner as SCREENSHOT_DIR, that the runner can write that host folder from the simulator (else the simulator data folder is searched), and whether xcodebuild finishes the bundle on SIGINT | The next CI run: each UI job's log shows `SCREENSHOT FILES: <folder>` and `pictures from: host folder N, simulator data folder N, result bundle N`; every screenshot artifact has pictures and an index.md with the counts (or `TEST STOPPED BY THE TIME BUDGET: pictures up to <name>`). Not a device item |
 | Statements about what Apple's own apps do | Several were written from memory | Marked "unverified, from memory" in docs/DESIGN_REFERENCES.md and docs/HIG_AUDIT.md, or given the Apple page that confirms them; checked against the system apps by V-08 to V-14 |
 
 ### Linux test counts: which command gave which number (addendum #18 A, 2026-11-18)

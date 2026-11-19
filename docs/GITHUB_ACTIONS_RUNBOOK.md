@@ -288,38 +288,50 @@ The run's **Summary** page shows the same short list, so you can also copy it fr
 
 ## Part F: the six jobs and their downloads (third compile check onwards, OPEN_QUESTIONS R161)
 
-One press of **Run workflow** starts seven jobs (five until #16 item 1.10, which split the accessibility job in two; six until
-#21 B, which split the screenshots job in two). Each has its own line on the run page, its own tick or cross, and its own
-download. Each job has its own 30-minute limit.
+One press of **Run workflow** starts six jobs (#24 D removed the seventh, the accessibility-settings screenshots; OPEN_QUESTIONS
+R197). Each has its own line on the run page, its own tick or cross, and its own download. The Simulator build, the
+device build and the package tests have a 30-minute limit each; the three screenshot jobs 60 minutes each (#24 B).
 
-**Order (#23 E).** "Build app + Top Shelf (Simulator)" and "Package tests" start at once. The device build and the four
+**Order (#23 E).** "Build app + Top Shelf (Simulator)" and "Package tests" start at once. The device build and the three
 screenshot jobs wait for the Simulator build (`needs: compile`) and start only when it is green, about 5 minutes later
-(it took 4:02 in the run of 5ea8e96, plus queueing). Their own 22-minute test deadline counts from their own first stage,
-so it is unchanged; the whole run takes about 5 minutes longer when everything compiles (about 25 instead of about 20
-minutes, an estimate). When the app does not compile, they are skipped (grey), and a small job **"Not taken (the app did
-not compile)"** (ubuntu-latest, about a minute) uploads `screenshots`, `screenshots-library`, `accessibility-screenshots`,
-`accessibility-settings-screenshots` and `device-build-results` with `NOT-TAKEN.txt` / `index.md` saying "NOT TAKEN: the
-app did not compile" and the first error line (the device reports say "NOT CHECKED"). The first compile of the App target
-(#23) failed, and the other jobs then spent their whole time on the same error.
+(it took 4:27 in the run of fa00af8, plus queueing). When the app does not compile, they are skipped (grey), and a small
+job **"Not taken (the app did not compile)"** (ubuntu-latest, about a minute) uploads `screenshots`,
+`screenshots-library`, `accessibility-screenshots` and `device-build-results` with `NOT-TAKEN.txt` / `index.md` saying
+"NOT TAKEN: the app did not compile" and the first error line (the device reports say "NOT CHECKED"). The first compile
+of the App target (#23) failed, and the other jobs then spent their whole time on the same error.
 
 | Job (name on the run page) | What a green tick proves | Download (Artifacts list) | What is inside |
 |---|---|---|---|
 | Build app + Top Shelf (Simulator) | The app and Top Shelf compile for the tvOS Simulator (arm64) | `compile-check-results` | `errors.txt`, `errors-other.txt`, `build.log` |
 | Build app + Top Shelf (Apple TV device, Release, unsigned) | The same compile for a real Apple TV, and the device slices of the codec frameworks, libnfs and the Dolby Vision RPU library link | `device-build-results` | `errors.txt`, `build.log`, `embedded-frameworks.txt`, `macho-report.txt`, `static-libraries.txt`, `release-strings.txt`, `process-spawning.txt` (#23 C; every report says NOT CHECKED when the build failed) |
 | Package tests (tvOS Simulator) | The package unit tests build and pass on tvOS (tests that need a server, iCloud or a tool are skipped, not failed) | `simulator-test-results` | `test-report.md` (passed / skipped / failed per test target, then the failures), `test.log` |
-| Screenshots, part 1 (setup, Settings, sorting; tvOS Simulator, UI tests) | The UI tests 01, 02, 03, 10 and 12 (the player clip, 22–27) ran and took pictures | `screenshots` and `screenshots-logs` | `01-….png`, `02-….png` … in viewing order and `index.md` (the list, plus every screen that could not be reached and why) |
-| Screenshots, part 2 (library and detail pages; tvOS Simulator, UI tests) | The UI tests 04, 05, 13 and 14 ran and took pictures | `screenshots-library` and `screenshots-library-logs` | the same kind of folder: Home, Movies, Shows, the movie and show pages, Files, Search, Discover (44–62, 70–76), the synopsis and cast pages (77, 78), the Shows row and the card menu (07, 08), with its own `index.md` |
-| Accessibility screenshots (tvOS Simulator, UI tests) | Eleven screens were drawn with Larger Text and Bold Text (the app's imitation of those settings) and at the default size, and each Larger Text and Bold Text picture differs from its default one outside the tab bar (OPEN_QUESTIONS R170, #17 A) | `accessibility-screenshots` and `accessibility-screenshots-logs` | folder `text` with its `index.md`: 80–84 and 90–95 Larger Text, 85–89 and 96–101 Bold Text, 102–112 the same screens at the default size; `a11y-compare.txt` (the comparison) |
-| Accessibility screenshots, simulator settings (tvOS Simulator, UI tests) | Five screens were drawn with each of three settings turned on in the simulator (OPEN_QUESTIONS R170) | `accessibility-settings-screenshots` and `accessibility-settings-screenshots-logs` | folders `contrast`, `transparency`, `motion` (113–117 each), each with its own `index.md`, plus `settings-applied.txt` |
+| Screenshots, part 1 (setup, Settings, sorting; tvOS Simulator, UI tests) | The UI tests 01, 02, 03, 05, 12, 13, 14 and 10 ran (each its own call) and took pictures | `screenshots` and `screenshots-logs` | `02-….png`, `03-….png` … in viewing order (80 planned: first launch, Add a Source, Settings, About, Files, Search, the player clip 22–27, the synopsis pages 77–78, the Shows row and card menu 07–08, the sorting screens 63–69), `index.md`, `notes/` |
+| Screenshots, part 2 (library and detail pages; tvOS Simulator, UI tests) | The UI test 04 ran and took pictures | `screenshots-library` and `screenshots-library-logs` | the same kind of folder: Home, Movies, Shows, the movie and show pages (44–62; 26 planned), with its own `index.md` |
+| Accessibility screenshots (tvOS Simulator, UI tests) | Eleven screens were drawn with Larger Text and Bold Text (the app's imitation of those settings) and at the default size, and each Larger Text and Bold Text picture differs from its default one outside the tab bar (OPEN_QUESTIONS R170, #17 A) | `accessibility-screenshots` and `accessibility-screenshots-logs` | folder `text` with its `index.md`: 80–84 and 90–95 Larger Text, 85–89 and 96–101 Bold Text, 102–112 the same screens at the default size (33 planned); `a11y-compare.txt` (the comparison) |
 
-**Partial runs still give you files.** Every upload step runs even when an earlier step failed or ran out of time, so a
-red job still uploads whatever it captured. The long steps have their own time limits (screenshots: UI tests 20
-minutes; accessibility: Larger/Bold Text and default 20 minutes; accessibility settings: each setting 5 minutes), which leaves time for the uploads
-inside the 30 minutes. If a whole job hits its 30-minute limit, GitHub may stop it before the upload; that case has not
-been tried. So the test runs also have a deadline counted from the job's first stage (`CI_TEST_DEADLINE_SECONDS`, #16
-item 1.8): 22 minutes in the three screenshot jobs, 25 minutes in the package-test job. A test run still going then is stopped
-and the log says `TIME BUDGET: stopping`; a run that would start after it says `TIME BUDGET: not started`. The pictures
-taken until then are still exported and uploaded (whether a stopped run leaves a readable result bundle is unproven).
+**Increase Contrast, Reduce Transparency and Reduce Motion are device checks only (#24 D).** The tvOS simulator cannot
+turn them on, so no job takes pictures of them any more (OPEN_QUESTIONS R197, provisional). Check them on the Apple TV
+with docs/DEVICE_TEST_CHECKLIST_VISUAL.md: **V-17** Reduce Transparency (bars and menus solid and readable), **V-18**
+Increase Contrast (labels and focus still clear), **V-19** Reduce Motion (no large movement from the app's own
+animations). Each is in Settings > Accessibility on the Apple TV.
+
+**Partial runs still give you files (#24 A).** The run of fa00af8 gave no picture at all: each screenshot job ran its
+tests in one xcodebuild call, the time limit stopped it, and the half-written result bundle could not be read. Now:
+- every UI test is its own xcodebuild call, and its pictures are copied into the download right after it. A test that
+  fails does not stop the tests after it;
+- every picture is also written as a PNG file at once, so even a test that is stopped half-way keeps the pictures it
+  took (the logs download has the loose files in `screenshot-files/`);
+- the tests have **25 minutes counted from the start of the first UI test** (`CI_TEST_BUDGET_SECONDS`). A test still
+  running then is stopped (`TIME BUDGET: stopping`: first the polite stop, Ctrl-C, with 60 seconds to finish; then a
+  hard stop), the rest are not started, and `index.md` begins with **TEST STOPPED BY THE TIME BUDGET: pictures up to
+  <name>**;
+- every upload step runs even when an earlier step failed or ran out of time (`if: always()`), and a step "Collect the
+  pictures any cut-off test left" runs before them.
+
+Each `index.md` lists every test (passed, failed, stopped or not started, its time and seconds per picture), then
+**Planned / Taken / Missing / Failed / Warnings** against the plan, then every picture with its size, then the screens
+not reached (with the reason), the missing ones and the warnings (a picture identical to the one before it is a
+WARNING, not a failure; the picture is kept).
 
 **Stage times.** Each job's summary (open the job, scroll to the top of its page) has a table "Stage times" saying how
 long each step took, so you can see where the time goes. The same table is `stage-times.md` inside that job's download
@@ -337,7 +349,7 @@ the app is in front; otherwise the test fails and `index.md` lists the screen as
 **When the simulator itself fails (a runner problem, not our code).** Run 44424319207: the package tests job stopped with
 0 tests, and its log said `Failed to load requested runtime bundle (.../tvOS 27.0.simruntime)` and
 `Malformed bundle does not contain an identifier`. The same runner image had worked the run before. Since then, the three
-jobs that use the simulator (Package tests, Screenshots, both Accessibility screenshots jobs) do this (scripts/ci-sim.sh):
+jobs that use the simulator (Package tests, both Screenshots jobs, Accessibility screenshots) do this (scripts/ci-sim.sh):
 
 - They print `xcrun simctl list runtimes` and `xcrun simctl runtime list` in the step "Pick the simulator", and
   the same lists sit in the job summary under "Simulator runtimes on this runner" (and in `sim-runtimes.txt` in the
@@ -363,61 +375,61 @@ jobs**. That is the first thing to try; it starts only the red jobs again, on a 
 the tests for this failure. If it fails the same way twice, send the "Simulator runtimes on this runner" list from the job
 summary.
 
-## Run time budget of the screenshot jobs (#21 B, #15 item 1.9)
+## Run time budget and runner minutes (#24 B)
 
-Measured in the last run (stage times sent by you, 2026-11-19; the run of 5ea8e96): Compile 4:02, Device build 6:23,
-Package tests 3:30 (failed early, 0 tests), **Screenshots 19:02** (prepare 1:10, boot 1:05, build 4:59, inspect 0:04,
-launch smoke 0:53, UI tests 10:43, export 0:08), Accessibility 12:00 (prepare 1:11, boot 1:00, build 5:02, UI tests 4:41).
+**Measured in the run of fa00af8** (2026-11-19): Compile 4:27 (the compile step), Package tests 1,922 passed / 155 skipped
+/ 0 failed. Each screenshot job before its tests: prepare 1:18, pick and boot 1:29, build 7:37–7:48, launch smoke
+1:11–1:21. UI tests: test01 68 s, test02 36 s, test03 148 s, test10 312 s, test04 436 s, test05 39 s, test06 628 s
+(tests 11, 12, 13 and 14 were not reached). All three screenshot jobs were stopped by the time budget and gave no picture.
 
-**Per step.** The UI tests of that run (tests 01-05 of 5ea8e96) took 39 screenshots (counted from the test code with its
-loops: 3 + 4 + 8 + 17 + 7). 643 s / 39 = **16.5 s per screenshot**, app launches and waits included.
+**The split since #24** (docs/COVERAGE.md "UI-test jobs" has the detail):
 
-**Projection for one Screenshots job** (deadline: the tests must end 22:00 after the first stage, CI_TEST_DEADLINE_SECONDS
-1320; before the tests come prepare, boot, build, inspect and smoke = 8:11, so the tests have **13:49**):
-
-| Screenshot set | Screenshots | UI tests at 16.5 s | Job, first stage to end of tests |
-|---|---|---|---|
-| Last run (5ea8e96) | 39 | 10:43 (measured) | 18:54 |
-| Now (tests 01-05 and 10: more screens, scroll captures, the sorting screens and their Larger Text copies) | 68 | 18:42 | 26:53 |
-| With #21 C-G (player clip 6, synopsis and cast 4, Shows toolbar and card menu 6; the verify list adds none, it is a section of index.md) | about 84 | about 23:06 | about 31:17 |
-
-One job would be stopped by the time budget after about 50 screenshots, so it is **split now** (job 4 and job 4b), each
-with its own runner, prepare, boot and build:
-
-| Job | Tests | Screenshots | UI tests (projected) | First stage to end of tests (projected) |
+| Job | Tests | Planned pictures | UI tests | Job time (estimate) |
 |---|---|---|---|---|
-| 4: Screenshots, part 1 | 01, 02, 03, 10, and 12, the player clip (#21 E) | 3 + 4 + 8 + 20 + 6 = 41 | 11:17 | 19:28 |
-| 4b: Screenshots, part 2 | 04, 05, 13 and 14, with the synopsis and cast screens (#21 D), the Shows toolbar and card menu (#21 F) | 26 + 7 + 4 + 6 = 43 | 11:50 | 20:01 |
+| Screenshots, part 1 | 01, 02, 03, 05, 12, 13, 14, 10 | 80 | about 14:30 | about 28 min |
+| Screenshots, part 2 | 04 | 26 | 7:16 (measured) | about 21 min |
+| Accessibility screenshots | 06, 11 | 33 | about 15:45 | about 28 min |
 
-Both stay under the 22-minute deadline with about 2 minutes to spare; the projection is an estimate from one run and is
-checked by the next run's Stage times. Cost: one more macOS job per run, about 20 minutes (prepare, boot and build are
-repeated). Every test is named in exactly one job (`-only-testing`), so a new screenshot test must be added to one of
-them in compile-check.yml.
+**How many minutes a full run uses (estimate; each job's summary now prints its own "Runner minutes for this job"):**
+
+| Job | Runner | Minutes (estimate) |
+|---|---|---|
+| Build app + Top Shelf (Simulator) | macOS (xcode-27) | about 7 |
+| Build app + Top Shelf (Apple TV device) | macOS | about 7 (6:23 in the run of 5ea8e96) |
+| Package tests | macOS | about 12 (not in the #24 numbers; an estimate) |
+| Screenshots, part 1 | macOS | about 28 |
+| Screenshots, part 2 | macOS | about 21 |
+| Accessibility screenshots | macOS | about 28 |
+| **All jobs** | | **about 103 macOS minutes** |
+
+The run takes about **35 minutes** from the button to the last upload (the Simulator build first, then the five other
+jobs side by side). GitHub bills every job in whole minutes, rounded up. On a standard runner in a **public** repository
+these minutes are **free** (0 USD; docs.github.com, "GitHub Actions billing", checked 2026-11-17 for this runbook). The
+worst case, every job at its limit, is 30 + 30 + 30 + 60 + 60 + 60 = 270 minutes, still free on a public repository.
+
+Every test is named in exactly one job (compile-check.yml) and in scripts/screenshot-plan.tsv, so a new screenshot test
+must be added to both.
 
 **Step by step after the run has finished:**
 
 1. Open the run. Scroll to **Artifacts** at the bottom.
-2. Click each of the eleven names above to download a zip file: `compile-check-results`, `device-build-results`,
+2. Click each of the nine names above to download a zip file: `compile-check-results`, `device-build-results`,
    `simulator-test-results`, `screenshots`, `screenshots-logs`, `screenshots-library`, `screenshots-library-logs`,
-   `accessibility-screenshots`, `accessibility-screenshots-logs`, `accessibility-settings-screenshots`,
-   `accessibility-settings-screenshots-logs` (the four `-logs` ones only matter if their job is red).
+   `accessibility-screenshots`, `accessibility-screenshots-logs` (the three `-logs` ones only matter if their job is
+   red or a picture is missing).
 3. Make a new folder `Downloads\run-3` and unzip each zip into its own subfolder there. Do not unzip into the project folder.
 4. Open `screenshots\index.md` (any text editor) and look at the pictures in number order, then
-   `screenshots-library\index.md` (the numbers continue across both: part 2 holds 07, 08, 44–62 and 70–78). At the end
+   `screenshots-library\index.md` (the numbers continue across both: part 2 holds 44–62). At the end
    of each `index.md`, "Fixed in code, verify in these screenshots" (#21 G) lists each change still to be checked by eye,
    what to look for, and the pictures that show it (or NOT REACHED). Look at 08 (the card long-press menu) every time:
    a wrong SF Symbol name builds and passes every test but draws a blank icon, and the three icons of that menu were
    named from memory (#22 D; every symbol and its screenshot are in docs/SYMBOLS.md). Then open
    `accessibility-screenshots`: `text` holds the Larger Text pictures (80–84, 90–95), the Bold Text pictures (85–89,
    96–101) and the same eleven screens at the default size (102–112), so each can be compared with its default one;
-   `a11y-compare.txt` says for each whether it differs from the default outside the tab bar (#17 A). Then open
-   `accessibility-settings-screenshots`: `contrast`, `transparency` and `motion` (each with its own `index.md`) hold five
-   screens with Increase Contrast, Reduce Transparency or Reduce Motion turned on in the simulator (113–117);
-   `settings-applied.txt` says which of these were really applied (OPEN_QUESTIONS R170).
+   `a11y-compare.txt` says for each whether it differs from the default outside the tab bar (#17 A).
    Each of the three screenshot zips has a `CONTENTS.txt` at the top: every file in it, and which set it should be. The
    job checks this before uploading (`scripts/ci-artifact-contents.sh`, #15 item 1.2): `screenshots` must hold only
-   01–79 at the top with `index.md`, `accessibility-screenshots` only 80 and above in `text/`, and
-   `accessibility-settings-screenshots` only its three setting folders. A wrong set
+   01–79 at the top with `index.md`, and `accessibility-screenshots` only 80 and above in `text/`. A wrong set
    turns the step "List and check what the … artifact holds" red, with one `ARTIFACT PROBLEM:` line per file. Unzip each
    zip into its OWN folder: zips unzipped into one folder overwrite each other's `index.md`.
 5. Send back, in this order of importance:
@@ -425,8 +437,7 @@ them in compile-check.yml.
    - `device-build-results\embedded-frameworks.txt`, `static-libraries.txt` and `release-strings.txt`;
    - `simulator-test-results\test-report.md`;
    - `screenshots\index.md` and the screenshots (the whole folder, or the ones that look wrong);
-   - `accessibility-screenshots\a11y-compare.txt`, `accessibility-settings-screenshots\settings-applied.txt` and any
-     accessibility picture that looks wrong;
+   - `accessibility-screenshots\a11y-compare.txt` and any accessibility picture that looks wrong;
    - the "Stage times" table of any job that took longer than 25 minutes;
    - for any red job without an `errors.txt`: the name of its last red step and the last 30 lines of that step.
 

@@ -46,6 +46,12 @@ VERIFY = [
     ("The show page has the movie page's synopsis and cast (#22 B, R193)",
      "three lines of synopsis above Play that open the whole text, the cast shelf under the buttons, nothing cut off; "
      "Sample Show 2 has no empty band", ["77-show-long-synopsis", "78-show-no-synopsis-or-cast"]),
+    ("About scrolls: its text rows take the focus (#24 C)",
+     "41-about-scrolled-1, 2 and 3 each show a later part of the page than 40, down to the licence notices; the focused "
+     "row is highlighted the system way", ["40-about", "41-about-scrolled"]),
+    ("The Sort by Filename toggle with and without the focus (#24 C)",
+     "69 has the focus on Check Connection, 69-…-focused on the toggle; the two pictures differ",
+     ["69-source-sort-by-filename"]),
 ]
 
 NAME = re.compile(r"^(\d{2,3})-([A-Za-z0-9][A-Za-z0-9-]*?)(-NOT-REACHED)?(?:_\d+)?(?:_[0-9A-Fa-f-]{8,})?(?:\.[A-Za-z0-9]+)?$")
