@@ -318,6 +318,26 @@ the log prints the signature and the entitlements the app carries. `screenshots-
 (crash reports, videos and text files from the test results) and `launch-smoke-*/`. A screenshot is only taken while
 the app is in front; otherwise the test fails and `index.md` lists the screen as not reached.
 
+**When the simulator itself fails (a runner problem, not our code).** Run 44424319207: the package tests job stopped with
+0 tests, and its log said `Failed to load requested runtime bundle (.../tvOS 27.0.simruntime)` and
+`Malformed bundle does not contain an identifier`. The same runner image had worked the run before. Since then, the three
+jobs that use the simulator (Package tests, Screenshots, Accessibility screenshots) do this (scripts/ci-sim.sh):
+
+- They print `xcrun simctl list runtimes` and `xcrun simctl runtime list` in the step "Pick and boot the simulator", and
+  the same lists sit in the job summary under "Simulator runtimes on this runner" (and in `sim-runtimes.txt` in the
+  download). A missing or broken tvOS runtime shows there.
+- They boot the simulator and wait for it before any test.
+- If booting fails, or a test run stops with "Failed to load requested runtime bundle" or "Failed to prepare device", the
+  job tries **once** more: it shuts all simulators down, erases the chosen one, boots it again and repeats that run. The
+  log then shows a yellow warning and a line `SIMULATOR RETRY: <reason>`. A test that fails for any other reason is
+  never retried. After one retry, later failures in the same job are reported as they are.
+- The job summary says `Simulator ready after N s (retries: 0/1)` (or `1/1` and the reason).
+
+*If such a job is still red with one of those two messages:* on the run page press **Re-run jobs**, then **Re-run failed
+jobs**. That is the first thing to try; it starts only the red jobs again, on a fresh runner. Do not change the app or
+the tests for this failure. If it fails the same way twice, send the "Simulator runtimes on this runner" list from the job
+summary.
+
 **Step by step after the run has finished:**
 
 1. Open the run. Scroll to **Artifacts** at the bottom.

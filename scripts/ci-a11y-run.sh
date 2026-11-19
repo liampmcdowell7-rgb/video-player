@@ -14,12 +14,13 @@ if ! bash "$here/ci-a11y-setting.sh" "$SIM_UDID" "$word" on 2>&1 | tee -a "$OUT/
   exit 0
 fi
 status=0
-xcodebuild test-without-building \
+# A simulator retry (ci-sim.sh) erases the simulator, which turns the setting off again: the hook turns it back on.
+export SIM_RETRY_HOOK="bash '$here/ci-a11y-setting.sh' '$SIM_UDID' '$word' on 2>&1 | tee -a '$OUT/a11y-settings.txt'"
+bash "$here/ci-sim.sh" test "$OUT/test.log" -- xcodebuild test-without-building \
   -project VideoPlayer.xcodeproj -scheme VideoPlayerUITests -configuration Debug \
   -destination "platform=tvOS Simulator,id=$SIM_UDID" \
   -clonedSourcePackagesDirPath build/SourcePackages -derivedDataPath build/DerivedData \
   -resultBundlePath "$OUT/A11y-$word.xcresult" -parallel-testing-enabled NO \
-  -only-testing:"VideoPlayerUITests/ScreenshotTests/$test" \
-  2>&1 | tee -a "$OUT/test.log" || status=1
+  -only-testing:"VideoPlayerUITests/ScreenshotTests/$test" || status=1
 bash "$here/ci-a11y-setting.sh" "$SIM_UDID" "$word" off 2>&1 | tee -a "$OUT/a11y-settings.txt" || true
 exit $status

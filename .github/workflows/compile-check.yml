@@ -344,13 +344,12 @@ jobs:
           sudo xcode-select -s "$XCODE_APP/Contents/Developer"
           xcodebuild -version | tee "$OUT/xcode-version.txt"
 
-      - name: Pick the simulator by name (Apple TV 4K, at 1080p preferred)
+      # Runtime lists, pick by name, boot and wait; one retry (erase + boot) if that fails (scripts/ci-sim.sh).
+      - name: Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)
+        timeout-minutes: 8
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator by name (Apple TV 4K, at 1080p preferred)"
-          set -euo pipefail
-          xcrun simctl list devices available | tee "$OUT/simulators.txt"
-          UDID="$(xcrun simctl list devices available -j | python3 scripts/ci-pick-simulator.py 2> >(tee -a "$OUT/simulators.txt" >&2))"
-          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)"
+          bash scripts/ci-sim.sh prepare
 
       - name: Run the package tests (VideoPlayerCore-Package scheme)
         working-directory: Packages/VideoPlayerCore
@@ -362,8 +361,9 @@ jobs:
           # man page lines that say so are printed here so the run shows it. Without it those tests are reported SKIPPED.
           export TEST_RUNNER_VP_PROJECT_ROOT="$GITHUB_WORKSPACE"
           man xcodebuild 2>/dev/null | col -b | grep -n -B1 -A3 'TEST_RUNNER_' | head -n 20 || echo "(no TEST_RUNNER_ text in man xcodebuild)"
-          # One test at a time, so the log lines are in order and per-target counts are exact.
-          xcodebuild test \
+          # One test at a time, so the log lines are in order and per-target counts are exact. ci-sim.sh test retries once
+          # only for "Failed to load requested runtime bundle" / "Failed to prepare device"; a failing test is not retried.
+          bash "$GITHUB_WORKSPACE/scripts/ci-sim.sh" test "$GITHUB_WORKSPACE/$OUT/test.log" -- xcodebuild test \
             -scheme VideoPlayerCore-Package \
             -destination "platform=tvOS Simulator,id=$SIM_UDID" \
             -derivedDataPath "$GITHUB_WORKSPACE/build/PackageDerivedData" \
@@ -373,8 +373,7 @@ jobs:
             -parallel-testing-enabled NO \
             ARCHS=arm64 \
             ONLY_ACTIVE_ARCH=YES \
-            CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tee "$GITHUB_WORKSPACE/$OUT/test.log"
+            CODE_SIGNING_ALLOWED=NO
 
       - name: Report (passed, skipped, failed per test target; failures listed)
         if: always()
@@ -433,15 +432,12 @@ jobs:
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)"
           bash scripts/ci-prepare.sh
 
+      # Runtime lists, pick by name, boot and wait; one retry (erase + boot) if that fails (scripts/ci-sim.sh).
       - name: Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)
+        timeout-minutes: 8
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)"
-          set -euo pipefail
-          xcrun simctl list devices available | tee "$OUT/simulators.txt"
-          UDID="$(xcrun simctl list devices available -j | python3 scripts/ci-pick-simulator.py 2> >(tee -a "$OUT/simulators.txt" >&2))"
-          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
-          xcrun simctl boot "$UDID" || true
-          xcrun simctl bootstatus "$UDID" -b
+          bash scripts/ci-sim.sh prepare
 
       # Ad-hoc signing for this simulator build (OPEN_QUESTIONS R164, PROVISIONAL): identity "-" with no team, no profile and
       # no secret, so the entitlements in project.yml (App Group, iCloud, Keychain group) are embedded in the app. Whether the
@@ -492,7 +488,7 @@ jobs:
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Run the screenshot UI tests (Debug, simulator, built above)"
           set -euo pipefail
-          xcodebuild test-without-building \
+          bash scripts/ci-sim.sh test "$OUT/test.log" -- xcodebuild test-without-building \
             -project VideoPlayer.xcodeproj \
             -scheme VideoPlayerUITests \
             -configuration Debug \
@@ -504,8 +500,7 @@ jobs:
             -skip-testing:VideoPlayerUITests/ScreenshotTests/test06_LargerTextAndBoldText \
             -skip-testing:VideoPlayerUITests/ScreenshotTests/test07_IncreaseContrast \
             -skip-testing:VideoPlayerUITests/ScreenshotTests/test08_ReduceTransparency \
-            -skip-testing:VideoPlayerUITests/ScreenshotTests/test09_ReduceMotion \
-            2>&1 | tee -a "$OUT/test.log"
+            -skip-testing:VideoPlayerUITests/ScreenshotTests/test09_ReduceMotion
 
       - name: Summarise errors (file, line, message)
         if: always()
@@ -574,15 +569,12 @@ jobs:
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)"
           bash scripts/ci-prepare.sh
 
+      # Runtime lists, pick by name, boot and wait; one retry (erase + boot) if that fails (scripts/ci-sim.sh).
       - name: Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)
+        timeout-minutes: 8
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)"
-          set -euo pipefail
-          xcrun simctl list devices available | tee "$OUT/simulators.txt"
-          UDID="$(xcrun simctl list devices available -j | python3 scripts/ci-pick-simulator.py 2> >(tee -a "$OUT/simulators.txt" >&2))"
-          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
-          xcrun simctl boot "$UDID" || true
-          xcrun simctl bootstatus "$UDID" -b
+          bash scripts/ci-sim.sh prepare
 
       - name: Build the app and the UI tests (Debug, simulator, ad-hoc signed; unsigned if that fails)
         id: build
@@ -594,13 +586,12 @@ jobs:
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Larger Text and Bold Text (drawn by the app; screenshots 80-89)"
           set -uo pipefail
-          xcodebuild test-without-building \
+          bash scripts/ci-sim.sh test "$OUT/test.log" -- xcodebuild test-without-building \
             -project VideoPlayer.xcodeproj -scheme VideoPlayerUITests -configuration Debug \
             -destination "platform=tvOS Simulator,id=$SIM_UDID" \
             -clonedSourcePackagesDirPath build/SourcePackages -derivedDataPath build/DerivedData \
             -resultBundlePath "$OUT/A11y-text.xcresult" -parallel-testing-enabled NO \
-            -only-testing:VideoPlayerUITests/ScreenshotTests/test06_LargerTextAndBoldText \
-            2>&1 | tee -a "$OUT/test.log"
+            -only-testing:VideoPlayerUITests/ScreenshotTests/test06_LargerTextAndBoldText
 
       # One step per setting, each with its own cap, so one slow setting does not cost the others.
       - name: Increase Contrast (simulator setting)

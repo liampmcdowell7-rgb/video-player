@@ -38,6 +38,23 @@ now="$(date +%s)"
   else
     echo "| (no stage was recorded) | |"
   fi
+  # Jobs that use the simulator (scripts/ci-sim.sh): how long it took to be ready, whether it was retried, the runtimes.
+  if [ -s "$out/sim-ready.txt" ]; then
+    echo
+    echo "### Simulator"
+    echo
+    sed 's/$/  /' "$out/sim-ready.txt"
+  fi
+  if [ -s "$out/sim-runtimes.txt" ]; then
+    echo
+    echo "<details><summary>Simulator runtimes on this runner</summary>"
+    echo
+    echo '```'
+    cat "$out/sim-runtimes.txt"
+    echo '```'
+    echo
+    echo "</details>"
+  fi
 } | tee "$out/stage-times.md" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
 cat "$out/stage-times.md"
 exit 0
