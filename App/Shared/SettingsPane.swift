@@ -13,11 +13,31 @@ struct SettingsPane<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
+        PaneColumns(title: title, summary: summary, status: status) {
+            Form { content }
+        }
+        .navigationTitle(title)
+        .toolbarVisibility(.hidden, for: .navigationBar)
+    }
+}
+
+/// The two columns of `SettingsPane` without the `Form`: the title (when the screen has none of its own) and the summary on
+/// the left, any rows (a `List`) in the right half. #15 7.1: the Files screens use it, so their rows sit in a bounded column
+/// like the Settings rows (L1, L2). Fixed in code, verify in next screenshots.
+struct PaneColumns<Content: View>: View {
+    var title: String? = nil
+    let summary: String
+    var status: [String] = []
+    @ViewBuilder var content: Content
+
+    var body: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading) {
-                Text(title)
-                    .font(.title2)
-                    .accessibilityAddTraits(.isHeader)
+                if let title {
+                    Text(title)
+                        .font(.title2)
+                        .accessibilityAddTraits(.isHeader)
+                }
                 Text(summary)
                     .foregroundStyle(.secondary)
                 ForEach(status.filter { !$0.isEmpty }, id: \.self) { line in
@@ -25,10 +45,8 @@ struct SettingsPane<Content: View>: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
-            Form { content }
+            content
                 .frame(maxWidth: .infinity)
         }
-        .navigationTitle(title)
-        .toolbarVisibility(.hidden, for: .navigationBar)
     }
 }

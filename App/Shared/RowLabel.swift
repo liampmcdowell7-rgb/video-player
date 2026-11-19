@@ -12,13 +12,16 @@ import SwiftUI
 struct RowLabel: View {
     let title: String
     let systemImage: String
+    /// #15 7.3: an optional secondary line.
+    var detail: String? = nil
 
-    init(_ title: String, systemImage: String) {
+    init(_ title: String, systemImage: String, detail: String? = nil) {
         self.title = title
         self.systemImage = systemImage
+        self.detail = detail
     }
 
     var body: some View {
-        SlotLabel(title, systemImage: systemImage)
+        SlotLabel(title, systemImage: systemImage, detail: detail)
     }
 }

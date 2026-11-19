@@ -17,12 +17,15 @@ struct SlotLabel: View {
     let title: String
     let systemImage: String
     var style: TVTextStyle = .body
+    /// #15 7.3: an optional secondary line under the title, aligned with the title, not the symbol.
+    var detail: String? = nil
     @ScaledMetric(relativeTo: .body) private var slot: CGFloat = SymbolSlot.body
 
-    init(_ title: String, systemImage: String, style: TVTextStyle = .body) {
+    init(_ title: String, systemImage: String, style: TVTextStyle = .body, detail: String? = nil) {
         self.title = title
         self.systemImage = systemImage
         self.style = style
+        self.detail = detail
     }
 
     var body: some View {
@@ -31,7 +34,13 @@ struct SlotLabel: View {
                 .foregroundStyle(.primary)
                 .frame(width: slot, height: slot)
                 .accessibilityHidden(true)
-            FittingText(title, style: style)
+            VStack(alignment: .leading) {
+                FittingText(title, style: style)
+                if let detail {
+                    FittingText(detail, style: .caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .accessibilityElement(children: .combine)
     }

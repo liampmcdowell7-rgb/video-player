@@ -372,6 +372,7 @@ final class LibraryScreenTests: XCTestCase {
         let movies = try XCTUnwrap(c.rows.first { $0.name == "Movies" })
         XCTAssertTrue(movies.isDirectory)
         XCTAssertNil(movies.sizeText)
+        XCTAssertEqual(movies.detail, "3 items", "#15 7.3: a folder's second line is its item count")
         await files.enter(movies)
         XCTAssertFalse(files.isAtRoot)
         c = try XCTUnwrap(files.state.content)
@@ -382,6 +383,7 @@ final class LibraryScreenTests: XCTestCase {
         let file = try XCTUnwrap(c.rows.first { !$0.isDirectory })
         XCTAssertEqual(file.name, "Heat (1995).mkv")
         XCTAssertEqual(file.sizeText, "10.0 KB")
+        XCTAssertEqual(file.detail, "10.0 KB · MKV", "#15 7.3: a file's second line is its size and format")
         let before = files.folder
         await files.enter(file)                         // entering a file does nothing
         XCTAssertEqual(files.folder, before)
@@ -393,6 +395,18 @@ final class LibraryScreenTests: XCTestCase {
         XCTAssertTrue(files.isAtRoot)
         let up3 = await files.up()
         XCTAssertFalse(up3, "Menu at the root leaves the screen")
+    }
+
+    /// #15 7.3: the second-line texts of the Files tab.
+    func testFilesSecondLines() {
+        XCTAssertEqual(FilesText.itemCount(0), "Empty")
+        XCTAssertEqual(FilesText.itemCount(1), "1 item")
+        XCTAssertEqual(FilesText.itemCount(12), "12 items")
+        XCTAssertEqual(FilesText.itemCount(1000), "999+ items")
+        XCTAssertEqual(FilesText.fileDetail(name: "a.en.srt", kind: .subtitle, size: 2048), "2.0 KB · Subtitles")
+        XCTAssertNil(FilesText.fileDetail(name: "notes", kind: .other, size: nil))
+        XCTAssertEqual(FilesText.sourceDetail(.smb), SourceCatalog.info(for: .smb).title)
+        XCTAssertEqual(FilesText.sourceDetail(.webdav), "WebDAV")
     }
 
     func testFilesBrowserPagesAndShowsAnEmptyFolderAndAFailure() async throws {

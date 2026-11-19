@@ -11,16 +11,12 @@ struct FileRowView: View {
     var body: some View {
         if row.isDirectory {
             NavigationLink(value: Route.folder(sourceID: sourceID, sourceName: sourceName, path: row.id)) {
-                RowLabel(row.name, systemImage: "folder")
+                RowLabel(row.name, systemImage: "folder", detail: row.detail)
             }
         } else {
             Button(action: onSelectFile) {
-                // The standard title-and-value row: the system places and spaces the size (rule S3).
-                LabeledContent {
-                    if let size = row.sizeText { Text(size) }
-                } label: {
-                    RowLabel(row.name, systemImage: symbol)
-                }
+                // #15 7.3: the size and format as the second line (R187), replacing the size in the value column.
+                RowLabel(row.name, systemImage: symbol, detail: row.detail ?? row.sizeText)
             }
         }
     }

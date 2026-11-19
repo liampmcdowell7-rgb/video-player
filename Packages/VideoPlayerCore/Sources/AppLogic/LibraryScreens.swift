@@ -507,6 +507,43 @@ public struct FileRow: Equatable, Sendable, Identifiable {
     public var sizeText: String?
     /// The view formats it for the user's locale.
     public var modified: Date?
+    /// #15 7.3: the second line. A folder: how many items it holds ("12 items"); a file: size and format ("3.1 GB · MKV").
+    public var detail: String? = nil
+}
+
+/// The second lines of the Files tab (#15 7.3, PROVISIONAL, OPEN_QUESTIONS R187).
+public enum FilesText {
+    /// Folders count up to this many items; a fuller folder says "999+ items".
+    public static let countLimit = 999
+
+    /// The left column of the Files tab.
+    public static let rootSummary = "Your servers and shared folders, with their folders exactly as they are on the server."
+
+    /// A source row: its protocol ("SMB", "WebDAV").
+    public static func sourceDetail(_ kind: SourceKind) -> String { SourceCatalog.info(for: kind).title }
+
+    /// "Empty", "1 item", "12 items", "999+ items".
+    public static func itemCount(_ count: Int) -> String {
+        if count <= 0 { return "Empty" }
+        if count > countLimit { return "\(countLimit)+ items" }
+        return count == 1 ? "1 item" : "\(count) items"
+    }
+
+    /// "3.1 GB · MKV" for a video, "12 KB · Subtitles" for anything else. The duration is not in the folder listing, so it
+    /// is not shown here (it is on the title's page).
+    public static func fileDetail(name: String, kind: FileKind, size: Int64?) -> String? {
+        var parts: [String] = []
+        if let size { parts.append(DisplayText.fileSize(size)) }
+        let ext = (name as NSString).pathExtension
+        switch kind {
+        case .video: if !ext.isEmpty { parts.append(ext.uppercased()) }
+        case .subtitle: parts.append("Subtitles")
+        case .image: parts.append("Picture")
+        case .nfo: parts.append("Information")
+        case .directory, .other: break
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
 }
 
 public struct FilesContent: Equatable, Sendable {
@@ -545,7 +582,7 @@ public struct FilesBrowserViewModel: Sendable {
         do {
             let children = try await store.children(sourceID: sourceID, folder: folder, sort: sort, limit: pageSize + 1, offset: 0)
             more = children.count > pageSize
-            rows = children.prefix(pageSize).map(Self.row)
+            rows = await withCounts(children.prefix(pageSize).map(Self.row))
             publish()
         } catch {
             state = .failed(ErrorState.from(error, doing: "open this folder"))
@@ -557,7 +594,7 @@ public struct FilesBrowserViewModel: Sendable {
         do {
             let children = try await store.children(sourceID: sourceID, folder: folder, sort: sort, limit: pageSize + 1, offset: rows.count)
             more = children.count > pageSize
-            rows += children.prefix(pageSize).map(Self.row)
+            rows += await withCounts(children.prefix(pageSize).map(Self.row))
             publish()
         } catch {}
     }
@@ -593,7 +630,19 @@ public struct FilesBrowserViewModel: Sendable {
 
     static func row(_ c: FolderChild) -> FileRow {
         FileRow(id: c.path, name: c.name, isDirectory: c.isDirectory, kind: c.kind,
-                sizeText: c.isDirectory ? nil : c.size.map(DisplayText.fileSize), modified: c.modified)
+                sizeText: c.isDirectory ? nil : c.size.map(DisplayText.fileSize), modified: c.modified,
+                detail: c.isDirectory ? nil : FilesText.fileDetail(name: c.name, kind: c.kind, size: c.size))
+    }
+
+    /// #15 7.3: each folder row's item count, from the index (no server call). A folder that fails to count shows no line.
+    private func withCounts(_ rows: [FileRow]) async -> [FileRow] {
+        var out = rows
+        for i in out.indices where out[i].isDirectory {
+            if let n = try? await store.children(sourceID: sourceID, folder: out[i].id, sort: FileSort(), limit: FilesText.countLimit + 1, offset: 0).count {
+                out[i].detail = FilesText.itemCount(n)
+            }
+        }
+        return out
     }
 }
 

@@ -14,9 +14,12 @@ struct FilesView: View {
                 if sources.isEmpty {
                     EmptyStateView(empty: HomeViewModel.noSourcesForFiles, action: { showSetup = true })
                 } else {
-                    List(sources, id: \.id) { source in
-                        NavigationLink(value: Route.folder(sourceID: source.id, sourceName: source.name, path: "/")) {
-                            RowLabel(source.name, systemImage: "externaldrive")
+                    // #15 7.1: the rows in a bounded column (L1, L2); 7.3: the protocol under each name (R187).
+                    PaneColumns(summary: FilesText.rootSummary) {
+                        List(sources, id: \.id) { source in
+                            NavigationLink(value: Route.folder(sourceID: source.id, sourceName: source.name, path: "/")) {
+                                RowLabel(source.name, systemImage: "externaldrive", detail: FilesText.sourceDetail(source.kind))
+                            }
                         }
                     }
                 }
