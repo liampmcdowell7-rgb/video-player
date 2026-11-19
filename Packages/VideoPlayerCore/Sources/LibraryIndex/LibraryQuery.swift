@@ -94,6 +94,25 @@ public struct AlphabetEntry: Equatable, Sendable {
 public enum ViewScope: Codable, Equatable, Hashable, Sendable {
     case library
     case folder(sourceID: String, path: String)
+    /// #21 F: the Shows grid's saved views (sort and watch filter over series), kept apart from the Movies views.
+    case shows
+
+    /// How the views table stores a scope (scope_kind, scope_source, scope_path).
+    var stored: (kind: Int, source: String, path: String) {
+        switch self {
+        case .library: return (0, "", "")
+        case let .folder(s, p): return (1, s, p)
+        case .shows: return (2, "", "")
+        }
+    }
+
+    init(storedKind kind: Int, source: String, path: String) {
+        switch kind {
+        case 0: self = .library
+        case 2: self = .shows
+        default: self = .folder(sourceID: source, path: path)
+        }
+    }
 }
 
 public struct SavedView: Equatable, Sendable, Identifiable {

@@ -3,19 +3,13 @@ import AppLogic
 import LibraryIndex
 
 /// Filters as toggles in a menu. Options of one group combine with "or", groups with "and" (the library's rule).
-struct FilterMenu: View {
-    let model: ScreenModel<ItemGridViewModel>
-
-    private let groups: [(title: String, options: [FilterOption])] = [
-        ("Watched", [.watch(.unwatched), .watch(.inProgress), .watch(.watched), .favorites]),
-        ("Resolution", [.resolution(.uhd4k), .resolution(.hd1080), .resolution(.hd720), .resolution(.sd)]),
-        ("Dynamic Range", [.hdr(.dolbyVision), .hdr(.hdr10Plus), .hdr(.hdr10), .hdr(.hlg), .hdr(.sdr)]),
-        ("Sound", [.atmos, .minChannels(8), .minChannels(6)]),
-    ]
+struct FilterMenu<Screen: QueryGridScreen>: View {
+    let model: ScreenModel<Screen>
 
     var body: some View {
         Menu("Filter", systemImage: "line.3.horizontal.decrease.circle") {
-            ForEach(groups, id: \.title) { group in
+            // The groups (Watched, Resolution, Dynamic Range, Sound) live in AppLogic (`FilterGroup.library`), shared with Shows.
+            ForEach(model.screen.filterGroups) { group in
                 Section(group.title) {
                     ForEach(group.options, id: \.self) { option in
                         Toggle(option.title, isOn: binding(for: option))

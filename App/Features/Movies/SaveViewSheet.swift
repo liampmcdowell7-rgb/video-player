@@ -2,8 +2,8 @@ import SwiftUI
 import AppLogic
 
 /// Asks for a name and saves the current sort and filters as a view.
-struct SaveViewSheet: View {
-    let model: ScreenModel<ItemGridViewModel>
+struct SaveViewSheet<Screen: QueryGridScreen>: View {
+    let model: ScreenModel<Screen>
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
 
@@ -17,7 +17,7 @@ struct SaveViewSheet: View {
                     Button("Save") {
                         let chosen = name
                         Task {
-                            await model.run { screen in _ = try? await screen.saveCurrentView(name: chosen) }
+                            await model.run { screen in _ = try? await screen.saveCurrentView(name: chosen, pinned: false) }
                             dismiss()
                         }
                     }

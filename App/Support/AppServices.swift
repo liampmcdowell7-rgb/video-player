@@ -54,6 +54,8 @@ final class AppServices {
     var libraryRevision = 0
     var pendingLink: DeepLink?
     var playRequest: PlayRequest?
+    /// #21 F: a page a long-press menu asked for ("Go to Movie", "Go to Show"). RootView pushes it on the current tab's stack.
+    var openRequest: Route?
     var playFailure: PlayFailurePrompt?
     var isScanning = false
     /// Folders done and still queued in the running scan (the one-time re-sort runs inside a scan, addendum #18 F); nil when

@@ -2,8 +2,8 @@ import SwiftUI
 import AppLogic
 import LibraryIndex
 
-struct SavedViewsMenu: View {
-    let model: ScreenModel<ItemGridViewModel>
+struct SavedViewsMenu<Screen: QueryGridScreen>: View {
+    let model: ScreenModel<Screen>
     var onSave: () -> Void
 
     var body: some View {

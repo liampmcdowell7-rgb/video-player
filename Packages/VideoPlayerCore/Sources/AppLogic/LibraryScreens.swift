@@ -87,7 +87,7 @@ public struct GridContent: Equatable, Sendable {
 
 /// A paged, filterable, sortable grid with saved views. `base` is the part of the filter the screen owns (Movies: kinds
 /// [.movie]); the user's filters add to it and "Clear Filters" goes back to it.
-public struct ItemGridViewModel: Sendable {
+public struct ItemGridViewModel: QueryGridScreen {
     public let store: any LibraryStore
     public let base: ItemFilter
     public let pageSize: Int
@@ -127,6 +127,8 @@ public struct ItemGridViewModel: Sendable {
     public var chips: [FilterChip] { FilterDescriber.chips(for: query.filter, base: base) }
     public var isFiltered: Bool { query.filter != base }
     public var sortTitle: String { SortChoice.title(of: query.sort) }
+    public var sortChoices: [SortChoice] { SortChoice.all }
+    public var filterGroups: [FilterGroup] { FilterGroup.library }
     /// "212 movies" or "12 of 212 movies" while filtered.
     public var countText: String? {
         guard case .loaded(let c) = state else { return nil }
@@ -318,9 +320,26 @@ public struct SeriesSummary: Equatable, Sendable, Identifiable {
     public var unwatchedCount: Int
     public var seasonCount: Int
     public var artworkKey: String
+    /// #21 F, for the Shows sorts and the watch filter: episodes started but not finished, the earliest episode year, the
+    /// newest episode's date added and the last time any episode played.
+    public var inProgressCount: Int = 0
+    public var year: Int? = nil
+    public var latestAdded: Date? = nil
+    public var lastPlayed: Date? = nil
 
     /// "3 seasons", "1 season" (Season 0 specials do not count as a season).
     public var seasonsText: String { "\(seasonCount) \(seasonCount == 1 ? "season" : "seasons")" }
+
+    /// The watch filter at show level (PROVISIONAL, matching the Movies meaning where Unwatched includes started items):
+    /// Unwatched = at least one episode not watched; In Progress = something watched or started and something left;
+    /// Watched = every episode watched.
+    public func matches(_ watch: WatchFilter) -> Bool {
+        switch watch {
+        case .unwatched: return unwatchedCount > 0
+        case .inProgress: return unwatchedCount > 0 && (inProgressCount > 0 || unwatchedCount < episodeCount)
+        case .watched: return unwatchedCount == 0
+        }
+    }
 }
 
 /// Where the Shows grid gets its series. `LibraryStore` has no series list yet (docs/APP_LOGIC.md "Gaps"); the default
@@ -342,54 +361,181 @@ public struct EpisodeGroupingCatalog: SeriesCatalog {
         var filter = ItemFilter()
         filter.kinds = [.episode]
         let query = ItemQuery(filter: filter, sort: ItemSort(key: .title, ascending: true))
-        var byID: [Int64: (title: String, episodes: Int, unwatched: Int, seasons: Set<Int>)] = [:]
+        var byID: [Int64: SeriesSummary] = [:]
+        var seasons: [Int64: Set<Int>] = [:]
         var cursor: ItemCursor?
         repeat {
             let page = try await store.page(query, limit: pageSize, after: cursor)
             for item in page.items {
                 guard let sid = item.seriesID else { continue }
-                var e = byID[sid] ?? (item.seriesTitle ?? item.title, 0, 0, [])
-                e.episodes += 1
-                if !item.watch.watched { e.unwatched += 1 }
-                if let s = item.season, s > 0 { e.seasons.insert(s) }
+                var e = byID[sid] ?? SeriesSummary(id: sid, title: item.seriesTitle ?? item.title, episodeCount: 0, unwatchedCount: 0,
+                                                   seasonCount: 0, artworkKey: "series-\(sid)")
+                e.episodeCount += 1
+                if !item.watch.watched { e.unwatchedCount += 1 }
+                if !item.watch.watched && item.watch.position > 0 { e.inProgressCount += 1 }
+                if let y = item.year { e.year = min(e.year ?? y, y) }
+                e.latestAdded = max(e.latestAdded ?? item.addedAt, item.addedAt)
+                if let p = item.watch.lastPlayed { e.lastPlayed = max(e.lastPlayed ?? p, p) }
+                if let s = item.season, s > 0 { seasons[sid, default: []].insert(s) }
                 byID[sid] = e
             }
             cursor = page.next
         } while cursor != nil
-        return byID.map { SeriesSummary(id: $0.key, title: $0.value.title, episodeCount: $0.value.episodes, unwatchedCount: $0.value.unwatched,
-                                        seasonCount: $0.value.seasons.count, artworkKey: "series-\($0.key)") }
+        return byID.values.map { s -> SeriesSummary in
+            var s = s
+            s.seasonCount = seasons[s.id]?.count ?? 0
+            return s
+        }
             .sorted { TitleLetter.sortKey($0.title) != TitleLetter.sortKey($1.title) ? TitleLetter.sortKey($0.title) < TitleLetter.sortKey($1.title) : $0.id < $1.id }
     }
 }
 
-public struct ShowsViewModel: Sendable {
+/// Shows: one entry per series, with the same Sort, Filter and Saved Views menus as Movies (#21 F). The series list is built
+/// in memory (`SeriesCatalog`), so sorting and the watch filter run here; the other filters (resolution, dynamic range,
+/// sound, favourites) keep a show when at least one of its episodes matches, using the index's own episode filter.
+public struct ShowsViewModel: QueryGridScreen {
     public let catalog: any SeriesCatalog
     public let store: any LibraryStore
+    public let scope: ViewScope = .shows
+    /// The screen's own part of the filter: episodes. "Clear Filters" goes back to it.
+    public static let base: ItemFilter = {
+        var f = ItemFilter()
+        f.kinds = [.episode]
+        return f
+    }()
     public private(set) var state: ViewState<[SeriesSummary]> = .idle
+    public private(set) var query = ItemQuery(filter: ShowsViewModel.base, sort: ItemSort(key: .title, ascending: true))
+    public private(set) var savedViews: [SavedView] = []
 
     public init(store: any LibraryStore, catalog: (any SeriesCatalog)? = nil) {
         self.store = store
         self.catalog = catalog ?? EpisodeGroupingCatalog(store: store)
     }
 
+    public var sortChoices: [SortChoice] { SortChoice.shows }
+    public var filterGroups: [FilterGroup] { FilterGroup.library }
+    public var chips: [FilterChip] { FilterDescriber.chips(for: query.filter, base: Self.base) }
+    public var isFiltered: Bool { query.filter != Self.base }
+
+    /// The letter jump list, only for the title sort (as on Movies).
+    public var jumpTargets: [JumpTarget] {
+        guard query.sort.key == .title, case .loaded(let series) = state else { return [] }
+        return AlphabetJump.targets(for: series)
+    }
+
     public mutating func load() async {
         state = .loading
         do {
-            let series = try await catalog.allSeries()
-            if series.isEmpty {
+            let all = try await catalog.allSeries()
+            if all.isEmpty {
                 state = .empty(try await store.sources().isEmpty ? HomeViewModel.noSources : HomeViewModel.nothingIndexed)
-            } else {
-                state = .loaded(series)
+                return
             }
+            let shown = try await Self.matching(query, in: all, store: store)
+            state = shown.isEmpty ? .empty(Self.noMatches) : .loaded(shown)
         } catch {
             state = .failed(ErrorState.from(error, doing: "load your shows"))
         }
     }
 
+    public static let noMatches = EmptyState(reason: .noMatches, title: "No Matches",
+                                             message: "No shows match these filters.", actionTitle: "Clear Filters")
+
     /// "2 shows" or "1 show", in the same place as the Movies count (#15 4.5).
     public var countText: String? {
         guard case .loaded(let series) = state else { return nil }
         return series.count == 1 ? "1 show" : "\(series.count) shows"
+    }
+
+    /// The shows `query` keeps, in its order.
+    static func matching(_ query: ItemQuery, in all: [SeriesSummary], store: any LibraryStore) async throws -> [SeriesSummary] {
+        var list = all
+        if let w = query.filter.watch { list = list.filter { $0.matches(w) } }
+        var episodes = query.filter
+        episodes.watch = nil
+        episodes.kinds = [.episode]
+        if episodes != base {
+            var ids: Set<Int64> = []
+            var cursor: ItemCursor?
+            let q = ItemQuery(filter: episodes, sort: ItemSort(key: .title, ascending: true))
+            repeat {
+                let page = try await store.page(q, limit: 500, after: cursor)
+                for item in page.items { if let sid = item.seriesID { ids.insert(sid) } }
+                cursor = page.next
+            } while cursor != nil
+            list = list.filter { ids.contains($0.id) }
+        }
+        return sorted(list, by: query.sort)
+    }
+
+    /// Title: by the letter key. Year: the earliest episode year. Date Added: the newest episode. Last Played: the last
+    /// time any episode played. Shows without a value go last in both directions; ties fall back to the title.
+    static func sorted(_ list: [SeriesSummary], by sort: ItemSort) -> [SeriesSummary] {
+        func titleOrder(_ a: SeriesSummary, _ b: SeriesSummary) -> Bool {
+            let ka = TitleLetter.sortKey(a.title), kb = TitleLetter.sortKey(b.title)
+            return ka != kb ? ka < kb : a.id < b.id
+        }
+        func valueOrder<T: Comparable>(_ a: T?, _ b: T?, _ x: SeriesSummary, _ y: SeriesSummary) -> Bool {
+            switch (a, b) {
+            case let (a?, b?) where a != b: return sort.ascending ? a < b : a > b
+            case (nil, _?): return false
+            case (_?, nil): return true
+            default: return titleOrder(x, y)
+            }
+        }
+        switch sort.key {
+        case .year: return list.sorted { valueOrder($0.year, $1.year, $0, $1) }
+        case .added: return list.sorted { valueOrder($0.latestAdded, $1.latestAdded, $0, $1) }
+        case .lastPlayed: return list.sorted { valueOrder($0.lastPlayed, $1.lastPlayed, $0, $1) }
+        default:
+            let up = list.sorted(by: titleOrder)
+            return sort.ascending ? up : up.reversed()
+        }
+    }
+
+    // MARK: Filters, sorts, saved views (each reloads)
+
+    public mutating func toggle(_ option: FilterOption) async {
+        option.toggle(in: &query.filter)
+        await load()
+    }
+
+    public mutating func removeChip(_ chip: FilterChip) async {
+        FilterDescriber.remove(chip, from: &query.filter)
+        await load()
+    }
+
+    public mutating func clearFilters() async {
+        query.filter = Self.base
+        await load()
+    }
+
+    public mutating func chooseSort(_ key: ItemSortKey) async {
+        if query.sort.key == key { query.sort.ascending.toggle() } else { query.sort = SortChoice.defaultSort(for: key) }
+        await load()
+    }
+
+    public mutating func refreshSavedViews() async {
+        do { savedViews = try await store.views(scope: scope) } catch { savedViews = [] }
+    }
+
+    @discardableResult
+    public mutating func saveCurrentView(name: String, pinned: Bool = false) async throws -> SavedView {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let view = try await store.saveView(name: trimmed.isEmpty ? "Saved View" : trimmed, scope: scope, query: query, pinned: pinned)
+        await refreshSavedViews()
+        return view
+    }
+
+    public mutating func apply(_ view: SavedView) async {
+        query = view.query
+        query.filter.kinds = [.episode]
+        await load()
+    }
+
+    public mutating func deleteView(id: Int64) async {
+        try? await store.deleteView(id: id)
+        await refreshSavedViews()
     }
 }
 

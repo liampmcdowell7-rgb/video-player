@@ -23,6 +23,19 @@ public struct ItemCard: Equatable, Sendable, Identifiable {
     public var subtitleLine = ShortLine([])
     /// The badges as one line (rule S1): Dolby Atmos is left out first, then the HDR format, then 4K (#17 C).
     public var badgeLine = ShortLine([])
+    /// #21 F, for the long-press menu: the episode's show ("Go to Show"), and whether the item is in Continue Watching
+    /// (started, not finished, not already removed from the row), so "Remove from Continue Watching" changes something.
+    public var seriesID: Int64? = nil
+    public var canRemoveFromContinue = false
+
+    /// #21 F: the long-press menu's way to the title's page: "Go to Movie" for a movie, "Go to Show" for an episode with a
+    /// show; nil for an episode without one (its card already opens its own page).
+    public var goToTitle: String? {
+        switch kind {
+        case .movie: return "Go to Movie"
+        case .episode: return seriesID == nil ? nil : "Go to Show"
+        }
+    }
 }
 
 public enum CardStyle: Sendable {
@@ -67,7 +80,9 @@ public enum CardBuilder {
             id: item.id, kind: item.kind, title: title.isEmpty ? "Untitled" : title,
             subtitle: subtitleLine.isEmpty ? nil : subtitleLine.full,
             progress: style == .nextUp ? nil : progress, isWatched: item.watch.watched, isFavorite: item.watch.favorite,
-            badges: badgeList, artworkKey: "item-\(item.id)", subtitleLine: subtitleLine, badgeLine: badgeLine(badgeList))
+            badges: badgeList, artworkKey: "item-\(item.id)", subtitleLine: subtitleLine, badgeLine: badgeLine(badgeList),
+            seriesID: item.kind == .episode ? item.seriesID : nil,
+            canRemoveFromContinue: progress != nil && !item.watch.hiddenFromContinue)
     }
 
     /// How long each part of a card's lines is kept when the line does not fit (rule S1; #17 C). Higher is kept longer.
@@ -182,6 +197,41 @@ public enum FilterOption: Hashable, Sendable {
     }
 }
 
+/// One section of the filter menu.
+public struct FilterGroup: Equatable, Sendable, Identifiable {
+    public var title: String
+    public var options: [FilterOption]
+    public var id: String { title }
+
+    /// The Movies and Shows filter menu (Shows keep a show when one of its episodes matches; see `ShowsViewModel`).
+    public static let library: [FilterGroup] = [
+        FilterGroup(title: "Watched", options: [.watch(.unwatched), .watch(.inProgress), .watch(.watched), .favorites]),
+        FilterGroup(title: "Resolution", options: [.resolution(.uhd4k), .resolution(.hd1080), .resolution(.hd720), .resolution(.sd)]),
+        FilterGroup(title: "Dynamic Range", options: [.hdr(.dolbyVision), .hdr(.hdr10Plus), .hdr(.hdr10), .hdr(.hlg), .hdr(.sdr)]),
+        FilterGroup(title: "Sound", options: [.atmos, .minChannels(8), .minChannels(6)]),
+    ]
+}
+
+/// #21 F: what the Sort, Filter and Saved Views menus and the filter buttons need from a screen, so Movies
+/// (`ItemGridViewModel`) and Shows (`ShowsViewModel`) share one set of controls.
+public protocol QueryGridScreen: Sendable {
+    var query: ItemQuery { get }
+    var savedViews: [SavedView] { get }
+    var chips: [FilterChip] { get }
+    var isFiltered: Bool { get }
+    var sortChoices: [SortChoice] { get }
+    var filterGroups: [FilterGroup] { get }
+    var countText: String? { get }
+    mutating func chooseSort(_ key: ItemSortKey) async
+    mutating func toggle(_ option: FilterOption) async
+    mutating func removeChip(_ chip: FilterChip) async
+    mutating func clearFilters() async
+    mutating func refreshSavedViews() async
+    @discardableResult mutating func saveCurrentView(name: String, pinned: Bool) async throws -> SavedView
+    mutating func apply(_ view: SavedView) async
+    mutating func deleteView(id: Int64) async
+}
+
 public struct FilterChip: Equatable, Sendable, Identifiable {
     public var id: String
     public var title: String
@@ -241,6 +291,9 @@ public struct SortChoice: Equatable, Sendable, Identifiable {
         SortChoice(key: .title, title: "Title"), SortChoice(key: .year, title: "Year"), SortChoice(key: .rating, title: "Rating"),
         SortChoice(key: .added, title: "Date Added"), SortChoice(key: .lastPlayed, title: "Last Played"), SortChoice(key: .runtime, title: "Runtime"),
     ]
+
+    /// #21 F: Shows sort by what a series has (no Rating or Runtime: those belong to single episodes).
+    public static let shows: [SortChoice] = all.filter { [.title, .year, .added, .lastPlayed].contains($0.key) }
 
     /// Interpretation (PROVISIONAL): Title sorts A to Z, every other key starts with the largest or newest first.
     public static func defaultSort(for key: ItemSortKey) -> ItemSort { ItemSort(key: key, ascending: key == .title) }

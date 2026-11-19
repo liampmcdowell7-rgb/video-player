@@ -1,22 +1,27 @@
 import SwiftUI
 import AppLogic
 
-/// Shows: one poster per series, with a letter jump list and, when files wait there, the way to Needs Review.
+/// Shows: one poster per series, with the same row as Movies (#21 F): Sort, Filter, Saved Views, Needs Review when files
+/// wait there, Jump to Letter for the title sort, and the count.
 struct ShowsView: View {
     @Environment(AppServices.self) private var services
     @State private var model: ScreenModel<ShowsViewModel>?
     @State private var showSetup = false
+    @State private var showSaveView = false
     @State private var reviewCount = 0
 
     var body: some View {
         VStack(alignment: .leading) {
             if let model {
-                if model.screen.state.content == nil {
+                if !showsControls(model) {
                     // An empty Shows screen still says where unsorted files are (addendum #18 C).
                     NeedsReviewButton(count: reviewCount)
+                } else if model.screen.state.content == nil {
+                    // "No Matches": keep the menus above the message, as on Movies, so one filter can be changed.
+                    ShowsControls(model: model, targets: [], reviewCount: reviewCount, onSave: { showSaveView = true }, onJump: { _ in })
                 }
-                ScreenStateView(state: model.screen.state, onEmptyAction: { showSetup = true }, onRetry: { Task { await reload() } }) { series in
-                    ShowsGrid(series: series, reviewCount: reviewCount, countText: model.screen.countText)
+                ScreenStateView(state: model.screen.state, onEmptyAction: { emptyAction(model) }, onRetry: { Task { await reload() } }) { series in
+                    ShowsGrid(model: model, series: series, reviewCount: reviewCount, onSave: { showSaveView = true })
                 }
             } else {
                 LoadingView()
@@ -24,36 +29,76 @@ struct ShowsView: View {
         }
         .task(id: services.libraryRevision) { await reload() }
         .sheet(isPresented: $showSetup) { SourceSetupFlow() }
+        .sheet(isPresented: $showSaveView) {
+            if let model { SaveViewSheet(model: model) }
+        }
+    }
+
+    /// The controls show over a loaded grid and over "No Matches"; not over "No Sources" or "Nothing Here Yet".
+    private func showsControls(_ model: ScreenModel<ShowsViewModel>) -> Bool {
+        switch model.screen.state {
+        case .loaded: return true
+        case .empty(let e): return e.reason == .noMatches
+        default: return false
+        }
+    }
+
+    private func emptyAction(_ model: ScreenModel<ShowsViewModel>) {
+        if case .empty(let e) = model.screen.state, e.reason == .noMatches {
+            Task { await model.run { await $0.clearFilters() } }
+        } else {
+            showSetup = true
+        }
     }
 
     private func reload() async {
         if model == nil { model = ScreenModel(ShowsViewModel(store: services.store)) }
         await model?.run { await $0.load() }
+        await model?.run { await $0.refreshSavedViews() }
         reviewCount = (try? await services.store.needsReviewCount()) ?? 0
     }
 }
 
-/// The poster grid and its jump menu. The shows are sorted by the same title key the letters use, so a letter is one scroll target.
-private struct ShowsGrid: View {
-    let series: [SeriesSummary]
+/// The row above the Shows grid, in the Movies order (`GridControls`), and the filter buttons under it.
+private struct ShowsControls: View {
+    let model: ScreenModel<ShowsViewModel>
+    let targets: [JumpTarget]
     let reviewCount: Int
-    let countText: String?
+    var onSave: () -> Void
+    var onJump: (JumpTarget) -> Void
 
     var body: some View {
-        let targets = AlphabetJump.targets(for: series)
+        VStack(alignment: .leading) {
+            GridToolbar(count: model.screen.countText) {
+                SortMenu(model: model)
+                FilterMenu(model: model)
+                SavedViewsMenu(model: model, onSave: onSave)
+                NeedsReviewButton(count: reviewCount)
+                if !targets.isEmpty {
+                    AlphabetJumpMenu(letters: targets.map { AlphabetJumpEntry(letter: $0.letter, count: $0.count) }) { letter in
+                        if let target = targets.first(where: { $0.letter == letter }) { onJump(target) }
+                    }
+                }
+            }
+            if !model.screen.chips.isEmpty {
+                FilterChipsRow(model: model)
+            }
+        }
+    }
+}
+
+/// The poster grid and its controls. The jump list is offered only for the title sort, where a letter is one scroll target.
+private struct ShowsGrid: View {
+    let model: ScreenModel<ShowsViewModel>
+    let series: [SeriesSummary]
+    let reviewCount: Int
+    var onSave: () -> Void
+
+    var body: some View {
         ScrollViewReader { proxy in
             VStack(alignment: .leading) {
-                // #15 4.5: the same row as on Movies (`GridToolbar`) with the count. Shows has no sort, filter or saved
-                // views yet (OPEN_QUESTIONS R185); the controls it has keep the Movies order.
-                GridToolbar(count: countText) {
-                    NeedsReviewButton(count: reviewCount)
-                    if !targets.isEmpty {
-                        AlphabetJumpMenu(letters: targets.map { AlphabetJumpEntry(letter: $0.letter, count: $0.count) }) { letter in
-                            if let target = targets.first(where: { $0.letter == letter }) {
-                                proxy.scrollTo(target.firstID, anchor: .top)
-                            }
-                        }
-                    }
+                ShowsControls(model: model, targets: model.screen.jumpTargets, reviewCount: reviewCount, onSave: onSave) { target in
+                    proxy.scrollTo(target.firstID, anchor: .top)
                 }
                 PosterGridLayout {
                     ForEach(series) { show in

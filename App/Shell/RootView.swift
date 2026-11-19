@@ -18,6 +18,11 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var selection: AppTab = .home
     @State private var homePath: [Route] = []
+    // #21 F: every tab that shows cards keeps its path, so "Go to Movie" / "Go to Show" opens the page on the tab in use.
+    @State private var moviesPath: [Route] = []
+    @State private var showsPath: [Route] = []
+    @State private var filesPath: [Route] = []
+    @State private var searchPath: [Route] = []
 
     var body: some View {
         @Bindable var services = services
@@ -27,19 +32,19 @@ struct RootView: View {
                     .uiTestAccessibilityOverrides()
             }
             Tab("Movies", systemImage: "film", value: AppTab.movies) {
-                NavigationStack { MoviesView().tabRootScreen("Movies", identifier: "screen.movies").routeDestinations() }
+                NavigationStack(path: $moviesPath) { MoviesView().tabRootScreen("Movies", identifier: "screen.movies").routeDestinations() }
                     .uiTestAccessibilityOverrides()
             }
             Tab("Shows", systemImage: "tv", value: AppTab.shows) {
-                NavigationStack { ShowsView().tabRootScreen("Shows", identifier: "screen.shows").routeDestinations() }
+                NavigationStack(path: $showsPath) { ShowsView().tabRootScreen("Shows", identifier: "screen.shows").routeDestinations() }
                     .uiTestAccessibilityOverrides()
             }
             Tab("Files", systemImage: "folder", value: AppTab.files) {
-                NavigationStack { FilesView().tabRootScreen("Files", identifier: "screen.files").routeDestinations() }
+                NavigationStack(path: $filesPath) { FilesView().tabRootScreen("Files", identifier: "screen.files").routeDestinations() }
                     .uiTestAccessibilityOverrides()
             }
             Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
-                NavigationStack { SearchView().screenIdentifier("screen.search").screenHeader("Search").routeDestinations() }
+                NavigationStack(path: $searchPath) { SearchView().screenIdentifier("screen.search").screenHeader("Search").routeDestinations() }
                     .uiTestAccessibilityOverrides()
             }
             Tab("Settings", systemImage: "gearshape", value: AppTab.settings) {
@@ -73,6 +78,11 @@ struct RootView: View {
             Text(prompt.failure.text)
         }
         .onOpenURL { url in open(DeepLink.parse(url)) }
+        .onChange(of: services.openRequest) {
+            guard let route = services.openRequest else { return }
+            services.openRequest = nil
+            push(route)
+        }
         .task {
             #if DEBUG
             // UI-test launches (screenshots): no iCloud calls and no scan; the sample library instead, then the asked-for screen.
@@ -91,6 +101,19 @@ struct RootView: View {
         }
         .onChange(of: scenePhase) {
             if scenePhase == .active { services.sync.request(.becameActive) }
+        }
+    }
+
+    /// Pushes a page on the stack of the tab in use (Settings shows no cards; its request opens on Home).
+    private func push(_ route: Route) {
+        switch selection {
+        case .movies: moviesPath.append(route)
+        case .shows: showsPath.append(route)
+        case .files: filesPath.append(route)
+        case .search: searchPath.append(route)
+        default:
+            selection = .home
+            homePath.append(route)
         }
     }
 

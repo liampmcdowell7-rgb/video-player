@@ -64,11 +64,7 @@ extension SQLiteLibraryStore {
 
     func recordView(_ view: SavedView, uid: String, at date: Date) throws {
         guard let recorder else { return }
-        let scopeKind: Int, source: String, path: String
-        switch view.scope {
-        case .library: (scopeKind, source, path) = (0, "", "")
-        case let .folder(s, p): (scopeKind, source, path) = (1, s, p)
-        }
+        let (scopeKind, source, path) = view.scope.stored
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         let query = String(decoding: try encoder.encode(view.query), as: UTF8.self)
@@ -144,16 +140,12 @@ extension SQLiteLibraryStore {
         let views: [(String, SavedView)] = try db.rows(
             "SELECT uid, id, name, scope_kind, scope_source, scope_path, query, pinned, position, created_at FROM views WHERE uid IS NOT NULL", [], cached: false
         ) { s in
-            let scope: ViewScope = s.int(3) == 0 ? .library : .folder(sourceID: s.text(4), path: s.text(5))
+            let scope = ViewScope(storedKind: s.int(3), source: s.text(4), path: s.text(5))
             let query = try JSONDecoder().decode(ItemQuery.self, from: Data(s.text(6).utf8))
             return (s.text(0), SavedView(id: s.int64(1), name: s.text(2), scope: scope, query: query, pinned: s.bool(7), position: s.int(8), createdAt: s.optDate(9) ?? Date(timeIntervalSince1970: 1)))
         }
         for (uid, view) in views {
-            let scopeKind: Int, source: String, path: String
-            switch view.scope {
-            case .library: (scopeKind, source, path) = (0, "", "")
-            case let .folder(s, p): (scopeKind, source, path) = (1, s, p)
-            }
+            let (scopeKind, source, path) = view.scope.stored
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.sortedKeys]
             let q = String(decoding: try encoder.encode(view.query), as: UTF8.self)

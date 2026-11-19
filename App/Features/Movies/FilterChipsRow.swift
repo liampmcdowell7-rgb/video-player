@@ -2,8 +2,8 @@ import SwiftUI
 import AppLogic
 
 /// One button per active filter; pressing it removes that filter.
-struct FilterChipsRow: View {
-    let model: ScreenModel<ItemGridViewModel>
+struct FilterChipsRow<Screen: QueryGridScreen>: View {
+    let model: ScreenModel<Screen>
 
     var body: some View {
         ScrollView(.horizontal) {

@@ -370,7 +370,7 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
     private static let viewColumns = "id, name, scope_kind, scope_source, scope_path, query, pinned, position, created_at"
 
     private static func mapView(_ s: SQLiteStatement) throws -> SavedView {
-        let scope: ViewScope = s.int(2) == 0 ? .library : .folder(sourceID: s.text(3), path: s.text(4))
+        let scope = ViewScope(storedKind: s.int(2), source: s.text(3), path: s.text(4))
         let query = try JSONDecoder().decode(ItemQuery.self, from: Data(s.text(5).utf8))
         return SavedView(
             id: s.int64(0), name: s.text(1), scope: scope, query: query, pinned: s.bool(6), position: s.int(7),
@@ -379,10 +379,8 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
     }
 
     private static func scopeArgs(_ scope: ViewScope) -> [SQLValue] {
-        switch scope {
-        case .library: return [.int(0), .text(""), .text("")]
-        case let .folder(source, path): return [.int(1), .text(source), .text(path)]
-        }
+        let s = scope.stored
+        return [.int(Int64(s.kind)), .text(s.source), .text(s.path)]
     }
 
     private static func encode(_ query: ItemQuery) throws -> String {

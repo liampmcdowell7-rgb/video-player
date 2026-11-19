@@ -2,13 +2,13 @@ import SwiftUI
 import AppLogic
 import LibraryIndex
 
-struct SortMenu: View {
-    let model: ScreenModel<ItemGridViewModel>
+struct SortMenu<Screen: QueryGridScreen>: View {
+    let model: ScreenModel<Screen>
 
     var body: some View {
         Menu("Sort", systemImage: "arrow.up.arrow.down") {
             Picker("Sort By", selection: key) {
-                ForEach(SortChoice.all) { choice in
+                ForEach(model.screen.sortChoices) { choice in
                     Text(choice.title).tag(choice.key)
                 }
             }

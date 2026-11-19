@@ -504,6 +504,30 @@ final class ScreenshotTests: XCTestCase {
         app.terminate()
     }
 
+    /// #21 F: the Shows row with Sort, Filter and Saved Views like Movies (35 to 38), and the card long-press menu with
+    /// Go to Movie / Go to Show (and Remove from Continue Watching when the focused card is in that row) and where it leads (39).
+    /// Job 4b.
+    func test14_ShowsToolbarAndCardMenu() {
+        var app = launch("-UITestFixtures", tab: "shows")
+        if waitForScreen("screen.shows", in: app), waitFor("Sample", in: app, timeout: 60) {
+            settle(); shot("35-shows-toolbar")
+            for (label, name) in [("Sort", "36-shows-sort-menu"), ("Filter", "37-shows-filter-menu"), ("Saved Views", "38-shows-saved-views-menu")] {
+                if open(label, in: app, name: name) { sleep(1); shot(name); back() }
+            }
+        } else { notReached("35-shows-toolbar", "No sample show appeared.") }
+        app.terminate()
+
+        app = launch("-UITestFixtures", tab: "home")
+        if waitForScreen("screen.home", in: app), waitFor("Sample", in: app, timeout: 60) {
+            settle()
+            XCUIRemote.shared.press(.select, forDuration: 1.5)
+            sleep(1); shot("39-card-long-press-go-to")
+            let label = waitFor("Go to Show", in: app, timeout: 3) ? "Go to Show" : "Go to Movie"
+            if open(label, in: app, name: "39-card-go-to-result") { settle(); shot("39-card-go-to-result") }
+        } else { notReached("39-card-long-press-go-to", "No sample title appeared on Home within 60 s.") }
+        app.terminate()
+    }
+
     func test05_FilesSearchDiscover() {
         var app = launch("-UITestFixtures", tab: "files")
         if waitForScreen("screen.files", in: app), waitFor("Sample Library", in: app, timeout: 60) {

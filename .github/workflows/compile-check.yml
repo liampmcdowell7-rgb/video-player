@@ -673,7 +673,8 @@ jobs:
             -parallel-testing-enabled NO \
             -only-testing:VideoPlayerUITests/ScreenshotTests/test04_LibraryScreens \
             -only-testing:VideoPlayerUITests/ScreenshotTests/test05_FilesSearchDiscover \
-            -only-testing:VideoPlayerUITests/ScreenshotTests/test13_MovieSynopsisAndCast
+            -only-testing:VideoPlayerUITests/ScreenshotTests/test13_MovieSynopsisAndCast \
+            -only-testing:VideoPlayerUITests/ScreenshotTests/test14_ShowsToolbarAndCardMenu
 
       - name: Summarise errors (file, line, message)
         if: always()
