@@ -72,6 +72,11 @@ if bash "$HERE/scripts/test-ci-artifact-contents.sh" >"$LOG/artifact-contents-te
 SUMMARY="$SUMMARY
 artifact-contents self-test ($CAC): $(tail -1 "$LOG/artifact-contents-tests.log")"
 
+# 0b6. The simulator boot, retry and time-budget logic of scripts/ci-sim.sh with a fake xcrun (#15 item 1.7, #16 item 1.8).
+if bash "$HERE/scripts/test-ci-sim.sh" >"$LOG/ci-sim-tests.log" 2>&1; then CST=ok; else CST=bad; fi
+SUMMARY="$SUMMARY
+ci-sim self-test ($CST): $(tail -1 "$LOG/ci-sim-tests.log")"
+
 # 0c. Syntax check of the app and extension sources (swiftc -parse). SYNTAX ONLY: it cannot see missing imports, wrong
 # labels or unknown names, because the Apple frameworks do not exist here. A pass is never "it compiles".
 if bash "$HERE/scripts/parse-app.sh" >"$LOG/parse-app.log" 2>&1; then PA=ok; else PA=bad; fi

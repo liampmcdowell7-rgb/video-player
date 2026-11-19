@@ -303,7 +303,10 @@ tick or cross, and its own download. One red job does not stop the others. Each 
 red job still uploads whatever it captured. The long steps have their own time limits (screenshots: UI tests 20
 minutes; accessibility: Larger/Bold Text 8 minutes, each other setting 4 minutes), which leaves time for the uploads
 inside the 30 minutes. If a whole job hits its 30-minute limit, GitHub may stop it before the upload; that case has not
-been tried.
+been tried. So the test runs also have a deadline counted from the job's first stage (`CI_TEST_DEADLINE_SECONDS`, #16
+item 1.8): 22 minutes in both screenshot jobs, 25 minutes in the package-test job. A test run still going then is stopped
+and the log says `TIME BUDGET: stopping`; a run that would start after it says `TIME BUDGET: not started`. The pictures
+taken until then are still exported and uploaded (whether a stopped run leaves a readable result bundle is unproven).
 
 **Stage times.** Each job's summary (open the job, scroll to the top of its page) has a table "Stage times" saying how
 long each step took, so you can see where the time goes. The same table is `stage-times.md` inside that job's download

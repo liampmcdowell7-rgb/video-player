@@ -16,6 +16,12 @@
 # The retry: shut down all simulators, erase the chosen one, boot it, wait for it. At most once per job (marker file in
 # $OUT), printed as "SIMULATOR RETRY: <reason>". $OUT/sim-ready.txt holds "Simulator ready after N s (retries: 0/1)";
 # ci-stage.sh --summary puts it and the runtime lists into the job summary.
+#
+# Time budget (#16 item 1.8): with CI_TEST_DEADLINE_SECONDS set, every `test` call must end that many seconds after the
+# job's first stage marker ($OUT/stage-times.txt, written by ci-stage.sh in the first step). A call is not started when
+# the deadline has passed ("TIME BUDGET: not started"), and one still running then gets SIGTERM, and SIGKILL 30 s later
+# ("TIME BUDGET: stopping"). So the export and upload steps after it always have the rest of the job's 30 minutes, also
+# when the build before was slow. Whether xcodebuild still leaves a readable result bundle after SIGTERM is unverified.
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 out="${OUT:-build/ci}"
@@ -34,6 +40,43 @@ with_timeout() {
   wait "$pid"; local rc=$?
   kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
   return $rc
+}
+
+# Seconds left before CI_TEST_DEADLINE_SECONDS (after the first stage marker); empty when no budget applies.
+seconds_left() {
+  [ -n "${CI_TEST_DEADLINE_SECONDS:-}" ] || return 0
+  local first; first="$(head -n 1 "$out/stage-times.txt" 2>/dev/null | cut -f1)"
+  [ -n "$first" ] || first="$(date +%s)"
+  echo $(( first + CI_TEST_DEADLINE_SECONDS - $(date +%s) ))
+}
+
+# Runs a command until it ends or $1 seconds pass; then SIGTERM, and SIGKILL 30 s later.
+with_budget() {
+  local seconds="$1"; shift
+  "$@" & local pid=$!
+  (
+    sleep "$seconds"
+    kill -0 "$pid" 2>/dev/null || exit 0
+    echo "================ TIME BUDGET: stopping the test run (CI_TEST_DEADLINE_SECONDS=$CI_TEST_DEADLINE_SECONDS) so the export and upload still run ================"
+    # Not SIGINT: a command started with & in a non-interactive shell ignores it (found by scripts/test-ci-sim.sh).
+    kill -TERM "$pid" 2>/dev/null; sleep 30; kill -KILL "$pid" 2>/dev/null
+  ) & local watcher=$!
+  wait "$pid"; local rc=$?
+  # The watcher's own sleep first (after the watcher dies it is no longer its child), else it keeps the output pipe open.
+  pkill -P "$watcher" 2>/dev/null; kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
+  return $rc
+}
+
+# Runs the test command, under the time budget when there is one.
+budgeted() {
+  local left; left="$(seconds_left)"
+  if [ -z "$left" ]; then "$@"; return; fi
+  if [ "$left" -le 0 ]; then
+    echo "================ TIME BUDGET: not started, the deadline (CI_TEST_DEADLINE_SECONDS=$CI_TEST_DEADLINE_SECONDS) has passed ================"
+    return 124
+  fi
+  echo "(time budget: $left s left for this test run)"
+  with_budget "$left" "$@"
 }
 
 is_booted() { xcrun simctl list devices 2>/dev/null | grep -F "$1" | grep -q '(Booted)'; }
@@ -102,14 +145,14 @@ run_test() {
   local bundle="" prev=""
   for a in "$@"; do [ "$prev" = "-resultBundlePath" ] && bundle="$a"; prev="$a"; done
   local this_run; this_run="$(mktemp)"
-  "$@" 2>&1 | tee "$this_run" | tee -a "$log"
+  budgeted "$@" 2>&1 | tee "$this_run" | tee -a "$log"
   local rc=${PIPESTATUS[0]}
   if [ "$rc" -ne 0 ] && grep -qE "$RUNTIME_PATTERN" "$this_run"; then
     local reason; reason="xcodebuild failed with: $(grep -oE "$RUNTIME_PATTERN" "$this_run" | head -n 1)"
     if recover "$udid" "$reason"; then
       [ -n "$bundle" ] && rm -rf "$bundle"
       echo "================ SIMULATOR RETRY: running the same xcodebuild call again ================" | tee -a "$log"
-      "$@" 2>&1 | tee -a "$log"
+      budgeted "$@" 2>&1 | tee -a "$log"
       rc=${PIPESTATUS[0]}
     fi
   fi

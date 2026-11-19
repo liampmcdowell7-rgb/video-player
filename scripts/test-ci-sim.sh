@@ -38,6 +38,8 @@ S="$(dirname "$(dirname "$0")")"
 n=$(( $(cat "$S/xb-count" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$S/xb-count"
 line="$(sed -n "${n}p" "$S/xb-script")"; [ -n "$line" ] || line="TEST SUCCEEDED|0"
 prev=""; for a in "$@"; do [ "$prev" = -resultBundlePath ] && { [ -e "$a" ] && { echo "bundle exists"; exit 9; }; mkdir -p "$a"; }; prev="$a"; done
+# "SLEEP n|code": a test run that takes n seconds (exec, so a signal reaches the sleeping process itself).
+case "$line" in "SLEEP "*) s="${line#SLEEP }"; exec sleep "${s%|*}" ;; esac
 echo "${line%|*}"; exit "${line##*|}"
 EOF
   chmod +x "$S/bin/xcrun" "$S/bin/fake-xcodebuild"
@@ -84,6 +86,18 @@ check "SIM_RETRY_HOOK runs after the retry" "[ -s '$S/hook' ]"
 
 setup; run test "$S/out/test.log" -- fake-xcodebuild; rc=$?
 check "exit code of a passing run is 0, no retry" "[ $rc -eq 0 ] && ! [ -e '$S/out/sim-retry-used' ]"
+
+# Time budget (#16 item 1.8): the first stage marker was 100 s ago.
+budget() { printf '%s\tPrepare\n' $(( $(date +%s) - 100 )) > "$S/out/stage-times.txt"; }
+setup; run prepare; budget; printf '%s\n' "SLEEP 20|0" > "$S/xb-script"
+t0=$(date +%s); CI_TEST_DEADLINE_SECONDS=102 xb; rc=$?; took=$(( $(date +%s) - t0 ))
+check "time budget: a run past the deadline is stopped (SIGTERM) and fails" "[ $rc -ne 0 ] && [ $took -lt 12 ] && grep -q 'TIME BUDGET: stopping' '$S/out/test.log'"
+setup; run prepare; budget
+CI_TEST_DEADLINE_SECONDS=50 xb; rc=$?
+check "time budget: after the deadline nothing is started (exit 124)" "[ $rc -eq 124 ] && ! [ -e '$S/xb-count' ] && grep -q 'TIME BUDGET: not started' '$S/out/test.log'"
+setup; run prepare; budget
+CI_TEST_DEADLINE_SECONDS=1000 xb; rc=$?
+check "time budget: a run inside the budget passes and says how much time it had" "[ $rc -eq 0 ] && grep -qE 'time budget: [0-9]+ s left' '$S/out/test.log'"
 
 echo "ci-sim self-test: passed $passed, failed $failed"
 [ "$failed" -eq 0 ]

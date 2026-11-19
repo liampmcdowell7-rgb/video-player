@@ -329,6 +329,9 @@ jobs:
       XCODEGEN_VERSION: "2.46.0"
       XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
       OUT: build/ci
+      # #16 item 1.8: every test run must end 1500 s after this job's first stage (scripts/ci-sim.sh, time budget), so
+      # the summary, export and upload steps after it still fit in the 30-minute job cap even when the build was slow.
+      CI_TEST_DEADLINE_SECONDS: "1500"
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7
@@ -428,6 +431,9 @@ jobs:
       XCODEGEN_VERSION: "2.46.0"
       XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
       OUT: build/ci
+      # #16 item 1.8: every test run must end 1320 s after this job's first stage (scripts/ci-sim.sh, time budget), so
+      # the summary, export and upload steps after it still fit in the 30-minute job cap even when the build was slow.
+      CI_TEST_DEADLINE_SECONDS: "1320"
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7
@@ -572,6 +578,9 @@ jobs:
       XCODEGEN_VERSION: "2.46.0"
       XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
       OUT: build/ci
+      # #16 item 1.8: every test run must end 1320 s after this job's first stage (scripts/ci-sim.sh, time budget), so
+      # the summary, export and upload steps after it still fit in the 30-minute job cap even when the build was slow.
+      CI_TEST_DEADLINE_SECONDS: "1320"
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7
