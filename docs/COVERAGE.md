@@ -68,6 +68,21 @@ provisioning profile runs on a real Apple TV (a development build first, then Te
 What the simulator build DOES prove (when green): the app compiles, links and launches without crashing when none of
 these is available, and every screen it can reach looks as the screenshots show.
 
+### Unproven items and how each will be proven (#15 item 1.4, #16 item 1.8, 2026-11-18)
+
+Each row stays **unproven** until the proof in the last column has been done and its result written here.
+
+| Item | Why it is unproven now | How it will be proven |
+|---|---|---|
+| Entitlements under the ad-hoc signed simulator build (R164): CloudKit, App Group, Keychain | The CI build embeds no entitlements (table above) and UI-test launches replace iCloud | A team-signed build on a real Apple TV: docs/DEVICE_TEST_CHECKLIST_PLATFORM.md U1 (iCloud), U2 (App Group via Top Shelf), U3 (Keychain) |
+| iCloud restore at launch (R169): the 8-second wait (`TimeBox.launchWait`) and the local copy shown first | Tested only with a simulated iCloud and a fake clock (AppLogic unit tests) | DEVICE_TEST_CHECKLIST_PLATFORM.md U4 (normal, slow and offline iCloud on a device) |
+| Increase Contrast | Device-only: the tvOS simulator cannot set it (`simctl` offers no option for it on tvOS; the CI step records NOT APPLIED and takes no pictures) | DEVICE_TEST_CHECKLIST_VISUAL.md V-18 |
+| Reduce Transparency | Device-only, same reason | DEVICE_TEST_CHECKLIST_VISUAL.md V-17 |
+| Reduce Motion | Device-only, same reason; also cannot be judged from still pictures | DEVICE_TEST_CHECKLIST_VISUAL.md V-19 |
+| The simulator retry in scripts/ci-sim.sh (8bb0f0c) | Passes its self-test with a fake `xcrun` (scripts/test-ci-sim.sh, 20 checks, in test-all.sh), but no runner has really failed to load the runtime since it was added | A CI run where it happens: the log shows `SIMULATOR RETRY: <reason>` (also a `::warning::` annotation) and the job summary shows `Simulator ready after N s (retries: 1/1)`. Not a device item |
+| Upload after a job hits its time cap | Not tried. Now guarded: every test run ends `CI_TEST_DEADLINE_SECONDS` after the job's first stage (1320 s in both screenshot jobs, 1500 s in the package-test job), leaving 8 and 5 minutes for export and upload | A CI run that reaches it: the log shows `TIME BUDGET: stopping` (or `not started`) and the artifacts are still there. Whether a stopped xcodebuild leaves a readable result bundle is also open. Not a device item |
+| Statements about what Apple's own apps do | Several were written from memory | Marked "unverified, from memory" in docs/DESIGN_REFERENCES.md and docs/HIG_AUDIT.md, or given the Apple page that confirms them; checked against the system apps by V-08 to V-14 |
+
 ### Linux test counts: which command gave which number (addendum #18 A, 2026-11-18)
 
 Two different numbers were reported because they came from two different commands:

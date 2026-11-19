@@ -6,7 +6,9 @@ summaries in our own words, not quotes. Where a page says nothing about somethin
 fills the gap with a guess. Each rule applied to a screen is cited in docs/HIG_AUDIT.md ("Design check").
 
 Behaviour reference: Apple's own tvOS apps (the TV app, Music, Photos, Settings), for behaviour only: where titles, focus,
-menus and Back go. No logos, no names, no look-alike artwork.
+menus and Back go. No logos, no names, no look-alike artwork. Anything said here about what those apps do, and not taken
+from a page in the table below, is **unverified, from memory** (#16 item 1.8) until it is checked on an Apple TV
+(docs/DEVICE_TEST_CHECKLIST_VISUAL.md V-05 to V-14).
 
 ## Links (checked 2026-11-18)
 
@@ -158,7 +160,8 @@ a CI screenshot), **n/a**.
 
 ### Behaviour
 1. Back/Menu goes back exactly one level; from a root tab it goes to the tab bar, then exits. No custom back buttons.
-   Play/Pause, Select, long press, swipes and arrow edges behave as in Apple's apps. (Remotes; Tab bars)
+   Play/Pause, Select, long press, swipes and arrow edges behave as in Apple's apps (Remotes; Tab bars). What Apple's
+   apps do with long press and arrow edges: unverified, from memory (no page states it); checked by V-06.
 2. Focus: a sensible initial focus; never lost or trapped; after Back it returns to the item left; it moves in the
    direction pressed; `focusSection` where lateral moves would otherwise be unpredictable; nothing focusable is invisible.
    (Focus and selection; SwiftUI focus)
@@ -190,8 +193,10 @@ a CI screenshot), **n/a**.
 ### Accessibility
 16. Every focusable element has a spoken label, a value where it has one, a hint only where the action is not obvious;
     headers have the header trait; VoiceOver reaches and operates every screen. (VoiceOver; Accessibility)
-17. Works with Larger Text, Bold Text, Reduce Transparency, Increase Contrast and Reduce Motion; each tested on the
-    simulator, with what was tested written down. (Accessibility; Typography; Materials)
+17. Works with Larger Text, Bold Text, Reduce Transparency, Increase Contrast and Reduce Motion, with what was tested
+    written down. Larger Text and Bold Text: CI screenshots 80 to 89 (drawn by the app). Increase Contrast, Reduce
+    Transparency and Reduce Motion: device-only, the tvOS simulator cannot set them (#15 item 1.4; V-17 to V-19).
+    (Accessibility; Typography; Materials)
 
 ### Identity and wording
 18. Neutral identity (no logo or branding of our own); real technology and service names only as text; the one TMDB logo

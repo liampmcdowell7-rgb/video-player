@@ -15,7 +15,7 @@ Standard: native tvOS 27 with Liquid Glass, indistinguishable from the system ap
 | Per-tab navigation | `NavigationStack` | None | Menu goes back one level; at the top level it goes Home (HIG Remotes) | not yet seen on a screen |
 | Home, Movies, Shows, Files, Discover in Search (empty) | `ContentUnavailableView` (tvOS 17.0+) | None | Standard empty state; Discover's "Discover Needs a Key" wording unchanged | not yet seen on a screen |
 | Search | `ContentUnavailableView` + `.searchable` | None | Standard search field | not yet seen on a screen |
-| Settings | `Form`, `Section`, `Toggle`, `LabeledContent` | None | Grouped like the system settings; section headers in title case | not yet seen on a screen |
+| Settings | `Form`, `Section`, `Toggle`, `LabeledContent` | None | Grouped like the system settings (unverified, from memory; V-08); section headers in title case (the Menus page asks title-style capitals for menu items; for section headers: unverified, from memory) | not yet seen on a screen |
 | Launch screen | Empty `UILaunchScreen` | None | System background | not yet seen on a screen |
 | App icon | Layered image stack, 3 layers, neutral grays | None known | HIG: 2 to 5 layers, rectangular unmasked layers; Icon Composer is not used for tvOS. Catalog naming vs Xcode 27 unverified (DESIGN_SYSTEM section 9) | not yet seen on a screen |
 | Top Shelf (static fallback) | Static image 2320x720 (plus 1920x720 slot) | None | Flat gray fallback; extension later | not yet seen on a screen |
@@ -57,7 +57,7 @@ Status of every row: **not yet seen on a screen.** The view model behind it is t
 | Loading | Plain `ProgressView`, no skeletons | None | HIG: avoid loading screens; the spinner shows only after a delay (view, not model) | not yet seen on a screen |
 | Error state | `ContentUnavailableView` with "Try Again" | None | One calm sentence, no codes | not yet seen on a screen |
 | Audio and Subtitles pickers | `transportBarCustomMenuItems` / `customInfoViewControllers`; `LabeledContent` in a `Menu` gives a subtitle (27 SDK) | None (decided at wiring time) | Actions take one or two steps | not yet seen on a screen |
-| Audio / subtitle delay row | Row in the same menu | New control, not in Apple's player | 50 ms steps, plus or minus 5 s. PROVISIONAL | not yet seen on a screen |
+| Audio / subtitle delay row | Row in the same menu | New control, not in Apple's player (unverified, from memory) | 50 ms steps, plus or minus 5 s. PROVISIONAL | not yet seen on a screen |
 | Skip Intro / Recap / Credits | `AVPlayerViewController.contextualActions` | None | Apple's own API and example (Skip button) | not yet seen on a screen |
 | Up Next | `AVContentProposal` + player delegate | Own countdown text | AVKit counts from the end of playback; ours from the credits start | not yet seen on a screen |
 | Playback Stats overlay | `contentOverlayView` / `customOverlayViewController`, standard material, system text styles | **Custom** (no Apple equivalent) | Small, translucent, off by default; legibility over bright video and image retention unverified | not yet seen on a screen |

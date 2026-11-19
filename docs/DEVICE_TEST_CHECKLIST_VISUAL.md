@@ -28,9 +28,9 @@ Write a result next to each item: **Pass**, **Fail** (what you saw), or **Not te
 ## Accessibility (set each in Apple TV Settings > Accessibility, test, set back)
 - V-15 Larger Text at the largest size: no text cut off or overlapping on any screen; layout reflows.
 - V-16 Bold Text on.
-- V-17 Reduce Transparency on: bars and menus become solid and stay readable.
-- V-18 Increase Contrast on: labels and focus still clear.
-- V-19 Reduce Motion on: no large movement from the app's own animations.
+- V-17 Reduce Transparency on: bars and menus become solid and stay readable. **Device-only** (#15 item 1.4): the tvOS simulator cannot set it, so no CI picture proves it.
+- V-18 Increase Contrast on: labels and focus still clear. **Device-only**, same reason.
+- V-19 Reduce Motion on: no large movement from the app's own animations. **Device-only**, same reason; a still picture could not show it anyway.
 - V-20 Light and dark appearance (Settings > General > Appearance): both look right, no black-on-black or white-on-white.
 - V-21 VoiceOver on: every tab and button is read with a sensible name; the icon-only buttons have labels.
 

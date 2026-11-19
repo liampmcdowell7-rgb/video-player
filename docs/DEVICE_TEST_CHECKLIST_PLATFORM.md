@@ -2,6 +2,13 @@
 
 New items from docs/PLATFORM_AUDIT.md. The parent merges them into the main checklist. Every item needs a real Apple TV; none has been run. Each says what to do and what a pass looks like. Item ids P1 onward.
 
+## Signing and iCloud (unproven in CI; docs/COVERAGE.md "Unproven items", #16 item 1.8)
+Needs a build signed with the real team and a provisioning profile (a development build or TestFlight), and an Apple TV signed in to iCloud.
+- U1. Entitlements, iCloud (R164). Open Settings > Storage and iCloud. Pass: it does NOT say iCloud is not available; after a minute it shows a last backup time. Fail: "iCloud is not available" while the Apple TV is signed in.
+- U2. Entitlements, App Group. Put the app in the top row of the Home Screen, watch something for a minute, go back and focus the app. Pass: the Top Shelf shows Continue Watching (same as V-TS1). Fail: only the static image.
+- U3. Entitlements, Keychain. Add a source with a password, quit the app (double-press TV, swipe up), reopen, then install a newer TestFlight build over it. Pass: the source connects each time without asking for the password again.
+- U4. iCloud restore at launch (R169). (a) Normal: delete the app, install it again, open it. Pass: the library comes back from iCloud and the first screen appears at once, with a scan starting within about 8 seconds. (b) Offline: unplug the network, open the app. Pass: the library from the Apple TV's own copy appears at once; no endless spinner. (c) Plug the network back in. Pass: nothing is lost or doubled. Record the times.
+
 ## Player, voice and remote
 - P1. Say "Skip ahead 15 seconds" (Siri Remote) during playback of a remuxed MKV. Pass: playback jumps about 15 seconds forward. Note the exact phrase variants that work.
 - P2. Say "What did they say?" during playback with a text subtitle track. Pass: it rewinds a short way and shows the subtitle. Repeat with no subtitle track and with a PGS track; record what happens (PGS is expected not to work).
