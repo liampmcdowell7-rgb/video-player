@@ -132,9 +132,9 @@ final class ArtworkEngineTests: XCTestCase {
     }
 
     func testASidecarPosterWinsAndTheOnlineLookupIsNeverAsked() async throws {
-        let r = try await rig([("/Movies/Heat (1995)/Heat (1995).mkv", 10_000), ("/Movies/Heat (1995)/poster.jpg", 5)])
-        r.reader.files["/Movies/Heat (1995)/poster.jpg"] = Data([1, 2, 3, 4, 5])
-        let id = try await r.lib.movieID("Heat")
+        let r = try await rig([("/Movies/Sample Movie One (1995)/Sample Movie One (1995).mkv", 10_000), ("/Movies/Sample Movie One (1995)/poster.jpg", 5)])
+        r.reader.files["/Movies/Sample Movie One (1995)/poster.jpg"] = Data([1, 2, 3, 4, 5])
+        let id = try await r.lib.movieID("Sample Movie One")
         let result = await r.engine().resolve(key: "item-\(id)")
         guard case .file(let url) = result else { return XCTFail("\(result)") }
         XCTAssertEqual(try Data(contentsOf: url), Data([1, 2, 3, 4, 5]))
@@ -144,9 +144,9 @@ final class ArtworkEngineTests: XCTestCase {
     /// The iCloud backup's "Only artwork for items in your library" (docs/BACKUP.md) names a cached picture from the index's
     /// own row for the picture file. That must be exactly the file the engine wrote, or every picture would be left out.
     func testTheBackupNamesTheCachedPosterExactlyAsTheEngineStoredIt() async throws {
-        let r = try await rig([("/Movies/Heat (1995)/Heat (1995).mkv", 10_000), ("/Movies/Heat (1995)/poster.jpg", 5)])
-        r.reader.files["/Movies/Heat (1995)/poster.jpg"] = Data([1, 2, 3, 4, 5])
-        let id = try await r.lib.movieID("Heat")
+        let r = try await rig([("/Movies/Sample Movie One (1995)/Sample Movie One (1995).mkv", 10_000), ("/Movies/Sample Movie One (1995)/poster.jpg", 5)])
+        r.reader.files["/Movies/Sample Movie One (1995)/poster.jpg"] = Data([1, 2, 3, 4, 5])
+        let id = try await r.lib.movieID("Sample Movie One")
         guard case .file(let url) = await r.engine().resolve(key: "item-\(id)") else { return XCTFail("no file") }
         let images = try await r.lib.store.indexedImageFiles()
         let image = try XCTUnwrap(images.first)
@@ -155,16 +155,16 @@ final class ArtworkEngineTests: XCTestCase {
     }
 
     func testWithoutASidecarTheMatchedOnlinePosterIsUsedAsAnAddress() async throws {
-        let r = try await rig([("/Movies/Alien (1979)/Alien (1979).mkv", 9_000)])
-        let id = try await r.lib.movieID("Alien")
+        let r = try await rig([("/Movies/Sample Movie Two (1979)/Sample Movie Two (1979).mkv", 9_000)])
+        let id = try await r.lib.movieID("Sample Movie Two")
         let result = await r.engine().resolve(key: "item-\(id)")
         XCTAssertEqual(result, .remote(URL(string: "https://images.example.invalid/item.jpg")!))
         XCTAssertTrue(r.reader.reads.isEmpty)
     }
 
     func testWithNoKeyAndNoSidecarThereIsNoPictureAndNothingIsAsked() async throws {
-        let r = try await rig([("/Movies/Alien (1979)/Alien (1979).mkv", 9_000)])
-        let id = try await r.lib.movieID("Alien")
+        let r = try await rig([("/Movies/Sample Movie Two (1979)/Sample Movie Two (1979).mkv", 9_000)])
+        let id = try await r.lib.movieID("Sample Movie Two")
         let result = await r.engine(withOnline: false).resolve(key: "item-\(id)")
         XCTAssertEqual(result, .none)
         XCTAssertEqual(r.online.itemCalls, 0)
@@ -210,9 +210,9 @@ final class ArtworkEngineTests: XCTestCase {
     }
 
     func testAPictureIsReadOnceThenServedFromTheCache() async throws {
-        let r = try await rig([("/Movies/Heat (1995)/Heat (1995).mkv", 10_000), ("/Movies/Heat (1995)/poster.jpg", 5)])
-        r.reader.files["/Movies/Heat (1995)/poster.jpg"] = Data([1, 2, 3, 4, 5])
-        let id = try await r.lib.movieID("Heat")
+        let r = try await rig([("/Movies/Sample Movie One (1995)/Sample Movie One (1995).mkv", 10_000), ("/Movies/Sample Movie One (1995)/poster.jpg", 5)])
+        r.reader.files["/Movies/Sample Movie One (1995)/poster.jpg"] = Data([1, 2, 3, 4, 5])
+        let id = try await r.lib.movieID("Sample Movie One")
         let e = r.engine()
         _ = await e.resolve(key: "item-\(id)")
         _ = await e.resolve(key: "item-\(id)")
@@ -220,20 +220,20 @@ final class ArtworkEngineTests: XCTestCase {
     }
 
     func testAnUnreadableOrOversizedPictureFallsBackToOnline() async throws {
-        let r = try await rig([("/Movies/Heat (1995)/Heat (1995).mkv", 10_000), ("/Movies/Heat (1995)/poster.jpg", Int64(ArtworkEngine.maxSidecarBytes) + 1),
-                               ("/Movies/Alien (1979)/Alien (1979).mkv", 9_000), ("/Movies/Alien (1979)/poster.jpg", 5)])
-        // Heat's poster is over the size limit (40 MB since the quality re-check); Alien's cannot be read (not in the fake reader).
-        let heat = try await r.lib.movieID("Heat"), alien = try await r.lib.movieID("Alien")
+        let r = try await rig([("/Movies/Sample Movie One (1995)/Sample Movie One (1995).mkv", 10_000), ("/Movies/Sample Movie One (1995)/poster.jpg", Int64(ArtworkEngine.maxSidecarBytes) + 1),
+                               ("/Movies/Sample Movie Two (1979)/Sample Movie Two (1979).mkv", 9_000), ("/Movies/Sample Movie Two (1979)/poster.jpg", 5)])
+        // Movie One's poster is over the size limit (40 MB since the quality re-check); Movie Two's cannot be read (not in the fake reader).
+        let heat = try await r.lib.movieID("Sample Movie One"), alien = try await r.lib.movieID("Sample Movie Two")
         let e = r.engine()
         let a = await e.resolve(key: "item-\(heat)"), b = await e.resolve(key: "item-\(alien)")
         guard case .remote = a, case .remote = b else { return XCTFail("\(a) \(b)") }
-        XCTAssertFalse(r.reader.reads.contains("/Movies/Heat (1995)/poster.jpg"), "an oversized file is not even downloaded")
+        XCTAssertFalse(r.reader.reads.contains("/Movies/Sample Movie One (1995)/poster.jpg"), "an oversized file is not even downloaded")
     }
 
     func testANothingAnswerIsRememberedForAWhileThenAskedAgain() async throws {
-        let r = try await rig([("/Movies/Alien (1979)/Alien (1979).mkv", 9_000)])
+        let r = try await rig([("/Movies/Sample Movie Two (1979)/Sample Movie Two (1979).mkv", 9_000)])
         r.online.itemURL = nil
-        let id = try await r.lib.movieID("Alien")
+        let id = try await r.lib.movieID("Sample Movie Two")
         let clock = TickClock()
         final class Box: @unchecked Sendable { var offset = 0.0 }
         let box = Box()
@@ -247,7 +247,7 @@ final class ArtworkEngineTests: XCTestCase {
     }
 
     func testRemoteKeysAndUnknownKeys() async throws {
-        let r = try await rig([("/Movies/Alien (1979)/Alien (1979).mkv", 9_000)])
+        let r = try await rig([("/Movies/Sample Movie Two (1979)/Sample Movie Two (1979).mkv", 9_000)])
         let e = r.engine()
         let remote = await e.resolve(key: "remote:/abc.jpg")
         XCTAssertEqual(remote, .remote(URL(string: "https://images.example.invalid/w500/abc.jpg")!))
@@ -262,9 +262,9 @@ final class ArtworkEngineTests: XCTestCase {
     // MARK: Title logos (#15 Part 9)
 
     func testAMovieLogoNextToTheFileComesFirstThenTheOnlineLogosInOrder() async throws {
-        let r = try await rig([("/Movies/Heat (1995)/Heat (1995).mkv", 10_000), ("/Movies/Heat (1995)/clearlogo.png", 5)])
-        r.reader.files["/Movies/Heat (1995)/clearlogo.png"] = Data([9])
-        let id = try await r.lib.movieID("Heat")
+        let r = try await rig([("/Movies/Sample Movie One (1995)/Sample Movie One (1995).mkv", 10_000), ("/Movies/Sample Movie One (1995)/clearlogo.png", 5)])
+        r.reader.files["/Movies/Sample Movie One (1995)/clearlogo.png"] = Data([9])
+        let id = try await r.lib.movieID("Sample Movie One")
         try await r.lib.store.setMetadata(itemID: id, ItemMetadata(tmdbID: 42))
         r.online.logos = [ImageRef(path: "/fr.png", width: 800, language: "fr", voteAverage: 9),
                           ImageRef(path: "/en.png", width: 800, language: "en", voteAverage: 1)]
@@ -276,8 +276,8 @@ final class ArtworkEngineTests: XCTestCase {
     }
 
     func testWithOnlineLookupOffNothingIsAskedAndOnlyLocalLogosCount() async throws {
-        let r = try await rig([("/Movies/Heat (1995)/Heat (1995).mkv", 10_000)])
-        let id = try await r.lib.movieID("Heat")
+        let r = try await rig([("/Movies/Sample Movie One (1995)/Sample Movie One (1995).mkv", 10_000)])
+        let id = try await r.lib.movieID("Sample Movie One")
         try await r.lib.store.setMetadata(itemID: id, ItemMetadata(tmdbID: 42))
         r.online.logos = [ImageRef(path: "/en.png", width: 800, language: "en")]
         let found = await r.engine(withOnline: false).logoCandidates(key: "item-\(id)", userLanguage: "en")
@@ -302,9 +302,9 @@ final class ArtworkEngineTests: XCTestCase {
     // MARK: Backdrops and details (#15 6.2)
 
     func testAFanartNextToTheMovieWinsOverTheOnlineBackdrop() async throws {
-        let r = try await rig([("/Movies/Heat (1995)/Heat (1995).mkv", 10_000), ("/Movies/Heat (1995)/fanart.jpg", 5)])
-        r.reader.files["/Movies/Heat (1995)/fanart.jpg"] = Data([4])
-        let id = try await r.lib.movieID("Heat")
+        let r = try await rig([("/Movies/Sample Movie One (1995)/Sample Movie One (1995).mkv", 10_000), ("/Movies/Sample Movie One (1995)/fanart.jpg", 5)])
+        r.reader.files["/Movies/Sample Movie One (1995)/fanart.jpg"] = Data([4])
+        let id = try await r.lib.movieID("Sample Movie One")
         try await r.lib.store.setMetadata(itemID: id, ItemMetadata(tmdbID: 42))
         r.online.backdrops = [ImageRef(path: "/b.jpg", width: 1920, language: nil)]
         let found = await r.engine().backdrop(key: "item-\(id)", userLanguage: "en")
@@ -313,8 +313,8 @@ final class ArtworkEngineTests: XCTestCase {
     }
 
     func testWithoutAFanartTheMatchedOnlineBackdropIsUsedAndWithoutAKeyNothing() async throws {
-        let r = try await rig([("/Movies/Heat (1995)/Heat (1995).mkv", 10_000)])
-        let id = try await r.lib.movieID("Heat")
+        let r = try await rig([("/Movies/Sample Movie One (1995)/Sample Movie One (1995).mkv", 10_000)])
+        let id = try await r.lib.movieID("Sample Movie One")
         try await r.lib.store.setMetadata(itemID: id, ItemMetadata(tmdbID: 42))
         r.online.backdrops = [ImageRef(path: "/b.jpg", width: 1920, language: nil)]
         let online = await r.engine().backdrop(key: "item-\(id)", userLanguage: "en")
@@ -336,8 +336,8 @@ final class ArtworkEngineTests: XCTestCase {
     }
 
     func testDetailsOnlyForAMovieAndOnlyWithAKey() async throws {
-        let r = try await rig([("/Movies/Heat (1995)/Heat (1995).mkv", 10_000), ("/TV/Show One (2010)/Season 1/Show One - S01E01 - A.mkv", 1_000)])
-        let id = try await r.lib.movieID("Heat")
+        let r = try await rig([("/Movies/Sample Movie One (1995)/Sample Movie One (1995).mkv", 10_000), ("/TV/Show One (2010)/Season 1/Show One - S01E01 - A.mkv", 1_000)])
+        let id = try await r.lib.movieID("Sample Movie One")
         r.online.details = TitleDetails(overview: "A synopsis.", cast: [.init(id: 1, name: "Sample Actor", role: "Sample Role")])
         let found = await r.engine().details(key: "item-\(id)")
         XCTAssertEqual(found?.overview, "A synopsis.")

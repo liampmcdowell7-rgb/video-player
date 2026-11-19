@@ -173,8 +173,9 @@ test-counts self-test 17, ci-inspect self-test 22, ambiguous-types 10, artifact-
 stray-folder guard 1, playback-status doc table 1 (474 rows).
 
 - 1,902 − 1,848 = 54 new tests, the same 121 skipped (the server, iCloud and tool tests that need what Linux lacks).
-- The `FixMatchTests` name clash (above) now puts its 5 tests under AppLogic: AppLogic 381 matches
-  `swift test --filter AppLogicTests`, and MetadataOnline shows 222 instead of 227. The total is right.
+- The `FixMatchTests` name clash (above) is gone: bebc090 renamed AppLogic's class `FixMatchViewModelTests`, so its 5
+  tests are now counted under AppLogic (381, matching `swift test --filter AppLogicTests`) and MetadataOnline shows
+  its own 222 instead of 227. `scripts/test-counts.sh --duplicates` finds no shared class name.
 
 ## 1. What the first TestFlight build would NOT have that you asked for (gaps first)
 
