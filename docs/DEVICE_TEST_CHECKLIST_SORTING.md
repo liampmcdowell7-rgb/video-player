@@ -35,3 +35,11 @@ Nothing here has been seen on a device. Each line says what to do and what passe
 - SO13. Console (Mac, connected Apple TV), category "Sorting", debug messages on. Pass: one line per file:
   "sorted movie by moviePattern: <private> (...)"; the path is not shown in clear.
 - SO14. Discover. Pass: nothing in Discover changes; Discover titles never appear in Needs Review.
+- SO15 (addendum #18 G). Your own flat mixed folder (movies and episodes side by side, no Movies/TV split) on the real
+  Jellyfin source. Step 1: Settings > Sources > the source > Sort by Filename Instead of Server Library Types, off; Scan
+  Now. Write down every file in Settings > Library > Needs Review (the file name and the note under it). Step 2: turn the
+  setting on; Scan Now; write the list down again. Pass: every file is in exactly one of Movies, Shows or Needs Review in
+  both steps, nothing is lost, and the report names which files were in Needs Review in each step and which ones moved
+  between the two steps. Expected, not yet seen on a device: with the setting off, Jellyfin's own types decide and few
+  or no files are in Needs Review; with it on, files with neither an episode pattern nor a year (and no folder hint) are
+  in Needs Review.
