@@ -2,6 +2,8 @@
 # Run it from the project folder after `git init`.
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\pre-push-check.ps1
 $ErrorActionPreference = 'Continue'
+# #22 E: the first line of the output, before any check can stop the script (same line as pre-push-check.sh).
+Write-Host "Run this before git push, every time."
 
 # Refuse to run unless git's repository root is exactly this project folder. Outside a repository
 # (or inside a bigger one) the file list would be empty or wrong and the scan would pass by accident.

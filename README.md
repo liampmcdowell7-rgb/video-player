@@ -19,4 +19,4 @@ Nothing here has been compiled yet: it was written on a machine without Swift or
 
 ## Rules
 - No secrets in the repo. Keys and credentials go in Keychain or CI secure variables.
-- Run `scripts/pre-push-check.sh` before any push.
+- Run `scripts/pre-push-check.sh` before any push. Run this before git push, every time.

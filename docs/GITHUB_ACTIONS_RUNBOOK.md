@@ -169,7 +169,7 @@ keep do appear:
 
    *Success looks like this:* `Video Player Dev <dev@localhost.invalid>`.
    *If it shows anything else:* stop.
-6. Run the pre-push check:
+6. Run the pre-push check. **Run this before git push, every time.**
 
    ```powershell
    & "C:\Program Files\Git\bin\bash.exe" scripts/pre-push-check.sh

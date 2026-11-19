@@ -2,6 +2,8 @@
 # Lists every changed file and flags likely secrets. Review the list against the plan before pushing.
 # Run from the project folder after `git init`. Exit 1 when anything is flagged.
 set -u
+# #22 E: the first line of the output, before any check can stop the script.
+echo "Run this before git push, every time."
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE"
 TOP="$(git rev-parse --show-toplevel 2>/dev/null || true)"
