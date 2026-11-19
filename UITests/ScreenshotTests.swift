@@ -430,7 +430,11 @@ final class ScreenshotTests: XCTestCase {
         func name(_ offset: Int, _ screen: String) -> String { String(format: "%02d", first + offset) + "-\(variant)-\(screen)" }
         for (offset, tab, ready) in [(0, "home", "Sample"), (1, "movies", "Sample"), (2, "settings", "Playback")] {
             let app = launch("-UITestFixtures", tab: tab, extra: extra, launchTimeout: wait)
-            if waitForScreen("screen.\(tab)", in: app, timeout: wait), waitFor(ready, in: app, timeout: wait) { settle(); shot(name(offset, tab)) }
+            if waitForScreen("screen.\(tab)", in: app, timeout: wait), waitFor(ready, in: app, timeout: wait) {
+                settle(); shot(name(offset, tab))
+                // #15 item 1.5: "Settings" was cut to "Sett" under Larger Text; the tab bar must read TAB BAR OK here too.
+                if offset == 0 { tabBarCheck(name(offset, tab), in: app) }
+            }
             else { notReached(name(offset, tab), "The \(tab) screen with “\(ready)” did not appear within \(Int(wait)) s.") }
             app.terminate()
         }

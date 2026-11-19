@@ -24,21 +24,27 @@ struct RootView: View {
         TabView(selection: $selection) {
             Tab("Home", systemImage: "house", value: AppTab.home) {
                 NavigationStack(path: $homePath) { HomeView().tabRootScreen("Home", identifier: "screen.home").routeDestinations() }
+                    .uiTestAccessibilityOverrides()
             }
             Tab("Movies", systemImage: "film", value: AppTab.movies) {
                 NavigationStack { MoviesView().tabRootScreen("Movies", identifier: "screen.movies").routeDestinations() }
+                    .uiTestAccessibilityOverrides()
             }
             Tab("Shows", systemImage: "tv", value: AppTab.shows) {
                 NavigationStack { ShowsView().tabRootScreen("Shows", identifier: "screen.shows").routeDestinations() }
+                    .uiTestAccessibilityOverrides()
             }
             Tab("Files", systemImage: "folder", value: AppTab.files) {
                 NavigationStack { FilesView().tabRootScreen("Files", identifier: "screen.files").routeDestinations() }
+                    .uiTestAccessibilityOverrides()
             }
             Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
                 NavigationStack { SearchView().screenIdentifier("screen.search").screenHeader("Search").routeDestinations() }
+                    .uiTestAccessibilityOverrides()
             }
             Tab("Settings", systemImage: "gearshape", value: AppTab.settings) {
                 NavigationStack { SettingsView().tabRootScreen("Settings", identifier: "screen.settings") }
+                    .uiTestAccessibilityOverrides()
             }
         }
         .overlay(alignment: .bottom) {
@@ -50,6 +56,7 @@ struct RootView: View {
         }
         .fullScreenCover(item: $services.playRequest) { request in
             PlayerScreen(request: request)
+                .uiTestAccessibilityOverrides()
         }
         .onOpenURL { url in open(DeepLink.parse(url)) }
         .task {
