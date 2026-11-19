@@ -46,9 +46,14 @@ S="$(dirname "$(dirname "$0")")"
 n=$(( $(cat "$S/xb-count" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$S/xb-count"
 line="$(sed -n "${n}p" "$S/xb-script")"; [ -n "$line" ] || line="TEST SUCCEEDED|0"
 echo "$*" >> "$S/xb-args"
-prev=""; for a in "$@"; do [ "$prev" = -resultBundlePath ] && { [ -e "$a" ] && { echo "bundle exists"; exit 9; }; mkdir -p "$a"; }; prev="$a"; done
+prev=""; bundle=""; for a in "$@"; do [ "$prev" = -resultBundlePath ] && { [ -e "$a" ] && { echo "bundle exists"; exit 9; }; mkdir -p "$a"; bundle="$a"; }; prev="$a"; done
 # "SLEEP n|code": a test run that takes n seconds (exec, so a signal reaches the sleeping process itself).
 case "$line" in "SLEEP "*) s="${line#SLEEP }"; exec sleep "${s%|*}" ;; esac
+# "TRAPINT n|code" (#24 A): like xcodebuild on Ctrl-C, finishes its result bundle (Info.plist) on SIGINT, then exits 130.
+case "$line" in "TRAPINT "*)
+  trap 'echo "got SIGINT"; kill $! 2>/dev/null; echo plist > "$bundle/Info.plist"; exit 130' INT
+  s="${line#TRAPINT }"; sleep "${s%|*}" & wait $!; exit 0 ;;
+esac
 echo "${line%|*}"; exit "${line##*|}"
 EOF
   chmod +x "$S/bin/xcrun" "$S/bin/fake-xcodebuild"
@@ -100,13 +105,34 @@ check "exit code of a passing run is 0, no retry" "[ $rc -eq 0 ] && ! [ -e '$S/o
 budget() { printf '%s\tPrepare\n' $(( $(date +%s) - 100 )) > "$S/out/stage-times.txt"; }
 setup; run prepare; budget; printf '%s\n' "SLEEP 20|0" > "$S/xb-script"
 t0=$(date +%s); CI_TEST_DEADLINE_SECONDS=102 xb; rc=$?; took=$(( $(date +%s) - t0 ))
-check "time budget: a run past the deadline is stopped (SIGTERM) and fails" "[ $rc -ne 0 ] && [ $took -lt 12 ] && grep -q 'TIME BUDGET: stopping' '$S/out/test.log'"
+check "time budget: a run past the deadline is stopped (SIGINT) and fails" "[ $rc -ne 0 ] && [ $took -lt 12 ] && grep -q 'TIME BUDGET: stopping' '$S/out/test.log'"
 setup; run prepare; budget
 CI_TEST_DEADLINE_SECONDS=50 xb; rc=$?
 check "time budget: after the deadline nothing is started (exit 124)" "[ $rc -eq 124 ] && ! [ -e '$S/xb-count' ] && grep -q 'TIME BUDGET: not started' '$S/out/test.log'"
 setup; run prepare; budget
 CI_TEST_DEADLINE_SECONDS=1000 xb; rc=$?
 check "time budget: a run inside the budget passes and says how much time it had" "[ $rc -eq 0 ] && grep -qE 'time budget: [0-9]+ s left' '$S/out/test.log'"
+
+# #24 A: the stop is SIGINT first, and a run that finishes its bundle on SIGINT is not sent SIGTERM.
+setup; run prepare; budget; printf '%s
+' "TRAPINT 30|0" > "$S/xb-script"
+t0=$(date +%s); CI_TEST_DEADLINE_SECONDS=102 CI_STOP_GRACE_SECONDS=20 xb; rc=$?; took=$(( $(date +%s) - t0 ))
+check "SIGINT at the deadline: the command gets it (not ignored), writes Info.plist, no SIGTERM" "[ $rc -eq 130 ] && [ $took -lt 15 ] && grep -q 'got SIGINT' '$S/out/test.log' && [ -f '$S/out/R.xcresult/Info.plist' ] && ! grep -q 'SIGTERM, SIGKILL' '$S/out/test.log' && [ -e '$S/out/time-budget-stopped' ]"
+setup; run prepare; budget; printf '%s
+' "SLEEP 30|0" > "$S/xb-script"; printf '#!/usr/bin/env bash
+trap "" INT
+exec sleep 30
+' > "$S/bin/deaf"; chmod +x "$S/bin/deaf"
+t0=$(date +%s); CI_TEST_DEADLINE_SECONDS=102 CI_STOP_GRACE_SECONDS=3 run test "$S/out/test.log" -- deaf; rc=$?; took=$(( $(date +%s) - t0 ))
+check "a command that ignores SIGINT gets SIGTERM after the grace time" "[ $rc -ne 0 ] && [ $took -lt 15 ] && grep -q 'still running 3 s after SIGINT' '$S/out/test.log'"
+
+# #24 B: CI_TEST_BUDGET_SECONDS counts from the first UI test, not from the first stage (here 100 s ago).
+setup; run prepare; budget
+CI_TEST_BUDGET_SECONDS=60 xb A; rc=$?
+check "budget from the first UI test: a long build before it does not use the budget" "[ $rc -eq 0 ] && [ -s '$S/out/ui-tests-started' ] && grep -q 'CI_TEST_BUDGET_SECONDS=60 from the first UI test' '$S/out/test.log'"
+echo $(( $(date +%s) - 61 )) > "$S/out/ui-tests-started"
+CI_TEST_BUDGET_SECONDS=60 xb B; rc=$?
+check "budget from the first UI test: used up 60 s after that start, the next test is not started" "[ $rc -eq 124 ] && grep -q 'TIME BUDGET: not started' '$S/out/test.log'"
 
 # #21 A: runtime choice and retry on the next runtime.
 lastenv() { grep '^SIM_UDID=' "$S/env" | tail -n 1; }

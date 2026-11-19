@@ -23,11 +23,18 @@
 # and the runtime lists into the job summary. The boot itself is its own stage, "Boot and retry" (ci-stage.sh), so the
 # Stage times table shows it apart from picking (and a retry inside a test run is counted in that test stage).
 #
-# Time budget (#16 item 1.8): with CI_TEST_DEADLINE_SECONDS set, every `test` call must end that many seconds after the
-# job's first stage marker ($OUT/stage-times.txt, written by ci-stage.sh in the first step). A call is not started when
-# the deadline has passed ("TIME BUDGET: not started"), and one still running then gets SIGTERM, and SIGKILL 30 s later
-# ("TIME BUDGET: stopping"). So the export and upload steps after it always have the rest of the job's 30 minutes, also
-# when the build before was slow. Whether xcodebuild still leaves a readable result bundle after SIGTERM is unverified.
+# Time budget. Two kinds:
+#   CI_TEST_BUDGET_SECONDS (#24 B, the UI-test jobs): counted from the START OF THE FIRST UI TEST of the job (the first
+#     `test` call writes the time into $OUT/ui-tests-started), so a slow build no longer eats the test time.
+#   CI_TEST_DEADLINE_SECONDS (#16 item 1.8, the package-test job): counted from the job's first stage marker
+#     ($OUT/stage-times.txt, written by ci-stage.sh in the first step).
+# A call is not started when the budget is used up ("TIME BUDGET: not started", exit 124). One still running then is
+# stopped (#24 A): SIGINT first, as Ctrl-C would, and up to CI_STOP_GRACE_SECONDS (60) for xcodebuild to finish writing the
+# result bundle; then SIGTERM, and SIGKILL 30 s later ("TIME BUDGET: stopping"; $OUT/time-budget-stopped is written).
+# A command started with & in a non-interactive shell has SIGINT ignored, and a child cannot undo that in bash, so the
+# command is started through a tiny python3 exec that puts SIGINT back to its default first (found by scripts/test-ci-sim.sh).
+# Whether xcodebuild then completes the bundle (Info.plist) is unverified; scripts/ci-ui-tests.sh takes the pictures from
+# the PNG files either way.
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 out="${OUT:-build/ci}"
@@ -50,23 +57,44 @@ with_timeout() {
   return $rc
 }
 
-# Seconds left before CI_TEST_DEADLINE_SECONDS (after the first stage marker); empty when no budget applies.
+# The budget in force, for the messages.
+budget_label() {
+  if [ -n "${CI_TEST_BUDGET_SECONDS:-}" ]; then echo "CI_TEST_BUDGET_SECONDS=$CI_TEST_BUDGET_SECONDS from the first UI test"
+  else echo "CI_TEST_DEADLINE_SECONDS=${CI_TEST_DEADLINE_SECONDS:-} from the first stage"; fi
+}
+
+# Seconds left in the budget; empty when no budget applies.
 seconds_left() {
+  if [ -n "${CI_TEST_BUDGET_SECONDS:-}" ]; then
+    local start; start="$(cat "$out/ui-tests-started" 2>/dev/null)"
+    if [ -z "$start" ]; then start="$(date +%s)"; echo "$start" > "$out/ui-tests-started"; fi
+    echo $(( start + CI_TEST_BUDGET_SECONDS - $(date +%s) ))
+    return 0
+  fi
   [ -n "${CI_TEST_DEADLINE_SECONDS:-}" ] || return 0
   local first; first="$(head -n 1 "$out/stage-times.txt" 2>/dev/null | cut -f1)"
   [ -n "$first" ] || first="$(date +%s)"
   echo $(( first + CI_TEST_DEADLINE_SECONDS - $(date +%s) ))
 }
 
-# Runs a command until it ends or $1 seconds pass; then SIGTERM, and SIGKILL 30 s later.
+# Starts "$@" with SIGINT at its default (see the time budget note above).
+SIGINT_DEFAULT='import os, signal, sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execvp(sys.argv[1], sys.argv[1:])'
+
+# Runs a command until it ends or $1 seconds pass; then SIGINT, up to CI_STOP_GRACE_SECONDS for it to end, then SIGTERM,
+# and SIGKILL 30 s later.
 with_budget() {
   local seconds="$1"; shift
-  "$@" & local pid=$!
+  local grace="${CI_STOP_GRACE_SECONDS:-60}"
+  python3 -c "$SIGINT_DEFAULT" "$@" & local pid=$!
   (
     sleep "$seconds"
     kill -0 "$pid" 2>/dev/null || exit 0
-    echo "================ TIME BUDGET: stopping the test run (CI_TEST_DEADLINE_SECONDS=$CI_TEST_DEADLINE_SECONDS) so the export and upload still run ================"
-    # Not SIGINT: a command started with & in a non-interactive shell ignores it (found by scripts/test-ci-sim.sh).
+    : > "$out/time-budget-stopped"
+    echo "================ TIME BUDGET: stopping the test run ($(budget_label)): SIGINT, up to $grace s for xcodebuild to finish the result bundle ================"
+    kill -INT "$pid" 2>/dev/null
+    local i=0
+    while [ "$i" -lt "$grace" ]; do kill -0 "$pid" 2>/dev/null || exit 0; sleep 1; i=$((i + 1)); done
+    echo "================ TIME BUDGET: still running $grace s after SIGINT: SIGTERM, SIGKILL 30 s later ================"
     kill -TERM "$pid" 2>/dev/null; sleep 30; kill -KILL "$pid" 2>/dev/null
   ) & local watcher=$!
   wait "$pid"; local rc=$?
@@ -80,10 +108,10 @@ budgeted() {
   local left; left="$(seconds_left)"
   if [ -z "$left" ]; then "$@"; return; fi
   if [ "$left" -le 0 ]; then
-    echo "================ TIME BUDGET: not started, the deadline (CI_TEST_DEADLINE_SECONDS=$CI_TEST_DEADLINE_SECONDS) has passed ================"
+    echo "================ TIME BUDGET: not started, the budget ($(budget_label)) is used up ================"
     return 124
   fi
-  echo "(time budget: $left s left for this test run)"
+  echo "(time budget: $left s left for this test run; $(budget_label))"
   with_budget "$left" "$@"
 }
 
