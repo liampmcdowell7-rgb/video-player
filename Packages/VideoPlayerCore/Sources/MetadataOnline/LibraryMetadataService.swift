@@ -29,12 +29,7 @@ public protocol TitleDetailsProvider: Sendable {
     func collection(id: Int) async throws -> CollectionMetadata
 }
 
-public protocol RatingsProvider: Sendable {
-    func ratings(imdbID: String) async throws -> OMDbResult
-}
-
 extension TMDBClient: TitleDetailsProvider {}
-extension OMDbClient: RatingsProvider {}
 
 /// A library item together with the online metadata of the title it matched.
 public struct MatchedLibraryItem: Sendable {
@@ -46,7 +41,7 @@ public struct MatchedLibraryItem: Sendable {
     public let episodes: [EpisodeMetadata]
     /// Sidecar, TMDB and embedded values merged per field, with provenance.
     public let merged: MergedMetadata
-    /// TMDB score plus the OMDb scores that exist. Missing scores are simply absent.
+    /// The TMDB score (#27: the OMDb scores and client are removed, R211). Missing scores are simply absent.
     public let ratings: RatingSet
 
     /// Only this module creates matched items.
@@ -91,14 +86,12 @@ public actor LibraryMetadataService {
     private let library: any LibraryCatalog
     private let fixMatch: FixMatchService
     private let details: any TitleDetailsProvider
-    private let ratingsProvider: (any RatingsProvider)?
     private let cache: any MetadataCache
 
-    public init(library: any LibraryCatalog, fixMatch: FixMatchService, details: any TitleDetailsProvider, ratings: (any RatingsProvider)? = nil, cache: any MetadataCache = InMemoryMetadataCache()) {
+    public init(library: any LibraryCatalog, fixMatch: FixMatchService, details: any TitleDetailsProvider, cache: any MetadataCache = InMemoryMetadataCache()) {
         self.library = library
         self.fixMatch = fixMatch
         self.details = details
-        self.ratingsProvider = ratings
         self.cache = cache
     }
 
@@ -155,14 +148,14 @@ public actor LibraryMetadataService {
         switch match.kind {
         case .movie:
             let movie = try await details.movie(id: match.tmdbID)
-            let ratings = await combinedRatings(movie.ratings, imdbID: movie.ids.imdb)
+            let ratings = movie.ratings
             var enriched = movie
             enriched.ratings = ratings
             let merged = MetadataMerger.merge(sidecar: local, tmdb: MetadataMerger.fields(from: enriched), embedded: embedded)
             return MatchedLibraryItem(itemID: itemID, match: match, movie: enriched, series: nil, episodes: [], merged: merged, ratings: ratings)
         case .series:
             let series = try await details.series(id: match.tmdbID)
-            let ratings = await combinedRatings(series.ratings, imdbID: series.ids.imdb)
+            let ratings = series.ratings
             var enriched = series
             enriched.ratings = ratings
             var episodes: [EpisodeMetadata] = []
@@ -175,12 +168,5 @@ public actor LibraryMetadataService {
             let merged = MetadataMerger.merge(sidecar: local, tmdb: tmdbFields, embedded: embedded)
             return MatchedLibraryItem(itemID: itemID, match: match, movie: nil, series: enriched, episodes: episodes, merged: merged, ratings: ratings)
         }
-    }
-
-    /// OMDb scores are optional: no key, a quota that is used up, or a title OMDb does not know all leave the TMDB score alone.
-    private func combinedRatings(_ tmdb: RatingSet, imdbID: String?) async -> RatingSet {
-        guard let provider = ratingsProvider, let imdbID, !imdbID.isEmpty else { return tmdb }
-        guard let omdb = try? await provider.ratings(imdbID: imdbID) else { return tmdb }
-        return tmdb.merging(omdb.ratings)
     }
 }

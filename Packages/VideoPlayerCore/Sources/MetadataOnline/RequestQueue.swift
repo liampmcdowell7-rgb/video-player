@@ -39,8 +39,6 @@ public struct QueueConfiguration: Sendable, Equatable {
 
     /// TMDB asks for fewer than about 50 requests per second; we stay far below that.
     public static let tmdb = QueueConfiguration(minInterval: 0.05, maxRetries: 4, baseBackoff: 1, maxBackoff: 30)
-    /// OMDb's free key allows 1,000 requests per day.
-    public static let omdb = QueueConfiguration(minInterval: 0.25, maxRetries: 3, baseBackoff: 1, maxBackoff: 20, dailyLimit: 1000)
 }
 
 /// Sends requests for one provider one slot at a time, with spacing, retries and back-off.

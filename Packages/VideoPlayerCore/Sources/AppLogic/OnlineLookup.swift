@@ -10,15 +10,15 @@ public enum OnlineLookupText {
 
     /// D10 (PROVISIONAL wording, facts read from the request builders on 2026-11-17): what is sent and where, shown above the
     /// key fields. Says the same facts as docs/PRIVACY_POLICY_DRAFT.txt ("Online lookups"). If a request builder changes
-    /// (TMDBClient, TMDBDiscover, OMDbClient) or the OMDb key starts being used, this text, the policy draft and
+    /// (TMDBClient, TMDBDiscover, WikidataClient, IntroDBClient), this text, the policy draft and
     /// `OnlineKeyTests.testThePlainStatement...` must change together.
     /// Facts: search sends the title (and the year when known); details, seasons, collections, similar titles and
     /// where-to-watch send TMDB's own id for a matched title, season numbers (never episode numbers), and the fixed language
     /// code "en-US" (the device language is not used); an IMDb id from an NFO file next to the video is sent to look the
-    /// title up; the region is NOT sent (the reply lists every region, the app keeps one on this device); the OMDb key is
-    /// stored but no code path calls OMDb. Needs Review sorting (OnlineSortPass, docs/SORTING.md) sends the parsed title and
+    /// title up; the region is NOT sent (the reply lists every region, the app keeps one on this device). #27: the OMDb key
+    /// and client are removed (R211). Needs Review sorting (OnlineSortPass, docs/SORTING.md) sends the parsed title and
     /// year of at most `OnlineSortResolver.perRun` (40) files per launch, only with a TMDB key.
-    public static let whatIsSent = "Nothing is sent to any online service until you enter a key or turn on Free Data Sources below. With a TMDB key, the app sends TMDB the title and year it read from your file and folder names, season numbers, TMDB’s own number for a title it already matched, an IMDb number found in an info file next to your video, the language code en-US and your key. To sort video files that are not clearly a movie or an episode (Needs Review), it also sends TMDB the title and year it read from the file and folder names of at most 40 such files each time the app opens. It uses the answers for pictures, Fix Match, Discover and where to watch. Your where-to-watch region is not sent: the app picks it from the answer on this device. Pictures are downloaded from the addresses TMDB returns, including title logos (pictures of a title’s lettering) for the movie and show pages while Show Title Logos is on in Settings > Library. TMDB also sees this device’s network address, like any web service. The OMDb key is saved but this version does not use it yet, so nothing is sent to OMDb. " + freeSourcesSent + " The app sends nothing else."
+    public static let whatIsSent = "Nothing is sent to any online service until you enter a key or turn on Free Data Sources below. With a TMDB key, the app sends TMDB the title and year it read from your file and folder names, season numbers, TMDB’s own number for a title it already matched, an IMDb number found in an info file next to your video, the language code en-US and your key. To sort video files that are not clearly a movie or an episode (Needs Review), it also sends TMDB the title and year it read from the file and folder names of at most 40 such files each time the app opens. It uses the answers for pictures, Fix Match, Discover and where to watch. Your where-to-watch region is not sent: the app picks it from the answer on this device. Pictures are downloaded from the addresses TMDB returns, including title logos (pictures of a title’s lettering) for the movie and show pages while Show Title Logos is on in Settings > Library. TMDB also sees this device’s network address, like any web service. " + freeSourcesSent + " The app sends nothing else."
 
     /// #26: what Free Data Sources sends (facts from WikidataClient and IntroDBClient). No key goes to either service.
     public static let freeSourcesSent = "With Free Data Sources on, the app sends Wikidata the title and year it read from your file and folder names, or TMDB’s number for a matched title, to find the cast and the title’s IMDb number. When a video you play has no intro or credits markers of its own, it sends IntroDB that IMDb number with the season and episode number to find where the intro starts. Both services see this device’s network address. No key is sent to them."
@@ -27,15 +27,12 @@ public enum OnlineLookupText {
 
     /// #26 item 3: one row per keyed service, the service's name as text only.
     public static let tmdbLabel = "TMDB"
-    public static let omdbLabel = "OMDb"
     public static let keyOn = "On"
     public static let keyNotSet = "Not set"
     public static let enterKey = "Enter Key"
     public static let replaceKey = "Replace Key"
     /// One short footer line per row (rule S1: never cut).
     public static let tmdbHelp = "Pictures, details, Fix Match, Discover and where to watch, for every source."
-    /// Honest: no code path uses this key yet (no scores are fetched or shown).
-    public static let omdbHelp = "Scores are not shown yet, so nothing is sent to OMDb."
 
     /// #26 item 3: Learn More with plain steps, the address as text (no link button, no quotes from TMDB's pages).
     public static let getTMDBKeyTitle = "Get a Free TMDB Key"
@@ -69,13 +66,8 @@ public enum OnlineLookupText {
         on ? "Free Data Sources are on." : "Free Data Sources are off."
     }
 
-    public static func status(hasTMDB: Bool, hasOMDb: Bool) -> String {
-        switch (hasTMDB, hasOMDb) {
-        case (false, false): return "Online lookup is off. No keys are entered."
-        case (true, false): return "Online lookup is on with a TMDB key."
-        case (false, true): return "Only an OMDb key is entered. Pictures, Fix Match and Discover need a TMDB key, so online lookup is off."
-        case (true, true): return "Online lookup is on with a TMDB key. The OMDb key is saved but not used yet."
-        }
+    public static func status(hasTMDB: Bool) -> String {
+        hasTMDB ? "Online lookup is on with a TMDB key." : "Online lookup is off. No key is entered."
     }
 }
 
@@ -96,9 +88,12 @@ public enum OnlineLookupPrefs {
 }
 
 public enum OnlineKeyKind: String, CaseIterable, Sendable {
-    case tmdb, omdb
+    case tmdb
     /// The id under which the secret is stored (never collides with a source id, which is a UUID).
     public var secretID: String { "online-key." + rawValue }
+    /// #27 item 3 (R211): keys of services the app no longer uses. Removed once, here, in the iCloud copy and in the old
+    /// source-password items, by `OnlineKeyStore.removeRetiredKeys()`.
+    public static let retiredSecretIDs = ["online-key.omdb"]
 }
 
 public enum OnlineKeyError: Error, Equatable, Sendable {
@@ -154,9 +149,24 @@ public struct OnlineKeyStore: Sendable {
 
     /// Every key value this device holds (key store and any not yet migrated), for the backup's forbidden list.
     public func allValues() -> [String] {
-        OnlineKeyKind.allCases.flatMap { kind -> [String] in
-            [key(kind), legacy.flatMap { (try? $0.secret(for: kind.secretID)) ?? nil }].compactMap { $0 }.filter { !$0.isEmpty }
+        let ids = OnlineKeyKind.allCases.map(\.secretID) + OnlineKeyKind.retiredSecretIDs
+        return ids.flatMap { id -> [String] in
+            [secrets.secret(for: id), legacy.flatMap { (try? $0.secret(for: id)) ?? nil }].compactMap { $0 }.filter { !$0.isEmpty }
         }
+    }
+
+    /// #27 item 3: deletes keys of retired services (OMDb) from this device, the old source-password items and the iCloud
+    /// copy. Safe to run every launch; returns the ids that were found here and removed.
+    @discardableResult
+    public func removeRetiredKeys() async -> [String] {
+        var removed: [String] = []
+        for id in OnlineKeyKind.retiredSecretIDs {
+            let here = secrets.secret(for: id) != nil || ((legacy.flatMap { try? $0.secret(for: id) }) ?? nil) != nil
+            try? legacy?.removeSecret(for: id)
+            if mirrored { _ = try? await secrets.remove(sourceID: id) } else { try? secrets.local.removeSecret(for: id) }
+            if here { removed.append(id) }
+        }
+        return removed
     }
 
     public func key(_ kind: OnlineKeyKind) -> String? {
@@ -189,6 +199,7 @@ public struct OnlineKeyStore: Sendable {
     /// Run at start-up: restores a key from the iCloud copy on a new device and uploads one that is only here.
     public func reconcile() async {
         migrateLegacy()
+        await removeRetiredKeys()
         guard mirrored else { return }
         _ = await secrets.reconcile(sourceIDs: OnlineKeyKind.allCases.map(\.secretID))
     }

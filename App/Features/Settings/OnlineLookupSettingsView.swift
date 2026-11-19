@@ -17,7 +17,7 @@ struct OnlineLookupSettingsView: View {
 
     var body: some View {
         SettingsPane(title: OnlineLookupText.settingsTitle, summary: SettingsTexts.onlineSummary,
-                     status: [OnlineLookupText.status(hasTMDB: services.online.hasCatalogueKey, hasOMDb: services.online.hasRatingsKey),
+                     status: [OnlineLookupText.status(hasTMDB: services.online.hasCatalogueKey),
                               OnlineLookupText.freeSourcesStatus(freeSources)]) {
             Section {
                 LearnMoreLink(title: SettingsTexts.whatIsSentTitle, text: OnlineLookupText.whatIsSent)
@@ -28,7 +28,6 @@ struct OnlineLookupSettingsView: View {
             Section {
                 LearnMoreLink(title: OnlineLookupText.getTMDBKeyTitle, text: OnlineLookupText.getTMDBKeySteps)
             }
-            KeyRow(kind: .omdb, label: OnlineLookupText.omdbLabel, help: OnlineLookupText.omdbHelp)
             Section {
                 SettingToggle(OnlineLookupText.freeSourcesLabel, isOn: $freeSources)
                     .accessibilityIdentifier(ControlID.freeDataSources)

@@ -143,32 +143,4 @@ enum Fixtures {
 
     static let tmdbInvalidKey = #"{"status_code":7,"status_message":"Invalid API key: You must be granted a valid key.","success":false}"#
     static let tmdbNotFound = #"{"status_code":34,"status_message":"The resource you requested could not be found.","success":false}"#
-
-    // MARK: OMDb
-
-    static let omdbMarrowgate = #"""
-    {"Title":"The Marrowgate","Year":"1999","Rated":"R","Released":"31 Mar 1999","Runtime":"136 min","Genre":"Action, Sci-Fi",
-     "Plot":"A hacker learns.","Poster":"N/A",
-     "Ratings":[{"Source":"Internet Movie Database","Value":"8.7/10"},{"Source":"Rotten Tomatoes","Value":"83%"},{"Source":"Metacritic","Value":"73/100"}],
-     "Metascore":"73","imdbRating":"8.7","imdbVotes":"2,000,000","imdbID":"tt0133093","Type":"movie","DVD":"N/A","BoxOffice":"N/A","Response":"True"}
-    """#
-
-    /// IMDb only; the others are "N/A" or missing.
-    static let omdbOnlyIMDb = #"""
-    {"Title":"Obscure","Year":"2015","Ratings":[{"Source":"Internet Movie Database","Value":"6.1/10"}],
-     "Metascore":"N/A","imdbRating":"6.1","imdbVotes":"N/A","imdbID":"tt7654321","Type":"movie","Response":"True"}
-    """#
-
-    static let omdbNothing = #"""
-    {"Title":"Unrated","Year":"2020","Ratings":[],"Metascore":"N/A","imdbRating":"N/A","imdbVotes":"N/A","imdbID":"tt1111111","Type":"movie","Response":"True"}
-    """#
-
-    static let omdbFlatOnly = #"""
-    {"Title":"Flat","Year":"2001","Metascore":"61","imdbRating":"7.4","imdbVotes":"12,345","imdbID":"tt2222222","Type":"movie","Response":"True"}
-    """#
-
-    static let omdbInvalidKey = #"{"Response":"False","Error":"Invalid API key!"}"#
-    static let omdbLimit = #"{"Response":"False","Error":"Request limit reached!"}"#
-    static let omdbNotFound = #"{"Response":"False","Error":"Movie not found!"}"#
-    static let omdbBadID = #"{"Response":"False","Error":"Incorrect IMDb ID."}"#
 }

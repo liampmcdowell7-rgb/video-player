@@ -148,28 +148,25 @@ final class CacheTests: XCTestCase {
         let all = [
             key("movie", "603"), key("movie", "603", "de-DE"), key("movie", "604"),
             key("tv", "1396"), key("tv", "1396", "season-1/en-US"), key("tv", "1396", "season-2/en-US"), key("tv", "1399"),
-            key("search-movie", "marrowgate|1999"), key("configuration", "-", ""),
-            key("title", "tt0133093", "", provider: "omdb"), key("title", "tt0903747", "", provider: "omdb")
+            key("search-movie", "marrowgate|1999"), key("configuration", "-", "")
         ]
         for k in all { await cache.store(Data("x".utf8), for: k, ttl: 1, at: Date()) }
         return cache
     }
 
-    func testRefreshOneMovieDropsAllItsLanguagesAndItsOMDbScores() async {
+    func testRefreshOneMovieDropsAllItsLanguages() async {
         let cache = await filled()
         let n = await MetadataRefresh.invalidate(.item(ProviderIDs(tmdb: 603, imdb: "tt0133093"), kind: .movie), in: cache)
-        XCTAssertEqual(n, 3)
+        XCTAssertEqual(n, 2)
         let keys = await cache.keys
         XCTAssertFalse(keys.contains { $0.hasPrefix("tmdb/movie/603/") })
-        XCTAssertFalse(keys.contains("omdb/title/tt0133093/"))
         XCTAssertTrue(keys.contains("tmdb/movie/604/en-US"))
-        XCTAssertTrue(keys.contains("omdb/title/tt0903747/"))
     }
 
     func testRefreshOneSeriesDropsItsSeasonsAndEpisodes() async {
         let cache = await filled()
         let n = await MetadataRefresh.invalidate(.item(ProviderIDs(tmdb: 1396, imdb: "tt0903747"), kind: .series), in: cache)
-        XCTAssertEqual(n, 4)
+        XCTAssertEqual(n, 3)
         let keys = await cache.keys
         XCTAssertFalse(keys.contains { $0.hasPrefix("tmdb/tv/1396/") })
         XCTAssertTrue(keys.contains("tmdb/tv/1399/en-US"))
@@ -187,7 +184,7 @@ final class CacheTests: XCTestCase {
     func testRefreshLibraryDropsEverythingThisTargetCached() async {
         let cache = await filled()
         let n = await MetadataRefresh.invalidate(.library, in: cache)
-        XCTAssertEqual(n, 11)
+        XCTAssertEqual(n, 9)
         let count = await cache.count
         XCTAssertEqual(count, 0)
     }

@@ -52,7 +52,7 @@ final class AppWideKeyStoreTests: XCTestCase {
         XCTAssertEqual(readerA.key(.tmdb), Self.key)
         XCTAssertEqual(readerB.key(.tmdb), Self.key)
         // The secret ids are per service, never per source (a source id is a UUID).
-        XCTAssertEqual(OnlineKeyKind.allCases.map(\.secretID), ["online-key.tmdb", "online-key.omdb"])
+        XCTAssertEqual(OnlineKeyKind.allCases.map(\.secretID), ["online-key.tmdb"])
     }
 
     func testNoSourceFormHasAKeyField() {
@@ -98,7 +98,7 @@ final class AppWideKeyStoreTests: XCTestCase {
     /// forbidden list holds it (also a key not yet migrated), so the backup refuses a file that does.
     func testNoKeyInTheBackupExportTheSyncedLibraryOrLogs() async throws {
         let local = InMemoryCredentialStore(), legacy = InMemoryCredentialStore(), cloud = InMemorySecretCloud()
-        try legacy.setSecret("legacyplaceholderOMDB99", for: OnlineKeyKind.omdb.secretID)
+        try legacy.setSecret("legacyplaceholderOMDB99", for: "online-key.omdb")
         let store = OnlineKeyStore(secrets: MirroredSecrets(local: local, cloud: cloud), legacy: legacy)
         try await store.save(Self.key, for: .tmdb)
 
@@ -116,6 +116,45 @@ final class AppWideKeyStoreTests: XCTestCase {
         }
         XCTAssertEqual(Set(store.allValues()), [Self.key, "legacyplaceholderOMDB99"])
         XCTAssertEqual(OnlineKeyStore.masked(Self.key), "••••cdef")
+    }
+
+    /// #27 item 1: the encrypted iCloud copy of the key is separate from the library sync. After a full library sync the
+    /// library cloud holds no key; the key exists only in the secrets cloud, under its per-service id; the two use different
+    /// CloudKit zones.
+    func testTheEncryptedKeyCopyIsSeparateFromTheLibrarySync() async throws {
+        let secretCloud = InMemorySecretCloud()
+        let store = OnlineKeyStore(secrets: MirroredSecrets(local: InMemoryCredentialStore(), cloud: secretCloud))
+        try await store.save(Self.key, for: .tmdb)
+
+        let ledger = UserDataLedger(deviceID: "A")
+        ledger.upsertSource(UDSourceDefinition(id: "a", kind: SourceKind.webdav.rawValue, name: "Disk", options: "x=1"))
+        _ = ledger.apply(UDSettings.patch("onlineRegion", .string("US"), at: ledger.stamp()))
+        let libraryCloud = InMemoryCloud()
+        _ = await UserDataSyncEngine(ledger: ledger, cloud: libraryCloud, sleep: { _ in }).sync()
+
+        XCTAssertGreaterThan(libraryCloud.serverCount, 0, "the library sync did upload records")
+        let uploaded = String(describing: libraryCloud.serverRecords)
+        XCTAssertFalse(uploaded.contains(Self.key), "no key in the library sync data")
+        XCTAssertFalse(uploaded.contains("online-key"), "no key record in the library sync data")
+        XCTAssertEqual(secretCloud.snapshot, ["online-key.tmdb": Self.key], "the key is only in the secrets cloud")
+        XCTAssertNotEqual(UserDataModule.secretsZoneName, UserDataModule.zoneName)
+    }
+
+    /// #27 item 3: an OMDb key saved by an earlier version is removed from this device, the old items and the iCloud copy.
+    func testARetiredOMDbKeyIsRemovedEverywhereOnce() async throws {
+        let local = InMemoryCredentialStore(), legacy = InMemoryCredentialStore(), cloud = InMemorySecretCloud()
+        try local.setSecret("placeholderOMDBvalue1", for: "online-key.omdb")
+        try legacy.setSecret("placeholderOMDBvalue2", for: "online-key.omdb")
+        try await cloud.save("placeholderOMDBvalue1", for: "online-key.omdb")
+        let store = OnlineKeyStore(secrets: MirroredSecrets(local: local, cloud: cloud), legacy: legacy)
+        XCTAssertEqual(Set(store.allValues()), ["placeholderOMDBvalue1", "placeholderOMDBvalue2"], "the backup still refuses them until removed")
+        await store.reconcile()
+        XCTAssertNil(try local.secret(for: "online-key.omdb"))
+        XCTAssertNil(try legacy.secret(for: "online-key.omdb"))
+        XCTAssertNil(cloud.snapshot["online-key.omdb"])
+        XCTAssertTrue(store.allValues().isEmpty)
+        let again = await store.removeRetiredKeys()
+        XCTAssertEqual(again, [], "a second run finds nothing")
     }
 
     func testMissingKeyMessagesAreOneShortLineThatPointsToOnlineLookup() {

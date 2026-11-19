@@ -16,7 +16,6 @@ final class OnlineServices {
     /// Bumped whenever a key is saved or removed; screens that depend on the lookups reload on it.
     private(set) var keyRevision = 0
     private(set) var hasCatalogueKey = false
-    private(set) var hasRatingsKey = false
     private(set) var resolver: any ArtworkResolving
     private(set) var searcher: any MatchSearching = UnavailableMatchSearcher()
     private(set) var recorder: (any MatchChoiceRecording)?
@@ -60,7 +59,6 @@ final class OnlineServices {
     /// Rebuilds every piece from the keys currently stored. Call after a key is saved or removed.
     func rebuild() {
         hasCatalogueKey = keys.has(.tmdb)
-        hasRatingsKey = keys.has(.omdb)
         rebuildFreeSources()
         // UI-test modes never send anything: a key in the in-memory store (-UITestFakeTMDBKey) shows as set, but no client
         // that could use it is made.

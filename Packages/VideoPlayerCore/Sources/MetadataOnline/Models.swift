@@ -457,7 +457,7 @@ public enum MetadataError: Error, Equatable, Sendable {
     case invalidAPIKey
     case notFound
     case rateLimited(retryAfter: Double?)
-    /// A daily or similar quota (OMDb's free key) is used up. Retrying today will not help.
+    /// A daily or similar quota is used up. Retrying today will not help.
     case quotaExhausted
     case server(Int)
     case network(String)

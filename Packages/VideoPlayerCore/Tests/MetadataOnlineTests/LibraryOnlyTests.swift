@@ -40,26 +40,14 @@ final class LibraryOnlyTests: XCTestCase {
         }
     }
 
-    final class SpyRatings: RatingsProvider, @unchecked Sendable {
-        private let lock = NSLock()
-        private var _calls: [String] = []
-        var calls: [String] { lock.lock(); defer { lock.unlock() }; return _calls }
-        var result: Result<OMDbResult, MetadataError> = .failure(.notFound)
-        func ratings(imdbID: String) async throws -> OMDbResult {
-            lock.withLock { _calls.append(imdbID) }
-            return try result.get()
-        }
-    }
-
     private struct Rig {
         var service: LibraryMetadataService
         var catalog: FakeCatalog
         var details: SpyDetails
-        var ratings: SpyRatings
         var cache: InMemoryMetadataCache
     }
 
-    private func rig(owned: Set<String> = ["item-1"], ownedTMDB: Set<Int> = [603, 605], withRatings: Bool = true) -> Rig {
+    private func rig(owned: Set<String> = ["item-1"], ownedTMDB: Set<Int> = [603, 605]) -> Rig {
         let catalog = MatchEngineTests.catalog()
         let details = SpyDetails()
         details.movies[603] = MovieMetadata(
@@ -79,11 +67,10 @@ final class LibraryOnlyTests: XCTestCase {
             CollectionPart(tmdbID: 604, title: "The Marrowgate Reloaded", releaseDate: CalendarDate(year: 2003, month: 5, day: 15)),
             CollectionPart(tmdbID: 605, title: "The Marrowgate Revolutions", releaseDate: CalendarDate(year: 2003, month: 11, day: 5))
         ])
-        let ratings = SpyRatings()
         let cache = InMemoryMetadataCache()
         let fix = FixMatchService(engine: MatchEngine(provider: catalog), store: InMemoryMatchStore())
-        let service = LibraryMetadataService(library: FakeLibrary(items: owned, tmdbIDs: ownedTMDB), fixMatch: fix, details: details, ratings: withRatings ? ratings : nil, cache: cache)
-        return Rig(service: service, catalog: catalog, details: details, ratings: ratings, cache: cache)
+        let service = LibraryMetadataService(library: FakeLibrary(items: owned, tmdbIDs: ownedTMDB), fixMatch: fix, details: details, cache: cache)
+        return Rig(service: service, catalog: catalog, details: details, cache: cache)
     }
 
     private let file = FileIdentity(path: "/movies/The Marrowgate (1999).mkv")
@@ -101,7 +88,6 @@ final class LibraryOnlyTests: XCTestCase {
         }
         XCTAssertTrue(r.catalog.calls.isEmpty, "no search")
         XCTAssertTrue(r.details.calls.isEmpty, "no details")
-        XCTAssertTrue(r.ratings.calls.isEmpty, "no ratings")
     }
 
     func testFixMatchSearchAndChoiceAlsoRequireAnOwnedItem() async {
@@ -162,7 +148,6 @@ final class LibraryOnlyTests: XCTestCase {
             XCTFail("expected needsReview, got \(resolution)")
         }
         XCTAssertTrue(r.details.calls.isEmpty, "nothing is fetched for an item that needs review")
-        XCTAssertTrue(r.ratings.calls.isEmpty)
         let text = String(describing: resolution)
         XCTAssertFalse(text.contains("1984") || text.contains("2021") || text.contains("438631") || text.contains("841"), "no candidate leaks into the library-facing value: \(text)")
     }
@@ -231,39 +216,13 @@ final class LibraryOnlyTests: XCTestCase {
 
     // MARK: Ratings
 
-    func testOMDbScoresAreAddedToTheTMDBScoreByIMDbID() async throws {
+    /// #27 (R211): only the TMDB score; no other ratings service is asked.
+    func testTheItemCarriesTheTMDBScoreOnly() async throws {
         let r = rig()
-        r.ratings.result = .success(OMDbResult(imdbID: "tt0133093", title: "The Marrowgate", year: "1999", ratings: RatingSet(imdb: Rating(source: .imdb, percent: 87, display: "8.7/10"), rottenTomatoes: Rating(source: .rottenTomatoes, percent: 83, display: "83%"))))
-        let resolution = try await r.service.resolve(itemID: "item-1", file: file, input: movieInput)
-        guard case .matched(let item) = resolution else { return XCTFail("got \(resolution)") }
-        XCTAssertEqual(r.ratings.calls, ["tt0133093"])
-        XCTAssertEqual(item.ratings.visible.map(\.label), ["TMDB", "IMDb", "Rotten Tomatoes"], "Metacritic is missing and simply not there")
-        XCTAssertEqual(item.movie?.ratings, item.ratings)
-    }
-
-    func testRatingsFailuresDoNotFailTheItem() async throws {
-        for failure in [MetadataError.quotaExhausted, .invalidAPIKey, .notFound, .network("down")] {
-            let r = rig()
-            r.ratings.result = .failure(failure)
-            let resolution = try await r.service.resolve(itemID: "item-1", file: file, input: movieInput)
-            guard case .matched(let item) = resolution else { return XCTFail("got \(resolution)") }
-            XCTAssertEqual(item.ratings.visible.map(\.label), ["TMDB"], "\(failure)")
-        }
-    }
-
-    func testNoOMDbKeyMeansNoOMDbCall() async throws {
-        let r = rig(withRatings: false)
         let resolution = try await r.service.resolve(itemID: "item-1", file: file, input: movieInput)
         guard case .matched(let item) = resolution else { return XCTFail("got \(resolution)") }
         XCTAssertEqual(item.ratings.visible.map(\.label), ["TMDB"])
-        XCTAssertTrue(r.ratings.calls.isEmpty)
-    }
-
-    func testTitleWithoutAnIMDbIDIsNotLookedUpInOMDb() async throws {
-        let r = rig()
-        let resolution = try await r.service.resolve(itemID: "item-1", file: FileIdentity(path: "/movies/dunerra.mkv"), input: MatchInput(parsed: P.movie("Dunerra", year: 1984)))
-        guard case .matched = resolution else { return XCTFail("got \(resolution)") }
-        XCTAssertTrue(r.ratings.calls.isEmpty)
+        XCTAssertEqual(item.movie?.ratings, item.ratings)
     }
 
     // MARK: Merging in the service

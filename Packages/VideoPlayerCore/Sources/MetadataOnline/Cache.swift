@@ -166,9 +166,7 @@ public enum MetadataRefresh {
             for item in items { total += await invalidate(ids: item.ids, kind: item.kind, in: cache) }
             return total
         case .library:
-            let a = await cache.remove(prefix: "tmdb/")
-            let b = await cache.remove(prefix: "omdb/")
-            return a + b
+            return await cache.remove(prefix: "tmdb/")
         }
     }
 
@@ -178,7 +176,6 @@ public enum MetadataRefresh {
             let segment = kind == .movie ? "movie" : "tv"
             total += await cache.remove(prefix: "tmdb/\(segment)/\(tmdb)/")
         }
-        if let imdb = ids.imdb { total += await cache.remove(prefix: "omdb/title/\(imdb)/") }
         return total
     }
 }

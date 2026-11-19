@@ -14,8 +14,7 @@ final class OnlineKeyStoreTests: XCTestCase {
     func testNoKeysMeansNoKeys() {
         let (store, _, _) = make()
         XCTAssertNil(store.key(.tmdb))
-        XCTAssertFalse(store.has(.omdb))
-        XCTAssertEqual(OnlineLookupText.status(hasTMDB: store.has(.tmdb), hasOMDb: store.has(.omdb)), "Online lookup is off. No keys are entered.")
+        XCTAssertEqual(OnlineLookupText.status(hasTMDB: store.has(.tmdb)), "Online lookup is off. No key is entered.")
     }
 
     func testSavingTrimsStoresLocallyAndMirrorsToTheCloudCopy() async throws {
@@ -25,15 +24,15 @@ final class OnlineKeyStoreTests: XCTestCase {
         XCTAssertEqual(store.key(.tmdb), "abcd1234efgh5678")
         XCTAssertEqual(try local.secret(for: "online-key.tmdb"), "abcd1234efgh5678")
         XCTAssertEqual(cloud.snapshot["online-key.tmdb"], "abcd1234efgh5678")
-        XCTAssertFalse(store.has(.omdb), "the other key is untouched")
+        XCTAssertEqual(cloud.snapshot.count, 1, "one item per keyed service, nothing else")
     }
 
     func testSignedOutOfTheCloudStillKeepsTheKeyOnThisDevice() async throws {
         let (store, _, cloud) = make()
         cloud.setSignedIn(false)
-        let state = try await store.save("abcd1234efgh5678", for: .omdb)
+        let state = try await store.save("abcd1234efgh5678", for: .tmdb)
         XCTAssertEqual(state, .signedOut)
-        XCTAssertEqual(store.key(.omdb), "abcd1234efgh5678")
+        XCTAssertEqual(store.key(.tmdb), "abcd1234efgh5678")
     }
 
     func testRemoveDeletesLocalAndCloudCopy() async throws {
@@ -100,7 +99,7 @@ final class OnlineKeyStoreTests: XCTestCase {
         // The facts the request builders send (TMDBClient / TMDBDiscover), and the facts docs/PRIVACY_POLICY_DRAFT.txt states.
         for needle in ["sends TMDB the title and year", "season numbers", "TMDB’s own number for a title it already matched",
                        "IMDb number found in an info file", "the language code en-US", "and your key",
-                       "region is not sent", "nothing is sent to OMDb", "network address", "sends nothing else"] {
+                       "region is not sent", "network address", "sends nothing else"] {
             XCTAssertTrue(text.contains(needle), needle)
         }
         // Episode numbers are never sent (the season list comes back whole and the episode is picked on the device), so the
@@ -109,14 +108,14 @@ final class OnlineKeyStoreTests: XCTestCase {
         XCTAssertFalse(text.contains("your language setting"), "the language is fixed to en-US in TMDBClient, not the device setting")
     }
 
-    /// Honest states: the OMDb key is stored but never used, and the texts say so.
-    func testStatusAndHelpSayTheOMDbKeyIsNotUsedYet() {
-        XCTAssertEqual(OnlineLookupText.status(hasTMDB: true, hasOMDb: false), "Online lookup is on with a TMDB key.")
-        XCTAssertEqual(OnlineLookupText.status(hasTMDB: false, hasOMDb: true),
-                       "Only an OMDb key is entered. Pictures, Fix Match and Discover need a TMDB key, so online lookup is off.")
-        XCTAssertEqual(OnlineLookupText.status(hasTMDB: true, hasOMDb: true), "Online lookup is on with a TMDB key. The OMDb key is saved but not used yet.")
-        XCTAssertTrue(OnlineLookupText.omdbHelp.contains("nothing is sent to OMDb"))
-        XCTAssertFalse(OnlineLookupText.omdbHelp.hasPrefix("Optional. Adds"), "must not claim scores are added")
+    /// #27 item 3 (R211): the OMDb key is gone, so the status names only TMDB and no screen text mentions OMDb.
+    func testStatusNamesOnlyTMDBAndNoTextMentionsOMDb() {
+        XCTAssertEqual(OnlineLookupText.status(hasTMDB: true), "Online lookup is on with a TMDB key.")
+        for text in [OnlineLookupText.whatIsSent, OnlineLookupText.keysAreOptional, OnlineLookupText.storage,
+                     OnlineLookupText.status(hasTMDB: false), SettingsTexts.whatIsSentShort, SettingsTexts.onlineSummary] {
+            XCTAssertFalse(text.contains("OMDb"), text)
+        }
+        XCTAssertEqual(OnlineKeyKind.allCases, [.tmdb])
         XCTAssertTrue(OnlineLookupText.regionHelp.contains("it is not sent"))
     }
 }

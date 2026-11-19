@@ -210,7 +210,6 @@ final class RequestQueueTests: XCTestCase {
     }
 
     func testPresetsMatchTheDocumentedLimits() {
-        XCTAssertEqual(QueueConfiguration.omdb.dailyLimit, 1000)
         XCTAssertNil(QueueConfiguration.tmdb.dailyLimit)
         XCTAssertLessThan(QueueConfiguration.tmdb.minInterval, 0.1)
     }
