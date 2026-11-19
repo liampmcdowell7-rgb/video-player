@@ -261,6 +261,8 @@ MA
 # The app's own neutral display name (not a brand: see docs/SPECS.md)
 Video Player
 # The app's own screens, sections and features
+Review
+# (the Needs Review screen, docs/SORTING.md; named inside the Online Lookup "What Is Sent" text, addendum #18 E)
 Full Licence Texts
 Intro
 Recap
