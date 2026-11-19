@@ -12,7 +12,7 @@ final class TopShelfSnapshotTests: XCTestCase {
         try put("a.jpg", in: dir)
         try put("b.jpg", in: dir)
         try TopShelfSnapshotStore.write(TopShelfSnapshot(generatedAt: at(1), items: [
-            .init(id: "a", title: "Heat", imageFile: "a.jpg", link: "videoplayer://item/a", progress: 0.4),
+            .init(id: "a", title: "Hexfall", imageFile: "a.jpg", link: "videoplayer://item/a", progress: 0.4),
             .init(id: "b", title: "Show S01E02", subtitle: "Resume", imageFile: "b.jpg", link: "videoplayer://item/b"),
         ]), to: dir)
     }

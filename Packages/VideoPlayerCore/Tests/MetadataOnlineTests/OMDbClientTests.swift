@@ -21,7 +21,7 @@ final class OMDbClientTests: XCTestCase {
     // MARK: Scores
 
     func testAllThreeScoresAreParsedAndLabelledBySource() async throws {
-        let transport = body(Fixtures.omdbMatrix)
+        let transport = body(Fixtures.omdbMarrowgate)
         let result = try await client(transport).ratings(imdbID: "tt0133093")
         let q = query(transport.requests[0])
         XCTAssertEqual(q["i"], "tt0133093")
@@ -84,24 +84,24 @@ final class OMDbClientTests: XCTestCase {
     // MARK: Title and year
 
     func testLookupByTitleAndYear() async throws {
-        let transport = body(Fixtures.omdbMatrix)
-        let result = try await client(transport).ratings(title: "The Matrix", year: 1999, kind: .movie)
+        let transport = body(Fixtures.omdbMarrowgate)
+        let result = try await client(transport).ratings(title: "The Marrowgate", year: 1999, kind: .movie)
         let q = query(transport.requests[0])
-        XCTAssertEqual(q["t"], "The Matrix")
+        XCTAssertEqual(q["t"], "The Marrowgate")
         XCTAssertEqual(q["y"], "1999")
         XCTAssertEqual(q["type"], "movie")
         XCTAssertNil(q["i"])
         XCTAssertEqual(result.ratings.imdb?.display, "8.7/10")
-        let series = body(Fixtures.omdbMatrix)
-        _ = try await client(series).ratings(title: "Breaking Bad", year: nil, kind: .series)
+        let series = body(Fixtures.omdbMarrowgate)
+        _ = try await client(series).ratings(title: "Crossing Brine", year: nil, kind: .series)
         XCTAssertEqual(query(series.requests[0])["type"], "series")
         XCTAssertNil(query(series.requests[0])["y"])
     }
 
     func testTitleLookupIsAlsoCachedUnderTheIMDbID() async throws {
-        let transport = body(Fixtures.omdbMatrix)
+        let transport = body(Fixtures.omdbMarrowgate)
         let c = client(transport)
-        _ = try await c.ratings(title: "The Matrix", year: 1999, kind: .movie)
+        _ = try await c.ratings(title: "The Marrowgate", year: 1999, kind: .movie)
         let byID = try await c.ratings(imdbID: "tt0133093")
         XCTAssertEqual(byID.ratings.imdb?.display, "8.7/10")
         XCTAssertEqual(transport.count, 1)
@@ -148,7 +148,7 @@ final class OMDbClientTests: XCTestCase {
     }
 
     func testEmptyKeyFailsWithoutARequest() async {
-        let transport = body(Fixtures.omdbMatrix)
+        let transport = body(Fixtures.omdbMarrowgate)
         do {
             _ = try await client(transport, apiKey: "").ratings(imdbID: "tt1")
             XCTFail("expected missingCredentials")
@@ -170,7 +170,7 @@ final class OMDbClientTests: XCTestCase {
     // MARK: Queue and cache
 
     func testFreeKeyDailyLimitStopsLocallyBeforeSendingMore() async throws {
-        let transport = body(Fixtures.omdbMatrix)
+        let transport = body(Fixtures.omdbMarrowgate)
         let c = client(transport, queue: plainQueue(daily: 3))
         for i in 0..<3 { _ = try await c.ratings(imdbID: "tt000000\(i)") }
         do {
@@ -183,7 +183,7 @@ final class OMDbClientTests: XCTestCase {
     }
 
     func testCachedScoresServeWithoutTheNetworkAndOfflineAfterExpiry() async throws {
-        let transport = body(Fixtures.omdbMatrix)
+        let transport = body(Fixtures.omdbMarrowgate)
         let clock = FakeClock()
         let c = client(transport, clock: clock, queue: plainQueue(retries: 0))
         let first = try await c.ratings(imdbID: "tt0133093")
@@ -197,7 +197,7 @@ final class OMDbClientTests: XCTestCase {
     }
 
     func testExpiredEntriesAreRefetched() async throws {
-        let transport = body(Fixtures.omdbMatrix)
+        let transport = body(Fixtures.omdbMarrowgate)
         let clock = FakeClock()
         let c = client(transport, clock: clock)
         _ = try await c.ratings(imdbID: "tt0133093")
@@ -208,7 +208,7 @@ final class OMDbClientTests: XCTestCase {
 
     func testKeyIsNotCached() async throws {
         let cache = InMemoryMetadataCache()
-        _ = try await client(body(Fixtures.omdbMatrix), cache: cache).ratings(imdbID: "tt0133093")
+        _ = try await client(body(Fixtures.omdbMarrowgate), cache: cache).ratings(imdbID: "tt0133093")
         for k in await cache.keys {
             XCTAssertFalse(k.contains(key))
             let entry = await cache.entry(for: CacheKey(provider: "omdb", kind: "title", id: "tt0133093", variant: ""))

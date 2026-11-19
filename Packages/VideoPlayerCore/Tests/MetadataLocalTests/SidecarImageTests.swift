@@ -98,9 +98,9 @@ final class SidecarImageTests: XCTestCase {
     }
 
     func testNamesWithDotsInTheBaseName() {
-        let list = files(["Mr. Nobody.2009.1080p.mkv", "Mr. Nobody.2009.1080p-poster.jpg"])
-        XCTAssertEqual(name(SidecarImageFinder.images(forMovie: "Mr. Nobody.2009.1080p.mkv", in: list, folderHoldsOneVideo: false).poster),
-                       "Mr. Nobody.2009.1080p-poster.jpg")
+        let list = files(["Mr. Nowhere.2009.1080p.mkv", "Mr. Nowhere.2009.1080p-poster.jpg"])
+        XCTAssertEqual(name(SidecarImageFinder.images(forMovie: "Mr. Nowhere.2009.1080p.mkv", in: list, folderHoldsOneVideo: false).poster),
+                       "Mr. Nowhere.2009.1080p-poster.jpg")
     }
 
     func testRoleSubscript() {

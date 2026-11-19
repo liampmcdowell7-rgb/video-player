@@ -44,9 +44,9 @@ final class LibraryUserDataTests: XCTestCase {
         return (h, ledger, h.store)
     }
 
-    private func heat(_ store: SQLiteLibraryStore) async throws -> (id: Int64, key: String) {
+    private func hexfall(_ store: SQLiteLibraryStore) async throws -> (id: Int64, key: String) {
         let items = try await store.page(ItemQuery(), limit: 50, offset: 0)
-        guard let item = items.first(where: { $0.title == "Heat" }) else { throw LibraryIndexError.notFound("Heat") }
+        guard let item = items.first(where: { $0.title == "Hexfall" }) else { throw LibraryIndexError.notFound("Hexfall") }
         guard let key = try await store.itemKey(item.id) else { throw LibraryIndexError.notFound("key") }
         return (item.id, key)
     }
@@ -56,7 +56,7 @@ final class LibraryUserDataTests: XCTestCase {
     func testProgressWatchedUnwatchedFavoriteAndHiddenAreWrittenThrough() async throws {
         let (h, ledger, store) = try await recorded()
         defer { h.cleanup() }
-        let (id, key) = try await heat(store)
+        let (id, key) = try await hexfall(store)
         try await store.updateProgress(itemID: id, position: 1000, duration: 7200, at: day(10))
         var v = try XCTUnwrap(ledger.watchEntries().first { $0.key == key }?.value)
         XCTAssertEqual(v.position, 1000)
@@ -118,7 +118,7 @@ final class LibraryUserDataTests: XCTestCase {
         basicLibrary(h.source)
         try await h.registerSource()
         try await h.syncer.sync()
-        let (id, _) = try await heat(h.store)
+        let (id, _) = try await hexfall(h.store)
         try await h.store.updateProgress(itemID: id, position: 10, duration: 100, at: day(1))
         try await h.store.setFavorite(itemID: id, favorite: true)
         _ = try await h.store.saveView(name: "x", scope: .library, query: ItemQuery(), pinned: false)
@@ -158,7 +158,7 @@ final class LibraryUserDataTests: XCTestCase {
     func testWhileTheGateIsClosedNothingShowsWatchStateAndOpeningItBringsItBack() async throws {
         let (h, _, store) = try await recorded()
         defer { h.cleanup() }
-        let (id, _) = try await heat(store)
+        let (id, _) = try await hexfall(store)
         try await store.updateProgress(itemID: id, position: 1000, duration: 7200, at: day(10))
         try await store.setFavorite(itemID: id, favorite: true)
         try await expectEqual(try await store.continueWatching(limit: 10, now: day(11), retentionDays: 365).count, 1)
@@ -185,7 +185,7 @@ final class LibraryUserDataTests: XCTestCase {
     func testRestoredStateIsAppliedToItemsThatExistAndToItemsTheRescanCreatesLater() async throws {
         let (h, ledger, store) = try await recorded()
         defer { h.cleanup() }
-        let (id, key) = try await heat(store)
+        let (id, key) = try await hexfall(store)
         try await store.updateProgress(itemID: id, position: 1000, duration: 7200, at: day(10))
         let episodes = try await store.page(ItemQuery(), limit: 50, offset: 0).filter { $0.season == 1 && $0.episode == 1 }
         var episodeKey = ""

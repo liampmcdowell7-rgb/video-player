@@ -18,8 +18,8 @@ final class TopShelfBuilderTests: XCTestCase {
     func testContinueWatchingComesFirstThenNextUpWithLinksAndArtworkNames() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        let heat = try await rig.movieID("Heat")
-        try await rig.store.updateProgress(itemID: heat, position: 1_000, duration: 6_000, at: dayOffset(99))
+        let hexfall = try await rig.movieID("Hexfall")
+        try await rig.store.updateProgress(itemID: hexfall, position: 1_000, duration: 6_000, at: dayOffset(99))
         let firstCandidates = try await rig.episodes(ofSeriesTitle: "Show One")
         let first = try XCTUnwrap(firstCandidates.first { $0.season == 1 && $0.episode == 1 })
         try await rig.store.markWatched(itemIDs: [first.id], watched: true, at: dayOffset(99))
@@ -27,7 +27,7 @@ final class TopShelfBuilderTests: XCTestCase {
         let result = try await TopShelfBuilder(store: rig.store).build(now: now)
         let items = result.snapshot.items
         XCTAssertEqual(items.count, 2)
-        XCTAssertEqual(items[0].id, String(heat), "the movie in progress comes first")
+        XCTAssertEqual(items[0].id, String(hexfall), "the movie in progress comes first")
         XCTAssertNotNil(items[0].progress)
         let secondCandidates = try await rig.episodes(ofSeriesTitle: "Show One")
         let second = try XCTUnwrap(secondCandidates.first { $0.season == 1 && $0.episode == 2 })
@@ -59,7 +59,7 @@ final class TopShelfBuilderTests: XCTestCase {
     func testTheLimitIsRespectedAndClampedToTheStoreMaximum() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        for title in ["Heat", "Alien", "Zodiac"] {
+        for title in ["Hexfall", "Aftlander", "Zornwick"] {
             let id = try await rig.movieID(title)
             try await rig.store.updateProgress(itemID: id, position: 500, duration: 6_000, at: dayOffset(99))
         }
@@ -74,8 +74,8 @@ final class TopShelfBuilderTests: XCTestCase {
     func testTheSnapshotRoundTripsThroughTheFolderTheExtensionReads() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        let heat = try await rig.movieID("Heat")
-        try await rig.store.updateProgress(itemID: heat, position: 1_000, duration: 6_000, at: dayOffset(99))
+        let hexfall = try await rig.movieID("Hexfall")
+        try await rig.store.updateProgress(itemID: hexfall, position: 1_000, duration: 6_000, at: dayOffset(99))
         let result = try await TopShelfBuilder(store: rig.store).build(now: now)
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("vp-topshelf-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: dir) }

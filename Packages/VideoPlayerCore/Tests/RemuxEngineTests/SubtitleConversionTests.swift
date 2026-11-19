@@ -48,7 +48,7 @@ final class WebVTTConversionTests: XCTestCase {
     }
 
     func testEscaping() {
-        XCTAssertEqual(srt("Tom & Jerry <3 you > me"), "Tom &amp; Jerry &lt;3 you &gt; me")
+        XCTAssertEqual(srt("Pip & Wren <3 you > me"), "Pip &amp; Wren &lt;3 you &gt; me")
         XCTAssertEqual(srt("a < b"), "a &lt; b")
         XCTAssertEqual(srt("Fish &amp; chips &lt;3 &#169; &unknown;"), "Fish &amp; chips &lt;3 &#169; &amp;unknown;",
                        "valid entities stay, unknown ones are escaped")

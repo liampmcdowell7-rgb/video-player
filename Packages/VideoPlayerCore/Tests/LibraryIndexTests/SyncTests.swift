@@ -3,8 +3,8 @@ import VideoPlayerCore
 @testable import LibraryIndex
 
 func basicLibrary(_ s: FakeSource) {
-    s.put("/Movies/Heat (1995)/Heat (1995).mkv", size: 10_000, modified: day(1))
-    s.put("/Movies/Heat (1995)/Heat (1995).srt", size: 50, modified: day(1))
+    s.put("/Movies/Hexfall (1995)/Hexfall (1995).mkv", size: 10_000, modified: day(1))
+    s.put("/Movies/Hexfall (1995)/Hexfall (1995).srt", size: 50, modified: day(1))
     s.put("/TV/Show One (2010)/Season 1/Show One - S01E01 - Pilot.mkv", size: 5_000, modified: day(2))
     s.put("/TV/Show One (2010)/Season 1/Show One - S01E02 - Second.mkv", size: 5_000, modified: day(3))
     s.put("/TV/Show One (2010)/Season 0/Show One - S00E01 - Special.mkv", size: 4_000, modified: day(4))
@@ -65,7 +65,7 @@ final class SyncTests: XCTestCase {
         XCTAssertEqual(counts.series, 1)
 
         let movies = try await h.store.page(ItemQuery(filter: { var f = ItemFilter(); f.kinds = [.movie]; return f }()), limit: 10, offset: 0)
-        XCTAssertEqual(titles(movies), ["Heat"])
+        XCTAssertEqual(titles(movies), ["Hexfall"])
         XCTAssertEqual(movies.first?.year, 1995)
         let seriesID = try await unwrap(try await h.store.page(ItemQuery(filter: { var f = ItemFilter(); f.kinds = [.episode]; return f }()), limit: 1, offset: 0).first?.seriesID)
         let eps = try await h.store.episodes(ofSeries: seriesID)
@@ -73,59 +73,59 @@ final class SyncTests: XCTestCase {
         XCTAssertEqual(eps.first?.seriesTitle, "Show One")
         XCTAssertEqual(eps[1].title, "Pilot")
         let sidecars = try await h.store.sidecars(for: try XCTUnwrap(movies.first?.preferredFileID))
-        XCTAssertEqual(sidecars.map(\.name), ["Heat (1995).srt"])
+        XCTAssertEqual(sidecars.map(\.name), ["Hexfall (1995).srt"])
     }
 
     func testFilesWithTheSameFilmGroupIntoVersions() async throws {
         let h = try Harness.make()
         defer { h.cleanup() }
-        h.source.put("/Movies/Heat (1995)/Heat (1995) 1080p.mkv", size: 8_000, modified: day(1))
-        h.source.put("/Movies/Heat (1995)/Heat (1995) 2160p.mkv", size: 30_000, modified: day(2))
-        h.source.put("/Backup/Heat (1995).mp4", size: 3_000, modified: day(3))
+        h.source.put("/Movies/Hexfall (1995)/Hexfall (1995) 1080p.mkv", size: 8_000, modified: day(1))
+        h.source.put("/Movies/Hexfall (1995)/Hexfall (1995) 2160p.mkv", size: 30_000, modified: day(2))
+        h.source.put("/Backup/Hexfall (1995).mp4", size: 3_000, modified: day(3))
         h.source.put("/Movies/Other (2001)/Other (2001).mkv", size: 3_000, modified: day(3))
         try await h.syncer.sync()
         let all = try await h.store.page(ItemQuery(), limit: 10, offset: 0)
-        XCTAssertEqual(titles(all), ["Heat", "Other"])
-        let heat = try XCTUnwrap(all.first)
-        XCTAssertEqual(heat.versionCount, 3)
-        XCTAssertEqual(heat.maxResolution, .uhd4k)
-        XCTAssertEqual(heat.containers, [.mkv, .mp4])
-        let versions = try await h.store.versions(of: heat.id)
+        XCTAssertEqual(titles(all), ["Hexfall", "Other"])
+        let hexfall = try XCTUnwrap(all.first)
+        XCTAssertEqual(hexfall.versionCount, 3)
+        XCTAssertEqual(hexfall.maxResolution, .uhd4k)
+        XCTAssertEqual(hexfall.containers, [.mkv, .mp4])
+        let versions = try await h.store.versions(of: hexfall.id)
         XCTAssertEqual(versions.count, 3)
-        XCTAssertEqual(versions.first?.path, "/Movies/Heat (1995)/Heat (1995) 2160p.mkv")   // best first
-        XCTAssertEqual(heat.preferredFileID, versions.first?.id)
+        XCTAssertEqual(versions.first?.path, "/Movies/Hexfall (1995)/Hexfall (1995) 2160p.mkv")   // best first
+        XCTAssertEqual(hexfall.preferredFileID, versions.first?.id)
         try await expectEqual(try await h.store.counts().items, 2)
     }
 
     func testPreferredVersionIsRememberedAcrossRescansAndFallsBackWhenGone() async throws {
         let h = try Harness.make()
         defer { h.cleanup() }
-        h.source.put("/M/Heat (1995) 1080p.mkv", size: 8_000, modified: day(1))
-        h.source.put("/M/Heat (1995) 2160p.mkv", size: 30_000, modified: day(2))
+        h.source.put("/M/Hexfall (1995) 1080p.mkv", size: 8_000, modified: day(1))
+        h.source.put("/M/Hexfall (1995) 2160p.mkv", size: 30_000, modified: day(2))
         try await h.syncer.sync()
-        let heat = try await unwrap(try await h.store.page(ItemQuery(), limit: 1, offset: 0).first)
-        let versions = try await h.store.versions(of: heat.id)
+        let hexfall = try await unwrap(try await h.store.page(ItemQuery(), limit: 1, offset: 0).first)
+        let versions = try await h.store.versions(of: hexfall.id)
         let small = try XCTUnwrap(versions.last)
-        XCTAssertEqual(small.path, "/M/Heat (1995) 1080p.mkv")
-        try await h.store.setPreferredVersion(itemID: heat.id, fileID: small.id)
-        try await expectEqual(try await h.store.item(id: heat.id)?.preferredFileID, small.id)
+        XCTAssertEqual(small.path, "/M/Hexfall (1995) 1080p.mkv")
+        try await h.store.setPreferredVersion(itemID: hexfall.id, fileID: small.id)
+        try await expectEqual(try await h.store.item(id: hexfall.id)?.preferredFileID, small.id)
 
-        h.source.put("/M/Heat (1995) 2160p.mkv", size: 31_000, modified: day(5))   // other version changes
+        h.source.put("/M/Hexfall (1995) 2160p.mkv", size: 31_000, modified: day(5))   // other version changes
         try await h.syncer.sync()
-        try await expectEqual(try await h.store.item(id: heat.id)?.preferredFileID, small.id, "choice survives a rescan")
+        try await expectEqual(try await h.store.item(id: hexfall.id)?.preferredFileID, small.id, "choice survives a rescan")
 
-        h.source.remove("/M/Heat (1995) 1080p.mkv", bump: day(6))
+        h.source.remove("/M/Hexfall (1995) 1080p.mkv", bump: day(6))
         try await h.syncer.sync()
-        let after = try await unwrap(try await h.store.item(id: heat.id))
+        let after = try await unwrap(try await h.store.item(id: hexfall.id))
         XCTAssertEqual(after.versionCount, 1)
         XCTAssertNotEqual(after.preferredFileID, small.id, "falls back to a live version")
 
-        h.source.put("/M/Heat (1995) 1080p.mkv", size: 8_000, modified: day(7))
+        h.source.put("/M/Hexfall (1995) 1080p.mkv", size: 8_000, modified: day(7))
         try await h.syncer.sync()
-        try await expectEqual(try await h.store.item(id: heat.id)?.preferredFileID, small.id, "choice returns with the file")
+        try await expectEqual(try await h.store.item(id: hexfall.id)?.preferredFileID, small.id, "choice returns with the file")
 
         do {
-            try await h.store.setPreferredVersion(itemID: heat.id, fileID: 999_999)
+            try await h.store.setPreferredVersion(itemID: hexfall.id, fileID: 999_999)
             XCTFail("expected an error")
         } catch let error as LibraryIndexError {
             if case .invalid = error {} else { XCTFail("wrong error \(error)") }
@@ -219,26 +219,26 @@ final class SyncTests: XCTestCase {
         defer { h.cleanup() }
         basicLibrary(h.source)
         try await h.syncer.sync()
-        let heat = try await unwrap(try await h.store.page(ItemQuery(filter: { var f = ItemFilter(); f.text = "heat"; return f }()), limit: 1, offset: 0).first)
-        try await h.store.updateProgress(itemID: heat.id, position: 600, duration: 6_000, at: day(99))
-        let fileID = try XCTUnwrap(heat.preferredFileID)
+        let hexfall = try await unwrap(try await h.store.page(ItemQuery(filter: { var f = ItemFilter(); f.text = "hexfall"; return f }()), limit: 1, offset: 0).first)
+        try await h.store.updateProgress(itemID: hexfall.id, position: 600, duration: 6_000, at: day(99))
+        let fileID = try XCTUnwrap(hexfall.preferredFileID)
 
-        h.source.remove("/Movies/Heat (1995)/Heat (1995).mkv", bump: day(10))
+        h.source.remove("/Movies/Hexfall (1995)/Hexfall (1995).mkv", bump: day(10))
         let s = try await h.syncer.sync()
         XCTAssertEqual(s.progress.removed, 1)
         try await expectEqual(try await h.store.counts().items, 3)
-        try await expectNil(try await h.store.page(ItemQuery(filter: { var f = ItemFilter(); f.text = "heat"; return f }()), limit: 1, offset: 0).first)
+        try await expectNil(try await h.store.page(ItemQuery(filter: { var f = ItemFilter(); f.text = "hexfall"; return f }()), limit: 1, offset: 0).first)
         let hidden = try await h.store.continueWatching(limit: 10, now: day(100), retentionDays: 60)
         XCTAssertTrue(hidden.isEmpty, "a removed film is not offered for resume")
 
-        h.source.put("/Movies/Heat (1995)/Heat (1995).mkv", size: 10_000, modified: day(11))
+        h.source.put("/Movies/Hexfall (1995)/Hexfall (1995).mkv", size: 10_000, modified: day(11))
         let back = try await h.syncer.sync()
         XCTAssertEqual(back.progress.added, 1)
-        let item = try await unwrap(try await h.store.item(id: heat.id))
+        let item = try await unwrap(try await h.store.item(id: hexfall.id))
         XCTAssertEqual(item.versionCount, 1)
         XCTAssertEqual(item.watch.position, 600)
         XCTAssertEqual(item.preferredFileID, fileID, "same file row comes back")
-        try await expectEqual(try await h.store.continueWatching(limit: 10, now: day(100), retentionDays: 60).map(\.id), [heat.id])
+        try await expectEqual(try await h.store.continueWatching(limit: 10, now: day(100), retentionDays: 60).map(\.id), [hexfall.id])
     }
 
     func testRemovedFolderTombstonesEverythingBelow() async throws {
@@ -264,10 +264,10 @@ final class SyncTests: XCTestCase {
         try await h.syncer.sync()
         let before = try await h.store.snapshot()
 
-        h.source.setFailing(["/Movies/Heat (1995)", "/TV"])
+        h.source.setFailing(["/Movies/Hexfall (1995)", "/TV"])
         let s = try await h.syncer.sync()
         XCTAssertEqual(s.status, .completed)
-        XCTAssertEqual(Set(s.failures.map(\.folder)), ["/Movies/Heat (1995)", "/TV"])
+        XCTAssertEqual(Set(s.failures.map(\.folder)), ["/Movies/Hexfall (1995)", "/TV"])
         XCTAssertEqual(s.progress.foldersFailed, 2)
         XCTAssertEqual(s.progress.removed, 0)
         try await expectEqual(try await h.store.counts().items, 4, "nothing was deleted because a listing failed")
@@ -307,7 +307,7 @@ final class SyncTests: XCTestCase {
         defer { h.cleanup() }
         basicLibrary(h.source)
         try await h.syncer.sync()
-        h.source.setEmpty(["/Movies/Heat (1995)"])
+        h.source.setEmpty(["/Movies/Hexfall (1995)"])
 
         var s = try await h.syncer.sync()
         XCTAssertEqual(s.progress.removed, 0, "first empty answer is held")
@@ -316,9 +316,9 @@ final class SyncTests: XCTestCase {
         h.source.setEmpty([])
         s = try await h.syncer.sync()
         XCTAssertEqual(s.progress.removed, 0)
-        try await expectEqual(try await h.store.folderRecord(sourceID: Harness.sourceID, path: "/Movies/Heat (1995)")?.emptyStrikes, 0, "a normal listing resets the strike")
+        try await expectEqual(try await h.store.folderRecord(sourceID: Harness.sourceID, path: "/Movies/Hexfall (1995)")?.emptyStrikes, 0, "a normal listing resets the strike")
 
-        h.source.setEmpty(["/Movies/Heat (1995)"])
+        h.source.setEmpty(["/Movies/Hexfall (1995)"])
         _ = try await h.syncer.sync()              // strike 1 again
         s = try await h.syncer.sync()               // strike 2: believed
         XCTAssertEqual(s.progress.removed, 2)
@@ -330,21 +330,21 @@ final class SyncTests: XCTestCase {
         defer { h.cleanup() }
         basicLibrary(h.source)
         try await h.syncer.sync()
-        h.source.put("/Movies/Heat (1995)/Heat (1995) 2160p.mkv", size: 40_000, modified: day(20))
+        h.source.put("/Movies/Hexfall (1995)/Hexfall (1995) 2160p.mkv", size: 40_000, modified: day(20))
         h.source.put("/Movies/New (2020)/New (2020).mkv", size: 1, modified: day(20))
         h.source.resetCalls()
 
-        let s = try await h.syncer.refresh(folder: "/Movies/Heat (1995)")
+        let s = try await h.syncer.refresh(folder: "/Movies/Hexfall (1995)")
         XCTAssertEqual(s.progress.added, 1)
-        XCTAssertEqual(h.source.calledPaths, ["/Movies/Heat (1995)"])
+        XCTAssertEqual(h.source.calledPaths, ["/Movies/Hexfall (1995)"])
         try await expectEqual(try await h.store.counts().items, 4, "the new film in another folder is not read yet")
-        let heat = try await unwrap(try await h.store.page(ItemQuery(filter: { var f = ItemFilter(); f.text = "heat"; return f }()), limit: 1, offset: 0).first)
-        XCTAssertEqual(heat.versionCount, 2)
+        let hexfall = try await unwrap(try await h.store.page(ItemQuery(filter: { var f = ItemFilter(); f.text = "hexfall"; return f }()), limit: 1, offset: 0).first)
+        XCTAssertEqual(hexfall.versionCount, 2)
 
         h.source.resetCalls()
         let r = try await h.syncer.refresh(folder: "/Movies", recursive: true)
         XCTAssertEqual(r.progress.added, 1)
-        XCTAssertEqual(h.source.calledPaths, ["/Movies", "/Movies/Heat (1995)", "/Movies/New (2020)"])
+        XCTAssertEqual(h.source.calledPaths, ["/Movies", "/Movies/Hexfall (1995)", "/Movies/New (2020)"])
         try await expectEqual(try await h.store.counts().items, 5)
     }
 
@@ -502,16 +502,16 @@ final class SyncTests: XCTestCase {
         try await h.registerSource()
         try await h.store.upsertSource(LibrarySourceRecord(id: "src2", kind: .smb, name: "NAS", addedAt: t0))
         let other = FakeSource()
-        h.source.put("/Movies/Heat (1995)/Heat (1995).mkv", size: 10, modified: day(1))
-        other.put("/Films/Heat (1995).mkv", size: 20, modified: day(2))
+        h.source.put("/Movies/Hexfall (1995)/Hexfall (1995).mkv", size: 10, modified: day(1))
+        other.put("/Films/Hexfall (1995).mkv", size: 20, modified: day(2))
         other.put("/Films/Only Here (2005).mkv", size: 20, modified: day(2))
         try await h.syncer.sync()
         try await h.syncer(source: other, id: "src2").sync()
 
         try await expectEqual(try await h.store.counts().items, 2)
-        let heat = try await unwrap(try await h.store.page(ItemQuery(filter: { var f = ItemFilter(); f.text = "heat"; return f }()), limit: 1, offset: 0).first)
-        XCTAssertEqual(heat.versionCount, 2)
-        try await expectEqual(Set(try await h.store.versions(of: heat.id).map(\.sourceID)), [Harness.sourceID, "src2"])
+        let hexfall = try await unwrap(try await h.store.page(ItemQuery(filter: { var f = ItemFilter(); f.text = "hexfall"; return f }()), limit: 1, offset: 0).first)
+        XCTAssertEqual(hexfall.versionCount, 2)
+        try await expectEqual(Set(try await h.store.versions(of: hexfall.id).map(\.sourceID)), [Harness.sourceID, "src2"])
 
         var f = ItemFilter()
         f.sourceID = "src2"
@@ -521,7 +521,7 @@ final class SyncTests: XCTestCase {
 
         try await h.store.removeSource(id: "src2")
         try await expectEqual(try await h.store.counts().items, 1)
-        try await expectEqual(try await h.store.item(id: heat.id)?.versionCount, 1)
+        try await expectEqual(try await h.store.item(id: hexfall.id)?.versionCount, 1)
         try await expectEqual(try await h.store.sources().map(\.id), [Harness.sourceID])
         try await h.store.removeSource(id: Harness.sourceID)
         try await expectEqual(try await h.store.counts(), LibraryCounts(items: 0, files: 0, folders: 0, series: 0))
@@ -531,18 +531,18 @@ final class SyncTests: XCTestCase {
     func testPurgeRemovesOldTombstonesButKeepsWatchHistory() async throws {
         let h = try Harness.make()
         defer { h.cleanup() }
-        h.source.put("/M/Heat (1995).mkv", size: 1, modified: day(1))
-        h.source.put("/M/Gone (2000).mkv", size: 1, modified: day(1))
+        h.source.put("/M/Hexfall (1995).mkv", size: 1, modified: day(1))
+        h.source.put("/M/Vanished Wren (2000).mkv", size: 1, modified: day(1))
         h.source.put("/M/notes.txt", size: 1, modified: day(1))   // keeps the folder from listing as empty
         try await h.syncer.sync()
-        let heat = try await unwrap(try await h.store.page(ItemQuery(filter: { var f = ItemFilter(); f.text = "heat"; return f }()), limit: 1, offset: 0).first)
-        try await h.store.markWatched(itemIDs: [heat.id], watched: true, at: day(50))
-        h.source.remove("/M/Heat (1995).mkv", bump: day(60))
-        h.source.remove("/M/Gone (2000).mkv", bump: day(60))
+        let hexfall = try await unwrap(try await h.store.page(ItemQuery(filter: { var f = ItemFilter(); f.text = "hexfall"; return f }()), limit: 1, offset: 0).first)
+        try await h.store.markWatched(itemIDs: [hexfall.id], watched: true, at: day(50))
+        h.source.remove("/M/Hexfall (1995).mkv", bump: day(60))
+        h.source.remove("/M/Vanished Wren (2000).mkv", bump: day(60))
         try await h.syncer.sync()   // clock is day 100
         try await expectEqual(try await h.store.purgeRemoved(olderThan: day(99)), 0)
         try await expectEqual(try await h.store.purgeRemoved(olderThan: day(101)), 2)
-        try await expectNotNil(try await h.store.item(id: heat.id), "watch history is kept")
+        try await expectNotNil(try await h.store.item(id: hexfall.id), "watch history is kept")
         try await expectEqual(try await h.store.rawInt("SELECT COUNT(*) FROM items"), 1)
         try await expectEqual(try await h.store.rawInt("SELECT COUNT(*) FROM files"), 0)
     }

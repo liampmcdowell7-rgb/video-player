@@ -8,7 +8,7 @@ final class FoundationTests: XCTestCase {
     func testStatementsBindEveryValueTypeAndRoundTripUnicode() throws {
         let db = try SQLiteDatabase(path: ":memory:")
         try db.exec("CREATE TABLE t (i INTEGER, d REAL, s TEXT, n TEXT)")
-        let text = "Amélie ✨ \"quoted\" 'single' \n newline 日本語 \u{1F3AC}"
+        let text = "Amélise ✨ \"quoted\" 'single' \n newline 日本語 \u{1F3AC}"
         try db.run("INSERT INTO t VALUES (?, ?, ?, ?)", [.int(Int64.max), .double(0.1 + 0.2), .text(text), .null])
         let row = try db.first("SELECT i, d, s, n, n IS NULL FROM t") { s in (s.int64(0), s.double(1), s.text(2), s.optText(3), s.bool(4)) }
         XCTAssertEqual(row?.0, Int64.max)
@@ -111,17 +111,17 @@ final class FoundationTests: XCTestCase {
     // MARK: Text helpers
 
     func testNormalizeAndSortKeys() {
-        XCTAssertEqual(LibraryText.normalize("  The  Amélie!! (2001) "), "the amelie 2001")
-        XCTAssertEqual(LibraryText.normalize("Spider-Man: Far From Home"), "spider man far from home")
+        XCTAssertEqual(LibraryText.normalize("  The  Amélise!! (2001) "), "the amelise 2001")
+        XCTAssertEqual(LibraryText.normalize("Kite-Man: Far From Shore"), "kite man far from shore")
         XCTAssertEqual(LibraryText.normalize("ÀÉÎÕÜ ñ ß"), "aeiou n ß".replacingOccurrences(of: "ß", with: LibraryText.normalize("ß")))
         XCTAssertEqual(LibraryText.normalize("!!!"), "")
-        XCTAssertEqual(LibraryText.sortKey("The Matrix", dropArticle: true), "matrix")
-        XCTAssertEqual(LibraryText.sortKey("The Matrix", dropArticle: false), "the matrix")
+        XCTAssertEqual(LibraryText.sortKey("The Marrowgate", dropArticle: true), "marrowgate")
+        XCTAssertEqual(LibraryText.sortKey("The Marrowgate", dropArticle: false), "the marrowgate")
         XCTAssertEqual(LibraryText.sortKey("A", dropArticle: true), "a", "a lone article stays")
-        XCTAssertEqual(LibraryText.sortKey("Apollo 13", dropArticle: true), "apollo 00000013")
+        XCTAssertEqual(LibraryText.sortKey("Aquila 13", dropArticle: true), "aquila 00000013")
         XCTAssertLessThan(LibraryText.sortKey("Episode 2", dropArticle: false), LibraryText.sortKey("Episode 10", dropArticle: false))
-        XCTAssertEqual(LibraryText.titleSortValue("1917").letter, "#")
-        XCTAssertEqual(LibraryText.titleSortValue("Amélie").letter, "A")
+        XCTAssertEqual(LibraryText.titleSortValue("1871").letter, "#")
+        XCTAssertEqual(LibraryText.titleSortValue("Amélise").letter, "A")
         XCTAssertEqual(LibraryText.titleSortValue("日本語").letter, "#")
         XCTAssertEqual(LibraryText.titleSortValue("The End").letter, "E")
         XCTAssertLessThan(LibraryText.titleSortValue("日本語").value, LibraryText.titleSortValue("Aardvark").value, "the # bucket sorts before A")
@@ -133,7 +133,7 @@ final class FoundationTests: XCTestCase {
         XCTAssertEqual(LibraryPath.parent(of: "/c.mkv"), "/")
         XCTAssertEqual(LibraryPath.parent(of: "/"), "")
         XCTAssertEqual(LibraryPath.ancestorNames(of: "/TV/Show/Season 1/x.mkv"), ["Season 1", "Show", "TV"])
-        XCTAssertEqual(LibraryPath.stem("Heat (1995).en.srt"), "Heat (1995).en")
+        XCTAssertEqual(LibraryPath.stem("Hexfall (1995).en.srt"), "Hexfall (1995).en")
         XCTAssertEqual(LibraryPath.stem(".hidden"), ".hidden")
         XCTAssertNil(LibraryPath.descendantBounds(of: "/"))
         let b = LibraryPath.descendantBounds(of: "/TV")
@@ -157,18 +157,18 @@ final class FoundationTests: XCTestCase {
     // MARK: Grouping rules
 
     func testSeedsGroupFilmsAndEpisodes() {
-        let a = ItemGrouping.seed(fileName: "Heat (1995) 2160p.mkv", path: "/Movies/Heat (1995)/Heat (1995) 2160p.mkv")
-        let b = ItemGrouping.seed(fileName: "Heat (1995).mp4", path: "/Backup/Heat (1995).mp4")
+        let a = ItemGrouping.seed(fileName: "Hexfall (1995) 2160p.mkv", path: "/Movies/Hexfall (1995)/Hexfall (1995) 2160p.mkv")
+        let b = ItemGrouping.seed(fileName: "Hexfall (1995).mp4", path: "/Backup/Hexfall (1995).mp4")
         XCTAssertEqual(a.key, b.key)
         XCTAssertEqual(a.kind, .movie)
-        XCTAssertEqual(a.title, "Heat")
+        XCTAssertEqual(a.title, "Hexfall")
         XCTAssertEqual(a.year, 1995)
 
-        let dotted = ItemGrouping.seed(fileName: "The.Matrix.1999.1080p.BluRay.x264-GRP.mkv", path: "/M/The.Matrix.1999.1080p.BluRay.x264-GRP.mkv")
-        XCTAssertEqual(dotted.key, "m|the matrix|1999")
+        let dotted = ItemGrouping.seed(fileName: "The.Marrowgate.1999.1080p.BluRay.x264-GRP.mkv", path: "/M/The.Marrowgate.1999.1080p.BluRay.x264-GRP.mkv")
+        XCTAssertEqual(dotted.key, "m|the marrowgate|1999")
         XCTAssertTrue(dotted.versionLabel?.contains("1080p") == true, dotted.versionLabel ?? "nil")
 
-        let other = ItemGrouping.seed(fileName: "Heat (1996).mkv", path: "/M/Heat (1996).mkv")
+        let other = ItemGrouping.seed(fileName: "Hexfall (1996).mkv", path: "/M/Hexfall (1996).mkv")
         XCTAssertNotEqual(a.key, other.key, "a different year is a different film")
 
         let ep = ItemGrouping.seed(fileName: "Show One - S01E02 - Second.mkv", path: "/TV/Show One/Season 1/Show One - S01E02 - Second.mkv")
@@ -190,8 +190,8 @@ final class FoundationTests: XCTestCase {
         XCTAssertEqual(bare.seriesKey, "s|show one")
         XCTAssertEqual([bare.season, bare.episode], [2, 5])
 
-        let nfc = ItemGrouping.seed(fileName: "Amélie (2001).mkv", path: "/A/Amélie (2001).mkv")
-        let nfd = ItemGrouping.seed(fileName: "Ame\u{301}lie (2001).mkv", path: "/B/Ame\u{301}lie (2001).mkv")
+        let nfc = ItemGrouping.seed(fileName: "Amélise (2001).mkv", path: "/A/Amélise (2001).mkv")
+        let nfd = ItemGrouping.seed(fileName: "Ame\u{301}lise (2001).mkv", path: "/B/Ame\u{301}lise (2001).mkv")
         XCTAssertEqual(nfc.key, nfd.key, "composed and decomposed accents are the same film")
     }
 
@@ -230,8 +230,8 @@ final class FoundationTests: XCTestCase {
     func testDecomposedAndComposedFileNamesBecomeVersionsOfOneItem() async throws {
         let h = try Harness.make()
         defer { h.cleanup() }
-        h.source.put("/A/Amélie (2001).mkv", size: 10, modified: day(1))
-        h.source.put("/B/Ame\u{301}lie (2001).mp4", size: 20, modified: day(2))
+        h.source.put("/A/Amélise (2001).mkv", size: 10, modified: day(1))
+        h.source.put("/B/Ame\u{301}lise (2001).mp4", size: 20, modified: day(2))
         try await h.syncer.sync()
         let counts = try await h.store.counts()
         XCTAssertEqual(counts.items, 1)

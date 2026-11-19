@@ -114,10 +114,10 @@ final class ShowsToolbarTests: XCTestCase {
     func testCardsOfferGoToAndRemoveFromContinueOnlyWhenItChangesSomething() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        let heat = try await rig.movieID("Heat")
+        let hexfall = try await rig.movieID("Hexfall")
         let one = try await rig.episodes(ofSeriesTitle: "Show One")
         func fetch() async throws -> LibraryItem {
-            let found = try await rig.store.item(id: heat)
+            let found = try await rig.store.item(id: hexfall)
             return try XCTUnwrap(found)
         }
         var card = CardBuilder.card(try await fetch())
@@ -125,14 +125,14 @@ final class ShowsToolbarTests: XCTestCase {
         XCTAssertNil(card.seriesID)
         XCTAssertFalse(card.canRemoveFromContinue, "not started: not in Continue Watching")
 
-        try await rig.store.updateProgress(itemID: heat, position: 1_800, duration: 6_000, at: now)
+        try await rig.store.updateProgress(itemID: hexfall, position: 1_800, duration: 6_000, at: now)
         card = CardBuilder.card(try await fetch(), style: .continueWatching)
         XCTAssertTrue(card.canRemoveFromContinue)
-        try await rig.store.hideFromContinue(itemID: heat, hidden: true)
+        try await rig.store.hideFromContinue(itemID: hexfall, hidden: true)
         card = CardBuilder.card(try await fetch())
         XCTAssertFalse(card.canRemoveFromContinue, "already removed")
         let row = try await rig.store.continueWatching(limit: 20, now: now, retentionDays: 90)
-        XCTAssertFalse(row.contains { $0.id == heat }, "the hide mark takes it out of the row")
+        XCTAssertFalse(row.contains { $0.id == hexfall }, "the hide mark takes it out of the row")
 
         let episode = CardBuilder.card(one[0])
         XCTAssertEqual(episode.goToTitle, "Go to Show")

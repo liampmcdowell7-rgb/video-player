@@ -18,8 +18,8 @@ final class ShortLineTests: XCTestCase {
     }
 
     func testAMiddleSegmentWithTheLowestPriorityGoesFirst() {
-        let line = ShortLine([.init("2021", priority: 1), .init("Because you watched Heat", priority: 2)])
-        XCTAssertEqual(line.candidates, ["2021 · Because you watched Heat", "Because you watched Heat"])
+        let line = ShortLine([.init("2021", priority: 1), .init("Because you watched Hexfall", priority: 2)])
+        XCTAssertEqual(line.candidates, ["2021 · Because you watched Hexfall", "Because you watched Hexfall"])
     }
 
     func testEmptySegmentsAreLeftOut() {

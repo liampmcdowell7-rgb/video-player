@@ -61,9 +61,9 @@ struct LibraryRig {
     /// 3 movies, 2 shows (one with Season 0 specials), a non-media file.
     func fill() async throws {
         try await store.upsertSource(LibrarySourceRecord(id: Self.sourceID, kind: .webdav, name: "Test", addedAt: epoch))
-        source.put("/Movies/Heat (1995)/Heat (1995).mkv", size: 10_000, modified: dayOffset(1))
-        source.put("/Movies/Alien (1979)/Alien (1979).mkv", size: 9_000, modified: dayOffset(2))
-        source.put("/Movies/Zodiac (2007)/Zodiac (2007).mkv", size: 8_000, modified: dayOffset(3))
+        source.put("/Movies/Hexfall (1995)/Hexfall (1995).mkv", size: 10_000, modified: dayOffset(1))
+        source.put("/Movies/Aftlander (1979)/Aftlander (1979).mkv", size: 9_000, modified: dayOffset(2))
+        source.put("/Movies/Zornwick (2007)/Zornwick (2007).mkv", size: 8_000, modified: dayOffset(3))
         for e in 1...3 { source.put("/TV/Show One (2010)/Season 1/Show One - S01E0\(e) - Ep \(e).mkv", size: 5_000, modified: dayOffset(Double(10 + e))) }
         source.put("/TV/Show One (2010)/Season 2/Show One - S02E01 - Return.mkv", size: 5_000, modified: dayOffset(20))
         source.put("/TV/Show One (2010)/Season 0/Show One - S00E01 - Special.mkv", size: 4_000, modified: dayOffset(21))

@@ -16,13 +16,13 @@ final class FakeNowPlayingPublisher: NowPlayingPublishing, @unchecked Sendable {
 }
 
 final class NowPlayingTests: XCTestCase {
-    private let movie = NowPlayingContent(kind: .movie, title: "Heat", year: 1995, artworkKey: "item-1", externalID: "1")
+    private let movie = NowPlayingContent(kind: .movie, title: "Hexfall", year: 1995, artworkKey: "item-1", externalID: "1")
     private let episode = NowPlayingContent(kind: .episode, title: "The Return", seriesTitle: "Show One", season: 2, episode: 1,
                                             artworkKey: "item-9", externalID: "9")
 
     func testMovieSnapshot() {
         let s = NowPlayingMapper.snapshot(movie, duration: 6_000, position: 120, rate: 1)
-        XCTAssertEqual(s[.title], .string("Heat"))
+        XCTAssertEqual(s[.title], .string("Hexfall"))
         XCTAssertNil(s[.artist])
         XCTAssertEqual(s[.mediaType], .mediaTypeVideo)
         XCTAssertEqual(s[.playbackDuration], .number(6_000))

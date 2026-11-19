@@ -3,11 +3,11 @@ import XCTest
 
 final class TextSimilarityTests: XCTestCase {
     func testNormalizeBasics() {
-        XCTAssertEqual(TitleText.normalize("The Matrix"), "matrix")
-        XCTAssertEqual(TitleText.normalize("  A Quiet Place "), "quiet place")
-        XCTAssertEqual(TitleText.normalize("An American Tail"), "american tail")
-        XCTAssertEqual(TitleText.normalize("Matrix, The"), "matrix")
-        XCTAssertEqual(TitleText.normalize("Quiet Place, A"), "quiet place")
+        XCTAssertEqual(TitleText.normalize("The Marrowgate"), "marrowgate")
+        XCTAssertEqual(TitleText.normalize("  A Hushed Room "), "hushed room")
+        XCTAssertEqual(TitleText.normalize("An Orchard Tale"), "orchard tale")
+        XCTAssertEqual(TitleText.normalize("Marrowgate, The"), "marrowgate")
+        XCTAssertEqual(TitleText.normalize("Hushed Room, A"), "hushed room")
         XCTAssertEqual(TitleText.normalize(""), "")
         XCTAssertEqual(TitleText.normalize("!!!"), "")
     }
@@ -18,92 +18,92 @@ final class TextSimilarityTests: XCTestCase {
     }
 
     func testPunctuationAndCase() {
-        XCTAssertEqual(TitleText.normalize("Spider-Man: Homecoming"), "spider man homecoming")
-        XCTAssertEqual(TitleText.normalize("WALL·E"), TitleText.normalize("Wall-E"))
-        XCTAssertEqual(TitleText.normalize("Ocean's Eleven"), "oceans eleven")
-        XCTAssertEqual(TitleText.normalize("Ocean\u{2019}s Eleven"), "oceans eleven")
-        XCTAssertEqual(TitleText.normalize("Mr. & Mrs. Smith"), "mr and mrs smith")
-        XCTAssertEqual(TitleText.normalize("Tom & Jerry"), TitleText.normalize("Tom and Jerry"))
+        XCTAssertEqual(TitleText.normalize("Kite-Man: Homeward"), "kite man homeward")
+        XCTAssertEqual(TitleText.normalize("TIK·T"), TitleText.normalize("Tik-T"))
+        XCTAssertEqual(TitleText.normalize("Harbor's Eleven"), "harbors eleven")
+        XCTAssertEqual(TitleText.normalize("Harbor\u{2019}s Eleven"), "harbors eleven")
+        XCTAssertEqual(TitleText.normalize("Mr. & Mrs. Pemberton"), "mr and mrs pemberton")
+        XCTAssertEqual(TitleText.normalize("Pip & Wren"), TitleText.normalize("Pip and Wren"))
         XCTAssertEqual(TitleText.normalize("What...?"), "what")
-        XCTAssertEqual(TitleText.normalize("Se7en"), "se7en")
+        XCTAssertEqual(TitleText.normalize("Fo4r"), "fo4r")
     }
 
     func testAbbreviationsWithDotsJoin() {
-        XCTAssertEqual(TitleText.normalize("Agents of S.H.I.E.L.D."), "agents of shield")
-        XCTAssertEqual(TitleText.normalize("Agents of SHIELD"), "agents of shield")
-        XCTAssertEqual(TitleText.normalize("M*A*S*H"), "mash")
-        XCTAssertEqual(TitleText.normalize("I Am Legend"), "i am legend", "a single letter between words is not joined")
-        XCTAssertEqual(TitleText.normalize("X-Men"), "x men")
+        XCTAssertEqual(TitleText.normalize("Agents of S.P.A.R.R.O.W."), "agents of sparrow")
+        XCTAssertEqual(TitleText.normalize("Agents of SPARROW"), "agents of sparrow")
+        XCTAssertEqual(TitleText.normalize("T*E*N*T"), "tent")
+        XCTAssertEqual(TitleText.normalize("I Am Lantern"), "i am lantern", "a single letter between words is not joined")
+        XCTAssertEqual(TitleText.normalize("Q-Folk"), "q folk")
     }
 
     func testAccentsAreFolded() {
-        XCTAssertEqual(TitleText.normalize("Amélie"), "amelie")
-        XCTAssertEqual(TitleText.normalize("Pokémon"), "pokemon")
-        XCTAssertEqual(TitleText.normalize("Léon: The Professional"), "leon the professional")
+        XCTAssertEqual(TitleText.normalize("Amélise"), "amelise")
+        XCTAssertEqual(TitleText.normalize("Pebblémon"), "pebblemon")
+        XCTAssertEqual(TitleText.normalize("Léandre: The Courier"), "leandre the courier")
     }
 
     func testRomanNumeralsBecomeDigitsButNotWhenAlone() {
-        XCTAssertEqual(TitleText.normalize("Rocky II"), TitleText.normalize("Rocky 2"))
-        XCTAssertEqual(TitleText.normalize("Final Fantasy VII"), "final fantasy 7")
+        XCTAssertEqual(TitleText.normalize("Brisk II"), TitleText.normalize("Brisk 2"))
+        XCTAssertEqual(TitleText.normalize("Final Reverie VII"), "final reverie 7")
         XCTAssertEqual(TitleText.normalize("Part IV"), "part 4")
         XCTAssertEqual(TitleText.normalize("X"), "x")
-        XCTAssertEqual(TitleText.normalize("Malcolm X"), "malcolm x", "a lone X is a name, not 10")
+        XCTAssertEqual(TitleText.normalize("Marlow X"), "marlow x", "a lone X is a name, not 10")
         XCTAssertEqual(TitleText.normalize("II"), "ii")
     }
 
     func testNonLatinScriptsSurvive() {
-        XCTAssertEqual(TitleText.normalize("千と千尋の神隠し"), "千と千尋の神隠し")
-        XCTAssertEqual(TitleText.normalize("기생충"), "기생충")
-        XCTAssertEqual(TitleText.similarity("기생충", "기생충"), 1)
-        XCTAssertLessThan(TitleText.similarity("기생충", "Parasite"), 0.5)
+        XCTAssertEqual(TitleText.normalize("漂う灯籠の夜"), "漂う灯籠の夜")
+        XCTAssertEqual(TitleText.normalize("달팽이집"), "달팽이집")
+        XCTAssertEqual(TitleText.similarity("달팽이집", "달팽이집"), 1)
+        XCTAssertLessThan(TitleText.similarity("달팽이집", "Snailhouse"), 0.5)
     }
 
     func testSimilarityIdentityAndEmpties() {
-        XCTAssertEqual(TitleText.similarity("The Matrix", "Matrix, The"), 1)
-        XCTAssertEqual(TitleText.similarity("Spider-Man", "Spider Man"), 1)
+        XCTAssertEqual(TitleText.similarity("The Marrowgate", "Marrowgate, The"), 1)
+        XCTAssertEqual(TitleText.similarity("Kite-Man", "Kite Man"), 1)
         XCTAssertEqual(TitleText.similarity("", "x"), 0)
         XCTAssertEqual(TitleText.similarity("x", ""), 0)
         XCTAssertEqual(TitleText.similarity("", ""), 0)
     }
 
     func testSpacingDifferencesAreNearlyIdentical() {
-        let s = TitleText.similarity("Spiderman", "Spider Man")
+        let s = TitleText.similarity("Kiteman", "Kite Man")
         XCTAssertGreaterThan(s, 0.95)
         XCTAssertLessThan(s, 1)
     }
 
     func testSmallTyposScoreHigh() {
-        XCTAssertGreaterThan(TitleText.similarity("The Matirx", "The Matrix"), 0.85)
-        XCTAssertGreaterThan(TitleText.similarity("Inception", "Inceptoin"), 0.9)
+        XCTAssertGreaterThan(TitleText.similarity("The Marrowgaet", "The Marrowgate"), 0.85)
+        XCTAssertGreaterThan(TitleText.similarity("Inverlane", "Inverlnae"), 0.9)
     }
 
     func testDifferentTitlesScoreLow() {
-        XCTAssertLessThan(TitleText.similarity("The Matrix", "Finding Nemo"), 0.5)
-        XCTAssertLessThan(TitleText.similarity("Dune", "Heat"), 0.6)
-        XCTAssertLessThan(TitleText.similarity("Bttl Rygl", "Blade Runner"), 0.6)
+        XCTAssertLessThan(TitleText.similarity("The Marrowgate", "Finding Pellow"), 0.5)
+        XCTAssertLessThan(TitleText.similarity("Dunerra", "Hexfall"), 0.6)
+        XCTAssertLessThan(TitleText.similarity("Bttl Rygl", "Brass Ranger"), 0.6)
     }
 
     func testContainmentAtWordBoundaries() {
-        let multi = TitleText.similarity("Star Wars", "Star Wars A New Hope")
+        let multi = TitleText.similarity("Sky Lanes", "Sky Lanes A New Dawn")
         XCTAssertEqual(multi, 0.85, accuracy: 0.0001)
-        let single = TitleText.similarity("Matrix", "The Matrix Reloaded")
+        let single = TitleText.similarity("Marrowgate", "The Marrowgate Reloaded")
         XCTAssertEqual(single, 0.7, accuracy: 0.0001, "one word inside a longer title is weaker evidence")
-        XCTAssertLessThan(TitleText.similarity("Star", "Starship Troopers"), 0.7, "not at a word boundary")
+        XCTAssertLessThan(TitleText.similarity("Star", "Starship Couriers"), 0.7, "not at a word boundary")
     }
 
     func testSimilarityIsSymmetric() {
-        for (a, b) in [("Dune", "Dune Part Two"), ("The Office", "Office Space"), ("Amélie", "Amelie from Montmartre")] {
+        for (a, b) in [("Dunerra", "Dunerra Part Two"), ("The Bureau", "Bureau Space"), ("Amélise", "Amelise from Montclair")] {
             XCTAssertEqual(TitleText.similarity(a, b), TitleText.similarity(b, a), accuracy: 1e-9)
         }
     }
 
     func testNonIdenticalTitlesNeverReachOne() {
-        XCTAssertLessThan(TitleText.similarity("Dune", "Dune 2"), 1)
-        XCTAssertLessThanOrEqual(TitleText.similarity("Alien", "Aliens"), 0.97)
+        XCTAssertLessThan(TitleText.similarity("Dunerra", "Dunerra 2"), 1)
+        XCTAssertLessThanOrEqual(TitleText.similarity("Aftlander", "Aftlanders"), 0.97)
     }
 
     func testBestSimilarityTakesTheBestName() {
-        let s = TitleText.bestSimilarity(query: "La Casa de Papel", names: ["Money Heist", "La casa de papel"])
+        let s = TitleText.bestSimilarity(query: "La Bóveda de Papel", names: ["Paper Vault", "La bóveda de papel"])
         XCTAssertEqual(s, 1)
         XCTAssertEqual(TitleText.bestSimilarity(query: "x", names: []), 0)
     }

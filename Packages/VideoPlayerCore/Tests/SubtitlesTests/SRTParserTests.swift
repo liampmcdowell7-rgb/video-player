@@ -206,8 +206,8 @@ final class SRTParserTests: XCTestCase {
     }
 
     func testEntitiesAndBreakTag() {
-        let p = parse("1\n00:00:01,000 --> 00:00:02,000\nTom &amp; Jerry &lt;3 &#233;&#x41;&nbsp;x<br>next &bogus; &\n")
-        XCTAssertEqual(p.cues[0].plainText, "Tom & Jerry <3 éA\u{00A0}x\nnext &bogus; &")
+        let p = parse("1\n00:00:01,000 --> 00:00:02,000\nPip &amp; Wren &lt;3 &#233;&#x41;&nbsp;x<br>next &bogus; &\n")
+        XCTAssertEqual(p.cues[0].plainText, "Pip & Wren <3 éA\u{00A0}x\nnext &bogus; &")
     }
 
     func testTrailingAndLeadingBlankSpaceTrimmed() {

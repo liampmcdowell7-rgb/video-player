@@ -25,7 +25,7 @@ final class MergeTests: XCTestCase {
     }
 
     func testCloudNameIsPlainWhenShortAndAHashWhenLongOrOdd() {
-        XCTAssertEqual(UDRecord(type: "watch", id: "movie:heat:1995").cloudName, "watch.movie:heat:1995")
+        XCTAssertEqual(UDRecord(type: "watch", id: "movie:hexfall:1995").cloudName, "watch.movie:hexfall:1995")
         let long = UDRecord(type: "watch", id: String(repeating: "x", count: 400)).cloudName
         XCTAssertTrue(long.hasPrefix("watch.h"))
         XCTAssertLessThan(long.utf8.count, 60)

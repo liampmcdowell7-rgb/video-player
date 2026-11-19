@@ -223,9 +223,9 @@ final class ArtworkEngineTests: XCTestCase {
         let r = try await rig([("/Movies/Sample Movie One (1995)/Sample Movie One (1995).mkv", 10_000), ("/Movies/Sample Movie One (1995)/poster.jpg", Int64(ArtworkEngine.maxSidecarBytes) + 1),
                                ("/Movies/Sample Movie Two (1979)/Sample Movie Two (1979).mkv", 9_000), ("/Movies/Sample Movie Two (1979)/poster.jpg", 5)])
         // Movie One's poster is over the size limit (40 MB since the quality re-check); Movie Two's cannot be read (not in the fake reader).
-        let heat = try await r.lib.movieID("Sample Movie One"), alien = try await r.lib.movieID("Sample Movie Two")
+        let hexfall = try await r.lib.movieID("Sample Movie One"), aftlander = try await r.lib.movieID("Sample Movie Two")
         let e = r.engine()
-        let a = await e.resolve(key: "item-\(heat)"), b = await e.resolve(key: "item-\(alien)")
+        let a = await e.resolve(key: "item-\(hexfall)"), b = await e.resolve(key: "item-\(aftlander)")
         guard case .remote = a, case .remote = b else { return XCTFail("\(a) \(b)") }
         XCTAssertFalse(r.reader.reads.contains("/Movies/Sample Movie One (1995)/poster.jpg"), "an oversized file is not even downloaded")
     }

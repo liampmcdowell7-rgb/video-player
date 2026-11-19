@@ -357,7 +357,7 @@ final class UPnPClientSyntheticTests: XCTestCase {
     }
 
     func testContainerWithQuotesAndAmpersandInTheTitle() async throws {
-        let container = "<container id=\"c&amp;1\" parentID=\"0\" restricted=\"1\"><dc:title>Tom &amp; Jerry</dc:title><upnp:class>object.container</upnp:class></container>"
+        let container = "<container id=\"c&amp;1\" parentID=\"0\" restricted=\"1\"><dc:title>Pip &amp; Wren</dc:title><upnp:class>object.container</upnp:class></container>"
         let transport = MockTransport { request in
             if request.method == "GET" { return ok(rcloneDeviceDescription) }
             let id = tag("ObjectID", in: soapBody(request))
@@ -367,8 +367,8 @@ final class UPnPClientSyntheticTests: XCTestCase {
         }
         let client = UPnPClient(deviceURL: deviceURL, transport: transport)
         let root = try await client.list("/")
-        XCTAssertEqual(root.map(\.name), ["Tom & Jerry"])
-        let inside = try await client.list("/Tom & Jerry")
+        XCTAssertEqual(root.map(\.name), ["Pip & Wren"])
+        let inside = try await client.list("/Pip & Wren")
         XCTAssertTrue(inside.isEmpty)
     }
 

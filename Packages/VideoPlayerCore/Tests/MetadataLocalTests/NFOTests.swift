@@ -8,20 +8,20 @@ import Foundation
 private let fullMovie = """
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <movie>
-  <title>The Matrix</title>
-  <originaltitle>The Matrix Original</originaltitle>
-  <sorttitle>Matrix 1</sorttitle>
+  <title>The Marrowgate</title>
+  <originaltitle>The Marrowgate Original</originaltitle>
+  <sorttitle>Marrowgate 1</sorttitle>
   <year>1999</year>
   <premiered>1999-03-31</premiered>
   <plot>A hacker learns the truth.</plot>
   <outline>Short outline.</outline>
-  <tagline>Welcome to the Real World</tagline>
+  <tagline>Welcome to the Waking Hour</tagline>
   <runtime>136</runtime>
   <mpaa>Rated R</mpaa>
   <genre>Action</genre>
   <genre>Sci-Fi</genre>
   <genre>action</genre>
-  <studio>Warner Bros.</studio>
+  <studio>North Pier Pictures</studio>
   <country>USA</country>
   <tag>cyberpunk</tag>
   <ratings>
@@ -33,21 +33,21 @@ private let fullMovie = """
   <uniqueid type="tmdb" default="true">603</uniqueid>
   <uniqueid type="imdb">tt0133093</uniqueid>
   <set>
-    <name>The Matrix Collection</name>
+    <name>The Marrowgate Collection</name>
     <tmdbcolid>2344</tmdbcolid>
   </set>
-  <director>Lana Wachowski</director>
-  <director>Lilly Wachowski</director>
-  <credits>Lilly Wachowski</credits>
+  <director>Mira Castell</director>
+  <director>Nell Castell</director>
+  <credits>Nell Castell</credits>
   <actor>
-    <name>Keanu Reeves</name>
-    <role>Neo</role>
+    <name>Rowan Ashby</name>
+    <role>Wren</role>
     <order>0</order>
-    <thumb>https://example.invalid/keanu.jpg</thumb>
+    <thumb>https://example.invalid/ashby.jpg</thumb>
   </actor>
   <actor>
-    <name>Carrie-Anne Moss</name>
-    <role>Trinity</role>
+    <name>Tamsin Vale</name>
+    <role>Sable</role>
     <order>1</order>
   </actor>
   <thumb aspect="poster">poster.jpg</thumb>
@@ -74,22 +74,22 @@ final class NFOTests: XCTestCase {
         XCTAssertEqual(file.documents.count, 1)
         let m = try XCTUnwrap(file.documents.first)
         XCTAssertEqual(m.kind, .movie)
-        XCTAssertEqual(m.title, "The Matrix")
-        XCTAssertEqual(m.originalTitle, "The Matrix Original")
-        XCTAssertEqual(m.sortTitle, "Matrix 1")
+        XCTAssertEqual(m.title, "The Marrowgate")
+        XCTAssertEqual(m.originalTitle, "The Marrowgate Original")
+        XCTAssertEqual(m.sortTitle, "Marrowgate 1")
         XCTAssertEqual(m.year, 1999)
         XCTAssertEqual(m.premiered, CalendarDay(year: 1999, month: 3, day: 31))
         XCTAssertEqual(m.plot, "A hacker learns the truth.")
         XCTAssertEqual(m.outline, "Short outline.")
-        XCTAssertEqual(m.tagline, "Welcome to the Real World")
+        XCTAssertEqual(m.tagline, "Welcome to the Waking Hour")
         XCTAssertEqual(m.runtimeMinutes, 136)
         XCTAssertEqual(m.certification, "Rated R")
         XCTAssertEqual(m.genres, ["Action", "Sci-Fi"], "Duplicates ignoring case are dropped")
-        XCTAssertEqual(m.studios, ["Warner Bros."])
+        XCTAssertEqual(m.studios, ["North Pier Pictures"])
         XCTAssertEqual(m.countries, ["USA"])
         XCTAssertEqual(m.tags, ["cyberpunk"])
-        XCTAssertEqual(m.directors, ["Lana Wachowski", "Lilly Wachowski"])
-        XCTAssertEqual(m.writers, ["Lilly Wachowski"])
+        XCTAssertEqual(m.directors, ["Mira Castell", "Nell Castell"])
+        XCTAssertEqual(m.writers, ["Nell Castell"])
         XCTAssertEqual(m.trailer, "https://example.invalid/trailer")
         XCTAssertEqual(m.playCount, 2)
         XCTAssertEqual(m.resumePositionSeconds, 120.5)
@@ -121,12 +121,12 @@ final class NFOTests: XCTestCase {
         XCTAssertEqual(m.uniqueIDs.count, 2)
         XCTAssertTrue(m.uniqueIDs[0].isDefault)
         XCTAssertEqual(m.uniqueID("TMDB"), "603")
-        XCTAssertEqual(m.collectionName, "The Matrix Collection")
+        XCTAssertEqual(m.collectionName, "The Marrowgate Collection")
         XCTAssertEqual(m.collectionTMDBID, 2344)
-        XCTAssertEqual(m.actors.map(\.name), ["Keanu Reeves", "Carrie-Anne Moss"])
-        XCTAssertEqual(m.actors[0].role, "Neo")
+        XCTAssertEqual(m.actors.map(\.name), ["Rowan Ashby", "Tamsin Vale"])
+        XCTAssertEqual(m.actors[0].role, "Wren")
         XCTAssertEqual(m.actors[0].order, 0)
-        XCTAssertEqual(m.actors[0].thumb, "https://example.invalid/keanu.jpg")
+        XCTAssertEqual(m.actors[0].thumb, "https://example.invalid/ashby.jpg")
         XCTAssertNil(m.actors[1].thumb)
     }
 
@@ -258,7 +258,7 @@ final class NFOTests: XCTestCase {
     // MARK: Encodings and damage
 
     func testByteOrderMarkAndEncodings() throws {
-        let xml = "<movie><title>Amélie</title><plot>Café Noël — “quotes”</plot></movie>"
+        let xml = "<movie><title>Amélise</title><plot>Café Noël — “quotes”</plot></movie>"
         let utf8 = Data(xml.utf8)
         let utf8BOM = Data([0xEF, 0xBB, 0xBF]) + utf8
         let utf16LEBOM = Data([0xFF, 0xFE]) + xml.data(using: .utf16LittleEndian)!
@@ -268,29 +268,29 @@ final class NFOTests: XCTestCase {
         for (name, data) in [("utf8", utf8), ("utf8 BOM", utf8BOM), ("utf16 LE BOM", utf16LEBOM), ("utf16 BE BOM", utf16BEBOM),
                              ("utf16 LE", utf16LENoBOM), ("utf16 BE", utf16BENoBOM)] {
             let file = NFOParser.parse(data)
-            XCTAssertEqual(file.documents.first?.title, "Amélie", name)
+            XCTAssertEqual(file.documents.first?.title, "Amélise", name)
             XCTAssertEqual(file.documents.first?.plot, "Café Noël — “quotes”", name)
             XCTAssertEqual(file.warnings, [], name)
         }
     }
 
     func testWindows1252FallbackWhenNotValidUTF8() throws {
-        // "Amélie" with é as the single byte 0xE9, as old Windows tools wrote it.
+        // "Amélise" with é as the single byte 0xE9, as old Windows tools wrote it.
         var bytes = Array("<?xml version=\"1.0\" encoding=\"windows-1252\"?><movie><title>Am".utf8)
         bytes.append(0xE9)
-        bytes += Array("lie</title></movie>".utf8)
-        XCTAssertEqual(NFOParser.parse(Data(bytes)).documents.first?.title, "Amélie")
+        bytes += Array("lise</title></movie>".utf8)
+        XCTAssertEqual(NFOParser.parse(Data(bytes)).documents.first?.title, "Amélise")
     }
 
     func testBadEntitiesAndBareAmpersands() throws {
         let m = try movie("""
         <movie>
-          <title>Tom &amp; Jerry &eacute;dition &nbsp;extra</title>
+          <title>Pip &amp; Wren &eacute;dition &nbsp;extra</title>
           <plot>Fish & chips &unknown; and &#233; and &#xE9; &lt;3</plot>
           <studio>AT&T</studio>
         </movie>
         """)
-        XCTAssertEqual(m.title, "Tom & Jerry édition \u{00A0}extra")
+        XCTAssertEqual(m.title, "Pip & Wren édition \u{00A0}extra")
         XCTAssertEqual(m.plot, "Fish & chips &unknown; and é and é <3")
         XCTAssertEqual(m.studios, ["AT&T"])
     }
@@ -359,7 +359,7 @@ final class NFOTests: XCTestCase {
     // MARK: Link-only nfo
 
     func testBareURLNfo() {
-        let tmdb = NFOParser.parse(text: "https://www.themoviedb.org/movie/603-the-matrix\n")
+        let tmdb = NFOParser.parse(text: "https://www.themoviedb.org/movie/603-the-marrowgate\n")
         XCTAssertEqual(tmdb.documents, [])
         XCTAssertEqual(tmdb.link?.service, .tmdb)
         XCTAssertEqual(tmdb.link?.id, "603")

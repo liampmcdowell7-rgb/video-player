@@ -63,21 +63,21 @@ final class LibraryOnlyTests: XCTestCase {
         let catalog = MatchEngineTests.catalog()
         let details = SpyDetails()
         details.movies[603] = MovieMetadata(
-            ids: ProviderIDs(tmdb: 603, imdb: "tt0133093"), title: "The Matrix", overview: "TMDB overview", releaseDate: CalendarDate(year: 1999, month: 3, day: 31),
+            ids: ProviderIDs(tmdb: 603, imdb: "tt0133093"), title: "The Marrowgate", overview: "TMDB overview", releaseDate: CalendarDate(year: 1999, month: 3, day: 31),
             runtimeMinutes: 136, genres: ["Action"], posterPath: "/p.jpg",
-            collection: CollectionRef(id: 2344, name: "The Matrix Collection"),
+            collection: CollectionRef(id: 2344, name: "The Marrowgate Collection"),
             ratings: RatingSet(tmdb: Rating(source: .tmdb, percent: 82, display: "8.2/10", votes: 1))
         )
-        details.movies[841] = MovieMetadata(ids: ProviderIDs(tmdb: 841), title: "Dune", releaseDate: CalendarDate(year: 1984, month: 12, day: 14))
-        details.allSeries[1396] = SeriesMetadata(ids: ProviderIDs(tmdb: 1396, imdb: "tt0903747"), name: "Breaking Bad", firstAirDate: CalendarDate(year: 2008, month: 1, day: 20), seasons: [SeasonSummary(seasonNumber: 1, episodeCount: 3)])
+        details.movies[841] = MovieMetadata(ids: ProviderIDs(tmdb: 841), title: "Dunerra", releaseDate: CalendarDate(year: 1984, month: 12, day: 14))
+        details.allSeries[1396] = SeriesMetadata(ids: ProviderIDs(tmdb: 1396, imdb: "tt0903747"), name: "Crossing Brine", firstAirDate: CalendarDate(year: 2008, month: 1, day: 20), seasons: [SeasonSummary(seasonNumber: 1, episodeCount: 3)])
         details.seasons["1396/1"] = SeasonMetadata(seriesID: 1396, seasonNumber: 1, episodes: [
             EpisodeMetadata(seriesID: 1396, seasonNumber: 1, episodeNumber: 1, name: "Pilot", overview: "Ep text", runtimeMinutes: 58),
-            EpisodeMetadata(seriesID: 1396, seasonNumber: 1, episodeNumber: 2, name: "Cat's in the Bag...", runtimeMinutes: 48)
+            EpisodeMetadata(seriesID: 1396, seasonNumber: 1, episodeNumber: 2, name: "Cat's in the Box...", runtimeMinutes: 48)
         ])
-        details.collections[2344] = CollectionMetadata(id: 2344, name: "The Matrix Collection", parts: [
-            CollectionPart(tmdbID: 603, title: "The Matrix", releaseDate: CalendarDate(year: 1999, month: 3, day: 31)),
-            CollectionPart(tmdbID: 604, title: "The Matrix Reloaded", releaseDate: CalendarDate(year: 2003, month: 5, day: 15)),
-            CollectionPart(tmdbID: 605, title: "The Matrix Revolutions", releaseDate: CalendarDate(year: 2003, month: 11, day: 5))
+        details.collections[2344] = CollectionMetadata(id: 2344, name: "The Marrowgate Collection", parts: [
+            CollectionPart(tmdbID: 603, title: "The Marrowgate", releaseDate: CalendarDate(year: 1999, month: 3, day: 31)),
+            CollectionPart(tmdbID: 604, title: "The Marrowgate Reloaded", releaseDate: CalendarDate(year: 2003, month: 5, day: 15)),
+            CollectionPart(tmdbID: 605, title: "The Marrowgate Revolutions", releaseDate: CalendarDate(year: 2003, month: 11, day: 5))
         ])
         let ratings = SpyRatings()
         let cache = InMemoryMetadataCache()
@@ -86,8 +86,8 @@ final class LibraryOnlyTests: XCTestCase {
         return Rig(service: service, catalog: catalog, details: details, ratings: ratings, cache: cache)
     }
 
-    private let file = FileIdentity(path: "/movies/The Matrix (1999).mkv")
-    private let movieInput = MatchInput(parsed: P.movie("The Matrix", year: 1999))
+    private let file = FileIdentity(path: "/movies/The Marrowgate (1999).mkv")
+    private let movieInput = MatchInput(parsed: P.movie("The Marrowgate", year: 1999))
 
     // MARK: Ownership gate
 
@@ -107,13 +107,13 @@ final class LibraryOnlyTests: XCTestCase {
     func testFixMatchSearchAndChoiceAlsoRequireAnOwnedItem() async {
         let r = rig()
         do {
-            _ = try await r.service.fixMatchCandidates(itemID: "not-mine", query: "Dune", year: nil, kind: .movie, input: nil)
+            _ = try await r.service.fixMatchCandidates(itemID: "not-mine", query: "Dunerra", year: nil, kind: .movie, input: nil)
             XCTFail("expected notInLibrary")
         } catch {
             XCTAssertEqual(error as? MetadataError, .notInLibrary)
         }
         do {
-            _ = try await r.service.choose(itemID: "not-mine", candidate: .movie(841, "Dune", year: 1984), file: file, input: movieInput, scope: .file)
+            _ = try await r.service.choose(itemID: "not-mine", candidate: .movie(841, "Dunerra", year: 1984), file: file, input: movieInput, scope: .file)
             XCTFail("expected notInLibrary")
         } catch {
             XCTAssertEqual(error as? MetadataError, .notInLibrary)
@@ -145,14 +145,14 @@ final class LibraryOnlyTests: XCTestCase {
         guard case .matched(let item) = resolution else { return XCTFail("got \(resolution)") }
         XCTAssertEqual(item.match.tmdbID, 603)
         XCTAssertEqual(r.details.calls, ["movie:603"], "the sequel that the search also returned is never fetched")
-        XCTAssertEqual(item.movie?.title, "The Matrix")
+        XCTAssertEqual(item.movie?.title, "The Marrowgate")
         XCTAssertEqual(item.itemID, "item-1")
     }
 
     func testNeedsReviewFetchesNothingAndCarriesNoCandidates() async throws {
         let r = rig()
-        let ambiguous = MatchInput(parsed: P.movie("Dune"))
-        let resolution = try await r.service.resolve(itemID: "item-1", file: FileIdentity(path: "/movies/dune.mkv"), input: ambiguous)
+        let ambiguous = MatchInput(parsed: P.movie("Dunerra"))
+        let resolution = try await r.service.resolve(itemID: "item-1", file: FileIdentity(path: "/movies/dunerra.mkv"), input: ambiguous)
         // Exhaustive: if a case that carries titles is ever added, this stops compiling.
         switch resolution {
         case .needsReview(let itemID, let reason):
@@ -180,7 +180,7 @@ final class LibraryOnlyTests: XCTestCase {
         let resolution = try await r.service.resolve(itemID: "item-1", file: file, input: movieInput)
         guard case .matched(let item) = resolution else { return XCTFail("got \(resolution)") }
         let text = String(describing: item)
-        for foreign in ["Reloaded", "Revolutions", "Dune"] {
+        for foreign in ["Reloaded", "Revolutions", "Dunerra"] {
             XCTAssertFalse(text.contains(foreign), "\(foreign) must not appear in a library item: \(text)")
         }
     }
@@ -193,7 +193,7 @@ final class LibraryOnlyTests: XCTestCase {
         guard case .matched(let item) = resolution else { return XCTFail("got \(resolution)") }
         let owned = try await r.service.collection(for: item)
         let collection = try XCTUnwrap(owned)
-        XCTAssertEqual(collection.name, "The Matrix Collection")
+        XCTAssertEqual(collection.name, "The Marrowgate Collection")
         XCTAssertEqual(collection.ownedParts.map(\.tmdbID), [603, 605])
         XCTAssertFalse(String(describing: collection).contains("Reloaded"), "a part the user does not own is not in the result")
     }
@@ -208,7 +208,7 @@ final class LibraryOnlyTests: XCTestCase {
 
     func testNoCollectionForATitleWithoutOne() async throws {
         let r = rig()
-        let resolution = try await r.service.resolve(itemID: "item-1", file: FileIdentity(path: "/movies/dune.mkv"), input: MatchInput(parsed: P.movie("Dune", year: 1984)))
+        let resolution = try await r.service.resolve(itemID: "item-1", file: FileIdentity(path: "/movies/dunerra.mkv"), input: MatchInput(parsed: P.movie("Dunerra", year: 1984)))
         guard case .matched(let item) = resolution else { return XCTFail("got \(resolution)") }
         let c = try await r.service.collection(for: item)
         XCTAssertNil(c)
@@ -219,11 +219,11 @@ final class LibraryOnlyTests: XCTestCase {
 
     func testSeriesItemLoadsItsEpisodesAndNothingElse() async throws {
         let r = rig()
-        let input = MatchInput(parsed: P.episode("Breaking Bad", season: 1, episodes: [1, 2]))
-        let resolution = try await r.service.resolve(itemID: "item-1", file: FileIdentity(path: "/tv/Breaking Bad/S01E01E02.mkv"), input: input)
+        let input = MatchInput(parsed: P.episode("Crossing Brine", season: 1, episodes: [1, 2]))
+        let resolution = try await r.service.resolve(itemID: "item-1", file: FileIdentity(path: "/tv/Crossing Brine/S01E01E02.mkv"), input: input)
         guard case .matched(let item) = resolution else { return XCTFail("got \(resolution)") }
-        XCTAssertEqual(item.series?.name, "Breaking Bad")
-        XCTAssertEqual(item.episodes.map(\.name), ["Pilot", "Cat's in the Bag..."])
+        XCTAssertEqual(item.series?.name, "Crossing Brine")
+        XCTAssertEqual(item.episodes.map(\.name), ["Pilot", "Cat's in the Box..."])
         XCTAssertEqual(r.details.calls, ["series:1396", "season:1396:1"])
         XCTAssertEqual(item.merged.fields.title, "Pilot", "an episode file shows the episode, not the series")
         XCTAssertNil(item.movie)
@@ -233,7 +233,7 @@ final class LibraryOnlyTests: XCTestCase {
 
     func testOMDbScoresAreAddedToTheTMDBScoreByIMDbID() async throws {
         let r = rig()
-        r.ratings.result = .success(OMDbResult(imdbID: "tt0133093", title: "The Matrix", year: "1999", ratings: RatingSet(imdb: Rating(source: .imdb, percent: 87, display: "8.7/10"), rottenTomatoes: Rating(source: .rottenTomatoes, percent: 83, display: "83%"))))
+        r.ratings.result = .success(OMDbResult(imdbID: "tt0133093", title: "The Marrowgate", year: "1999", ratings: RatingSet(imdb: Rating(source: .imdb, percent: 87, display: "8.7/10"), rottenTomatoes: Rating(source: .rottenTomatoes, percent: 83, display: "83%"))))
         let resolution = try await r.service.resolve(itemID: "item-1", file: file, input: movieInput)
         guard case .matched(let item) = resolution else { return XCTFail("got \(resolution)") }
         XCTAssertEqual(r.ratings.calls, ["tt0133093"])
@@ -261,7 +261,7 @@ final class LibraryOnlyTests: XCTestCase {
 
     func testTitleWithoutAnIMDbIDIsNotLookedUpInOMDb() async throws {
         let r = rig()
-        let resolution = try await r.service.resolve(itemID: "item-1", file: FileIdentity(path: "/movies/dune.mkv"), input: MatchInput(parsed: P.movie("Dune", year: 1984)))
+        let resolution = try await r.service.resolve(itemID: "item-1", file: FileIdentity(path: "/movies/dunerra.mkv"), input: MatchInput(parsed: P.movie("Dunerra", year: 1984)))
         guard case .matched = resolution else { return XCTFail("got \(resolution)") }
         XCTAssertTrue(r.ratings.calls.isEmpty)
     }
@@ -287,8 +287,8 @@ final class LibraryOnlyTests: XCTestCase {
 
     func testChoosingAMatchLoadsTheChosenTitleAndIsRememberedForTheItem() async throws {
         let r = rig()
-        let dune = SearchHit.movie(841, "Dune", year: 1984)
-        let (change, item) = try await r.service.choose(itemID: "item-1", candidate: dune, file: file, input: movieInput, scope: .file)
+        let dunerra = SearchHit.movie(841, "Dunerra", year: 1984)
+        let (change, item) = try await r.service.choose(itemID: "item-1", candidate: dunerra, file: file, input: movieInput, scope: .file)
         XCTAssertEqual(item.match.tmdbID, 841)
         XCTAssertEqual(item.match.source, .userChosen)
         XCTAssertEqual(r.details.calls, ["movie:841"])
@@ -304,7 +304,7 @@ final class LibraryOnlyTests: XCTestCase {
 
     func testFixMatchCandidatesAreOnlyForAnOwnedItem() async throws {
         let r = rig()
-        let list = try await r.service.fixMatchCandidates(itemID: "item-1", query: "Dune", year: nil, kind: .movie, input: nil)
+        let list = try await r.service.fixMatchCandidates(itemID: "item-1", query: "Dunerra", year: nil, kind: .movie, input: nil)
         XCTAssertFalse(list.isEmpty)
         XCTAssertTrue(r.details.calls.isEmpty, "searching for candidates fetches no details")
     }
@@ -325,7 +325,7 @@ final class LibraryOnlyTests: XCTestCase {
 
     func testEndToEndWithTheRealClientOnlyTouchesTheMatchedTitle() async throws {
         let transport = MockTransport.routes([
-            "/search/movie": Fixtures.searchMovieMatrix,
+            "/search/movie": Fixtures.searchMovieMarrowgate,
             "/movie/603": Fixtures.movie603,
             "/collection/2344": Fixtures.collection2344
         ])
@@ -336,10 +336,10 @@ final class LibraryOnlyTests: XCTestCase {
 
         let resolution = try await service.resolve(itemID: "item-1", file: file, input: movieInput)
         guard case .matched(let item) = resolution else { return XCTFail("got \(resolution)") }
-        XCTAssertEqual(item.movie?.title, "The Matrix")
+        XCTAssertEqual(item.movie?.title, "The Marrowgate")
         XCTAssertEqual(item.movie?.certification, "R")
         let collection = try await service.collection(for: item)
-        XCTAssertEqual(collection?.ownedParts.map(\.title), ["The Matrix", "The Matrix Revolutions"])
+        XCTAssertEqual(collection?.ownedParts.map(\.title), ["The Marrowgate", "The Marrowgate Revolutions"])
 
         let paths = transport.requests.map { $0.url.path }
         XCTAssertEqual(paths, ["/3/search/movie", "/3/movie/603", "/3/collection/2344"])

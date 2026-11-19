@@ -132,7 +132,7 @@ final class ExternalMatcherTests: XCTestCase {
     }
 
     func testNameWithRegexLikeCharactersAndDotsInTitle() {
-        let r = match("Dr. Strange (2016) [1080p].mkv", ["Dr. Strange (2016) [1080p].mkv", "Other.mkv", "Dr. Strange (2016) [1080p].en.srt", "Dr. Strange (2016) [1080p]ENG.srt"])
+        let r = match("Dr. Oddly (2016) [1080p].mkv", ["Dr. Oddly (2016) [1080p].mkv", "Other.mkv", "Dr. Oddly (2016) [1080p].en.srt", "Dr. Oddly (2016) [1080p]ENG.srt"])
         XCTAssertEqual(r.count, 1, "'ENG' glued to the name without a separator is not a language suffix")
     }
 

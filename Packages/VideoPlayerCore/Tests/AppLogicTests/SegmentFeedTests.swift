@@ -15,7 +15,7 @@ final class SegmentFeedTests: XCTestCase {
     func testFD1_aMovieGetsItsChaptersFromTheFileTheLibraryPointsAt() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        let id = try await rig.movieID("Heat")
+        let id = try await rig.movieID("Hexfall")
         let files = try await rig.store.versions(of: id)
         let file = try XCTUnwrap(files.first)
         try await rig.store.setTechnicalInfo(fileID: file.id, FileTechnicalInfo(duration: 2500))
@@ -31,7 +31,7 @@ final class SegmentFeedTests: XCTestCase {
     func testFD2_aMarkSavedUnderTheItemKeyIsFoundAgainAfterTheLibraryIsRebuiltWithNewIds() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        let id = try await rig.movieID("Heat")
+        let id = try await rig.movieID("Hexfall")
         let files = try await rig.store.versions(of: id)
         let file = try XCTUnwrap(files.first)
         try await rig.store.setTechnicalInfo(fileID: file.id, FileTechnicalInfo(duration: 2500))
@@ -45,7 +45,7 @@ final class SegmentFeedTests: XCTestCase {
         // A second library built from the same files: same keys, so the same mark applies even if the ids differ.
         let rig2 = try LibraryRig.make()
         try await rig2.fill()
-        let id2 = try await rig2.movieID("Heat")
+        let id2 = try await rig2.movieID("Hexfall")
         let files2 = try await rig2.store.versions(of: id2)
         let file2 = try XCTUnwrap(files2.first)
         try await rig2.store.setTechnicalInfo(fileID: file2.id, FileTechnicalInfo(duration: 2500))
@@ -62,7 +62,7 @@ final class SegmentFeedTests: XCTestCase {
         let provider = SegmentProvider(store: rig.store, ledger: ledger(), itemKey: { _ in nil }, openSource: { _ in nil })
         let none = await provider.segments(forItem: 999_999)
         XCTAssertTrue(none.isEmpty)
-        let id = try await rig.movieID("Heat")
+        let id = try await rig.movieID("Hexfall")
         let noSource = await provider.segments(forItem: id)
         XCTAssertTrue(noSource.isEmpty, "no length, no source, no marks: nothing to show, nothing thrown")
     }
@@ -70,7 +70,7 @@ final class SegmentFeedTests: XCTestCase {
     func testFD4_aSourceThatFailsEveryReadStillReturnsTheUsersMarks() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        let id = try await rig.movieID("Heat")
+        let id = try await rig.movieID("Hexfall")
         let files = try await rig.store.versions(of: id)
         let file = try XCTUnwrap(files.first)
         try await rig.store.setTechnicalInfo(fileID: file.id, FileTechnicalInfo(duration: 2500))
@@ -127,7 +127,7 @@ final class SegmentFeedTests: XCTestCase {
     func testFD6_aFilmAnUnknownItemAndAnotherSeriesNeverGetANextEpisode() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        let film = await NextEpisodeFeed.resolve(itemID: try await rig.movieID("Heat"), store: rig.store)
+        let film = await NextEpisodeFeed.resolve(itemID: try await rig.movieID("Hexfall"), store: rig.store)
         XCTAssertEqual(film.decision, .none(.notAnEpisode))
         XCTAssertNil(film.current)
         let missing = await NextEpisodeFeed.resolve(itemID: 424_242, store: rig.store)

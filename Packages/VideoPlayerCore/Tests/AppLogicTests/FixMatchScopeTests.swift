@@ -75,10 +75,10 @@ final class FixMatchScopeTests: XCTestCase {
     func testAMovieChoiceStoresTitleYearAndIDAndIsRecorded() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        let id = try await rig.movieID("Heat")
+        let id = try await rig.movieID("Hexfall")
         let recorder = MemoryRecorder()
-        var vm = FixMatchViewModel(store: rig.store, searcher: OneCandidate(), itemID: id, kind: .movie, currentTitle: "Heat", recorder: recorder)
-        await vm.choose(MatchCandidate(id: 949, title: "Heat", year: 1995))
+        var vm = FixMatchViewModel(store: rig.store, searcher: OneCandidate(), itemID: id, kind: .movie, currentTitle: "Hexfall", recorder: recorder)
+        await vm.choose(MatchCandidate(id: 949, title: "Hexfall", year: 1995))
         let item = try await rig.store.item(id: id)
         XCTAssertEqual(item?.tmdbID, 949)
         XCTAssertEqual(recorder.records.count, 1)
@@ -88,9 +88,9 @@ final class FixMatchScopeTests: XCTestCase {
         struct Failing: MatchChoiceRecording { func record(itemID: Int64, candidate: MatchCandidate, scope: FixMatchScope) async throws { throw Boom() } }
         let rig = try LibraryRig.make()
         try await rig.fill()
-        let id = try await rig.movieID("Heat")
-        var vm = FixMatchViewModel(store: rig.store, searcher: OneCandidate(), itemID: id, kind: .movie, currentTitle: "Heat", recorder: Failing())
-        await vm.choose(MatchCandidate(id: 949, title: "Heat", year: 1995))
+        let id = try await rig.movieID("Hexfall")
+        var vm = FixMatchViewModel(store: rig.store, searcher: OneCandidate(), itemID: id, kind: .movie, currentTitle: "Hexfall", recorder: Failing())
+        await vm.choose(MatchCandidate(id: 949, title: "Hexfall", year: 1995))
         XCTAssertFalse(vm.applied)
         guard case .failed = vm.state else { return XCTFail("\(vm.state)") }
     }

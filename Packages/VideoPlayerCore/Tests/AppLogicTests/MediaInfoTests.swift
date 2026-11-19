@@ -75,7 +75,7 @@ final class MediaInfoTests: XCTestCase {
     func testTheDetailPageReadsTheHeaderOnceAndKeepsIt() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        let id = try await rig.movieID("Heat")
+        let id = try await rig.movieID("Hexfall")
         let reads = Counter()
         let tracks = readTracks
         var vm = ItemDetailViewModel(store: rig.store, itemID: id, trackReader: { _ in await reads.add(); return tracks })
@@ -98,7 +98,7 @@ final class MediaInfoTests: XCTestCase {
     func testAFailedReadLeavesNotKnown() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        var vm = ItemDetailViewModel(store: rig.store, itemID: try await rig.movieID("Heat"), trackReader: { _ in nil })
+        var vm = ItemDetailViewModel(store: rig.store, itemID: try await rig.movieID("Hexfall"), trackReader: { _ in nil })
         await vm.load()
         await vm.loadTrackDetails()
         XCTAssertEqual(vm.state.content.flatMap { c in c.mediaInfo.first { $0.label == "Frame Rate" }?.value }, MediaInfo.notKnown)
@@ -136,7 +136,7 @@ final class MediaInfoTests: XCTestCase {
     func testTheDetailPageCarriesTheMediaInfoOfThePreferredFile() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        var vm = ItemDetailViewModel(store: rig.store, itemID: try await rig.movieID("Heat"))
+        var vm = ItemDetailViewModel(store: rig.store, itemID: try await rig.movieID("Hexfall"))
         await vm.load()
         let content = try XCTUnwrap(vm.state.content)
         XCTAssertEqual(content.mediaInfo.count, 11)

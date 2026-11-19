@@ -218,11 +218,11 @@ final class StoreDiscoverLibraryTests: XCTestCase {
     func testOnlyMatchedItemsCountAndEpisodesAreCollectedPerSeries() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        let heat = try await rig.movieID("Heat")
-        let alien = try await rig.movieID("Alien")
-        try await rig.store.setMetadata(itemID: heat, ItemMetadata(tmdbID: 949))
-        try await rig.store.setFavorite(itemID: heat, favorite: true)
-        _ = alien   // never matched: must not appear
+        let hexfall = try await rig.movieID("Hexfall")
+        let aftlander = try await rig.movieID("Aftlander")
+        try await rig.store.setMetadata(itemID: hexfall, ItemMetadata(tmdbID: 949))
+        try await rig.store.setFavorite(itemID: hexfall, favorite: true)
+        _ = aftlander   // never matched: must not appear
         let eps = try await rig.episodes(ofSeriesTitle: "Show One")
         for e in eps where e.season != 0 { try await rig.store.setMetadata(itemID: e.id, ItemMetadata(tmdbID: 1396)) }
         try await rig.store.updateProgress(itemID: try XCTUnwrap(eps.first { $0.season == 1 && $0.episode == 1 }).id, position: 100, duration: 1000, at: epoch)

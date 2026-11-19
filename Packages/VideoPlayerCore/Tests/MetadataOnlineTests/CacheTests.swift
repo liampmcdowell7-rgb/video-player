@@ -148,7 +148,7 @@ final class CacheTests: XCTestCase {
         let all = [
             key("movie", "603"), key("movie", "603", "de-DE"), key("movie", "604"),
             key("tv", "1396"), key("tv", "1396", "season-1/en-US"), key("tv", "1396", "season-2/en-US"), key("tv", "1399"),
-            key("search-movie", "matrix|1999"), key("configuration", "-", ""),
+            key("search-movie", "marrowgate|1999"), key("configuration", "-", ""),
             key("title", "tt0133093", "", provider: "omdb"), key("title", "tt0903747", "", provider: "omdb")
         ]
         for k in all { await cache.store(Data("x".utf8), for: k, ttl: 1, at: Date()) }
@@ -181,7 +181,7 @@ final class CacheTests: XCTestCase {
         XCTAssertEqual(n, 4)
         let keys = await cache.keys
         XCTAssertTrue(keys.contains("tmdb/tv/1396/en-US"))
-        XCTAssertTrue(keys.contains("tmdb/search-movie/matrix|1999/en-US"))
+        XCTAssertTrue(keys.contains("tmdb/search-movie/marrowgate|1999/en-US"))
     }
 
     func testRefreshLibraryDropsEverythingThisTargetCached() async {

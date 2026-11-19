@@ -33,8 +33,8 @@ final class FileModelTests: XCTestCase {
     }
 
     func testSearchMatchesAllWordsIgnoringCaseAndDiacritics() {
-        let items = [item("Amélie Lanterne (2001).mkv"), item("Harbor Lights S01E01.mkv"), item("notes.txt")]
-        XCTAssertEqual(FileSearch.filter(items, query: "amelie 2001").map(\.name), ["Amélie Lanterne (2001).mkv"])
+        let items = [item("Amélise Lanterne (2001).mkv"), item("Harbor Lights S01E01.mkv"), item("notes.txt")]
+        XCTAssertEqual(FileSearch.filter(items, query: "amelise 2001").map(\.name), ["Amélise Lanterne (2001).mkv"])
         XCTAssertEqual(FileSearch.filter(items, query: "harbor s01e01").count, 1)
         XCTAssertEqual(FileSearch.filter(items, query: "  ").count, 3)
         XCTAssertEqual(FileSearch.filter(items, query: "zzz").count, 0)

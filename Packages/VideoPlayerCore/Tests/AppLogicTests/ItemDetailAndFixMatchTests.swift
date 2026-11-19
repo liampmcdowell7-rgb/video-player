@@ -20,11 +20,11 @@ final class ItemDetailTests: XCTestCase {
     func testAMovieShowsPlayThenResumeThenPlayAgain() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        let heat = try await rig.movieID("Heat")
-        var vm = ItemDetailViewModel(store: rig.store, itemID: heat)
+        let hexfall = try await rig.movieID("Hexfall")
+        var vm = ItemDetailViewModel(store: rig.store, itemID: hexfall)
         await vm.load()
         var content = try XCTUnwrap(vm.state.content)
-        XCTAssertEqual(content.title, "Heat")
+        XCTAssertEqual(content.title, "Hexfall")
         XCTAssertEqual(content.playTitle, "Play")
         XCTAssertFalse(content.canStartOver)
         XCTAssertNil(content.progress)
@@ -32,7 +32,7 @@ final class ItemDetailTests: XCTestCase {
         XCTAssertEqual(content.versions.count, 1)
         XCTAssertTrue(content.versions[0].isPreferred)
 
-        try await rig.store.updateProgress(itemID: heat, position: 1_800, duration: 6_000, at: dayOffset(50))
+        try await rig.store.updateProgress(itemID: hexfall, position: 1_800, duration: 6_000, at: dayOffset(50))
         await vm.load()
         content = try XCTUnwrap(vm.state.content)
         XCTAssertEqual(content.playTitle, "Resume")
@@ -52,7 +52,7 @@ final class ItemDetailTests: XCTestCase {
     func testFavouriteTogglesAndReloads() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        let id = try await rig.movieID("Alien")
+        let id = try await rig.movieID("Aftlander")
         var vm = ItemDetailViewModel(store: rig.store, itemID: id)
         await vm.toggleFavorite()
         XCTAssertNil(vm.state.content, "toggling before the page has loaded does nothing")
@@ -80,7 +80,7 @@ final class ItemDetailTests: XCTestCase {
     func testAFailingStoreGivesAFailedStateNotACrash() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        let id = try await rig.movieID("Heat")
+        let id = try await rig.movieID("Hexfall")
         let flaky = FlakyStore(rig.store)
         var vm = ItemDetailViewModel(store: flaky, itemID: id)
         await vm.load()
@@ -92,7 +92,7 @@ final class ItemDetailTests: XCTestCase {
 /// results by class name only, so the per-target counts put these 5 tests under MetadataOnline.
 final class FixMatchViewModelTests: XCTestCase {
     private func model(_ result: Result<[MatchCandidate], Error>, rig: LibraryRig, itemID: Int64 = 1) -> FixMatchViewModel {
-        FixMatchViewModel(store: rig.store, searcher: StubSearcher(result: result), itemID: itemID, kind: .movie, currentTitle: "Heat")
+        FixMatchViewModel(store: rig.store, searcher: StubSearcher(result: result), itemID: itemID, kind: .movie, currentTitle: "Hexfall")
     }
 
     func testABlankQueryStaysIdleAndNeverSearches() async throws {
@@ -104,9 +104,9 @@ final class FixMatchViewModelTests: XCTestCase {
 
     func testResultsEmptyAndFailureEachHaveTheirOwnState() async throws {
         let rig = try LibraryRig.make()
-        var found = model(.success([MatchCandidate(id: 1, title: "Heat", year: 1995)]), rig: rig)
-        await found.search("  Heat ")
-        XCTAssertEqual(found.query, "Heat", "the query is trimmed")
+        var found = model(.success([MatchCandidate(id: 1, title: "Hexfall", year: 1995)]), rig: rig)
+        await found.search("  Hexfall ")
+        XCTAssertEqual(found.query, "Hexfall", "the query is trimmed")
         XCTAssertEqual(found.state.content?.map(\.id), [1])
 
         var none = model(.success([]), rig: rig)
@@ -115,20 +115,20 @@ final class FixMatchViewModelTests: XCTestCase {
         XCTAssertEqual(empty.reason, .noMatches)
 
         var failed = model(.failure(Boom()), rig: rig)
-        await failed.search("Heat")
+        await failed.search("Hexfall")
         guard case .failed = failed.state else { return XCTFail("state \(failed.state)") }
     }
 
     func testChoosingAMatchWritesTheTitleYearAndIdToTheItem() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
-        let id = try await rig.movieID("Heat")
+        let id = try await rig.movieID("Hexfall")
         var vm = model(.success([]), rig: rig, itemID: id)
-        await vm.choose(MatchCandidate(id: 949, title: "Heat (Director's Cut)", year: 1995))
+        await vm.choose(MatchCandidate(id: 949, title: "Hexfall (Director's Cut)", year: 1995))
         XCTAssertTrue(vm.applied)
         let stored = try await rig.store.item(id: id)
         let item = try XCTUnwrap(stored)
-        XCTAssertEqual(item.title, "Heat (Director's Cut)")
+        XCTAssertEqual(item.title, "Hexfall (Director's Cut)")
     }
 
     func testTheCandidateSubtitleJoinsYearAndATrimmedOverview() {

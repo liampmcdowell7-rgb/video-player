@@ -56,7 +56,7 @@ final class FixMatchTests: XCTestCase {
         XCTAssertNotNil(StoredMatch.best(for: FileIdentity(path: "/tv/Show/e01.mkv"), season: nil, in: m))
         XCTAssertNotNil(StoredMatch.best(for: FileIdentity(path: "/tv/Show/Season 1/e01.mkv"), season: 1, in: m))
         XCTAssertNil(StoredMatch.best(for: FileIdentity(path: "/tv/Show 2/e01.mkv"), season: nil, in: m))
-        XCTAssertNil(StoredMatch.best(for: FileIdentity(path: "/tv/Showtime.mkv"), season: nil, in: m))
+        XCTAssertNil(StoredMatch.best(for: FileIdentity(path: "/tv/Northlight.mkv"), season: nil, in: m))
     }
 
     func testFileChoiceIsKeyedByPathNotBySize() {
@@ -102,7 +102,7 @@ final class FixMatchTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: dir) }
         let url = dir.appendingPathComponent("sub/matches.json")
         let a = JSONFileMatchStore(url: url)
-        let m = StoredMatch(scope: .season(2), path: "/tv/Show", fileSize: nil, tmdbID: 1396, kind: .series, title: "Breaking Bad", year: 2008, createdAt: t0)
+        let m = StoredMatch(scope: .season(2), path: "/tv/Show", fileSize: nil, tmdbID: 1396, kind: .series, title: "Crossing Brine", year: 2008, createdAt: t0)
         try await a.save(m)
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
         let b = JSONFileMatchStore(url: url)
@@ -146,15 +146,15 @@ final class FixMatchTests: XCTestCase {
 
     func testStoredChoiceBeatsAutomaticMatchingAndNeedsNoSearch() async throws {
         let (svc, catalog, _) = service()
-        let file = FileIdentity(path: "/movies/The Matrix (1999).mkv")
-        let input = MatchInput(parsed: P.movie("The Matrix", year: 1999))
-        // Without a choice the file matches The Matrix automatically.
+        let file = FileIdentity(path: "/movies/The Marrowgate (1999).mkv")
+        let input = MatchInput(parsed: P.movie("The Marrowgate", year: 1999))
+        // Without a choice the file matches The Marrowgate automatically.
         let before = try await svc.resolve(file: file, input: input)
         guard case .matched(let auto) = before else { return XCTFail("got \(before)") }
         XCTAssertEqual(auto.tmdbID, 603)
-        // The user says it is the 1984 Dune.
-        let dune = SearchHit.movie(841, "Dune", year: 1984)
-        let change = try await svc.choose(dune, for: file, input: input, scope: .file)
+        // The user says it is the 1984 Dunerra.
+        let dunerra = SearchHit.movie(841, "Dunerra", year: 1984)
+        let change = try await svc.choose(dunerra, for: file, input: input, scope: .file)
         XCTAssertEqual(change.result.source, .userChosen)
         let calls = catalog.calls.count
         let after = try await svc.resolve(file: file, input: input)
@@ -162,15 +162,15 @@ final class FixMatchTests: XCTestCase {
         XCTAssertEqual(chosen.tmdbID, 841)
         XCTAssertEqual(chosen.source, .stored)
         XCTAssertEqual(chosen.confidence, 1)
-        XCTAssertEqual(chosen.title, "Dune")
+        XCTAssertEqual(chosen.title, "Dunerra")
         XCTAssertEqual(catalog.calls.count, calls, "a saved movie choice is used with no provider call at all")
     }
 
     func testStoredChoiceAlsoBeatsASidecarID() async throws {
         let (svc, _, _) = service()
         let file = FileIdentity(path: "/movies/a.mkv")
-        let input = MatchInput(parsed: P.movie("The Matrix"), sidecarIDs: ProviderIDs(tmdb: 603))
-        _ = try await svc.choose(.movie(841, "Dune", year: 1984), for: file, input: input, scope: .file)
+        let input = MatchInput(parsed: P.movie("The Marrowgate"), sidecarIDs: ProviderIDs(tmdb: 603))
+        _ = try await svc.choose(.movie(841, "Dunerra", year: 1984), for: file, input: input, scope: .file)
         let outcome = try await svc.resolve(file: file, input: input)
         guard case .matched(let r) = outcome else { return XCTFail("got \(outcome)") }
         XCTAssertEqual(r.tmdbID, 841)
@@ -184,7 +184,7 @@ final class FixMatchTests: XCTestCase {
         let first = try await svc.resolve(file: file, input: input)
         XCTAssertFalse(first.isAutomaticMatch)
         // Fix Match: the user searches by title and year and picks a candidate.
-        let candidates = try await svc.search(query: "The Matrix Reloaded", year: 2003, kind: .movie, input: input)
+        let candidates = try await svc.search(query: "The Marrowgate Reloaded", year: 2003, kind: .movie, input: input)
         let pick = try XCTUnwrap(candidates.first)
         XCTAssertEqual(pick.hit.tmdbID, 604)
         _ = try await svc.choose(pick.hit, for: file, input: input, scope: .file)
@@ -201,13 +201,13 @@ final class FixMatchTests: XCTestCase {
         let (svc, _, _) = service()
         let base = FileIdentity(path: "/tv/Some Show/Season 1/e01.mkv")
         let input = MatchInput(parsed: P.episode("Some Show", season: 1, episodes: [1]))
-        _ = try await svc.choose(.show(1396, "Breaking Bad", year: 2008), for: base, input: input, scope: .folder)
+        _ = try await svc.choose(.show(1396, "Crossing Brine", year: 2008), for: base, input: input, scope: .folder)
         // The choice was saved for the file's own folder: /tv/Some Show/Season 1
         let sibling = try await svc.resolve(file: FileIdentity(path: "/tv/Some Show/Season 1/e02.mkv"), input: MatchInput(parsed: P.episode("Some Show", season: 1, episodes: [2])))
         guard case .matched(let r) = sibling else { return XCTFail("got \(sibling)") }
         XCTAssertEqual(r.tmdbID, 1396)
         XCTAssertEqual(r.source, .stored)
-        XCTAssertEqual(r.episodes?.titles, ["Cat's in the Bag..."], "episodes of the chosen series are still resolved")
+        XCTAssertEqual(r.episodes?.titles, ["Cat's in the Box..."], "episodes of the chosen series are still resolved")
         let elsewhere = try await svc.resolve(file: FileIdentity(path: "/tv/Other/Season 1/e01.mkv"), input: MatchInput(parsed: P.episode("Some Show", season: 1, episodes: [1])))
         XCTAssertFalse(elsewhere.isStored)
     }
@@ -215,7 +215,7 @@ final class FixMatchTests: XCTestCase {
     func testSeasonChoiceAppliesOnlyToThatSeason() async throws {
         let (svc, _, _) = service()
         let input1 = MatchInput(parsed: P.episode("Show", season: 1, episodes: [1]))
-        _ = try await svc.choose(.show(1396, "Breaking Bad", year: 2008), for: FileIdentity(path: "/tv/Show/e01.mkv"), input: input1, scope: .season(1))
+        _ = try await svc.choose(.show(1396, "Crossing Brine", year: 2008), for: FileIdentity(path: "/tv/Show/e01.mkv"), input: input1, scope: .season(1))
         let same = try await svc.resolve(file: FileIdentity(path: "/tv/Show/e02.mkv"), input: MatchInput(parsed: P.episode("Show", season: 1, episodes: [2])))
         XCTAssertTrue(same.isStored)
         let other = try await svc.resolve(file: FileIdentity(path: "/tv/Show/e03.mkv"), input: MatchInput(parsed: P.episode("Show", season: 2, episodes: [3])))
@@ -225,7 +225,7 @@ final class FixMatchTests: XCTestCase {
     func testSpecialsUseSeasonZeroForSeasonChoices() async throws {
         let (svc, _, _) = service()
         let input = MatchInput(parsed: P.episode("Show", episodes: [1], special: true))
-        _ = try await svc.choose(.show(1396, "Breaking Bad", year: 2008), for: FileIdentity(path: "/tv/Show/Specials/sp1.mkv"), input: input, scope: .season(0))
+        _ = try await svc.choose(.show(1396, "Crossing Brine", year: 2008), for: FileIdentity(path: "/tv/Show/Specials/sp1.mkv"), input: input, scope: .season(0))
         let again = try await svc.resolve(file: FileIdentity(path: "/tv/Show/Specials/sp2.mkv"), input: MatchInput(parsed: P.episode("Show", episodes: [2], special: true)))
         XCTAssertTrue(again.isStored)
     }
@@ -233,10 +233,10 @@ final class FixMatchTests: XCTestCase {
     func testSeasonAndFolderChoicesAreOnlyAllowedForSeries() async throws {
         let (svc, _, store) = service()
         let file = FileIdentity(path: "/movies/a.mkv")
-        let input = MatchInput(parsed: P.movie("Dune"))
+        let input = MatchInput(parsed: P.movie("Dunerra"))
         for scope in [MatchScope.folder, .season(1)] {
             do {
-                _ = try await svc.choose(.movie(841, "Dune", year: 1984), for: file, input: input, scope: scope)
+                _ = try await svc.choose(.movie(841, "Dunerra", year: 1984), for: file, input: input, scope: scope)
                 XCTFail("expected scopeNotAllowed for \(scope)")
             } catch {
                 guard case .scopeNotAllowed = error as? MetadataError else { return XCTFail("wrong error \(error)") }
@@ -249,8 +249,8 @@ final class FixMatchTests: XCTestCase {
     func testUndoRemovesTheChoice() async throws {
         let (svc, _, store) = service()
         let file = FileIdentity(path: "/movies/a.mkv")
-        let input = MatchInput(parsed: P.movie("The Matrix", year: 1999))
-        let change = try await svc.choose(.movie(841, "Dune", year: 1984), for: file, input: input, scope: .file)
+        let input = MatchInput(parsed: P.movie("The Marrowgate", year: 1999))
+        let change = try await svc.choose(.movie(841, "Dunerra", year: 1984), for: file, input: input, scope: .file)
         XCTAssertNil(change.replaced)
         try await svc.undo(change)
         let all = await store.all()
@@ -264,9 +264,9 @@ final class FixMatchTests: XCTestCase {
     func testUndoRestoresTheChoiceItReplaced() async throws {
         let (svc, _, store) = service()
         let file = FileIdentity(path: "/movies/a.mkv")
-        let input = MatchInput(parsed: P.movie("Dune"))
-        let first = try await svc.choose(.movie(841, "Dune", year: 1984), for: file, input: input, scope: .file)
-        let second = try await svc.choose(.movie(438631, "Dune", year: 2021), for: file, input: input, scope: .file)
+        let input = MatchInput(parsed: P.movie("Dunerra"))
+        let first = try await svc.choose(.movie(841, "Dunerra", year: 1984), for: file, input: input, scope: .file)
+        let second = try await svc.choose(.movie(438631, "Dunerra", year: 2021), for: file, input: input, scope: .file)
         XCTAssertEqual(second.replaced?.tmdbID, 841)
         let afterSecond = await store.all()
         XCTAssertEqual(afterSecond.map(\.tmdbID), [438631])
@@ -281,9 +281,9 @@ final class FixMatchTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: dir) }
         let url = dir.appendingPathComponent("matches.json")
         let file = FileIdentity(path: "/movies/a.mkv", size: 1234)
-        let input = MatchInput(parsed: P.movie("Dune"))
+        let input = MatchInput(parsed: P.movie("Dunerra"))
         let (one, _, _) = service(store: JSONFileMatchStore(url: url))
-        _ = try await one.choose(.movie(841, "Dune", year: 1984), for: file, input: input, scope: .file)
+        _ = try await one.choose(.movie(841, "Dunerra", year: 1984), for: file, input: input, scope: .file)
         let (two, _, _) = service(store: JSONFileMatchStore(url: url))
         let outcome = try await two.resolve(file: file, input: input)
         guard case .matched(let r) = outcome else { return XCTFail("got \(outcome)") }

@@ -17,10 +17,10 @@ enum Fixtures {
     "still_sizes":["w92","w185","w300","original"]},"change_keys":["adult","air_date"]}
     """#
 
-    static let searchMovieMatrix = #"""
+    static let searchMovieMarrowgate = #"""
     {"page":1,"results":[
-    {"id":603,"title":"The Matrix","original_title":"The Matrix","original_language":"en","release_date":"1999-03-31","overview":"A hacker learns the truth.","poster_path":"/p603.jpg","popularity":80.5,"vote_average":8.2,"genre_ids":[28,878]},
-    {"id":604,"title":"The Matrix Reloaded","original_title":"The Matrix Reloaded","original_language":"en","release_date":"2003-05-15","overview":"Sequel.","poster_path":null,"popularity":60.1}
+    {"id":603,"title":"The Marrowgate","original_title":"The Marrowgate","original_language":"en","release_date":"1999-03-31","overview":"A hacker learns the truth.","poster_path":"/p603.jpg","popularity":80.5,"vote_average":8.2,"genre_ids":[28,878]},
+    {"id":604,"title":"The Marrowgate Reloaded","original_title":"The Marrowgate Reloaded","original_language":"en","release_date":"2003-05-15","overview":"Sequel.","poster_path":null,"popularity":60.1}
     ],"total_pages":1,"total_results":2}
     """#
 
@@ -28,21 +28,21 @@ enum Fixtures {
 
     static let searchTV = #"""
     {"page":1,"results":[
-    {"id":1396,"name":"Breaking Bad","original_name":"Breaking Bad","original_language":"en","first_air_date":"2008-01-20","overview":"A teacher turns to crime.","poster_path":"/bb.jpg","popularity":120.0}
+    {"id":1396,"name":"Crossing Brine","original_name":"Crossing Brine","original_language":"en","first_air_date":"2008-01-20","overview":"A teacher turns to crime.","poster_path":"/bb.jpg","popularity":120.0}
     ],"total_pages":1,"total_results":1}
     """#
 
     static let movie603 = #"""
-    {"id":603,"imdb_id":"tt0133093","title":"The Matrix","original_title":"The Matrix","original_language":"en",
-    "tagline":"Welcome to the Real World.","overview":"A computer hacker learns about the true nature of reality.",
+    {"id":603,"imdb_id":"tt0133093","title":"The Marrowgate","original_title":"The Marrowgate","original_language":"en",
+    "tagline":"Welcome to the Waking Hour.","overview":"A computer hacker learns about the true nature of reality.",
     "release_date":"1999-03-31","runtime":136,"genres":[{"id":28,"name":"Action"},{"id":878,"name":"Science Fiction"}],
     "poster_path":"/poster603.jpg","backdrop_path":"/backdrop603.jpg",
-    "belongs_to_collection":{"id":2344,"name":"The Matrix Collection","poster_path":"/coll_poster.jpg","backdrop_path":null},
+    "belongs_to_collection":{"id":2344,"name":"The Marrowgate Collection","poster_path":"/coll_poster.jpg","backdrop_path":null},
     "vote_average":8.2,"vote_count":25000,
     "credits":{"cast":[
-      {"id":2975,"name":"Laurence Fishburne","character":"Morpheus","profile_path":null,"order":1},
-      {"id":6384,"name":"Keanu Reeves","character":"Neo","profile_path":"/keanu.jpg","order":0}],
-     "crew":[{"id":9340,"name":"Lana Wachowski","job":"Director","department":"Directing","profile_path":"/lana.jpg"},
+      {"id":2975,"name":"Corin Hale","character":"Oracle One","profile_path":null,"order":1},
+      {"id":6384,"name":"Rowan Ashby","character":"Wren","profile_path":"/ashby.jpg","order":0}],
+     "crew":[{"id":9340,"name":"Mira Castell","job":"Director","department":"Directing","profile_path":"/lana.jpg"},
              {"id":9341,"name":"Someone","job":"Editor","department":"Editing","profile_path":null}]},
     "images":{"posters":[
       {"file_path":"/p_en.jpg","width":1000,"height":1500,"iso_639_1":"en","vote_average":5.5},
@@ -72,9 +72,9 @@ enum Fixtures {
     static let movieEnglishOverview = #"{"id":777,"title":"The Example","overview":"English overview.","tagline":"English tagline."}"#
 
     static let tv1396 = #"""
-    {"id":1396,"name":"Breaking Bad","original_name":"Breaking Bad","original_language":"en","tagline":"Remember my name",
+    {"id":1396,"name":"Crossing Brine","original_name":"Crossing Brine","original_language":"en","tagline":"Remember the tide",
     "overview":"A teacher turns to crime.","first_air_date":"2008-01-20","last_air_date":"2013-09-29","status":"Ended",
-    "genres":[{"id":18,"name":"Drama"}],"networks":[{"id":174,"name":"AMC"}],"poster_path":"/bb.jpg","backdrop_path":"/bbb.jpg",
+    "genres":[{"id":18,"name":"Drama"}],"networks":[{"id":174,"name":"North Channel"}],"poster_path":"/bb.jpg","backdrop_path":"/bbb.jpg",
     "seasons":[
       {"season_number":1,"name":"Season 1","episode_count":7,"air_date":"2008-01-20","poster_path":"/s1.jpg"},
       {"season_number":0,"name":"Specials","episode_count":2,"air_date":"2009-02-17","poster_path":null},
@@ -82,36 +82,36 @@ enum Fixtures {
     "vote_average":8.9,"vote_count":12000,
     "external_ids":{"imdb_id":"tt0903747","tvdb_id":81189},
     "content_ratings":{"results":[{"iso_3166_1":"DE","rating":"16"},{"iso_3166_1":"US","rating":"TV-MA"}]},
-    "credits":{"cast":[{"id":17419,"name":"Bryan Cranston","character":"Walter White","profile_path":"/bc.jpg","order":0}],"crew":[]},
+    "credits":{"cast":[{"id":17419,"name":"Dale Hollis","character":"Warren Holt","profile_path":"/bc.jpg","order":0}],"crew":[]},
     "images":{"posters":[],"backdrops":[],"logos":[]},"videos":{"results":[]}}
     """#
 
     static let tv1396Season1 = #"""
     {"id":3572,"name":"Season 1","overview":"First season.","air_date":"2008-01-20","poster_path":"/s1.jpg","season_number":1,
     "episodes":[
-     {"id":62085,"name":"Pilot","overview":"Walter learns.","air_date":"2008-01-20","episode_number":1,"season_number":1,"runtime":58,"still_path":"/e1.jpg","vote_average":8.2,
+     {"id":62085,"name":"Pilot","overview":"Warren learns.","air_date":"2008-01-20","episode_number":1,"season_number":1,"runtime":58,"still_path":"/e1.jpg","vote_average":8.2,
       "guest_stars":[{"id":1,"name":"Guest One","character":"Cop","profile_path":null,"order":0}],"crew":[{"id":2,"name":"Dir","job":"Director","department":"Directing"}]},
-     {"id":62086,"name":"Cat's in the Bag...","overview":"Cleanup.","air_date":"2008-01-27","episode_number":2,"season_number":1,"runtime":48,"still_path":null,"vote_average":8.1},
-     {"id":62087,"name":"...And the Bag's in the River","overview":null,"air_date":"2008-02-10","episode_number":3,"season_number":1,"runtime":null}
+     {"id":62086,"name":"Cat's in the Box...","overview":"Cleanup.","air_date":"2008-01-27","episode_number":2,"season_number":1,"runtime":48,"still_path":null,"vote_average":8.1},
+     {"id":62087,"name":"...And the Box's in the Lake","overview":null,"air_date":"2008-02-10","episode_number":3,"season_number":1,"runtime":null}
     ]}
     """#
 
     static let tv1396Episode = #"""
-    {"id":62085,"name":"Pilot","overview":"Walter learns.","air_date":"2008-01-20","episode_number":1,"season_number":1,"runtime":58,"still_path":"/e1.jpg","vote_average":8.2,
+    {"id":62085,"name":"Pilot","overview":"Warren learns.","air_date":"2008-01-20","episode_number":1,"season_number":1,"runtime":58,"still_path":"/e1.jpg","vote_average":8.2,
      "guest_stars":[{"id":1,"name":"Guest One","character":"Cop","profile_path":null,"order":0}],
      "crew":[{"id":2,"name":"Dir","job":"Director","department":"Directing"}]}
     """#
 
     static let collection2344 = #"""
-    {"id":2344,"name":"The Matrix Collection","overview":"Series.","poster_path":"/cp.jpg","backdrop_path":"/cb.jpg",
+    {"id":2344,"name":"The Marrowgate Collection","overview":"Series.","poster_path":"/cp.jpg","backdrop_path":"/cb.jpg",
      "parts":[
-      {"id":604,"title":"The Matrix Reloaded","release_date":"2003-05-15","poster_path":"/r.jpg"},
-      {"id":603,"title":"The Matrix","release_date":"1999-03-31","poster_path":"/m.jpg"},
-      {"id":605,"title":"The Matrix Revolutions","release_date":"2003-11-05","poster_path":null}]}
+      {"id":604,"title":"The Marrowgate Reloaded","release_date":"2003-05-15","poster_path":"/r.jpg"},
+      {"id":603,"title":"The Marrowgate","release_date":"1999-03-31","poster_path":"/m.jpg"},
+      {"id":605,"title":"The Marrowgate Revolutions","release_date":"2003-11-05","poster_path":null}]}
     """#
 
     static let findByIMDb = #"""
-    {"movie_results":[{"id":603,"title":"The Matrix","original_title":"The Matrix","release_date":"1999-03-31","popularity":80.5}],
+    {"movie_results":[{"id":603,"title":"The Marrowgate","original_title":"The Marrowgate","release_date":"1999-03-31","popularity":80.5}],
      "person_results":[],"tv_results":[],"tv_episode_results":[],"tv_season_results":[]}
     """#
 
@@ -122,20 +122,20 @@ enum Fixtures {
     """#
 
     static let credits603 = #"""
-    {"id":603,"cast":[{"id":6384,"name":"Keanu Reeves","character":"Neo","profile_path":"/keanu.jpg","order":0}],
-     "crew":[{"id":9340,"name":"Lana Wachowski","job":"Director","department":"Directing","profile_path":null}]}
+    {"id":603,"cast":[{"id":6384,"name":"Rowan Ashby","character":"Wren","profile_path":"/ashby.jpg","order":0}],
+     "crew":[{"id":9340,"name":"Mira Castell","job":"Director","department":"Directing","profile_path":null}]}
     """#
 
     static let externalIDs1396 = #"{"id":1396,"imdb_id":"tt0903747","tvdb_id":81189,"tvrage_id":18164,"facebook_id":null}"#
 
     static let translations603 = #"""
     {"id":603,"translations":[
-     {"iso_3166_1":"DE","iso_639_1":"de","name":"Deutsch","english_name":"German","data":{"title":"Matrix","overview":"Ein Hacker ...","tagline":"Willkommen in der Realität."}},
-     {"iso_3166_1":"US","iso_639_1":"en","name":"English","english_name":"English","data":{"title":"The Matrix","overview":"A hacker ...","tagline":""}}]}
+     {"iso_3166_1":"DE","iso_639_1":"de","name":"Deutsch","english_name":"German","data":{"title":"Marrowgate","overview":"Ein Hacker ...","tagline":"Willkommen in der Wachstunde."}},
+     {"iso_3166_1":"US","iso_639_1":"en","name":"English","english_name":"English","data":{"title":"The Marrowgate","overview":"A hacker ...","tagline":""}}]}
     """#
 
     static let alternativeTitlesMovie = #"""
-    {"id":603,"titles":[{"iso_3166_1":"FR","title":"Matrix","type":""},{"iso_3166_1":"JP","title":"マトリックス","type":""}]}
+    {"id":603,"titles":[{"iso_3166_1":"FR","title":"Marrowgate","type":""},{"iso_3166_1":"JP","title":"マロウゲート","type":""}]}
     """#
     static let alternativeTitlesTV = #"""
     {"id":1396,"results":[{"iso_3166_1":"US","title":"BB","type":""}]}
@@ -146,8 +146,8 @@ enum Fixtures {
 
     // MARK: OMDb
 
-    static let omdbMatrix = #"""
-    {"Title":"The Matrix","Year":"1999","Rated":"R","Released":"31 Mar 1999","Runtime":"136 min","Genre":"Action, Sci-Fi",
+    static let omdbMarrowgate = #"""
+    {"Title":"The Marrowgate","Year":"1999","Rated":"R","Released":"31 Mar 1999","Runtime":"136 min","Genre":"Action, Sci-Fi",
      "Plot":"A hacker learns.","Poster":"N/A",
      "Ratings":[{"Source":"Internet Movie Database","Value":"8.7/10"},{"Source":"Rotten Tomatoes","Value":"83%"},{"Source":"Metacritic","Value":"73/100"}],
      "Metascore":"73","imdbRating":"8.7","imdbVotes":"2,000,000","imdbID":"tt0133093","Type":"movie","DVD":"N/A","BoxOffice":"N/A","Response":"True"}

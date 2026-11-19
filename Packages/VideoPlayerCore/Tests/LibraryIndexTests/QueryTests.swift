@@ -81,7 +81,7 @@ struct Fixture {
             ))
         }
         // Titles that exercise sorting and searching.
-        let extras = ["The Zebra Crossing", "An Orchard Tale", "1917", "300", "Amélie", "Alpha"]
+        let extras = ["The Zebra Crossing", "An Orchard Tale", "1871", "417", "Amélise", "Alpha"]
         for (i, t) in extras.enumerated() {
             movies.append(Movie(
                 title: t, year: 2000 + i, rating: 5 + Double(i), genres: ["Drama"], resolution: .hd1080, hdr: [], dvProfile: nil, channels: 6,
@@ -309,13 +309,13 @@ final class QueryTests: XCTestCase {
     func testArticlesAreIgnoredAndNumbersSortBeforeLettersAndNaturally() async throws {
         let h = try Harness.make()
         defer { h.cleanup() }
-        for t in ["The Zebra Crossing (2001)", "An Orchard Tale (2002)", "1917 (2019)", "300 (2006)", "Apollo 13 (1995)", "Apollo 100 (2001)", "Amélie (2001)", "A Beta (2010)", "Zulu (1964)"] {
+        for t in ["The Zebra Crossing (2001)", "An Orchard Tale (2002)", "1871 (2019)", "417 (2006)", "Aquila 13 (1995)", "Aquila 100 (2001)", "Amélise (2001)", "A Beta (2010)", "Zuvio (1964)"] {
             h.source.put("/L/\(t).mkv", size: 1, modified: day(1))
         }
         try await h.syncer.sync()
         let all = try await h.store.page(ItemQuery(), limit: 20, offset: 0)
         // Numbers first (by value), then A to Z ignoring a leading "The", "A" or "An", digits inside names by value.
-        XCTAssertEqual(titles(all), ["300", "1917", "Amélie", "Apollo 13", "Apollo 100", "A Beta", "An Orchard Tale", "The Zebra Crossing", "Zulu"])
+        XCTAssertEqual(titles(all), ["417", "1871", "Amélise", "Aquila 13", "Aquila 100", "A Beta", "An Orchard Tale", "The Zebra Crossing", "Zuvio"])
         let index = try await h.store.alphabetIndex(ItemQuery())
         XCTAssertEqual(index.map(\.letter), ["#", "A", "B", "O", "Z"])
         XCTAssertEqual(index.map(\.count), [2, 3, 1, 1, 2])
@@ -325,18 +325,18 @@ final class QueryTests: XCTestCase {
     func testSearchIgnoresCaseAccentsAndWordOrder() async throws {
         let h = try Harness.make()
         defer { h.cleanup() }
-        for t in ["Amélie (2001)", "The Silent River (1999)", "River Of No Return (1954)", "Silent Hill (2006)"] { h.source.put("/L/\(t).mkv", size: 1, modified: day(1)) }
+        for t in ["Amélise (2001)", "The Silent River (1999)", "River Of No Harbor (1954)", "Silent Fennel (2006)"] { h.source.put("/L/\(t).mkv", size: 1, modified: day(1)) }
         try await h.syncer.sync()
         func search(_ text: String) async throws -> [String] {
             var f = ItemFilter()
             f.text = text
             return titles(try await h.store.page(ItemQuery(filter: f), limit: 10, offset: 0)).sorted()
         }
-        let r1 = try await search("amelie"); XCTAssertEqual(r1, ["Amélie"])
-        let r2 = try await search("AMÉLIE"); XCTAssertEqual(r2, ["Amélie"])
+        let r1 = try await search("amelise"); XCTAssertEqual(r1, ["Amélise"])
+        let r2 = try await search("AMÉLISE"); XCTAssertEqual(r2, ["Amélise"])
         let r3 = try await search("river silent"); XCTAssertEqual(r3, ["The Silent River"])
-        let r4 = try await search("sil"); XCTAssertEqual(r4, ["Silent Hill", "The Silent River"])
-        let r5 = try await search("  river  "); XCTAssertEqual(r5, ["River Of No Return", "The Silent River"])
+        let r4 = try await search("sil"); XCTAssertEqual(r4, ["Silent Fennel", "The Silent River"])
+        let r5 = try await search("  river  "); XCTAssertEqual(r5, ["River Of No Harbor", "The Silent River"])
         let r6 = try await search("nothing here"); XCTAssertEqual(r6, [])
         let r7 = try await search("100%_"); XCTAssertEqual(r7, [], "wildcard characters are ordinary text")
         let r8 = try await search(""); XCTAssertEqual(r8.count, 4, "empty text means no text filter")
@@ -358,35 +358,35 @@ final class QueryTests: XCTestCase {
 
     func testFiltersUseTheBestOfAllVersionsOfAnItem() async throws {
         let table: [String: FileTechnicalInfo] = [
-            "Dune (2021) 1080p.mkv": FileTechnicalInfo(container: .mkv, width: 1920, height: 1080, audioChannels: 8, hasAtmos: true),
-            "Dune (2021) 2160p.mp4": FileTechnicalInfo(container: .mp4, width: 3840, height: 2160, hdrFormats: [.hdr10], dolbyVisionProfile: 8, audioChannels: 6),
+            "Dunerra (2021) 1080p.mkv": FileTechnicalInfo(container: .mkv, width: 1920, height: 1080, audioChannels: 8, hasAtmos: true),
+            "Dunerra (2021) 2160p.mp4": FileTechnicalInfo(container: .mp4, width: 3840, height: 2160, hdrFormats: [.hdr10], dolbyVisionProfile: 8, audioChannels: 6),
         ]
         let h = try Harness.make(annotator: TableAnnotator(table: table))
         defer { h.cleanup() }
-        h.source.put("/L/Dune (2021) 1080p.mkv", size: 10, modified: day(1))
-        h.source.put("/L/Dune (2021) 2160p.mp4", size: 30, modified: day(2))
+        h.source.put("/L/Dunerra (2021) 1080p.mkv", size: 10, modified: day(1))
+        h.source.put("/L/Dunerra (2021) 2160p.mp4", size: 30, modified: day(2))
         try await h.syncer.sync()
-        let dune = try await unwrap(try await h.store.page(ItemQuery(), limit: 1, offset: 0).first)
-        XCTAssertEqual(dune.versionCount, 2)
-        XCTAssertEqual(dune.maxResolution, .uhd4k)
-        XCTAssertEqual(dune.hdrFormats, [.hdr10, .dolbyVision])
-        XCTAssertEqual(dune.dolbyVisionProfiles, [8])
-        XCTAssertEqual(dune.maxChannels, 8)
-        XCTAssertTrue(dune.hasAtmos)
-        XCTAssertEqual(dune.containers, [.mkv, .mp4])
+        let dunerra = try await unwrap(try await h.store.page(ItemQuery(), limit: 1, offset: 0).first)
+        XCTAssertEqual(dunerra.versionCount, 2)
+        XCTAssertEqual(dunerra.maxResolution, .uhd4k)
+        XCTAssertEqual(dunerra.hdrFormats, [.hdr10, .dolbyVision])
+        XCTAssertEqual(dunerra.dolbyVisionProfiles, [8])
+        XCTAssertEqual(dunerra.maxChannels, 8)
+        XCTAssertTrue(dunerra.hasAtmos)
+        XCTAssertEqual(dunerra.containers, [.mkv, .mp4])
         var f = ItemFilter()
         f.resolutions = [.hd1080]
         let c1 = try await h.store.count(ItemQuery(filter: f)); XCTAssertEqual(c1, 0, "resolution means the best version's resolution")
         f.resolutions = [.uhd4k]; f.dolbyAtmos = true; f.dolbyVisionProfiles = [8]
         let c2 = try await h.store.count(ItemQuery(filter: f)); XCTAssertEqual(c2, 1, "attributes are matched across versions")
-        XCTAssertEqual(dune.runtime, nil)
+        XCTAssertEqual(dunerra.runtime, nil)
     }
 
     func testFolderScopeSeriesAndSeasonFilters() async throws {
         let h = try Harness.make()
         defer { h.cleanup() }
         basicLibrary(h.source)
-        h.source.put("/Movies/Heat (1995)/Extras/Heat (1995) 480p.mkv", size: 1, modified: day(1))
+        h.source.put("/Movies/Hexfall (1995)/Extras/Hexfall (1995) 480p.mkv", size: 1, modified: day(1))
         try await h.syncer.sync()
         func count(_ scope: FolderScope?, season: Int? = nil, series: Int64? = nil) async throws -> Int {
             var f = ItemFilter()
@@ -401,10 +401,10 @@ final class QueryTests: XCTestCase {
         let season1 = try await count(FolderScope(sourceID: s, path: "/TV/Show One (2010)/Season 1", recursive: false)); XCTAssertEqual(season1, 2)
         let showDirect = try await count(FolderScope(sourceID: s, path: "/TV/Show One (2010)", recursive: false)); XCTAssertEqual(showDirect, 0)
         let showAll = try await count(FolderScope(sourceID: s, path: "/TV/Show One (2010)")); XCTAssertEqual(showAll, 3)
-        let heatDirect = try await count(FolderScope(sourceID: s, path: "/Movies/Heat (1995)", recursive: false)); XCTAssertEqual(heatDirect, 1)
-        let heatAll = try await count(FolderScope(sourceID: s, path: "/Movies/Heat (1995)")); XCTAssertEqual(heatAll, 1, "versions in sub folders belong to the same item")
+        let heatDirect = try await count(FolderScope(sourceID: s, path: "/Movies/Hexfall (1995)", recursive: false)); XCTAssertEqual(heatDirect, 1)
+        let heatAll = try await count(FolderScope(sourceID: s, path: "/Movies/Hexfall (1995)")); XCTAssertEqual(heatAll, 1, "versions in sub folders belong to the same item")
         let other = try await count(FolderScope(sourceID: "nope", path: "/")); XCTAssertEqual(other, 0)
-        let sibling = try await count(FolderScope(sourceID: s, path: "/Movies/Heat")); XCTAssertEqual(sibling, 0, "a folder name prefix is not a parent")
+        let sibling = try await count(FolderScope(sourceID: s, path: "/Movies/Hexfall")); XCTAssertEqual(sibling, 0, "a folder name prefix is not a parent")
         let seriesID = try await unwrap(try await h.store.page(ItemQuery(filter: { var f = ItemFilter(); f.kinds = [.episode]; return f }()), limit: 1, offset: 0).first?.seriesID)
         let bySeries = try await count(nil, series: seriesID); XCTAssertEqual(bySeries, 3)
         let bySeason = try await count(nil, season: 1, series: seriesID); XCTAssertEqual(bySeason, 2)
@@ -427,7 +427,7 @@ final class QueryTests: XCTestCase {
         filter.containers = [.mkv]
         filter.addedAfter = day(3)
         filter.folder = FolderScope(sourceID: "src1", path: "/Movies", recursive: false)
-        filter.text = "heat"
+        filter.text = "hexfall"
         let query = ItemQuery(filter: filter, sort: ItemSort(key: .rating, ascending: false))
 
         let a = try await h.store.saveView(name: "4K Dolby", scope: .library, query: query, pinned: true)

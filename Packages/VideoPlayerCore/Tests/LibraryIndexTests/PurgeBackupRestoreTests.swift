@@ -90,11 +90,11 @@ extension PurgeSimulatorTests {
         defer { a.cleanup() }
         try await a.registerSource()
         basicLibrary(a.source)
-        a.source.put("/Movies/Heat (1995)/poster.jpg", size: 20, modified: day(1))
+        a.source.put("/Movies/Hexfall (1995)/poster.jpg", size: 20, modified: day(1))
         _ = try await a.syncer.sync()
         let images = try await a.store.indexedImageFiles()
-        XCTAssertEqual(images.map(\.path), ["/Movies/Heat (1995)/poster.jpg"])
-        XCTAssertEqual(images.first?.parent, "/Movies/Heat (1995)")
+        XCTAssertEqual(images.map(\.path), ["/Movies/Hexfall (1995)/poster.jpg"])
+        XCTAssertEqual(images.first?.parent, "/Movies/Hexfall (1995)")
         XCTAssertEqual(images.first?.size, 20)
         XCTAssertEqual(images.first?.modified, day(1))
 

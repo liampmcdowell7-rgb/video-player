@@ -39,11 +39,11 @@ final class WatchlistTests: XCTestCase {
     }
 
     func testAnUnknownFieldFromANewerAppIsKeptWhenMerging() {
-        var newer = UDWatchlist.patch(entry(7, "Seven", at: 10), at: UDStamp(time: 10, device: "N"))
+        var newer = UDWatchlist.patch(entry(7, "Septima", at: 10), at: UDStamp(time: 10, device: "N"))
         newer.set("futureField", .string("x"), at: UDStamp(time: 11, device: "N"))
         let ledger = UserDataLedger(deviceID: "A")
         ledger.apply(newer)
-        ledger.apply(UDWatchlist.patch(entry(7, "Seven", at: 10), at: UDStamp(time: 12, device: "A")))
+        ledger.apply(UDWatchlist.patch(entry(7, "Septima", at: 10), at: UDStamp(time: 12, device: "A")))
         XCTAssertEqual(ledger.record(type: "watchlist", id: "movie-7")?["futureField"], .string("x"))
         XCTAssertEqual(ledger.watchlist().count, 1)
     }

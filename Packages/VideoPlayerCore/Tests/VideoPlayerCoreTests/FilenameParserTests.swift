@@ -50,14 +50,14 @@ final class FilenameParserTests: XCTestCase {
 
     func testMovieCases() {
         let c = ParserChecker()
-        c.check("1917.2019.1080p.BluRay.x264-GRP.mkv", title: "1917", year: 2019, group: "GRP")
+        c.check("1871.2019.1080p.BluRay.x264-GRP.mkv", title: "1871", year: 2019, group: "GRP")
         c.check("2012.1080p.BluRay.mkv", title: "2012")
         c.check("Neon Runner 2049 (2017).mkv", title: "Neon Runner 2049", year: 2017)
         c.check("2001 Moon Station 1968.mkv", title: "2001 Moon Station", year: 1968)
         c.check("Iron-Wing (2010).mkv", title: "Iron-Wing", year: 2010)
         c.check("Mr. Fox Lantern (2012).mkv", title: "Mr Fox Lantern", year: 2012)
         c.check("The Baker's Daughter (2014).mkv", title: "The Baker's Daughter", year: 2014)
-        c.check("Amélie Lanterne (2001).mkv", title: "Amélie Lanterne", year: 2001)
+        c.check("Amélise Lanterne (2001).mkv", title: "Amélise Lanterne", year: 2001)
         c.check("Re-Entry (2013).mkv", title: "Re-Entry", year: 2013)
         c.check("Title.mkv", title: "Title")
         c.check("Title.2010.mkv", title: "Title", year: 2010)
@@ -79,8 +79,8 @@ final class FilenameParserTests: XCTestCase {
         c.check("Dual Lives (2014).mkv", title: "Dual Lives", year: 2014)
         c.check("The Multi Level Mystery (2010).mkv", title: "The Multi Level Mystery", year: 2010)
         c.check("Agent 7 (2015).mkv", title: "Agent 7", year: 2015)
-        c.check("Nine Lives 2 (2019).mkv", title: "Nine Lives 2", year: 2019)
-        c.check("Room 237 (2012).mkv", title: "Room 237", year: 2012)
+        c.check("Ninefold 2 (2019).mkv", title: "Ninefold 2", year: 2019)
+        c.check("Room 419 (2012).mkv", title: "Room 419", year: 2012)
         c.check("Title (2010) [1080p] [BluRay] [YTS.MX].mp4", title: "Title", year: 2010, group: "YTS.MX")
         c.check("[GRP] Title (2010) [1080p].mkv", title: "Title", year: 2010, group: "GRP")
         c.check("Show Name - 2010.mkv", title: "Show Name", year: 2010)
@@ -147,10 +147,10 @@ final class FilenameParserTests: XCTestCase {
     }
 
     func testUnicodeNormalizationNFDMatchesNFC() {
-        let nfd = "Ame\u{0301}lie Lanterne (2001).mkv"
-        let nfc = "Amélie Lanterne (2001).mkv"
+        let nfd = "Ame\u{0301}lise Lanterne (2001).mkv"
+        let nfc = "Amélise Lanterne (2001).mkv"
         XCTAssertEqual(FilenameParser.parse(fileName: nfd).title, FilenameParser.parse(fileName: nfc).title)
-        XCTAssertEqual(FilenameParser.parse(fileName: nfd).title, "Amélie Lanterne")
+        XCTAssertEqual(FilenameParser.parse(fileName: nfd).title, "Amélise Lanterne")
     }
 
     func testTechnicalDetails() {
@@ -175,7 +175,7 @@ final class FilenameParserTests: XCTestCase {
 
     private let movieTitles = [
         "The Quiet Harbor", "Midnight Orchard", "Paper Lanterns", "Blue Meridian", "Iron Meadow",
-        "A Long Way Home Again", "Nine Lives Two", "Silver Creek Road", "Winter Garden", "Glass Mountain",
+        "A Long Way Home Again", "Ninefold Two", "Silver Creek Road", "Winter Garden", "Glass Mountain",
         "The Last Lighthouse Keeper", "Saffron Skies", "Harvest Moon Club", "Copper Valley", "Northern Static",
         "Echoes of Tomorrow", "Paper Moon Cafe", "Velvet Thunder", "Hidden Staircase", "Tin Soldier Parade"
     ]
@@ -207,7 +207,7 @@ final class FilenameParserTests: XCTestCase {
     }
 
     private let shows = [
-        "Harbor Lights", "Paper Kingdom", "The Midnight Diner", "Copper Street", "Northern Reach", "Silent Orchard",
+        "Harbor Lights", "Paper Kingdom", "The Midnight Bakery", "Copper Street", "Northern Reach", "Silent Orchard",
         "Blue Hour", "The Lantern Club", "Iron Valley", "Summer Static", "Glass Harbor", "Winter Ledger"
     ]
     private let episodeTitles = ["The Long Night", "First Light", "A Quiet Morning", "Crossing Over"]

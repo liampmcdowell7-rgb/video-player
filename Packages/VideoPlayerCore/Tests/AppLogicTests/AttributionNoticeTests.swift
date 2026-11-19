@@ -187,7 +187,7 @@ final class AttributionNoticeTests: XCTestCase {
         let transport = RecordingTransport()
         // The app builds its client like this (App/Support/OnlineServices.swift): a region is passed, language is left default.
         let client = TMDBClient(credentials: .apiKey("fixture-key"), transport: transport, region: "DE")
-        _ = try? await client.searchMovies(query: "Heat", year: 1995)
+        _ = try? await client.searchMovies(query: "Hexfall", year: 1995)
         _ = try? await client.season(seriesID: 1399, number: 2)
         _ = try? await client.watchProviders(kind: .movie, id: 949)
         _ = try? await client.find(imdbID: "tt0113277")
@@ -196,7 +196,7 @@ final class AttributionNoticeTests: XCTestCase {
         guard urls.count == 4 else { return }
 
         let search = query(urls[0])
-        XCTAssertEqual(search["query"], "Heat")
+        XCTAssertEqual(search["query"], "Hexfall")
         XCTAssertEqual(search["year"], "1995")
         XCTAssertEqual(search["language"], "en-US", "the text says the fixed language code en-US is sent")
         XCTAssertEqual(search["api_key"], "fixture-key")

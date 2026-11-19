@@ -4,17 +4,17 @@ import LibraryIndex
 
 final class AlphabetJumpTests: XCTestCase {
     func testLettersIgnoreCaseAccentsAndTheLeadingArticle() {
-        XCTAssertEqual(TitleLetter.letter(for: "alien"), "A")
+        XCTAssertEqual(TitleLetter.letter(for: "aftlander"), "A")
         XCTAssertEqual(TitleLetter.letter(for: "Éclair"), "E")
-        XCTAssertEqual(TitleLetter.letter(for: "The Matrix"), "M", "The is dropped")
-        XCTAssertEqual(TitleLetter.letter(for: "A Quiet Place"), "Q")
+        XCTAssertEqual(TitleLetter.letter(for: "The Marrowgate"), "M", "The is dropped")
+        XCTAssertEqual(TitleLetter.letter(for: "A Hushed Room"), "H")
         XCTAssertEqual(TitleLetter.letter(for: "An Education"), "E")
         XCTAssertEqual(TitleLetter.letter(for: "Theory of Everything"), "T", "only the whole word The is an article")
         XCTAssertEqual(TitleLetter.letter(for: "Ångström"), "A")
     }
 
     func testDigitsSymbolsAndOtherScriptsGoToHash() {
-        for t in ["2001: A Space Odyssey", "300", "(500) Days of Summer", "東京物語", "   ", ""] {
+        for t in ["2047: A Quiet Voyage", "417", "(700) Nights of Rain", "青い灯台の物語", "   ", ""] {
             XCTAssertEqual(TitleLetter.letter(for: t), "#", t)
         }
     }
@@ -36,13 +36,13 @@ final class AlphabetJumpTests: XCTestCase {
     }
 
     func testSortKeyOrdersHashFirstAndNumbersByValue() {
-        let titles = ["Zodiac", "The Apartment", "Apollo 100", "Apollo 13", "2001", "Alien"]
+        let titles = ["Zornwick", "The Apiary", "Aquila 100", "Aquila 13", "2001", "Aftlander"]
         let sorted = titles.sorted { TitleLetter.sortKey($0) < TitleLetter.sortKey($1) }
-        XCTAssertEqual(sorted, ["2001", "Alien", "The Apartment", "Apollo 13", "Apollo 100", "Zodiac"])
+        XCTAssertEqual(sorted, ["2001", "Aftlander", "The Apiary", "Aquila 13", "Aquila 100", "Zornwick"])
     }
 
     func testTargetsListOnlyLettersThatExistWithTheFirstTitleOfEach() {
-        let list: [(id: Int64, title: String)] = [(1, "2001"), (2, "Alien"), (3, "Alpha"), (4, "The Matrix"), (5, "Zodiac")]
+        let list: [(id: Int64, title: String)] = [(1, "2001"), (2, "Aftlander"), (3, "Alpha"), (4, "The Marrowgate"), (5, "Zornwick")]
         let targets = AlphabetJump.targets(forTitles: list)
         XCTAssertEqual(targets.map(\.letter), ["#", "A", "M", "Z"])
         XCTAssertEqual(targets.first { $0.letter == "A" }?.firstID, 2)
@@ -70,15 +70,15 @@ final class AlphabetJumpTests: XCTestCase {
         await grid.load()
         let loaded = try XCTUnwrap(grid.state.content)
         XCTAssertEqual(loaded.alphabet.map(\.letter), ["A", "H", "Z"])
-        XCTAssertEqual(loaded.cards.map(\.title), ["Alien"])
+        XCTAssertEqual(loaded.cards.map(\.title), ["Aftlander"])
         await grid.jump(to: "H")
         var content = try XCTUnwrap(grid.state.content)
-        XCTAssertEqual(content.cards.map(\.title), ["Heat"], "starts at the first H")
+        XCTAssertEqual(content.cards.map(\.title), ["Hexfall"], "starts at the first H")
         XCTAssertEqual(grid.jumpedTo, "H")
         XCTAssertTrue(content.hasMore)
         await grid.loadMore()
         content = try XCTUnwrap(grid.state.content)
-        XCTAssertEqual(content.cards.map(\.title), ["Heat", "Zodiac"], "paging continues after the jump")
+        XCTAssertEqual(content.cards.map(\.title), ["Hexfall", "Zornwick"], "paging continues after the jump")
         XCTAssertFalse(content.hasMore)
         await grid.jump(to: "Q")
         XCTAssertEqual(try XCTUnwrap(grid.state.content).cards.count, 2, "a letter with no titles changes nothing")
