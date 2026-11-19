@@ -28,6 +28,16 @@ GitHub Actions, xcode-27 runner, Xcode 27.2, tvOS Simulator (x86_64 and arm64), 
 
 So "built" for an App/ row still means "syntax-checked and declarations type-checked", not "compiled", until the next compile passes.
 
+### What the App syntax check can and cannot find (#23 B)
+
+`scripts/parse-app.sh` (the "App syntax parse" line in every report) **only parses** each App/ and Top Shelf file. It
+cannot find type errors: a wrong initializer or argument label, a missing import, an API that does not exist on tvOS, a
+package symbol that is not `public`, a missing `await`, an Optional used as a value, an ambiguous type name. None of
+those stop a file from parsing. The first CI compile of the App target (#23) failed on exactly such an error
+(`Section("iCloud") { } footer: { }` in StorageSettingsView.swift), in a file the syntax check had passed. Only the
+CI "Compile" job proves that App/ compiles; a passing syntax check proves nothing beyond "the file parses".
+design-lint has one rule for that error class (`section-title-closure`); it is a pattern check, not a compiler.
+
 ### What each CI job proves when it is green (third compile check onwards, R161)
 
 | Job | A green tick proves | It does NOT prove |
