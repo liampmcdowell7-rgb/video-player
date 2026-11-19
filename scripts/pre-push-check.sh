@@ -93,6 +93,31 @@ if ! bash "$HERE/scripts/test-counts.sh" --duplicates; then
   exit 1
 fi
 
+# --- #23 A/E: the error class that broke the first App compile (Section("title") { } header:/footer: { }) ---
+# Self-test of the design-lint rule section-title-closure on its fixtures (fail1 must be reported, pass must be clean),
+# then the rule on every App/ and Top Shelf file that contains "Section(" (design-lint on those files only: the full lint
+# is slow in Git Bash; scripts/test-all.sh runs all of it). This is a pattern check, not a compiler (docs/COVERAGE.md).
+echo
+echo "== Section title with a header or footer closure (design-lint section-title-closure) =="
+FXD="$HERE/scripts/design-lint-fixtures/section-title-closure"
+if ! bash "$HERE/scripts/design-lint.sh" "$FXD/fail1.swift" 2>&1 | grep -q '\[section-title-closure\]'; then
+  echo "!! design-lint no longer reports $FXD/fail1.swift: the rule is broken."; exit 1
+fi
+if bash "$HERE/scripts/design-lint.sh" "$FXD/pass.swift" 2>&1 | grep -q '\[section-title-closure\]'; then
+  echo "!! design-lint reports $FXD/pass.swift: the rule reports correct code."; exit 1
+fi
+echo "Rule self-test: fail1.swift reported, pass.swift clean."
+SECF="$(git ls-files -co --exclude-standard -- 'App/*.swift' 'TopShelf/*.swift' | while IFS= read -r f; do [ -f "$f" ] && grep -q 'Section(' "$f" && echo "$f"; done || true)"
+if [ -n "$SECF" ]; then
+  # shellcheck disable=SC2086
+  SECHITS="$(bash "$HERE/scripts/design-lint.sh" $SECF 2>&1 | grep '\[section-title-closure\]' || true)"
+  if [ -n "$SECHITS" ]; then
+    echo "$SECHITS"
+    echo "!! The lines above do not compile. Write Section { } header: { Text(\"Title\") } footer: { }. Do NOT push."; exit 1
+  fi
+fi
+echo "No Section(\"title\") with a header or footer closure in $(printf '%s\n' "$SECF" | sed '/^$/d' | wc -l | tr -d ' ') App/Top Shelf files that use Section."
+
 # --- Files GitHub would refuse (over 100 MiB per file) or warn about (over 50 MiB) ---
 echo
 echo "== Large files =="

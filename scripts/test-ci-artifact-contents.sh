@@ -68,5 +68,27 @@ pic "$A/other/91-x.png"; pic "$A/text/home.png"; pic "$A/text/7-x.png"
 OUT="$(bash "$CHECK" "$A" accessibility 2>&1)"; RC=$?
 [ "$RC" -eq 1 ] && has "unknown folder 'other'" && has "text/home.png has no NN- number" && has "text/7-x.png has no NN- number"; check "unknown folder and unnumbered or one-digit picture fail" $?
 
+# #23 E: scripts/ci-not-taken.sh, run when the Compile job failed and the UI-test jobs were skipped.
+NT="$TMP/not-taken"
+OUT="$(GITHUB_STEP_SUMMARY="$TMP/nt-summary.md" bash "$HERE/scripts/ci-not-taken.sh" "$NT" failure "App/Features/Settings/StorageSettingsView.swift:16: generic parameter 'Content' could not be inferred" 2>&1)"; RC=$?
+ok=0; [ "$RC" -eq 0 ] || ok=1
+for a in screenshots screenshots-library accessibility-screenshots accessibility-settings-screenshots; do
+  head -n 1 "$NT/$a/NOT-TAKEN.txt" | grep -qx 'NOT TAKEN: the app did not compile' || ok=1
+  grep -qF "first error: App/Features/Settings/StorageSettingsView.swift:16: generic parameter" "$NT/$a/NOT-TAKEN.txt" || ok=1
+  grep -qF 'NOT TAKEN: the app did not compile' "$NT/$a/index.md" || ok=1
+  grep -qi 'no picture' "$NT/$a/index.md" && ! grep -qF 'NOT TAKEN' "$NT/$a/index.md" && ok=1
+done
+check "compile failed: every screenshot artifact says NOT TAKEN and the first error line" $ok
+ok=0
+for r in embedded-frameworks.txt release-strings.txt process-spawning.txt; do
+  grep -q '^NOT CHECKED: the app did not compile' "$NT/device-build-results/$r" || ok=1
+  grep -qE '^ok |\(none\)' "$NT/device-build-results/$r" && ok=1
+done
+check "compile failed: device-build-results says NOT CHECKED, no ok or (none)" $ok
+OUT="$(bash "$HERE/scripts/ci-not-taken.sh" "$TMP/nt2" cancelled "" 2>&1)"
+head -n 1 "$TMP/nt2/screenshots/NOT-TAKEN.txt" | grep -qF 'NOT TAKEN: the Compile job did not finish (result: cancelled)' \
+  && grep -qF 'first error: (no error line was passed on' "$TMP/nt2/screenshots/NOT-TAKEN.txt"
+check "compile cancelled, no error line: says so instead of inventing one" $?
+
 echo "artifact-contents tests: passed $P, failed $X"
 [ "$X" -eq 0 ]

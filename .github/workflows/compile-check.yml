@@ -1,5 +1,9 @@
-# Compile check: SEVEN INDEPENDENT JOBS that run in parallel from one press of "Run workflow" (OPEN_QUESTIONS R161).
-# No job depends on another (no `needs:`), so a failing job never stops or hides the others. Each job has its own
+# Compile check: SEVEN JOBS from one press of "Run workflow" (OPEN_QUESTIONS R161).
+# #23 E: the device build (2) and the four UI-test jobs (4, 4b, 5, 6) wait for job 1 (`needs: compile`) and run only when
+# it succeeded: the first compile of the App target failed, and those jobs then spent their whole time on the same error.
+# Jobs 1 and 3 (package tests) start at once and run in parallel. When job 1 fails, the small job "not-taken"
+# (ubuntu-latest, scripts/ci-not-taken.sh) uploads the screenshot and device-build artifacts under their usual names,
+# saying "NOT TAKEN: the app did not compile" (or NOT CHECKED) with the first error line. Each job has its own
 # 30-minute timeout, its own error summary in the run page and its own artifact. Every upload step has `if: always()`, so
 # it runs after a failed step too; the long steps have their own (shorter) timeout-minutes so that a slow step still
 # leaves time for the export and the uploads. Every job ends its summary with "Stage times" (scripts/ci-stage.sh): how
@@ -57,6 +61,9 @@ jobs:
     name: Build app + Top Shelf (Simulator)
     runs-on: xcode-27
     timeout-minutes: 30
+    outputs:
+      # #23 E: the first error line, for the "not-taken" job's NOT TAKEN artifacts.
+      first_error: ${{ steps.summary.outputs.first_error }}
     env:
       XCODE_APP: /Applications/Xcode_27.2.app
       # XcodeGen is pinned to a release and its published SHA-256 (from the release page
@@ -95,7 +102,9 @@ jobs:
           # This also covers the media-engine frameworks (FFmpeg libraries, libdovi) once they are added to Package.swift.
           # A path built with string interpolation (Frameworks/MediaCodecs/\(name).xcframework) is expanded to every
           # .xcframework in that folder; the folder must not be empty.
-          grep -oE 'path: *"[^"]+\.xcframework"' "$P/Package.swift" | sed -E 's/path: *"([^"]+)"/\1/' | sort -u > "$OUT/binary-target-paths.txt" || true
+          # #23 E: the raw paths (one is the unexpanded "\(name)" pattern) stay in a temporary file; binary-target-paths.txt
+          # in the artifact holds the expanded paths only.
+          grep -oE 'path: *"[^"]+\.xcframework"' "$P/Package.swift" | sed -E 's/path: *"([^"]+)"/\1/' | sort -u > "$RUNNER_TEMP/binary-target-patterns.txt" || true
           : > "$OUT/binary-targets.txt"
           while read -r rel; do
             case "$rel" in
@@ -106,7 +115,8 @@ jobs:
                 [ "$n" -gt 0 ] || { echo "::error::no .xcframework in $P/$dir (Package.swift expects some: $rel)"; missing=1; } ;;
               *) echo "$rel" >> "$OUT/binary-targets.txt" ;;
             esac
-          done < "$OUT/binary-target-paths.txt"
+          done < "$RUNNER_TEMP/binary-target-patterns.txt"
+          cp "$OUT/binary-targets.txt" "$OUT/binary-target-paths.txt"
           while read -r rel; do
             [ -n "$rel" ] || continue
             d="$P/$rel"
@@ -121,7 +131,7 @@ jobs:
 
       - name: Install XcodeGen ${{ env.XCODEGEN_VERSION }} (pinned release, SHA-256 checked)
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Install XcodeGen {{ env.XCODEGEN_VERSION }} (pinned release, SHA-256 checked)"
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Install XcodeGen ${XCODEGEN_VERSION} (pinned release, SHA-256 checked)"
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/xcodegen"
           curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
@@ -198,6 +208,7 @@ jobs:
             2>&1 | tee "$OUT/build.log"
 
       - name: Summarise errors (file, line, message)
+        id: summary
         if: always()
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Summarise errors (file, line, message)"
@@ -226,6 +237,9 @@ jobs:
             head -n 50 "$OUT/errors-other.txt"
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
+          # #23 E: one line, at most 300 characters, for the not-taken job.
+          fe="$(head -n 1 "$OUT/errors.txt")"; [ -n "$fe" ] || fe="$(head -n 1 "$OUT/errors-other.txt")"
+          echo "first_error=$(printf '%s' "$fe" | tr -d '\r\n' | cut -c1-300)" >> "$GITHUB_OUTPUT"
 
       - name: Stage times
         if: always()
@@ -249,6 +263,7 @@ jobs:
   # build cannot. Release configuration, so it also proves the debug-only UI-test sample library is compiled out.
   device-build:
     name: Build app + Top Shelf (Apple TV device, Release, unsigned)
+    needs: compile   # #23 E: runs only when job 1 compiled the app; otherwise job "not-taken" says so
     runs-on: xcode-27
     timeout-minutes: 30
     env:
@@ -359,10 +374,10 @@ jobs:
       # Runtime lists, pick (runtime first: the one matching the Simulator SDK, else the newest; then the device name), then
       # the stage "Boot and retry": boot and wait; one retry, on the next runtime when this one failed to load (#21 A,
       # scripts/ci-sim.sh).
-      - name: Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry
+      - name: Pick the simulator (newest tvOS runtime matching the SDK first), then boot it (stage "Boot and retry")
         timeout-minutes: 8
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry"
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator (newest tvOS runtime matching the SDK first)"
           bash scripts/ci-sim.sh prepare
 
       # Seconds, before the long package-test build: a test target that uses one of our type names bare while a tvOS SDK
@@ -440,6 +455,7 @@ jobs:
   # still have time to run when the tests are slow; the uploads run whatever happened before them (if: always()).
   screenshots:
     name: Screenshots, part 1 (setup, Settings, sorting; tvOS Simulator, UI tests)
+    needs: compile   # #23 E: runs only when job 1 compiled the app; otherwise job "not-taken" says so
     runs-on: xcode-27
     timeout-minutes: 30
     env:
@@ -465,10 +481,10 @@ jobs:
       # Runtime lists, pick (runtime first: the one matching the Simulator SDK, else the newest; then the device name), then
       # the stage "Boot and retry": boot and wait; one retry, on the next runtime when this one failed to load (#21 A,
       # scripts/ci-sim.sh).
-      - name: Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry
+      - name: Pick the simulator (newest tvOS runtime matching the SDK first), then boot it (stage "Boot and retry")
         timeout-minutes: 8
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry"
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator (newest tvOS runtime matching the SDK first)"
           bash scripts/ci-sim.sh prepare
 
       # Ad-hoc signing for this simulator build (OPEN_QUESTIONS R164, PROVISIONAL): identity "-" with no team, no profile and
@@ -586,6 +602,7 @@ jobs:
   # first run is not cut off). Its artifact is "screenshots-library", in the same numbering (01-79, index.md).
   screenshots-library:
     name: Screenshots, part 2 (library and detail pages; tvOS Simulator, UI tests)
+    needs: compile   # #23 E: runs only when job 1 compiled the app; otherwise job "not-taken" says so
     runs-on: xcode-27
     timeout-minutes: 30
     env:
@@ -611,10 +628,10 @@ jobs:
       # Runtime lists, pick (runtime first: the one matching the Simulator SDK, else the newest; then the device name), then
       # the stage "Boot and retry": boot and wait; one retry, on the next runtime when this one failed to load (#21 A,
       # scripts/ci-sim.sh).
-      - name: Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry
+      - name: Pick the simulator (newest tvOS runtime matching the SDK first), then boot it (stage "Boot and retry")
         timeout-minutes: 8
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry"
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator (newest tvOS runtime matching the SDK first)"
           bash scripts/ci-sim.sh prepare
 
       # Ad-hoc signing for this simulator build (OPEN_QUESTIONS R164, PROVISIONAL): identity "-" with no team, no profile and
@@ -740,6 +757,7 @@ jobs:
   # (scripts/ci-sim.sh) stops the tests in time for the export and upload whatever the build took.
   accessibility-screenshots:
     name: Accessibility screenshots (tvOS Simulator, UI tests)
+    needs: compile   # #23 E: runs only when job 1 compiled the app; otherwise job "not-taken" says so
     runs-on: xcode-27
     timeout-minutes: 30
     env:
@@ -765,10 +783,10 @@ jobs:
       # Runtime lists, pick (runtime first: the one matching the Simulator SDK, else the newest; then the device name), then
       # the stage "Boot and retry": boot and wait; one retry, on the next runtime when this one failed to load (#21 A,
       # scripts/ci-sim.sh).
-      - name: Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry
+      - name: Pick the simulator (newest tvOS runtime matching the SDK first), then boot it (stage "Boot and retry")
         timeout-minutes: 8
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry"
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator (newest tvOS runtime matching the SDK first)"
           bash scripts/ci-sim.sh prepare
 
       - name: Build the app and the UI tests (Debug, simulator, ad-hoc signed; unsigned if that fails)
@@ -860,6 +878,7 @@ jobs:
   # Expected time (an ESTIMATE, not measured): set-up as in job 4, then 15 launches of about 15-25 s (4-7 min).
   accessibility-settings-screenshots:
     name: Accessibility screenshots, simulator settings (tvOS Simulator, UI tests)
+    needs: compile   # #23 E: runs only when job 1 compiled the app; otherwise job "not-taken" says so
     runs-on: xcode-27
     timeout-minutes: 30
     env:
@@ -881,10 +900,10 @@ jobs:
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)"
           bash scripts/ci-prepare.sh
 
-      - name: Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry
+      - name: Pick the simulator (newest tvOS runtime matching the SDK first), then boot it (stage "Boot and retry")
         timeout-minutes: 8
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry"
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator (newest tvOS runtime matching the SDK first)"
           bash scripts/ci-sim.sh prepare
 
       - name: Build the app and the UI tests (Debug, simulator, ad-hoc signed; unsigned if that fails)
@@ -960,4 +979,61 @@ jobs:
             build/ci/*.md
             build/ci/attachments/
           if-no-files-found: warn
+          retention-days: 14
+
+  # #23 E. Runs only when job 1 did not succeed (the jobs with `needs: compile` are then skipped). Uploads the screenshot
+  # artifacts and device-build-results under their usual names, saying "NOT TAKEN: the app did not compile" (NOT CHECKED
+  # for the device inspection) with the first error line. Standard ubuntu-latest runner, no secrets, about a minute.
+  not-taken:
+    name: Not taken (the app did not compile)
+    needs: compile
+    if: ${{ !cancelled() && needs.compile.result != 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          lfs: false
+          persist-credentials: false
+
+      - name: Write the NOT TAKEN and NOT CHECKED notes
+        env:
+          COMPILE_RESULT: ${{ needs.compile.result }}
+          FIRST_ERROR: ${{ needs.compile.outputs.first_error }}
+        run: bash scripts/ci-not-taken.sh "$GITHUB_WORKSPACE/not-taken" "$COMPILE_RESULT" "$FIRST_ERROR"
+
+      - name: Upload screenshots (NOT TAKEN)
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots
+          path: ${{ github.workspace }}/not-taken/screenshots/
+          retention-days: 14
+
+      - name: Upload screenshots-library (NOT TAKEN)
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots-library
+          path: ${{ github.workspace }}/not-taken/screenshots-library/
+          retention-days: 14
+
+      - name: Upload accessibility-screenshots (NOT TAKEN)
+        uses: actions/upload-artifact@v7
+        with:
+          name: accessibility-screenshots
+          path: ${{ github.workspace }}/not-taken/accessibility-screenshots/
+          retention-days: 14
+
+      - name: Upload accessibility-settings-screenshots (NOT TAKEN)
+        uses: actions/upload-artifact@v7
+        with:
+          name: accessibility-settings-screenshots
+          path: ${{ github.workspace }}/not-taken/accessibility-settings-screenshots/
+          retention-days: 14
+
+      - name: Upload device-build-results (NOT CHECKED)
+        uses: actions/upload-artifact@v7
+        with:
+          name: device-build-results
+          path: ${{ github.workspace }}/not-taken/device-build-results/
           retention-days: 14

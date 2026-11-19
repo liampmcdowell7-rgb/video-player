@@ -19,7 +19,10 @@ missing=0
 for f in "$P/Vendor/AMSMB2/Package.swift" "$P/Vendor/Citadel/Package.swift" "$P/Vendor/swift-nio-ssh/Package.swift"; do
   if [ -f "$f" ]; then echo "ok      $f"; else echo "::error::missing $f"; missing=1; fi
 done
-grep -oE 'path: *"[^"]+\.xcframework"' "$P/Package.swift" | sed -E 's/path: *"([^"]+)"/\1/' | sort -u > "$OUT/binary-target-paths.txt" || true
+# #23 E: the raw paths (one is the unexpanded "\(name)" pattern) stay in a temporary file; binary-target-paths.txt holds
+# the expanded paths only.
+patterns="$(mktemp)"
+grep -oE 'path: *"[^"]+\.xcframework"' "$P/Package.swift" | sed -E 's/path: *"([^"]+)"/\1/' | sort -u > "$patterns" || true
 : > "$OUT/binary-targets.txt"
 while read -r rel; do
   case "$rel" in
@@ -30,7 +33,9 @@ while read -r rel; do
       [ "$n" -gt 0 ] || { echo "::error::no .xcframework in $P/$dir (Package.swift expects some: $rel)"; missing=1; } ;;
     *) echo "$rel" >> "$OUT/binary-targets.txt" ;;
   esac
-done < "$OUT/binary-target-paths.txt"
+done < "$patterns"
+rm -f "$patterns"
+cp "$OUT/binary-targets.txt" "$OUT/binary-target-paths.txt"
 while read -r rel; do
   [ -n "$rel" ] || continue
   d="$P/$rel"
