@@ -6,7 +6,7 @@ import UserData
 /// Per-file sorting into Movies, Shows and Needs Review (docs/SORTING.md). Synthetic names only.
 final class SortingTests: XCTestCase {
 
-    // MARK: The flat, mixed folder (40 files, every pattern)
+    // MARK: The flat, mixed folder (42 files, every pattern)
 
     /// name -> expected outcome. All files sit in one folder, the source root.
     static let flat: [(String, SortOutcome)] = [
@@ -34,6 +34,9 @@ final class SortingTests: XCTestCase {
         ("Sample Anime - 001.mkv", .episode),
         ("Sample Anime - 002.mkv", .episode),
         ("[Group] Sample Anime - 003 [1080p].mkv", .episode),
+        // one show name, two different years: two shows (addendum #18 D)
+        ("Sample Remake (2005) S01E01.mkv", .episode),
+        ("Sample Remake (2019) S01E01.mkv", .episode),
         // weak markers, with other files of the same show (folder hint)
         ("Sample Cartoon E01.mkv", .episode),
         ("Sample Cartoon E02.mkv", .episode),
@@ -58,9 +61,9 @@ final class SortingTests: XCTestCase {
         ("2024-01-02.mkv", .needsReview),
     ]
 
-    func testTheFlatFolderHasFortyFiles() {
-        XCTAssertEqual(Self.flat.count, 40)
-        XCTAssertEqual(Set(Self.flat.map(\.0)).count, 40)
+    func testTheFlatFolderHasFortyTwoFiles() {
+        XCTAssertEqual(Self.flat.count, 42)
+        XCTAssertEqual(Set(Self.flat.map(\.0)).count, 42)
     }
 
     func testEveryFileInAFlatMixedFolderIsSortedOnItsOwn() {
@@ -173,13 +176,14 @@ final class SortingTests: XCTestCase {
         XCTAssertEqual(movies.count, Self.flat.filter { $0.1 == .movie }.count)
         XCTAssertEqual(Set(review.map(\.fileName)), Set(Self.flat.filter { $0.1 == .needsReview }.map(\.0)))
         try await expectEqual(try await h.store.needsReviewCount(), 6)
-        // Multi-episode files are one item each: 23 episode files.
-        XCTAssertEqual(episodes.count, 23)
+        // Multi-episode files are one item each: 25 episode files.
+        XCTAssertEqual(episodes.count, 25)
 
         // Shows grouped by normalised name across the flat folder.
         let byShow = Dictionary(grouping: episodes, by: { $0.seriesID ?? -1 })
-        XCTAssertEqual(byShow.count, 4)
-        XCTAssertEqual(Set(episodes.compactMap(\.seriesTitle).map(LibraryText.normalize)), ["sample show", "sample show two", "sample anime", "sample cartoon"])
+        XCTAssertEqual(byShow.count, 6, "the two Sample Remake shows (2005, 2019) stay apart")
+        XCTAssertEqual(Set(episodes.compactMap(\.seriesTitle).map(LibraryText.normalize)),
+                       ["sample show", "sample show two", "sample anime", "sample cartoon", "sample remake 2005", "sample remake 2019"])
         let show = byShow.values.first { LibraryText.normalize($0[0].seriesTitle ?? "") == "sample show" }!
         XCTAssertEqual(Set(show.compactMap(\.season)), [0, 1, 2, 3])
         XCTAssertEqual(show.filter { $0.season == 1 }.compactMap(\.episode).sorted(), [1, 2, 3, 4, 5])
@@ -211,6 +215,90 @@ final class SortingTests: XCTestCase {
         try await h.syncer.sync()
         let eps = try await items(h, .episode)
         XCTAssertEqual(Set(eps.compactMap(\.seriesID)).count, 3)
+    }
+
+    // MARK: One show name, different years (addendum #18 D)
+
+    func shows(_ h: Harness) async throws -> [String: [LibraryItem]] {
+        Dictionary(grouping: try await items(h, .episode), by: { $0.seriesTitle ?? "" })
+    }
+
+    func testTwoDifferentYearsKeepTwoShowsApart() async throws {
+        let h = try Harness.make()
+        defer { h.cleanup() }
+        h.source.put("/Sample Remake (2005)/Season 1/Sample Remake - S01E01.mkv")
+        h.source.put("/Sample Remake (2005)/Season 1/Sample Remake - S01E02.mkv")
+        h.source.put("/Sample Remake (2019)/Season 1/Sample Remake (2019) - S01E01.mkv")
+        try await h.syncer.sync()
+        let byShow = try await shows(h)
+        XCTAssertEqual(Set(byShow.keys), ["Sample Remake (2005)", "Sample Remake (2019)"], "the folder year counts too")
+        XCTAssertEqual(byShow["Sample Remake (2005)"]?.count, 2)
+        XCTAssertEqual(byShow["Sample Remake (2019)"]?.count, 1, "S01E01 of each show is its own episode, not two versions")
+        XCTAssertEqual(Set(byShow.values.flatMap { $0 }.map(\.versionCount)), [1])
+    }
+
+    func testAtMostOneYearOrTheSameYearIsOneShow() async throws {
+        let h = try Harness.make()
+        defer { h.cleanup() }
+        put(h, ["Sample Revival (2010) S01E01.mkv", "Sample Revival S01E02.mkv", "Sample Revival (2010) S01E03.mkv",
+                "Sample Plain S01E01.mkv", "Sample Plain S01E02.mkv"])
+        try await h.syncer.sync()
+        let byShow = try await shows(h)
+        XCTAssertEqual(Set(byShow.keys), ["Sample Revival", "Sample Plain"], "one year, or none: merged, keys unchanged")
+        XCTAssertEqual(byShow["Sample Revival"]?.count, 3)
+        let keys = try await h.store.allItemKeys()
+        XCTAssertTrue(keys.contains("e|sample revival|1|1"), "a library without a pair keeps its old keys: \(keys)")
+    }
+
+    func testWithTwoYearsAYearlessFileStaysInThePlainShow() async throws {
+        let h = try Harness.make()
+        defer { h.cleanup() }
+        put(h, ["Sample Remake (2005) S01E01.mkv", "Sample Remake (2019) S01E01.mkv", "Sample Remake S01E05.mkv"])
+        try await h.syncer.sync()
+        let byShow = try await shows(h)
+        XCTAssertEqual(Set(byShow.keys), ["Sample Remake (2005)", "Sample Remake (2019)", "Sample Remake"],
+                       "a file with no year cannot be told apart, so it is not guessed into either")
+    }
+
+    func testASecondYearArrivingLaterSplitsTheShowAndKeepsWatchState() async throws {
+        let h = try Harness.make()
+        defer { h.cleanup() }
+        h.source.put("/Sample Remake (2005) S01E01.mkv", size: 1, modified: day(1))
+        try await h.syncer.sync()
+        let firstScan = try await items(h, .episode)
+        let first = try XCTUnwrap(firstScan.first)
+        XCTAssertEqual(first.seriesTitle, "Sample Remake", "only one year so far: the plain show and key")
+        try await h.store.markWatched(itemIDs: [first.id], watched: true, at: day(2))
+
+        h.source.put("/Sample Remake (2019) S01E01.mkv", size: 2, modified: day(3))
+        try await h.syncer.sync()
+        let byShow = try await shows(h)
+        XCTAssertEqual(Set(byShow.keys), ["Sample Remake (2005)", "Sample Remake (2019)"])
+        XCTAssertEqual(byShow["Sample Remake (2005)"]?.first?.watch.watched, true, "the episode watched before the split stays watched")
+        XCTAssertEqual(byShow["Sample Remake (2019)"]?.first?.watch.watched, false, "the file that arrived after that play starts unwatched")
+
+        // A rescan changes nothing; removing the 2019 file brings back the one plain show with its watch state.
+        let again = try await h.syncer.sync()
+        XCTAssertEqual(again.progress.changed + again.progress.added, 0)
+        h.source.remove("/Sample Remake (2019) S01E01.mkv")
+        try await h.syncer.sync()
+        let after = try await shows(h)
+        XCTAssertEqual(Set(after.keys), ["Sample Remake"])
+        XCTAssertEqual(after["Sample Remake"]?.first?.watch.watched, true)
+    }
+
+    func testShowYearKeys() {
+        XCTAssertEqual(SQLiteLibraryStore.episodeKey("e|sample remake|1|1", year: 2005), "e|sample remake|y2005|1|1")
+        XCTAssertEqual(SQLiteLibraryStore.episodeKey("e|sample remake|y2005|1|1", year: nil), "e|sample remake|1|1")
+        XCTAssertEqual(SQLiteLibraryStore.episodeKey("e|sample remake|y2005|1|1", year: 2019), "e|sample remake|y2019|1|1")
+        XCTAssertEqual(SQLiteLibraryStore.episodeKey("e|sample remake|d|2024-3-5", year: 2005), "e|sample remake|y2005|d|2024-3-5")
+        XCTAssertEqual(SQLiteLibraryStore.episodeKey("m|sample movie|2019", year: 2005), "m|sample movie|2019", "movies are never touched")
+        XCTAssertEqual(SQLiteLibraryStore.baseSeriesKey("s|sample remake|y2005"), "s|sample remake")
+        XCTAssertEqual(SQLiteLibraryStore.plainSeriesTitle("Sample Remake (2005)"), "Sample Remake")
+        XCTAssertEqual(SQLiteLibraryStore.plainSeriesTitle("Sample Movie 2049"), "Sample Movie 2049")
+        // An air date's year is not the show's year.
+        XCTAssertNil(ItemGrouping.seed(fileName: "Sample Show 2024-03-05.mkv", path: "/Sample Show 2024-03-05.mkv").seriesYear)
+        XCTAssertEqual(ItemGrouping.seed(fileName: "Sample Remake (2005) S01E01.mkv", path: "/x.mkv").seriesYear, 2005)
     }
 
     func testTheSignalIsShownInTheItemInfo() async throws {
@@ -247,7 +335,7 @@ final class SortingTests: XCTestCase {
         let again = try await h.syncer.sync()
         XCTAssertEqual(again.progress.added, 0)
         XCTAssertEqual(again.progress.changed, 0, "Needs Review files that are still undecided are not rewritten")
-        XCTAssertEqual(again.progress.unchanged, 40)
+        XCTAssertEqual(again.progress.unchanged, Self.flat.count)
         let after = try await h.store.snapshot()
         XCTAssertEqual(after, before)
     }
@@ -359,6 +447,10 @@ final class SortingTests: XCTestCase {
 }
 
 extension SQLiteLibraryStore {
+    func allItemKeys() throws -> [String] {
+        try db.rows("SELECT key FROM items WHERE version_count > 0 ORDER BY key", [], cached: false) { $0.text(0) }
+    }
+
     func forgetSortRecords() throws {
         try db.exec("UPDATE files SET sort_signal = NULL, sort_note = NULL, sort_rev = 0, sort_inputs = '', review = 0")
     }

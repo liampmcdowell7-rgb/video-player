@@ -79,7 +79,7 @@ public struct SortDecision: Equatable, Sendable {
 /// file name is not clear.
 public enum MediaSorter {
     /// Raised when the rules change, so files sorted by older rules are sorted again on the next scan.
-    public static let revision = 1
+    public static let revision = 2
 
     public static let filenameOverServerNote = "Sorted by filename, not by the server."
 

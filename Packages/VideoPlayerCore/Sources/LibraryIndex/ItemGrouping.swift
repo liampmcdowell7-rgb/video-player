@@ -113,14 +113,15 @@ public enum ItemGrouping {
                 return ItemSeed(
                     key: "e|\(normTitle)|\(season)|\(first)", kind: .episode, title: p.episodeTitle ?? "", year: p.year,
                     seriesKey: seriesKey, seriesTitle: title, season: season, episode: first,
-                    episodeEnd: last != first ? last : nil, tmdbID: p.tmdbID, versionLabel: label
+                    episodeEnd: last != first ? last : nil, tmdbID: p.tmdbID, versionLabel: label, seriesYear: p.year
                 )
             }
             if let d = p.airDate {
+                // The air date's year is not the show's year; only a different year in the name counts.
                 return ItemSeed(
                     key: "e|\(normTitle)|d|\(d.year)-\(d.month)-\(d.day)", kind: .episode, title: p.episodeTitle ?? "", year: d.year,
                     seriesKey: seriesKey, seriesTitle: title, season: p.season ?? 0, episode: 0, episodeEnd: nil,
-                    tmdbID: p.tmdbID, versionLabel: label
+                    tmdbID: p.tmdbID, versionLabel: label, seriesYear: p.year == d.year ? nil : p.year
                 )
             }
         }

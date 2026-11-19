@@ -127,6 +127,39 @@ Files indexed before this change have no sort record and are sorted once on the 
 revision, override, server type or source setting changed, and every file still in Needs Review (a new file of the same
 show can resolve it). A rescan with nothing changed writes nothing (tested).
 
+The one-time re-sort is part of the normal background scan: `services.launch` waits for iCloud (the 8-second box) first
+and only then calls `scanAll()`, from RootView's `.task`, so it never blocks the first screen or the iCloud wait. While it
+runs, Settings > Library and Needs Review show a system `ProgressView` ("Scanning and Sorting", "X of Y folders").
+
+Measured on a synthetic 10,000-file library (`LibraryIndexTests/SortingScaleTests`, Linux test machine under WSL,
+2026-11-18; 4,190 episodes, 4,150 movies, 1,660 Needs Review):
+
+| Build | Classifier only (decide + group) | First scan | One-time re-sort |
+|---|---|---|---|
+| Debug (`swift test`) | 47.9 to 50.9 s | 55.7 to 58.2 s | 55.8 to 58.1 s |
+| Release (`swift test -c release`) | 45.8 s | 47.6 s | 44.4 s |
+
+That is about 4.5 to 5 ms per file. The tests are time-boxed at 150 s (classifier) and 180 s (re-sort), about three times
+the measured time, so a large slowdown fails them. The Apple TV time is not measured.
+
+### Shows with one name and different years (addendum #18 D, PROVISIONAL, OPEN_QUESTIONS R174)
+
+Two shows stay apart when their names carry different years ("Sample Remake (2005)" and "Sample Remake (2019)"); they are
+one show when at most one year is known or the years match.
+
+- Each episode file stores the year in its show name (`files.series_year`, schema 4). The year of an air date is not a
+  show year; only a different year in the name counts.
+- The scan files every episode under the plain keys first (`s|name`, `e|name|season|episode`), as before. Then, for every
+  show name the change touched, `reconcileShowYears` looks at the years of all its live files. With two or more different
+  years, each file with a year moves to `s|name|yYEAR` / `e|name|yYEAR|...`, titled "Name (YEAR)"; a file with no year
+  stays in the plain show, because it cannot be told apart. With fewer than two years every file stays in, or goes back
+  to, the plain keys, so a library without such a pair keeps every key and every watch state it had.
+- The result depends only on which files are in the library, not on scan order.
+- Watch state: a new item takes the watch state of the item its file came from only if the file was already there when
+  that item was last played; a file that arrived later starts unwatched. A watch state saved in iCloud for the new key
+  wins over both.
+- `MediaSorter.revision` 2, so every existing file is sorted once more on the next scan, which fills the year.
+
 ### Move to Movies / Move to Shows
 
 In the long-press menu of a movie card (Move to Shows) and an episode card (Move to Movies), in How This Was Sorted, and in
@@ -148,7 +181,10 @@ Source setting (Jellyfin and Emby only): **Sort by Filename Instead of Server Li
 
 ### Tests (Linux, WSL)
 
-`LibraryIndexTests/SortingTests` (15): a flat folder of 40 synthetic files (23 episode files, 11 movies, 6 Needs Review),
+`LibraryIndexTests/SortingTests`: a flat folder of 42 synthetic files (25 episode files, 11 movies, 6 Needs Review; the
+two added in #18 D are "Sample Remake (2005) S01E01" and "Sample Remake (2019) S01E01"), shows with one name and
+different years (two years, one year, the same year, a yearless file beside two years, a second year arriving later with
+watch state, the keys),
 release-tag noise, "Sample Show" beside "Sample Show Two", "Sample Movie 2049 (2017)" (a movie of 2017, title
 "Sample Movie 2049"), absolute numbering alone and with siblings, weak markers with a year, folder hints, server types
 (agree, disagree, unclear, preferFilename), the flat folder through a real scan, the sort info and the log hook, rescan
@@ -170,8 +206,9 @@ Accepted on purpose but can be wrong:
 6. A year plus a weak marker is a movie: "Sample Movie Seven Ep 2 (2012)" keeps "Ep 2" in its title; an episode named this
    way needs Move to Shows.
 7. A name that looks like a strong marker is an episode even in a movie title (a title containing "S01E01" or "1x02").
-8. Shows with one name and different years ("Sample Show (2019)" and "Sample Show (2005)") are one show: the show key
-   ignores the year (Part 1, item 6; not changed here).
+8. A show file with no year in its name, when the same name exists with two different years, stays in the plain show
+   "Sample Remake" beside "Sample Remake (2005)" and "Sample Remake (2019)" (addendum #18 D; before that change all three
+   were one show).
 9. Date episodes are filed by date (season 0 when no season is known), not by episode number.
 10. The online check can confirm a wrong title with high confidence; it only ever moves Needs Review files, never a file
     the rules already decided, and How This Was Sorted shows "Online Lookup" with Sort Automatically to take it back.
@@ -183,7 +220,8 @@ Accepted on purpose but can be wrong:
 - The online check against the real TMDB service (tested with a fake lookup only).
 - Server item types against a live Jellyfin or Emby server (recorded fixtures only).
 - A Move choice reaching a second Apple TV through iCloud (ledger sync is tested in memory only).
-- The first scan after the upgrade on a large library: every file is sorted once (one parse per file, no network), time
-  not measured.
+- The first scan after the upgrade on a large library on the Apple TV: measured on Linux only (about 45 to 58 s per
+  10,000 files, see Re-sorting); the device time is unknown.
+- Shows with one name and different years: Linux tests only; how the split shows look on screen is unchecked.
 - With "trust unchanged folders" on (`ScanOptions.trustFolderVersions`, off in the app), a Move in an unchanged folder
   waits for a full rescan.

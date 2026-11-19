@@ -3,7 +3,7 @@ import Foundation
 /// The database layout. `PRAGMA user_version` holds the schema number; each step in `migrations` upgrades by one.
 /// A database written by a newer app is refused (`LibraryIndexError.newerSchema`), never modified.
 enum LibrarySchema {
-    static let currentVersion = 3
+    static let currentVersion = 4
 
     static let pragmas = """
     PRAGMA journal_mode = WAL;
@@ -197,6 +197,11 @@ enum LibrarySchema {
             "ALTER TABLE files ADD COLUMN sort_inputs TEXT NOT NULL DEFAULT ''",
             "ALTER TABLE files ADD COLUMN review INTEGER NOT NULL DEFAULT 0",
             "CREATE INDEX idx_items_review ON items (added_at, id) WHERE review = 1 AND version_count > 0",
+        ],
+        // 3 -> 4: the year in each episode file's show name (addendum #18 D), so shows with one name and different years
+        // stay apart. Empty here; every file is sorted again once (MediaSorter.revision 2), which fills it.
+        [
+            "ALTER TABLE files ADD COLUMN series_year INTEGER",
         ],
     ]
 }

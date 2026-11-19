@@ -214,14 +214,14 @@ extension SQLiteLibraryStore {
                     .text(name), .text(LibraryText.sortKey(name, dropArticle: false)), .text(LibraryPath.parent(of: u.path)),
                     .int(Int64(Self.code(u.kind))), SQLValue(u.size), SQLValue(u.modified), SQLValue(u.etag), SQLValue(u.serverToken),
                     SQLValue(itemID), SQLValue(u.seed?.versionLabel), SQLValue(u.technical != nil),
-                ] + Self.techArgs(u.technical) + Self.sortArgs(u.sort)
+                ] + Self.techArgs(u.technical) + Self.sortArgs(u.sort) + [SQLValue(u.seed?.seriesYear)]
                 if let existing {
                     try db.run(
                         """
                         UPDATE files SET name = ?, name_key = ?, parent = ?, kind = ?, size = ?, modified = ?, etag = ?, token = ?, item_id = ?, version_label = ?,
                             has_tech = ?, duration = ?, container = ?, width = ?, height = ?, res = ?, hdr_mask = ?, dv_profile = ?, vcodec = ?, acodec = ?,
                             channels = ?, atmos = ?, bitrate = ?, sort_signal = ?, sort_note = ?, sort_rev = ?, sort_inputs = ?, review = ?,
-                            removed_at = NULL WHERE id = ?
+                            series_year = ?, removed_at = NULL WHERE id = ?
                         """,
                         common + [.int(existing.id)]
                     )
@@ -232,9 +232,9 @@ extension SQLiteLibraryStore {
                         """
                         INSERT INTO files (name, name_key, parent, kind, size, modified, etag, token, item_id, version_label,
                             has_tech, duration, container, width, height, res, hdr_mask, dv_profile, vcodec, acodec, channels, atmos, bitrate,
-                            sort_signal, sort_note, sort_rev, sort_inputs, review,
+                            sort_signal, sort_note, sort_rev, sort_inputs, review, series_year,
                             source_id, path, first_seen)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         common + [.text(c.sourceID), .text(u.path), .double(min(nowT, u.modified?.timeIntervalSince1970 ?? nowT))]
                     )
@@ -242,6 +242,8 @@ extension SQLiteLibraryStore {
                 }
                 if let itemID { touched.insert(itemID) }
             }
+            // Same show name, different years (addendum #18 D): settle every show this change touched.
+            for base in try baseSeriesKeys(ofItems: touched) { touched.formUnion(try reconcileShowYears(base: base)) }
             for id in touched { try refreshItem(id) }
 
             try db.run("UPDATE scan_queue SET done = 1 WHERE scan_id = ? AND path = ?", [.int(scanID), .text(c.path)])

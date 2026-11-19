@@ -60,6 +60,9 @@ public struct ItemSeed: Equatable, Sendable {
     public var versionLabel: String?
     /// A file in Needs Review (docs/SORTING.md): its own item, never shown in Movies, Shows, Home or Top Shelf.
     public var needsReview = false
+    /// The year in the show's name (file or folder), for episodes only; never an air date's year. Keeps "Show (2005)" and
+    /// "Show (2019)" apart (addendum #18 D, SQLiteLibraryStore+ShowYears.swift).
+    public var seriesYear: Int? = nil
 }
 
 /// How one file was sorted (docs/SORTING.md), stored with the file.
