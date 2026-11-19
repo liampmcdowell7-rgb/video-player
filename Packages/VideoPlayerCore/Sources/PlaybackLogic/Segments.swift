@@ -115,6 +115,8 @@ public enum SegmentRejection: Error, Equatable, Sendable {
     case differentFile
     case unknownFileDuration
     case durationMismatch
+    /// An online intro or recap without a reference duration ends after the end of this file (#27 item 2).
+    case endsAfterFile
     case lowConfidence
     case emptyOrInverted
     case introLength
@@ -210,6 +212,10 @@ public enum SegmentResolver {
         guard original.confidence.isFinite, original.confidence >= limits.confidenceThreshold else {
             return .failure(.lowConfidence)
         }
+
+        // #27 item 2: an online timing with no reference duration that ends after this file's end was made for another
+        // (longer) cut. It is dropped, not trimmed: trimming would keep a window that no longer means anything here.
+        if unreferencedStart, original.end > duration { return .failure(.endsAfterFile) }
 
         var segment = original
         segment.start = max(0, segment.start)

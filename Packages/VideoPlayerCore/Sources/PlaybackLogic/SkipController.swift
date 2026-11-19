@@ -65,8 +65,13 @@ public struct SkipController: Sendable {
     }
 
     /// Where a segment's action jumps to: the end of the segment. For credits that already is the
-    /// post-credits chapter (when there is one) or the end of the file (see `SegmentResolver`).
-    public func target(for segment: SkipSegment) -> TimeInterval { segment.end }
+    /// post-credits chapter (when there is one) or the end of the file (see `SegmentResolver`). Never past the end of the
+    /// file (#27 item 2), even for a segment that did not go through the resolver.
+    public func target(for segment: SkipSegment) -> TimeInterval {
+        let duration = segment.file.duration
+        guard duration > 0, duration.isFinite else { return segment.end }
+        return min(segment.end, duration)
+    }
 
     /// Segment containing `time` that the user has not switched off, best source first.
     public func activeSegment(at time: TimeInterval) -> SkipSegment? {

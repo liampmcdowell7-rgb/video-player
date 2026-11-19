@@ -19,6 +19,8 @@ public struct PlaybackSession: Sendable {
     public let resolved: ResolvedSegments
     private let duration: TimeInterval
     private let endEpsilon: TimeInterval
+    /// The last reported playhead (nil before the first report).
+    private var lastPlayhead: TimeInterval?
 
     public init(resolved: ResolvedSegments, duration: TimeInterval, settings: SkipSettings = SkipSettings(),
                 next: NextEpisodeDecision, policy: NextEpisodePolicy = NextEpisodePolicy(),
@@ -41,11 +43,12 @@ public struct PlaybackSession: Sendable {
     /// the user set Skip Credits to Off (Interpretation, PROVISIONAL), unless the setting already shows a button
     /// or jumps (Ask, Automatic).
     public mutating func playhead(_ time: TimeInterval, kind: PlayheadKind) -> SessionUpdate {
+        lastPlayhead = time
         var skipOutput = skipController.update(playhead: time, kind: kind)
         var actions = machine.handle(.playhead(time, kind))
         var seek: TimeInterval?
         if case .jump(let type, let target) = skipOutput {
-            seek = target
+            seek = clamped(target)
             actions += afterSkip(type: type, target: target)
         } else if case .none = skipOutput, let target = machine.skipCreditsOfferTarget {
             skipOutput = .button(SkipButton(type: .credits, title: SegmentType.credits.buttonTitle, target: target))
@@ -54,16 +57,29 @@ public struct PlaybackSession: Sendable {
     }
 
     /// The user activated the skip button for `type`.
+    ///
+    /// #27 item 2: an online-database timing is used only while the playhead is inside its window. A press that arrives
+    /// after the playhead left it (a button still on screen, a late remote press) does nothing. The seek never goes past
+    /// the end of the file.
     public mutating func skipPressed(_ type: SegmentType) -> SessionUpdate {
         guard let segment = resolved.segment(of: type) else {
             return SessionUpdate(skip: .none, episode: [], seek: nil)
         }
-        let target = skipController.target(for: segment)
+        if segment.source == .onlineDatabase, !(lastPlayhead.map(segment.contains) ?? false) {
+            return SessionUpdate(skip: .none, episode: [], seek: nil)
+        }
+        let target = clamped(skipController.target(for: segment))
         let actions = afterSkip(type: type, target: target)
         return SessionUpdate(skip: .none, episode: actions, seek: target)
     }
 
     public mutating func event(_ event: NextEpisodeEvent) -> [NextEpisodeAction] { machine.handle(event) }
+
+    /// A seek target never goes past the end of the file this session plays.
+    private func clamped(_ target: TimeInterval) -> TimeInterval {
+        guard duration > 0, duration.isFinite else { return target }
+        return min(target, duration)
+    }
 
     private mutating func afterSkip(type: SegmentType, target: TimeInterval) -> [NextEpisodeAction] {
         if type == .credits, target >= duration - endEpsilon { return machine.handle(.skipCreditsToEnd) }

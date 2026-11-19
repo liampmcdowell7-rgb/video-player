@@ -116,6 +116,7 @@ Every rule is one row. **Source**: `Part B` = the Part B message (SEGMENT MODEL,
 | SEG-12 | Same source and type: higher confidence wins, then the earlier start; losers are recorded as "outranked" | Interpretation | PROVISIONAL INTERPRETATION | `testSEG12_sameSourceTieBreaksOnConfidenceThenEarlierStart` |
 | SEG-13 | Safety limits apply to user-marked segments too ("never skip real content") | Interpretation | PROVISIONAL INTERPRETATION | `testSEG13_userMarkedSegmentsStillObeySafetyLimits` |
 | SEG-14 | One segment per type is used | Interpretation | PROVISIONAL INTERPRETATION | `testSEG14_onePerTypeSortedByStart` |
+| SEG-15 | #27: an online intro or recap with no reference duration (IntroDB) whose end is after the end of the file is dropped (`endsAfterFile`), not trimmed: it was made for another cut. Other sources are still trimmed to the end of the file | #27 item 2 | PROVISIONAL INTERPRETATION (R208) | `testSEG15_aShortFileDropsAnOnlineIntroThatEndsAfterIt`, `testSEG15_aShortFileDropsAnOnlineRecapThatEndsAfterIt`, `testSEG15_anOnlineIntroEndingExactlyAtTheEndIsKept`, `testSEG15_trimmingStillAppliesToSourcesThatAreNotUnreferencedOnline` |
 
 Overlap and partial disagreement rule: the resolver never merges. Per type it keeps the single best candidate (priority, then confidence, then earlier start) and records every other candidate with the reason (`outranked(by:)` or the limit it broke). Segments of different types may overlap; the skip button shows the best-source segment containing the playhead.
 
@@ -211,6 +212,11 @@ Time is driven by a fake clock (`ManualClock`) and scripted playhead timelines (
 | SESS-5 | Skip for a type with no segment does nothing | Interpretation | PROVISIONAL INTERPRETATION | `testSESS5_skipForATypeWithoutASegmentDoesNothing` |
 | SESS-6 | Skip Credits after a dismissal does not advance | Interpretation | PROVISIONAL INTERPRETATION | `testSESS6_skipCreditsAfterMenuDismissalDoesNotAdvance` |
 | SESS-7 | Credits timing for the machine comes from the resolved credits segment | Interpretation | PROVISIONAL INTERPRETATION | `testSESS7_creditsTimingComesFromTheResolvedSegment` |
+| SESS-8 | #27: online timings for a different, shorter cut (window ends after the file) give no button and no seek at any playhead | #27 item 2 | PROVISIONAL INTERPRETATION (R208) | `testSESS8_aDifferentShorterCutDropsTheTimingAndShowsNoButton` |
+| SESS-9 | #27: an online-database timing is used only while the playhead is inside its window; a Skip press before or after the window does nothing | #27 item 2 | SPEC | `testSESS9_aDifferentLongerCutUsesTheTimingOnlyInsideTheWindow` |
+| SESS-10 | #27: an automatic skip of an online intro happens only inside the window | #27 item 2 | SPEC | `testSESS10_automaticSkipOfAnOnlineIntroHappensOnlyInsideTheWindow` |
+| SESS-11 | #27: a skip never seeks past the end of the file (button, press and automatic jump; also for a segment that did not go through the resolver) | #27 item 2 | SPEC | `testSESS11_theSkipTargetNeverGoesPastTheEndOfTheFile` |
+| SESS-12 | #27: chapters, sidecars and user marks keep the earlier press behaviour (no window check) | Interpretation | PROVISIONAL INTERPRETATION | `testSESS12_otherSourcesStillSkipOnAPressWithoutTheWindowRule` |
 
 ## Detection tiers
 
