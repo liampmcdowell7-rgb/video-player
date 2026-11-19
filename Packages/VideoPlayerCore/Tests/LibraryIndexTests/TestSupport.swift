@@ -74,13 +74,13 @@ final class FakeSource: MediaSource, @unchecked Sendable {
     /// A file that reports no size, date or tag at all.
     func putBlind(_ path: String) { put(path, size: nil, modified: nil) }
 
-    func put(_ path: String, size: Int64? = 1_000, modified: Date? = t0, etag: String? = nil, token: String? = nil, bump: Date? = nil) {
+    func put(_ path: String, size: Int64? = 1_000, modified: Date? = t0, etag: String? = nil, token: String? = nil, bump: Date? = nil, serverType: ServerItemType? = nil) {
         lock.withLock {
             let parent = Self.parent(path)
             let modified: Date? = modified
             let bump = bump ?? modified ?? t0
             ensureFolders(parent, at: bump)
-            let entry = SourceEntry(path: path, name: Self.name(path), isDirectory: false, size: size, modified: modified, etag: etag, serverToken: token)
+            let entry = SourceEntry(path: path, name: Self.name(path), isDirectory: false, size: size, modified: modified, etag: etag, serverToken: token, serverItemType: serverType)
             if let i = tree[parent]?.firstIndex(where: { $0.path == path }) { tree[parent]?[i] = entry } else { tree[parent, default: []].append(entry) }
             bumpAncestors(parent, to: bump)
         }
@@ -199,13 +199,14 @@ struct Harness {
 
     static let sourceID = "src1"
 
-    static func make(annotator: any FileAnnotator = FilenameAnnotator(), clock: @escaping @Sendable () -> Date = { t0.addingTimeInterval(100 * 86_400) }, inMemory: Bool = false) throws -> Harness {
+    static func make(annotator: any FileAnnotator = FilenameAnnotator(), clock: @escaping @Sendable () -> Date = { t0.addingTimeInterval(100 * 86_400) }, inMemory: Bool = false,
+                     overrides: any SortOverrideProviding = NoSortOverrides()) throws -> Harness {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("libidx-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let path = inMemory ? ":memory:" : dir.appendingPathComponent("library.sqlite").path
         let store = try SQLiteLibraryStore(path: path)
         let source = FakeSource()
-        let syncer = LibrarySyncer(store: store, source: source, sourceID: sourceID, annotator: annotator, clock: clock)
+        let syncer = LibrarySyncer(store: store, source: source, sourceID: sourceID, annotator: annotator, clock: clock, overrides: overrides)
         return Harness(store: store, source: source, syncer: syncer, dir: dir, dbPath: path)
     }
 

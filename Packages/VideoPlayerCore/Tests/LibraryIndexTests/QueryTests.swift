@@ -91,7 +91,11 @@ struct Fixture {
         for i in movies.indices { movies[i].lastPlayed = (movies[i].watched || movies[i].progress) ? day(40 + Double(rng.int(55))) : nil }
 
         let table = Dictionary(uniqueKeysWithValues: movies.map { ($0.fileName, $0.technical) })
-        let h = try Harness.make(annotator: TableAnnotator(table: table))
+        // A title with no year is not clearly a movie (docs/SORTING.md): it would wait in Needs Review. Here the user has
+        // moved those to Movies by hand, so the fixture still covers films without a year.
+        var moved: [String: SortOverride] = [:]
+        for m in movies where m.year == 0 { moved["/Lib/" + m.fileName] = SortOverride(kind: .movie, title: m.title) }
+        let h = try Harness.make(annotator: TableAnnotator(table: table), overrides: FixedSortOverrides([Harness.sourceID: moved]))
         for m in movies { h.source.put("/Lib/" + m.fileName, size: 5_000_000_000, modified: m.added) }
         try await h.syncer.sync()
 

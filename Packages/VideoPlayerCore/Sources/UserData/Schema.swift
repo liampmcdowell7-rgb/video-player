@@ -31,8 +31,11 @@ public enum UDSchema {
     public static let learnedSkip = "learnedskip"
     public static let source = "source"
     public static let settings = "settings"
+    /// "Move to Movies" / "Move to Shows" for one file (docs/SORTING.md), keyed by `UDSortOverride.recordID`.
+    public static let sorting = "sorting"
 
     public static let schemas: [String: UDRecordSchema] = [
+        sorting: UDRecordSchema(type: sorting, atomicGroups: [["kind", "title", "year", "season", "episode", "episodeEnd", "signal"]]),
         watch: UDRecordSchema(
             type: watch,
             atomicGroups: [["position", "duration", "watched", "lastPlayed"]],
@@ -294,6 +297,69 @@ public enum UDSource {
             path: r["path"]?.asString ?? "", username: r["username"]?.asString ?? "", auth: r["auth"]?.asString ?? "none",
             addedAt: Date(timeIntervalSince1970: r["addedAt"]?.asDouble ?? 0),
             options: r["options"]?.asString ?? "", trustedFingerprint: r["trustedFingerprint"]?.asString ?? ""
+        )
+    }
+}
+
+/// A file the user (or the online lookup) put in Movies or Shows by hand. It replaces what the file name says and is
+/// read on every scan, so it survives a rescan and a rebuilt index; it syncs like every other record.
+public struct UDSortOverrideValue: Equatable, Sendable {
+    public enum Kind: String, Sendable { case movie, episode }
+    public var sourceID: String
+    public var path: String
+    public var kind: Kind
+    /// The movie title, or the show name for an episode.
+    public var title: String
+    public var year: Int?
+    public var season: Int?
+    public var episode: Int?
+    public var episodeEnd: Int?
+    /// "manual" (the user) or "onlineLookup" (the TMDB check in Needs Review).
+    public var signal: String
+
+    public init(sourceID: String, path: String, kind: Kind, title: String, year: Int? = nil, season: Int? = nil,
+                episode: Int? = nil, episodeEnd: Int? = nil, signal: String = "manual") {
+        self.sourceID = sourceID
+        self.path = path
+        self.kind = kind
+        self.title = title
+        self.year = year
+        self.season = season
+        self.episode = episode
+        self.episodeEnd = episodeEnd
+        self.signal = signal
+    }
+}
+
+public enum UDSortOverride {
+    /// The source id and the path, joined by a newline (which neither can contain).
+    public static func recordID(sourceID: String, path: String) -> String { sourceID + "\n" + path }
+
+    public static func patch(_ v: UDSortOverrideValue, at stamp: UDStamp) -> UDRecord {
+        var r = UDRecord(type: UDSchema.sorting, id: recordID(sourceID: v.sourceID, path: v.path))
+        r.set("kind", .string(v.kind.rawValue), at: stamp)
+        r.set("title", .string(v.title), at: stamp)
+        r.set("year", v.year.map { .int(Int64($0)) } ?? .null, at: stamp)
+        r.set("season", v.season.map { .int(Int64($0)) } ?? .null, at: stamp)
+        r.set("episode", v.episode.map { .int(Int64($0)) } ?? .null, at: stamp)
+        r.set("episodeEnd", v.episodeEnd.map { .int(Int64($0)) } ?? .null, at: stamp)
+        r.set("signal", .string(v.signal), at: stamp)
+        return r
+    }
+
+    /// Removes the override: the file is sorted by its name again.
+    public static func tombstone(sourceID: String, path: String, at stamp: UDStamp) -> UDRecord {
+        UDRecord(type: UDSchema.sorting, id: recordID(sourceID: sourceID, path: path), fields: [:], deleted: stamp)
+    }
+
+    public static func value(of r: UDRecord) -> UDSortOverrideValue? {
+        guard !r.isDeleted, r.type == UDSchema.sorting, let kindText = r["kind"]?.asString, let kind = UDSortOverrideValue.Kind(rawValue: kindText),
+              let title = r["title"]?.asString, let newline = r.id.firstIndex(of: "\n") else { return nil }
+        func int(_ name: String) -> Int? { r[name]?.asInt.map { Int(clamping: $0) } }
+        return UDSortOverrideValue(
+            sourceID: String(r.id[r.id.startIndex..<newline]), path: String(r.id[r.id.index(after: newline)...]), kind: kind, title: title,
+            year: int("year"), season: int("season"), episode: int("episode"), episodeEnd: int("episodeEnd"),
+            signal: r["signal"]?.asString ?? "manual"
         )
     }
 }

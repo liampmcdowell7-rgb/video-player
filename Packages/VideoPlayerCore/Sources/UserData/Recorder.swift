@@ -94,4 +94,17 @@ public extension UserDataLedger {
     func removeSource(id: String, at date: Date? = nil) {
         apply(UDSource.tombstone(id: id, at: stamp(date)))
     }
+
+    /// Every live "Move to Movies / Move to Shows" override (docs/SORTING.md).
+    func sortOverrides() -> [UDSortOverrideValue] {
+        records(ofType: UDSchema.sorting).compactMap { UDSortOverride.value(of: $0) }
+    }
+
+    func setSortOverride(_ value: UDSortOverrideValue, at date: Date? = nil) {
+        apply(UDSortOverride.patch(value, at: stamp(date)))
+    }
+
+    func removeSortOverride(sourceID: String, path: String, at date: Date? = nil) {
+        apply(UDSortOverride.tombstone(sourceID: sourceID, path: path, at: stamp(date)))
+    }
 }

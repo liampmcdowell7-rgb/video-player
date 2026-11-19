@@ -214,13 +214,14 @@ extension SQLiteLibraryStore {
                     .text(name), .text(LibraryText.sortKey(name, dropArticle: false)), .text(LibraryPath.parent(of: u.path)),
                     .int(Int64(Self.code(u.kind))), SQLValue(u.size), SQLValue(u.modified), SQLValue(u.etag), SQLValue(u.serverToken),
                     SQLValue(itemID), SQLValue(u.seed?.versionLabel), SQLValue(u.technical != nil),
-                ] + Self.techArgs(u.technical)
+                ] + Self.techArgs(u.technical) + Self.sortArgs(u.sort)
                 if let existing {
                     try db.run(
                         """
                         UPDATE files SET name = ?, name_key = ?, parent = ?, kind = ?, size = ?, modified = ?, etag = ?, token = ?, item_id = ?, version_label = ?,
                             has_tech = ?, duration = ?, container = ?, width = ?, height = ?, res = ?, hdr_mask = ?, dv_profile = ?, vcodec = ?, acodec = ?,
-                            channels = ?, atmos = ?, bitrate = ?, removed_at = NULL WHERE id = ?
+                            channels = ?, atmos = ?, bitrate = ?, sort_signal = ?, sort_note = ?, sort_rev = ?, sort_inputs = ?, review = ?,
+                            removed_at = NULL WHERE id = ?
                         """,
                         common + [.int(existing.id)]
                     )
@@ -231,8 +232,9 @@ extension SQLiteLibraryStore {
                         """
                         INSERT INTO files (name, name_key, parent, kind, size, modified, etag, token, item_id, version_label,
                             has_tech, duration, container, width, height, res, hdr_mask, dv_profile, vcodec, acodec, channels, atmos, bitrate,
+                            sort_signal, sort_note, sort_rev, sort_inputs, review,
                             source_id, path, first_seen)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         common + [.text(c.sourceID), .text(u.path), .double(min(nowT, u.modified?.timeIntervalSince1970 ?? nowT))]
                     )
@@ -246,6 +248,11 @@ extension SQLiteLibraryStore {
             try db.run("UPDATE scans SET folders_done = folders_done + 1 WHERE id = ?", [.int(scanID)])
             return result
         }
+    }
+
+    static func sortArgs(_ s: FileSortRecord?) -> [SQLValue] {
+        guard let s else { return [.null, .null, .int(0), .text(""), .int(0)] }
+        return [.text(s.signal.rawValue), .text(s.note), .int(Int64(s.revision)), .text(s.inputs), SQLValue(s.needsReview)]
     }
 
     static func versionArgs(_ v: FileVersion) -> [SQLValue] {
@@ -309,13 +316,13 @@ extension SQLiteLibraryStore {
         let search = LibraryText.normalize(title + " " + (seed.seriesTitle ?? ""))
         try db.run(
             """
-            INSERT INTO items (key, kind, title, sort_title, letter, search, year, series_id, series_title, season, episode, episode_end, tmdb_id, added_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO items (key, kind, title, sort_title, letter, search, year, series_id, series_title, season, episode, episode_end, tmdb_id, added_at, review)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 .text(seed.key), .int(Int64(Self.code(seed.kind))), .text(title), .text(sort.value), .text(sort.letter), .text(search),
                 .int(Int64(seed.year ?? 0)), SQLValue(seriesID), SQLValue(seed.seriesTitle), SQLValue(seed.season), SQLValue(seed.episode),
-                SQLValue(seed.episodeEnd), SQLValue(seed.tmdbID), .double(firstSeen),
+                SQLValue(seed.episodeEnd), SQLValue(seed.tmdbID), .double(firstSeen), SQLValue(seed.needsReview),
             ]
         )
         let id = db.lastInsertRowID

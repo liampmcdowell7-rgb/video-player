@@ -168,4 +168,11 @@ public protocol LibraryStore: Sendable {
     func deleteView(id: Int64) async throws
     func views(scope: ViewScope) async throws -> [SavedView]
     func pinnedViews() async throws -> [SavedView]
+
+    // Sorting (docs/SORTING.md)
+    /// Files in Needs Review, newest first.
+    func needsReview(limit: Int) async throws -> [ReviewEntry]
+    func needsReviewCount() async throws -> Int
+    /// How the item's playing file was sorted; nil when unknown.
+    func sortInfo(itemID: Int64) async throws -> ItemSortInfo?
 }

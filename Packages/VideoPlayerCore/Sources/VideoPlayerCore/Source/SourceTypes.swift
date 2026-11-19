@@ -99,6 +99,11 @@ public struct FileVersion: Equatable, Hashable, Sendable {
     }
 }
 
+/// The item type a media server reports for a file.
+public enum ServerItemType: String, Equatable, Hashable, Sendable {
+    case movie, episode
+}
+
 public struct SourceEntry: Equatable, Hashable, Sendable {
     /// Path inside the source, decoded, always starting with "/" ("/" is the root).
     public var path: String
@@ -109,6 +114,9 @@ public struct SourceEntry: Equatable, Hashable, Sendable {
     public var contentType: String?
     public var etag: String?
     public var serverToken: String?
+    /// What a media server's own library says this file is (Jellyfin, Emby). nil for plain file sources and for
+    /// anything the server does not call a movie or an episode. Only a hint: docs/SORTING.md says when the file name wins.
+    public var serverItemType: ServerItemType?
 
     public init(
         path: String,
@@ -118,7 +126,8 @@ public struct SourceEntry: Equatable, Hashable, Sendable {
         modified: Date? = nil,
         contentType: String? = nil,
         etag: String? = nil,
-        serverToken: String? = nil
+        serverToken: String? = nil,
+        serverItemType: ServerItemType? = nil
     ) {
         self.path = path
         self.name = name
@@ -128,6 +137,7 @@ public struct SourceEntry: Equatable, Hashable, Sendable {
         self.contentType = contentType
         self.etag = etag
         self.serverToken = serverToken
+        self.serverItemType = serverItemType
     }
 
     public var version: FileVersion {

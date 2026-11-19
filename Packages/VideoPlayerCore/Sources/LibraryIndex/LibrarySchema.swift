@@ -3,7 +3,7 @@ import Foundation
 /// The database layout. `PRAGMA user_version` holds the schema number; each step in `migrations` upgrades by one.
 /// A database written by a newer app is refused (`LibraryIndexError.newerSchema`), never modified.
 enum LibrarySchema {
-    static let currentVersion = 2
+    static let currentVersion = 3
 
     static let pragmas = """
     PRAGMA journal_mode = WAL;
@@ -186,6 +186,17 @@ enum LibrarySchema {
             "ALTER TABLE views ADD COLUMN uid TEXT",
             "UPDATE views SET uid = lower(hex(randomblob(16))) WHERE uid IS NULL",
             "CREATE UNIQUE INDEX idx_views_uid ON views (uid)",
+        ],
+        // 2 -> 3: per-file sorting (docs/SORTING.md). Which signal sorted each file, the Needs Review flag, and the rule
+        // revision (0 here, so every existing file is sorted again by the new rules on the next scan).
+        [
+            "ALTER TABLE items ADD COLUMN review INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE files ADD COLUMN sort_signal TEXT",
+            "ALTER TABLE files ADD COLUMN sort_note TEXT",
+            "ALTER TABLE files ADD COLUMN sort_rev INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE files ADD COLUMN sort_inputs TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE files ADD COLUMN review INTEGER NOT NULL DEFAULT 0",
+            "CREATE INDEX idx_items_review ON items (added_at, id) WHERE review = 1 AND version_count > 0",
         ],
     ]
 }

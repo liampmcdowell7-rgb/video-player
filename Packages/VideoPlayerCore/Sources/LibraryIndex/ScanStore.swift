@@ -58,6 +58,28 @@ public struct ItemSeed: Equatable, Sendable {
     public var tmdbID: Int?
     /// Edition, resolution and source as parsed from the file name, shown in the version picker.
     public var versionLabel: String?
+    /// A file in Needs Review (docs/SORTING.md): its own item, never shown in Movies, Shows, Home or Top Shelf.
+    public var needsReview = false
+}
+
+/// How one file was sorted (docs/SORTING.md), stored with the file.
+public struct FileSortRecord: Equatable, Sendable {
+    public var signal: SortSignal
+    public var note: String
+    /// `MediaSorter.revision` at the time.
+    public var revision: Int
+    /// What decided besides the file itself (an override, a server type and the source setting), so a change there sorts
+    /// the file again although the file did not change.
+    public var inputs: String
+    public var needsReview: Bool
+
+    public init(signal: SortSignal, note: String, revision: Int = MediaSorter.revision, inputs: String = "", needsReview: Bool = false) {
+        self.signal = signal
+        self.note = note
+        self.revision = revision
+        self.inputs = inputs
+        self.needsReview = needsReview
+    }
 }
 
 public struct FileUpsert: Sendable {
@@ -70,6 +92,7 @@ public struct FileUpsert: Sendable {
     public var serverToken: String?
     public var technical: FileTechnicalInfo?
     public var seed: ItemSeed?
+    public var sort: FileSortRecord? = nil
 }
 
 public struct ListedFolder: Equatable, Sendable {

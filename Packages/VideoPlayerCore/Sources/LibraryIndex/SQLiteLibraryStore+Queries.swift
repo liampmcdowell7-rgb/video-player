@@ -4,9 +4,10 @@ import VideoPlayerCore
 extension SQLiteLibraryStore {
     // MARK: Filters
 
-    /// Builds the WHERE clause for a filter. Always includes "i.version_count > 0" so the partial indexes apply.
+    /// Builds the WHERE clause for a filter. Always includes "i.version_count > 0" so the partial indexes apply, and
+    /// "i.review = 0": files in Needs Review never show in Movies, Shows, search or saved views (docs/SORTING.md).
     func whereClause(_ f: ItemFilter) -> (sql: String, args: [SQLValue]) {
-        var terms = ["i.version_count > 0"]
+        var terms = ["i.version_count > 0", "i.review = 0"]
         var args: [SQLValue] = []
 
         func list(_ column: String, _ values: [Int]) {
@@ -141,7 +142,7 @@ extension SQLiteLibraryStore {
         return try db.rows(
             """
             SELECT \(Self.itemColumns) FROM items i
-            WHERE i.version_count > 0 AND i.watched = 0 AND i.position > 0 AND i.hidden = 0 AND i.last_played >= ?
+            WHERE i.version_count > 0 AND i.review = 0 AND i.watched = 0 AND i.position > 0 AND i.hidden = 0 AND i.last_played >= ?
             ORDER BY i.last_played DESC, i.id DESC LIMIT ?
             """,
             [SQLValue(cutoff), .int(Int64(limit))], Self.mapItem
@@ -190,12 +191,12 @@ extension SQLiteLibraryStore {
         guard limit > 0 else { return [] }
         if let kind {
             return gated(try db.rows(
-                "SELECT \(Self.itemColumns) FROM items i WHERE i.version_count > 0 AND i.kind = ? ORDER BY i.added_at DESC, i.id DESC LIMIT ?",
+                "SELECT \(Self.itemColumns) FROM items i WHERE i.version_count > 0 AND i.review = 0 AND i.kind = ? ORDER BY i.added_at DESC, i.id DESC LIMIT ?",
                 [.int(Int64(Self.code(kind))), .int(Int64(limit))], Self.mapItem
             ))
         }
         return gated(try db.rows(
-            "SELECT \(Self.itemColumns) FROM items i WHERE i.version_count > 0 ORDER BY i.added_at DESC, i.id DESC LIMIT ?",
+            "SELECT \(Self.itemColumns) FROM items i WHERE i.version_count > 0 AND i.review = 0 ORDER BY i.added_at DESC, i.id DESC LIMIT ?",
             [.int(Int64(limit))], Self.mapItem
         ))
     }

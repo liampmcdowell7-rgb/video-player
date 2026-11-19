@@ -100,7 +100,7 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
 
     public func counts() throws -> LibraryCounts {
         LibraryCounts(
-            items: try db.scalarInt("SELECT COUNT(*) FROM items WHERE version_count > 0"),
+            items: try db.scalarInt("SELECT COUNT(*) FROM items WHERE version_count > 0 AND review = 0"),
             files: try db.scalarInt("SELECT COUNT(*) FROM files WHERE removed_at IS NULL"),
             folders: try db.scalarInt("SELECT COUNT(*) FROM folders WHERE removed_at IS NULL"),
             series: try db.scalarInt("SELECT COUNT(DISTINCT series_id) FROM items WHERE version_count > 0 AND series_id IS NOT NULL")
@@ -214,7 +214,8 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
 
     static let fileColumns = """
     SELECT f.id, f.source_id, f.path, f.name, f.parent, f.kind, f.size, f.modified, f.etag, f.token, f.item_id, f.first_seen, f.version_label,
-           f.has_tech, f.duration, f.container, f.width, f.height, f.hdr_mask, f.dv_profile, f.vcodec, f.acodec, f.channels, f.atmos, f.bitrate
+           f.has_tech, f.duration, f.container, f.width, f.height, f.hdr_mask, f.dv_profile, f.vcodec, f.acodec, f.channels, f.atmos, f.bitrate,
+           f.sort_signal, f.sort_note, f.sort_rev, f.sort_inputs, f.review
     """
 
     static func mapFile(_ s: SQLiteStatement) -> StoredFile {
@@ -230,7 +231,10 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
         return StoredFile(
             id: s.int64(0), sourceID: s.text(1), path: s.text(2), name: s.text(3), parentPath: s.text(4), kind: fileKind(s.int(5)),
             size: s.optInt64(6), modified: s.optDate(7), etag: s.optText(8), serverToken: s.optText(9), itemID: s.optInt64(10),
-            technical: tech, firstSeen: s.optDate(11) ?? Date(timeIntervalSince1970: 0), versionLabel: s.optText(12)
+            technical: tech, firstSeen: s.optDate(11) ?? Date(timeIntervalSince1970: 0), versionLabel: s.optText(12),
+            sort: s.optText(25).flatMap(SortSignal.init(rawValue:)).map {
+                FileSortRecord(signal: $0, note: s.optText(26) ?? "", revision: s.int(27), inputs: s.optText(28) ?? "", needsReview: s.bool(29))
+            }
         )
     }
 

@@ -139,6 +139,17 @@ public enum ItemGrouping {
         )
     }
 
+    /// A file in Needs Review is its own item (one per file, never grouped), so moving it later never drags other files.
+    static func reviewSeed(sourceID: String, path: String, fileName: String, parsed p: ParsedMedia) -> ItemSeed {
+        let stem = LibraryPath.stem(fileName)
+        let title = p.title.trimmingCharacters(in: .whitespaces)
+        return ItemSeed(
+            key: "r|\(sourceID)|\(path)", kind: .movie, title: title.isEmpty ? (stem.isEmpty ? fileName : stem) : title, year: p.year,
+            seriesKey: nil, seriesTitle: nil, season: nil, episode: nil, episodeEnd: nil, tmdbID: p.tmdbID, versionLabel: versionLabel(p),
+            needsReview: true
+        )
+    }
+
     static func versionLabel(_ p: ParsedMedia) -> String? {
         var parts: [String] = []
         if let e = p.edition { parts.append(e) }

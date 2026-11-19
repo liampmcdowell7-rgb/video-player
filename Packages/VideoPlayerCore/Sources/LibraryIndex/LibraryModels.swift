@@ -162,6 +162,8 @@ public struct StoredFile: Equatable, Sendable, Identifiable {
     public var technical: FileTechnicalInfo?
     public var firstSeen: Date
     public var versionLabel: String?
+    /// How the file was sorted (docs/SORTING.md); nil for files indexed before sorting was recorded, and for non-videos.
+    public var sort: FileSortRecord? = nil
 
     public var version: FileVersion { FileVersion(etag: etag, modified: modified, size: size, serverToken: serverToken) }
 }

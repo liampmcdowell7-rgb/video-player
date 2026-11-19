@@ -9,7 +9,33 @@ public struct AirDate: Equatable, Sendable {
 public struct ParsedMedia: Equatable, Sendable {
     public enum Kind: String, Sendable { case movie, episode }
 
+    /// Which episode marker was found (docs/SORTING.md). The first three and `date` are strong; the others are weak and
+    /// only count when something else (a season folder, other files of the same show) agrees.
+    public enum EpisodeMarker: String, Sendable {
+        /// S01E02, S1E2, S01E01-E03, S01E01E02
+        case seasonEpisode
+        /// 1x02
+        case crossFormat
+        /// "Season 1 Episode 2"
+        case words
+        /// 2024-03-05, 2024.03.05
+        case date
+        /// E05, Ep 5, Episode 5 (no season)
+        case episodeOnly
+        /// SP01, OVA 2
+        case special
+        /// S01 or "Season 1" without an episode number
+        case seasonOnly
+        /// "Show Name - 012"
+        case absolute
+        /// "05 - Title" inside a season folder
+        case folderNumber
+
+        public var isStrong: Bool { self == .seasonEpisode || self == .crossFormat || self == .words || self == .date }
+    }
+
     public var kind: Kind = .movie
+    public var episodeMarker: EpisodeMarker?
     public var title: String = ""
     public var year: Int?
     public var season: Int?
@@ -40,8 +66,10 @@ public enum FilenameParser {
     /// - Parameters:
     ///   - fileName: the file name, with or without extension.
     ///   - folders: ancestor folder names, nearest first (for example ["Season 2", "Show Name (2015)"]).
-    public static func parse(fileName: String, folders: [String] = []) -> ParsedMedia {
-        var p = parseName(fileName)
+    ///   - weakMarkers: false ignores the weak episode markers (episode number alone, special, season alone, absolute
+    ///     number), for reading a file that was decided to be a movie (docs/SORTING.md).
+    public static func parse(fileName: String, folders: [String] = [], weakMarkers: Bool = true) -> ParsedMedia {
+        var p = parseName(fileName, weakMarkers: weakMarkers)
         let infos = folders.map(parseFolderName)
 
         // The nearest season folder, looking at the two closest folders.
@@ -55,6 +83,7 @@ public enum FilenameParser {
                 let ns = p.title as NSString
                 if let n = Int(ns.substring(with: m.range(at: 1))) {
                     p.episodes = [n]
+                    p.episodeMarker = .folderNumber
                     let rest = m.range(at: 2).location == NSNotFound ? "" : ns.substring(with: m.range(at: 2))
                     let cleaned = cleanTitle(rest)
                     p.episodeTitle = cleaned.isEmpty ? nil : cleaned
@@ -89,7 +118,7 @@ public enum FilenameParser {
 
     // MARK: Name parsing
 
-    static func parseName(_ raw: String) -> ParsedMedia {
+    static func parseName(_ raw: String, weakMarkers: Bool = true) -> ParsedMedia {
         var p = ParsedMedia()
         // Servers may return decomposed (NFD) names; compare everything in composed (NFC) form.
         var s = stripExtension(raw.precomposedStringWithCanonicalMapping)
@@ -196,38 +225,38 @@ public enum FilenameParser {
         if let hit = findSxxEyy(in: s) {
             p.season = hit.season; p.episodes = hit.episodes
             markers.append(hit.range.location); maskedRanges.append(hit.range); episodeEnd = hit.range.location + hit.range.length
-            foundEpisode = true
+            foundEpisode = true; p.episodeMarker = .seasonEpisode
         } else if let hit = findNxNN(in: s) {
             p.season = hit.season; p.episodes = hit.episodes
             markers.append(hit.range.location); maskedRanges.append(hit.range); episodeEnd = hit.range.location + hit.range.length
-            foundEpisode = true
+            foundEpisode = true; p.episodeMarker = .crossFormat
         } else if let m = Rx.seasonEpisodeWords.firstMatch(in: s) {
             p.season = Int(ns.substring(with: m.range(at: 1)))
             if let e = Int(ns.substring(with: m.range(at: 2))) { p.episodes = [e] }
             markers.append(m.range.location); maskedRanges.append(m.range); episodeEnd = m.range.location + m.range.length
-            foundEpisode = true
+            foundEpisode = true; p.episodeMarker = .words
         } else if let m = Rx.date.firstMatch(in: s), let d = validDate(m, in: ns) {
             p.airDate = d
             markers.append(m.range.location); maskedRanges.append(m.range); episodeEnd = m.range.location + m.range.length
-            foundEpisode = true
-        } else if let m = Rx.episodeOnly.firstMatch(in: s) {
+            foundEpisode = true; p.episodeMarker = .date
+        } else if weakMarkers, let m = Rx.episodeOnly.firstMatch(in: s) {
             if let e = Int(ns.substring(with: m.range(at: 1))) { p.episodes = [e] }
             markers.append(m.range.location); maskedRanges.append(m.range); episodeEnd = m.range.location + m.range.length
-            foundEpisode = true
-        } else if let m = Rx.special.firstMatch(in: s), m.range.location > 0 {
+            foundEpisode = true; p.episodeMarker = .episodeOnly
+        } else if weakMarkers, let m = Rx.special.firstMatch(in: s), m.range.location > 0 {
             p.season = 0
             if let e = Int(ns.substring(with: m.range(at: 1))) { p.episodes = [e] }
             markers.append(m.range.location); maskedRanges.append(m.range); episodeEnd = m.range.location + m.range.length
-            foundEpisode = true
-        } else if let m = Rx.seasonOnlyWord.firstMatch(in: s) ?? Rx.seasonOnlyShort.firstMatch(in: s) {
+            foundEpisode = true; p.episodeMarker = .special
+        } else if weakMarkers, let m = Rx.seasonOnlyWord.firstMatch(in: s) ?? Rx.seasonOnlyShort.firstMatch(in: s) {
             p.season = Int(ns.substring(with: m.range(at: 1)))
             markers.append(m.range.location); maskedRanges.append(m.range); episodeEnd = m.range.location + m.range.length
-            foundEpisode = true
-        } else if let m = Rx.absolute.firstMatch(in: s), m.range.location > 0,
+            foundEpisode = true; p.episodeMarker = .seasonOnly
+        } else if weakMarkers, let m = Rx.absolute.firstMatch(in: s), m.range.location > 0,
                   let n = Int(ns.substring(with: m.range(at: 1))), !(1900...2035).contains(n) || ns.substring(with: m.range(at: 1)).count < 4 {
             p.absoluteEpisode = n
             markers.append(m.range.location); maskedRanges.append(m.range); episodeEnd = m.range.location + m.range.length
-            foundEpisode = true
+            foundEpisode = true; p.episodeMarker = .absolute
         }
         if foundEpisode { p.kind = .episode }
         if p.season == 0 { p.isSpecial = true }
@@ -277,15 +306,17 @@ public enum FilenameParser {
 
     // MARK: Folder names
 
-    struct FolderInfo {
-        var title: String
-        var year: Int?
-        var season: Int?
-        var isSpecials: Bool
-        var isGeneric: Bool
+    public struct FolderInfo: Equatable, Sendable {
+        public var title: String
+        public var year: Int?
+        public var season: Int?
+        public var isSpecials: Bool
+        public var isGeneric: Bool
     }
 
-    static func parseFolderName(_ name: String) -> FolderInfo {
+    /// What a folder name says: a season ("Season 2", "S02", "Specials"), a generic name ("Movies", "Downloads"), or a
+    /// title with an optional year.
+    public static func parseFolderName(_ name: String) -> FolderInfo {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         if Rx.specialsFolder.matches(whole: trimmed) {
             return FolderInfo(title: "", year: nil, season: 0, isSpecials: true, isGeneric: false)

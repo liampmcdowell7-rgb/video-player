@@ -39,22 +39,36 @@ public struct ScanSummary: Equatable, Sendable {
 /// - A folder that cannot be listed keeps every row it had; the error is recorded and the scan goes on.
 /// - A folder that suddenly lists as empty (it had content) is believed only the second time in a row, so a server
 ///   glitch or an unmounted share does not wipe a library.
+/// - Every video is sorted on its own (docs/SORTING.md): `MediaSorter` reads the file name, the other files in the same
+///   folder and, for media servers, the server's item type; an override from the user-data ledger replaces all of that.
+///   Unchanged files are sorted again only when the rules, their override, the server type or the source setting changed,
+///   or when they are in Needs Review and the folder now says more about them.
 public struct LibrarySyncer: Sendable {
     public let store: any LibraryScanStore
     public let source: any MediaSource
     public let sourceID: String
     public let annotator: any FileAnnotator
     public let clock: @Sendable () -> Date
+    public let overrides: any SortOverrideProviding
+    /// The source setting "Sort by filename instead of server library types" (PROVISIONAL, default off).
+    public let preferFilename: Bool
+    /// Receives one line per sorted file: path, outcome, signal and the reason.
+    public let sortLog: (@Sendable (_ path: String, _ outcome: SortOutcome, _ signal: SortSignal, _ note: String) -> Void)?
 
     public init(
         store: any LibraryScanStore, source: any MediaSource, sourceID: String,
-        annotator: any FileAnnotator = FilenameAnnotator(), clock: @escaping @Sendable () -> Date = { Date() }
+        annotator: any FileAnnotator = FilenameAnnotator(), clock: @escaping @Sendable () -> Date = { Date() },
+        overrides: any SortOverrideProviding = NoSortOverrides(), preferFilename: Bool = false,
+        sortLog: (@Sendable (_ path: String, _ outcome: SortOutcome, _ signal: SortSignal, _ note: String) -> Void)? = nil
     ) {
         self.store = store
         self.source = source
         self.sourceID = sourceID
         self.annotator = annotator
         self.clock = clock
+        self.overrides = overrides
+        self.preferFilename = preferFilename
+        self.sortLog = sortLog
     }
 
     /// Scans `roots` (the whole source by default).
@@ -70,6 +84,7 @@ public struct LibrarySyncer: Sendable {
         p.foldersPending = ticket.pendingFolders
         var failures: [ScanFailure] = []
         var status = ScanStatus.completed
+        let overrideMap = overrides.overrides(sourceID: sourceID)
 
         do {
             while let pending = try await store.nextFolder(scanID: ticket.scanID) {
@@ -79,7 +94,7 @@ public struct LibrarySyncer: Sendable {
                 }
                 p.currentFolder = pending.path
                 do {
-                    let result = try await scanFolder(pending, scanID: ticket.scanID, progress: &p)
+                    let result = try await scanFolder(pending, scanID: ticket.scanID, overrides: overrideMap, progress: &p)
                     p.added += result.added
                     p.changed += result.changed
                     p.removed += result.removed
@@ -124,7 +139,7 @@ public struct LibrarySyncer: Sendable {
         }
     }
 
-    private func scanFolder(_ pending: PendingFolder, scanID: Int64, progress p: inout ScanProgress) async throws -> FolderApplyResult {
+    private func scanFolder(_ pending: PendingFolder, scanID: Int64, overrides: [String: SortOverride], progress p: inout ScanProgress) async throws -> FolderApplyResult {
         let entries = try await source.list(pending.path)
         let stored = try await store.storedFiles(sourceID: sourceID, folder: pending.path)
         var byPath: [String: StoredFile] = [:]
@@ -138,6 +153,14 @@ public struct LibrarySyncer: Sendable {
         var unchanged = 0
         var filesSeen = 0
         let ancestors = LibraryPath.ancestorNames(of: pending.path + "/x")
+        // The other videos in this folder, read only when a file needs sorting.
+        var siblingCache: SiblingIndex?
+        func siblings() -> SiblingIndex {
+            if let s = siblingCache { return s }
+            let s = SiblingIndex(names: entries.filter { !$0.isDirectory && FileClassifier.kind(forName: $0.name, isDirectory: false) == .video }.map(\.name))
+            siblingCache = s
+            return s
+        }
 
         for e in entries {
             if e.isDirectory {
@@ -148,20 +171,35 @@ public struct LibrarySyncer: Sendable {
             if kind == .other { continue }
             filesSeen += 1
             seen.insert(e.path)
+            let inputs = kind == .video ? sortInputs(override: overrides[e.path], serverType: e.serverItemType) : ""
             if let old = byPath[e.path], old.version.isSame(as: e.version) == true {
-                unchanged += 1
+                guard kind == .video, Self.mayNeedSorting(old.sort, inputs: inputs) else {
+                    unchanged += 1
+                    continue
+                }
+                let sorted = sortFile(e, override: overrides[e.path], inputs: inputs, ancestors: ancestors, siblings: siblings)
+                if let before = old.sort, before.needsReview, sorted.record.needsReview, before.revision == sorted.record.revision, before.inputs == inputs {
+                    unchanged += 1   // still in Needs Review: nothing to write
+                    continue
+                }
+                upserts.append(FileUpsert(
+                    path: e.path, name: e.name, kind: kind, size: e.size, modified: e.modified, etag: e.etag, serverToken: e.serverToken,
+                    technical: old.technical ?? annotator.technicalInfo(for: e, parsed: sorted.parsed), seed: sorted.seed, sort: sorted.record
+                ))
                 continue
             }
             var seed: ItemSeed?
             var tech: FileTechnicalInfo?
+            var sort: FileSortRecord?
             if kind == .video {
-                let parsed = FilenameParser.parse(fileName: e.name, folders: ancestors)
-                seed = ItemGrouping.seed(parsed: parsed, fileName: e.name)
-                tech = annotator.technicalInfo(for: e, parsed: parsed)
+                let sorted = sortFile(e, override: overrides[e.path], inputs: inputs, ancestors: ancestors, siblings: siblings)
+                seed = sorted.seed
+                sort = sorted.record
+                tech = annotator.technicalInfo(for: e, parsed: sorted.parsed)
             }
             upserts.append(FileUpsert(
                 path: e.path, name: e.name, kind: kind, size: e.size, modified: e.modified, etag: e.etag,
-                serverToken: e.serverToken, technical: tech, seed: seed
+                serverToken: e.serverToken, technical: tech, seed: seed, sort: sort
             ))
         }
 
@@ -183,5 +221,41 @@ public struct LibrarySyncer: Sendable {
             removedFilePaths: removedFiles, removedFolderPaths: removedFolders, holdRemovals: hold, emptyStrikes: strikes, now: clock()
         )
         return try await store.apply(change, scanID: scanID)
+    }
+
+    // MARK: Sorting (docs/SORTING.md)
+
+    /// Everything besides the file that decided its place, as stored with the file.
+    func sortInputs(override: SortOverride?, serverType: ServerItemType?) -> String {
+        var parts: [String] = []
+        if let override { parts.append("o:" + override.fingerprint) }
+        if let serverType { parts.append("s:" + serverType.rawValue + (preferFilename ? ":name" : "")) }
+        return parts.joined(separator: "|")
+    }
+
+    /// An unchanged file is looked at again when it was sorted by older rules or other inputs, or is in Needs Review.
+    static func mayNeedSorting(_ old: FileSortRecord?, inputs: String) -> Bool {
+        guard let old else { return true }
+        return old.revision < MediaSorter.revision || old.inputs != inputs || old.needsReview
+    }
+
+    func sortFile(_ e: SourceEntry, override: SortOverride?, inputs: String, ancestors: [String], siblings: () -> SiblingIndex)
+        -> (seed: ItemSeed, record: FileSortRecord, parsed: ParsedMedia) {
+        let decision = override.map { MediaSorter.apply($0, to: e.name, folders: ancestors) }
+            ?? MediaSorter.decide(fileName: e.name, context: SortContext(folders: ancestors, siblings: siblings(), serverType: e.serverItemType, preferFilename: preferFilename))
+        var outcome = decision.outcome
+        var note = decision.note
+        var seed = ItemGrouping.seed(parsed: decision.parsed, fileName: e.name)
+        if outcome == .episode, seed.kind != .episode {
+            outcome = .needsReview
+            note += " There is no show name or episode number to file it under."
+        } else if outcome == .movie, seed.kind != .movie || seed.key.hasPrefix("f|") {
+            outcome = .needsReview
+            note += " There is no title to file it under."
+        }
+        if outcome == .needsReview { seed = ItemGrouping.reviewSeed(sourceID: sourceID, path: e.path, fileName: e.name, parsed: decision.parsed) }
+        let signal = outcome == .needsReview ? SortSignal.undecided : decision.signal
+        sortLog?(e.path, outcome, signal, note)
+        return (seed, FileSortRecord(signal: signal, note: note, inputs: inputs, needsReview: outcome == .needsReview), decision.parsed)
     }
 }

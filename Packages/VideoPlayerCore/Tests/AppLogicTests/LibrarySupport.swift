@@ -135,4 +135,7 @@ final class FlakyStore: LibraryStore, @unchecked Sendable {
     func deleteView(id: Int64) async throws { try await inner.deleteView(id: id) }
     func views(scope: ViewScope) async throws -> [SavedView] { try await inner.views(scope: scope) }
     func pinnedViews() async throws -> [SavedView] { try await inner.pinnedViews() }
+    func needsReview(limit: Int) async throws -> [ReviewEntry] { try check(); return try await inner.needsReview(limit: limit) }
+    func needsReviewCount() async throws -> Int { try check(); return try await inner.needsReviewCount() }
+    func sortInfo(itemID: Int64) async throws -> ItemSortInfo? { try await inner.sortInfo(itemID: itemID) }
 }
