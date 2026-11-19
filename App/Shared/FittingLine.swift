@@ -60,9 +60,16 @@ extension TVTextStyle {
 
 /// One short text (a name, a label, a value) on one line under rule S1: scaled down to the readable minimum, never cut,
 /// never wrapped. For texts made of several segments use `FittingLine`.
+///
+/// #25 B4 (OPEN_QUESTIONS R199, PROVISIONAL): when the text does not fit even at the readable minimum (the run on 1fe5d50:
+/// "Sample Movie 7 With A Much Longer Title Than A…" on Continue Watching, 50/51 and 80, and a Files row), the system cut
+/// it with "…". Now it is scaled further, just enough to fit the line, so it is never cut and never wrapped; only such a
+/// text goes below the readable minimum. The natural width is measured off screen, as `FittingLine` does.
 struct FittingText: View {
     let text: String
     var style: TVTextStyle = .body
+    @State private var natural: Double = 0
+    @State private var available: Double = 0
 
     init(_ text: String, style: TVTextStyle = .body) {
         self.text = text
@@ -73,7 +80,24 @@ struct FittingText: View {
         Text(text)
             .font(style.font)
             .lineLimit(1)
-            // design-lint:allow rule S1 (OPEN_QUESTIONS R165): the system text style shrinks to fit, never below Apple's 23 pt minimum (HIG Typography)
-            .minimumScaleFactor(ShortLine.minimumScale(forPointSize: style.pointSize))
+            // design-lint:allow rule S1 (OPEN_QUESTIONS R165, R199): the system text style shrinks to fit; below the readable minimum only when even that does not fit, so it is never cut
+            .minimumScaleFactor(Self.scale(natural: natural, available: available, readable: ShortLine.minimumScale(forPointSize: style.pointSize)))
+            .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { available = $0 }
+            .background(alignment: .leading) {
+                // The natural one-line width, measured off screen (hidden: not drawn, not spoken).
+                Text(text)
+                    .font(style.font)
+                    .lineLimit(1) // design-lint:allow hidden measurement of the natural width, never drawn or spoken (rule S1 is applied to the visible text above)
+                    .fixedSize()
+                    .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { natural = $0 }
+                    .hidden()
+            }
+    }
+
+    /// The smallest scale the text may take: the readable minimum, or less when even that does not fit (R199).
+    static func scale(natural: Double, available: Double, readable: Double) -> Double {
+        guard natural > 0, available > 0, available < natural * readable else { return readable }
+        // A little under the exact ratio, so rounding never leaves the last letter to an "…".
+        return max(0.01, available / natural * 0.98)
     }
 }

@@ -46,6 +46,42 @@ struct SlotLabel: View {
     }
 }
 
+/// #25 B5: the label of an action button on a movie or show page (Play, Start Over, Versions, Extras, More). The system
+/// `Label`, so the gap between the symbol and the title is the system's own, the same in every button; the run on 1fe5d50
+/// (57, 60, 61) showed the symbol far left and a wide gap with `SlotLabel` inside these buttons. The title follows rule S1
+/// (`FittingText`). The label fills the row's height, so every button in an `ActionRow` has the same height; each button
+/// stays as wide as its content.
+struct ActionLabel: View {
+    let title: String
+    let systemImage: String
+
+    init(_ title: String, systemImage: String) {
+        self.title = title
+        self.systemImage = systemImage
+    }
+
+    var body: some View {
+        Label {
+            FittingText(title)
+        } icon: {
+            Image(systemName: systemImage)
+        }
+        .frame(maxHeight: .infinity)
+    }
+}
+
+/// #25 B5: a row of action buttons of one height (L10): each button hugs its content, the tallest sets the row's height.
+struct ActionRow<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        HStack {
+            content
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
 /// D5: a value-column symbol (the watched check) that always takes its slot, drawn or not, so the columns of a list line up.
 struct SymbolColumn: View {
     let systemImage: String

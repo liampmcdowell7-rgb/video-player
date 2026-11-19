@@ -196,6 +196,8 @@ targets:
     platform: tvOS
     sources:
       - path: UITests
+      # #25 A2: the control identifiers, the same file as in the app, so the tests and the app use the same names.
+      - path: App/Shared/ControlID.swift
     dependencies:
       - target: VideoPlayer
     settings:
