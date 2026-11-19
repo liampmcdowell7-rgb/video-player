@@ -18,7 +18,7 @@
 | docs/spikes/REMUX.md | FFmpeg remux and audio repackaging feasibility |
 | docs/spikes/DOLBY_VISION_P7.md | Dolby Vision profile 7 to 8.1 conversion cost |
 | scripts/test-all.sh | Every test, every test server, one line per stage |
-| scripts/test-core.sh | Unit tests in WSL (no Codemagic minutes) |
+| scripts/test-core.sh | Unit tests in WSL (no Codemagic minutes); non-zero exit on a failed test or no results, last line "test-core: passed P, skipped S, failed F" (self-test scripts/test-core-tests.sh) |
 | scripts/test-servers.sh | Start and stop local test servers in WSL |
 | scripts/test-integration.sh | Start servers, run integration tests, stop servers |
 | scripts/test-mediaservers.sh | Run real Jellyfin or Emby in WSL (user space) |

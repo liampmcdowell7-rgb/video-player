@@ -325,7 +325,7 @@ Spec documents:
 | docs/SUBTITLES.md | built and tested (parsers, PGS placement, selection, sync) | VobSub bitmaps missing |
 | docs/PLAYBACK_STATUS.md | regenerated this batch (474 rows) | |
 | docs/spikes/REMUX.md, DOLBY_VISION_P7.md, FFMPEG_TVOS_CANDIDATES.md | spikes done; implemented this batch (docs/AUDIO_PIPELINE.md, docs/DOLBY_VISION.md) | |
-| scripts/test-*.sh | in use | test-core.sh now exports VP_PROJECT_ROOT (this batch) |
+| scripts/test-*.sh | in use | test-core.sh exports VP_PROJECT_ROOT; since #28 its exit code is non-zero on any failed test or when no result is found, skips are reported apart (self-test scripts/test-core-tests.sh, 7 checks) |
 | docs/STORAGE_MODEL.md | built and tested (logic); CloudKit/Keychain wrappers device-only | |
 | docs/APP_LOGIC.md | built and tested | |
 | docs/SFTP_CITADEL.md | built and tested (live) | |
