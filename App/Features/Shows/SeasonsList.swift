@@ -28,6 +28,9 @@ struct SeasonsList: View {
                 // As on the movie page: the synopsis above the buttons (three lines, the whole text one press away).
                 if let overview = details?.overview {
                     SynopsisLink(title: content.seriesTitle, text: overview)
+                } else if !services.online.hasCatalogueKey {
+                    // #26 item 4: one short line saying the synopsis needs the key and where to add it.
+                    StatusText(OnlineLookupText.detailsNeedKey)
                 }
                 actions
                 // #25 B7 (OPEN_QUESTIONS R193, the alternative now taken, still PROVISIONAL): the episode shelves right after

@@ -78,9 +78,7 @@ private struct DiscoverContentView: View {
                 if !content.similar.isEmpty {
                     shelf("Similar to Your Library", content.similar)
                 }
-                Text(Attribution.catalogueNotice)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                // #26 item 7: the TMDB notice is in Settings > About > Data Sources only; the JustWatch line stays with its data.
                 Text(Attribution.whereToWatchNotice)
                     .font(.caption)
                     .foregroundStyle(.secondary)

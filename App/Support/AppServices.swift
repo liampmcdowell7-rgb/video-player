@@ -124,12 +124,16 @@ final class AppServices {
             guard let definition = ledger.sourceDefinitions().first(where: { $0.id == sourceID }) else { return nil }
             return await factory.makeSource(definition)
         })
-        self.online = OnlineServices(keys: OnlineKeyStore(secrets: secrets), store: sqliteStore, reader: reader)
+        // #26 item 2: one app-wide key store, its own Keychain items plus the encrypted iCloud copy; keys an earlier version
+        // kept with the source passwords are moved there at start-up (OnlineKeyStore.migrateLegacy).
+        let keyStore = OnlineKeyStore(secrets: MirroredSecrets(local: dependencies.keyCredentials, cloud: dependencies.secretCloud),
+                                      legacy: dependencies.credentials)
+        keyStore.migrateLegacy()
+        self.online = OnlineServices(keys: keyStore, store: sqliteStore, reader: reader)
         // The backup refuses any file that holds one of these: every source password or token and every API key, read
         // from protected storage at the time of each backup and never written anywhere (docs/BACKUP.md "Secrets").
-        self.backup = BackupHost(store: sqliteStore, cloud: dependencies.backupCloud, matchFile: OnlineServices.matchFileURL, forbidden: { [ledger, secrets] in
-            let keys = OnlineKeyStore(secrets: secrets)
-            return ledger.sourceDefinitions().compactMap { secrets.secret(for: $0.id) } + OnlineKeyKind.allCases.compactMap { keys.key($0) }
+        self.backup = BackupHost(store: sqliteStore, cloud: dependencies.backupCloud, matchFile: OnlineServices.matchFileURL, forbidden: { [ledger, secrets, keyStore] in
+            return ledger.sourceDefinitions().compactMap { secrets.secret(for: $0.id) } + keyStore.allValues()
         })
         let engine = UserDataSyncEngine(ledger: ledger, cloud: self.cloud)
         self.syncEngine = engine

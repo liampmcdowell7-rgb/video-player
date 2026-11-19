@@ -12,6 +12,8 @@ struct AppDependencies {
     var userDataCloud: any UserDataCloud
     var secretCloud: any SecretCloud
     var credentials: any CredentialStore
+    /// #26 item 2: the app-wide API keys, in their own Keychain items (one per keyed service), apart from source passwords.
+    var keyCredentials: any CredentialStore
     var backupCloud: any BackupCloud
     /// The App Group folder the Top Shelf extension reads, checked before use; nil when it cannot be used.
     var sharedFolder: () -> URL?
@@ -24,6 +26,7 @@ struct AppDependencies {
             userDataCloud: CloudKitUserDataCloud(containers: containers),
             secretCloud: CloudKitSecretCloud(containers: containers),
             credentials: KeychainCredentialStore(),
+            keyCredentials: KeychainCredentialStore(service: "com.liamp.videoplayer.keys", synchronizable: true),
             backupCloud: CloudKitBackupCloud(containers: containers),
             sharedFolder: {
                 SharedFolder.usable(FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: SharedFolder.appGroup))
@@ -41,6 +44,7 @@ struct AppDependencies {
             userDataCloud: InMemoryCloud(),
             secretCloud: InMemorySecretCloud(),
             credentials: InMemoryCredentialStore(),
+            keyCredentials: InMemoryCredentialStore(),
             backupCloud: InMemoryBackupCloud(),
             sharedFolder: { SharedFolder.usable(caches.appendingPathComponent("uitest-app-group", isDirectory: true)) },
             cloudUnavailable: { off })

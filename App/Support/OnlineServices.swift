@@ -6,8 +6,9 @@ import UserData
 import MetadataOnline
 import AppLogic
 
-/// Everything that talks to the online lookup services, built only from the keys the user entered. With no key nothing here
-/// can send anything: the pieces that would are simply not created, and the screens say what is needed (docs/ARTWORK_DISCOVER.md).
+/// Everything that talks to the online lookup services, built only from the keys the user entered (one app-wide key per
+/// service, #26) and the Free Data Sources switch. With no key and the switch off nothing here can send anything: the pieces
+/// that would are simply not created, and the screens say what is needed (docs/ARTWORK_DISCOVER.md, docs/DATA_SOURCES.md).
 @MainActor
 @Observable
 final class OnlineServices {
@@ -22,6 +23,11 @@ final class OnlineServices {
     private(set) var discoverSource: (any DiscoverDataSource)?
     /// The title search that sorts Needs Review files (signal d, docs/SORTING.md); nil without a key.
     private(set) var sortLookup: (any SortLookup)?
+    /// #26: Wikidata and IntroDB, created only while Free Data Sources is on (no key needed, none sent).
+    private(set) var freeSourcesOn = false
+    @ObservationIgnored private(set) var wikidata: WikidataClient?
+    @ObservationIgnored private(set) var segmentLookup: OnlineSegmentLookup?
+    @ObservationIgnored private var tmdbClient: TMDBClient?
     let imageSession: URLSession
 
     @ObservationIgnored private let store: SQLiteLibraryStore
@@ -55,7 +61,12 @@ final class OnlineServices {
     func rebuild() {
         hasCatalogueKey = keys.has(.tmdb)
         hasRatingsKey = keys.has(.omdb)
-        guard let key = keys.key(.tmdb) else {
+        rebuildFreeSources()
+        // UI-test modes never send anything: a key in the in-memory store (-UITestFakeTMDBKey) shows as set, but no client
+        // that could use it is made.
+        guard let key = keys.key(.tmdb), !Self.isUITestLaunch else {
+            tmdbClient = nil
+            rebuildSegmentLookup()
             resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: nil))
             searcher = UnavailableMatchSearcher()
             recorder = nil
@@ -73,7 +84,44 @@ final class OnlineServices {
         recorder = StoredMatchRecorder(service: service, store: store)
         discoverSource = client
         sortLookup = MatchEngine(provider: client)
+        tmdbClient = client
+        rebuildSegmentLookup()
         keyRevision += 1
+    }
+
+    private static var isUITestLaunch: Bool {
+        #if DEBUG
+        return UITestMode.current != .off
+        #else
+        return false
+        #endif
+    }
+
+    /// The User-Agent Wikidata asks for: the app's name and version and where to find it (docs/DATA_SOURCES.md).
+    // design-lint:allow a protocol token sent in the User-Agent header, never shown on screen
+    static var userAgent: String { "VideoPlayer/\(AppInfo.version) (\(LicenseNotices.repositoryURL); open-source tvOS player)" }
+
+    private func rebuildFreeSources() {
+        freeSourcesOn = UserDefaults.standard.object(forKey: OnlineLookupPrefs.freeSourcesKey) as? Bool ?? OnlineLookupPrefs.freeSourcesDefault
+        #if DEBUG
+        // UI-test modes never send anything: the switch can show On, but no client is made.
+        if UITestMode.current != .off { wikidata = nil; return }
+        #endif
+        wikidata = freeSourcesOn
+            ? WikidataClient(transport: URLSessionTransport(), cache: JSONFileMetadataCache(directory: ArtworkFolders.metadata),
+                             userAgent: Self.userAgent, language: Locale.preferredLanguages.first.map { String($0.prefix(2)) } ?? "en")
+            : nil
+    }
+
+    private func rebuildSegmentLookup() {
+        guard freeSourcesOn, let wikidata else { segmentLookup = nil; return }
+        let tmdb = tmdbClient
+        let external: IMDbIDResolver.TMDBExternal? = tmdb.map { client in
+            { kind, id in try await client.externalIDs(kind: kind, id: id).imdb }
+        }
+        let introDB = IntroDBClient(transport: URLSessionTransport(), cache: JSONFileMetadataCache(directory: ArtworkFolders.metadata),
+                                    userAgent: Self.userAgent)
+        segmentLookup = OnlineSegmentLookup(resolver: IMDbIDResolver(tmdbExternal: external, wikidata: wikidata), client: introDB)
     }
 
     func saveKey(_ text: String, for kind: OnlineKeyKind) async throws {
@@ -104,14 +152,21 @@ final class OnlineServices {
         await resolver.backdrop(key: key, userLanguage: Locale.preferredLanguages.first)
     }
 
-    /// Synopsis and cast of a movie page ("item-N", #15 6.2) or a show page ("series-N", #22 B) from the cached online details.
-    /// Nil without a key.
+    /// Synopsis and cast of a movie page ("item-N", #15 6.2) or a show page ("series-N", #22 B), layered (#26 item 6,
+    /// PROVISIONAL R210): the source's own details (none stored yet), then Wikidata while Free Data Sources is on, then TMDB with
+    /// the user's key. Nil when no layer has anything.
     func details(key: String) async -> TitleDetails? {
         #if DEBUG
         // #21 D: the screenshot job's fake synopsis and cast (no key, no network). Not compiled into Release.
         if UITestMode.current == .fixtures { return await UITestFixtureDetails.details(key: key, store: store) }
         #endif
-        return await resolver.details(key: key)
+        let resolver = self.resolver
+        let wikidataLayer = wikidata.map { WikidataDetailsLayer(store: store, client: $0) }
+        let service = LayeredDetailsService(
+            source: nil,
+            wikidata: wikidataLayer.map { layer in { await layer.details(key: $0) } },
+            tmdb: hasCatalogueKey ? { await resolver.details(key: $0) } : nil)
+        return await service.details(key: key).details
     }
 
     /// Bytes of one picture for the Top Shelf folder (a cached file, or a download of the matched poster). Nil when there is none.

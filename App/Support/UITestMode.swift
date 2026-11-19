@@ -40,6 +40,11 @@ enum UITestMode {
     /// Fills the library (fixtures mode). Called by the root screen instead of the iCloud start-up and the launch scan.
     @MainActor
     static func prepare(_ services: AppServices) async {
+        // #26: the synthetic key for the masked-key screenshot, in the in-memory key store (never sent: no client is made).
+        if UITestLaunch.usesFakeTMDBKey(arguments: ProcessInfo.processInfo.arguments, mode: current) {
+            try? services.online.keys.secrets.local.setSecret(UITestLaunch.fakeTMDBKey, for: OnlineKeyKind.tmdb.secretID)
+            services.online.rebuild()
+        }
         guard current == .fixtures else { return }
         services.ledger.upsertSource(UITestFixtures.definition)
         // A Jellyfin source that is never scanned or contacted (UI-test launches do not scan; its host is .invalid), only

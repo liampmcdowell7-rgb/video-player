@@ -25,6 +25,7 @@ struct AboutView: View {
             }
             Section(Attribution.aboutHeading) {
                 Text(Attribution.aboutNote).readableRow()
+                    .accessibilityIdentifier(ControlID.dataSources)
                 // The one logo in the app (user decision, OPEN_QUESTIONS R148): TMDB's logo exactly as TMDB publishes it
                 // (docs/NAMES.md section 4), next to the notice TMDB requires. Not recoloured: the original colours are kept.
                 // #25 B9: the logo sits at the row's leading edge, with the system spacing above the notice.
@@ -39,6 +40,11 @@ struct AboutView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .readableRow()
                 Text(Attribution.whereToWatchNotice).readableRow()
+                // #26 item 7: text-only credits for the key-free sources, each with a short Learn More.
+                Text(Attribution.wikidataCredit).readableRow()
+                LearnMoreLink(title: Attribution.wikidataLearnMoreTitle, text: Attribution.wikidataLearnMore)
+                Text(Attribution.introDBCredit).readableRow()
+                LearnMoreLink(title: Attribution.introDBLearnMoreTitle, text: Attribution.introDBLearnMore)
             }
             // Trademark acknowledgements and the "not affiliated" sentence (docs/NAMES.md section 3). Text only; the
             // TMDB logo above is the only logo anywhere in the app.

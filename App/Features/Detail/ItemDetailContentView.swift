@@ -33,6 +33,9 @@ struct ItemDetailContentView: View {
                 }
                 if let overview = details?.overview {
                     SynopsisLink(title: content.title, text: overview)
+                } else if content.kind == .movie, !services.online.hasCatalogueKey {
+                    // #26 item 4: one short line saying the synopsis needs the key and where to add it.
+                    StatusText(OnlineLookupText.detailsNeedKey)
                 }
                 // #15 D3: how much is left, as text, instead of a full-width bar. Fixed in code, verify in next screenshots.
                 if let timeLeft = content.timeLeft {
