@@ -99,6 +99,10 @@ public struct SegmentLimits: Equatable, Sendable {
     /// seconds of the end of the file is extended to the end. More than this remaining means real content
     /// follows (see docs/PLAYBACK_LOGIC.md). The same 60 s is the "more than 60 seconds remaining" rule.
     public var creditsTrailingTolerance = 60.0
+    /// PROVISIONAL (#26, OPEN_QUESTIONS R208): an online database that gives no reference duration (IntroDB) may still
+    /// place an intro or a recap, because those sit near the start of the file and do not depend on the release length.
+    /// Credits from such a source are still rejected (they depend on the runtime). False restores the strict B1 rule.
+    public var acceptsUnreferencedOnlineIntroAndRecap = true
 
     public init() {}
 
@@ -192,7 +196,9 @@ public enum SegmentResolver {
         guard duration > 0, duration.isFinite else { return .failure(.unknownFileDuration) }
 
         // B1: database timings only fit a release with the same duration.
-        let mustMatch = original.source == .onlineDatabase || original.referenceDuration != nil
+        let unreferencedStart = original.source == .onlineDatabase && original.referenceDuration == nil
+            && limits.acceptsUnreferencedOnlineIntroAndRecap && original.type != .credits
+        let mustMatch = !unreferencedStart && (original.source == .onlineDatabase || original.referenceDuration != nil)
         if mustMatch {
             guard let reference = original.referenceDuration,
                   abs(reference - duration) <= limits.durationTolerance(for: duration) else {

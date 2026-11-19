@@ -49,11 +49,25 @@ final class SegmentTests: XCTestCase {
         }
     }
 
-    // SEG-3
-    func testSEG3_onlineSegmentWithoutReferenceDurationIsRejected() {
-        let r = Fixture.resolve([Fixture.seg(.intro, 10, 60, source: .onlineDatabase, reference: nil)])
+    // SEG-3 (#26, PROVISIONAL R208): online credits without a reference duration are still rejected; an online intro or
+    // recap without one is accepted by default (IntroDB gives no duration), and rejected again with the strict B1 setting.
+    func testSEG3_onlineCreditsWithoutReferenceDurationAreRejected() {
+        let r = Fixture.resolve([Fixture.seg(.credits, 900, 1000, source: .onlineDatabase, reference: nil)])
         XCTAssertTrue(r.segments.isEmpty)
         XCTAssertEqual(r.rejected.first?.reason, .durationMismatch)
+    }
+
+    func testSEG3_onlineIntroWithoutReferenceIsAcceptedUnlessStrict() {
+        let intro = Fixture.seg(.intro, 10, 60, source: .onlineDatabase, reference: nil)
+        XCTAssertEqual(Fixture.resolve([intro]).segments.count, 1)
+        var strict = SegmentLimits()
+        strict.acceptsUnreferencedOnlineIntroAndRecap = false
+        let r = SegmentResolver.resolve(file: Fixture.file, candidates: [intro], limits: strict)
+        XCTAssertTrue(r.segments.isEmpty)
+        XCTAssertEqual(r.rejected.first?.reason, .durationMismatch)
+        // A wrong reference duration is still a mismatch, whatever the setting.
+        let wrong = Fixture.seg(.intro, 10, 60, source: .onlineDatabase, reference: 1300)
+        XCTAssertEqual(Fixture.resolve([wrong]).rejected.first?.reason, .durationMismatch)
     }
 
     // SEG-4
