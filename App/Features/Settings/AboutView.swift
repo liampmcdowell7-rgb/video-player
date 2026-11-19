@@ -8,7 +8,8 @@ struct AboutView: View {
     @ScaledMetric(relativeTo: .caption) private var tmdbLogoHeight: CGFloat = 28
 
     var body: some View {
-        Form {
+        // #15 3.8: bounded column with the title on the left (L1, L6).
+        SettingsPane(title: "About", summary: SettingsTexts.aboutSummary) {
             Section {
                 LabeledContent("Version", value: AppInfo.version)
             }
@@ -67,6 +68,5 @@ struct AboutView: View {
                 }
             }
         }
-        .pushedScreen("About")
     }
 }

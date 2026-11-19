@@ -1,6 +1,9 @@
 import SwiftUI
+import AppLogic
 
 /// The app follows the system's accessibility settings and has none of its own. This page shows what the system reports.
+/// #15 3.7: the four states are read-only status text in the left column (L3), not rows that look focusable; the full
+/// explanation is one press away (L5).
 struct AccessibilitySettingsView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -8,18 +11,16 @@ struct AccessibilitySettingsView: View {
     @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        Form {
+        SettingsPane(title: "Accessibility", summary: SettingsTexts.accessibilitySummary, status: [
+            "Currently on this device:",
+            "Reduce Motion: " + (reduceMotion ? "On" : "Off"),
+            "Reduce Transparency: " + (reduceTransparency ? "On" : "Off"),
+            "Bold Text: " + (legibilityWeight == .bold ? "On" : "Off"),
+            "Increase Contrast: " + (contrast == .increased ? "On" : "Off"),
+        ]) {
             Section {
-                LabeledContent("Reduce Motion", value: reduceMotion ? "On" : "Off")
-                LabeledContent("Reduce Transparency", value: reduceTransparency ? "On" : "Off")
-                LabeledContent("Bold Text", value: legibilityWeight == .bold ? "On" : "Off")
-                LabeledContent("Increase Contrast", value: contrast == .increased ? "On" : "Off")
-            } header: {
-                Text("Currently On This Device")
-            } footer: {
-                Text("Text size, Bold Text, Reduce Motion, Reduce Transparency, Increase Contrast, VoiceOver and captions are set in the device’s own Accessibility settings. This app follows them and has no separate copies.")
+                LearnMoreLink(title: SettingsTexts.accessibilityLearnMoreTitle, text: SettingsTexts.accessibilityFull)
             }
         }
-        .pushedScreen("Accessibility")
     }
 }

@@ -4,6 +4,11 @@ import AppLogic
 
 /// One source: its settings, how well its type has been tested, the approved fingerprint, a connection check, a way to
 /// enter its password again, and Remove. A changed certificate or host key is shown here and is never trusted by itself.
+/// The one sentence under a source page's title.
+enum SourceDetailText {
+    static let summary = "This source’s settings, its connection and how well its type has been tested."
+}
+
 struct SourceDetailView: View {
     let definition: UDSourceDefinition
     @Environment(AppServices.self) private var services
@@ -24,20 +29,16 @@ struct SourceDetailView: View {
     private var issue: TrustIssue? { services.trust.issue(for: definition.id) }
 
     var body: some View {
-        Form {
+        // #15 3.4: bounded column (`SettingsPane`), so the Name row is no longer clipped under the title; how well the type
+        // is tested is status text in the left column, said once (L3, L9).
+        SettingsPane(title: current.name, summary: SourceDetailText.summary,
+                     status: [current.verificationLabel ?? "", current.caveat ?? ""]) {
             Section {
                 LabeledContent("Name", value: current.name)
                 LabeledContent("Type", value: current.kindTitle)
                 if !current.host.isEmpty { LabeledContent("Server", value: current.host) }
                 if !current.username.isEmpty { LabeledContent("User Name", value: current.username) }
                 LabeledContent("Password", value: passwordStatus)
-            }
-            Section("Tested") {
-                if let label = current.verificationLabel { Text(label) }
-                if let caveat = current.caveat {
-                    Text(caveat)
-                        .foregroundStyle(.secondary)
-                }
             }
             if SortSourceOption.applies(toKind: current.kind) {
                 // docs/SORTING.md; PROVISIONAL setting, OPEN_QUESTIONS.
@@ -55,8 +56,7 @@ struct SourceDetailView: View {
                     if let shown = current.approvedFingerprintDisplay {
                         Text(shown)
                     } else {
-                        Text("None approved yet. The system’s own trust decides for this server.")
-                            .foregroundStyle(.secondary)
+                        StatusText("None approved yet. The system’s own trust decides for this server.")
                     }
                 }
             }
@@ -72,27 +72,24 @@ struct SourceDetailView: View {
             Section {
                 Button(checking ? "Checking" : "Check Connection") { Task { await check() } }
                     .disabled(checking)
-                if let checkResult {
-                    Text(checkResult)
-                        .foregroundStyle(.secondary)
-                }
+            } footer: {
+                if let checkResult { Text(checkResult) }
             }
             if current.auth != "none" && current.auth != "oauth" {
-                Section("Enter the Password Again") {
+                Section {
                     SecureField("Password", text: $password)
                     Button("Save Password") { Task { await savePassword() } }
                         .disabled(password.isEmpty)
-                    if let message {
-                        Text(message)
-                            .foregroundStyle(.secondary)
-                    }
+                } header: {
+                    Text("Enter the Password Again")
+                } footer: {
+                    if let message { Text(message) }
                 }
             }
             Section {
                 Button("Remove Source", role: .destructive) { confirmRemove = true }
             }
         }
-        .pushedScreen(current.name)
         .confirmationDialog(issue?.acceptTitle ?? "", isPresented: $confirmTrust, titleVisibility: .visible, presenting: issue) { issue in
             Button(issue.acceptTitle, role: .destructive) { Task { await services.trustNewFingerprint(issue) } }
             Button("Cancel", role: .cancel) {}

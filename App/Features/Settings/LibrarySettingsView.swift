@@ -2,6 +2,7 @@ import SwiftUI
 import AppLogic
 import LibraryIndex
 
+/// Settings > Library. #15 3.2: bounded column (`SettingsPane`); the counts stay `LabeledContent` in that column.
 struct LibrarySettingsView: View {
     @Environment(AppServices.self) private var services
     @AppStorage(SettingsKey.scanOnLaunch.rawValue) private var scanOnLaunch = true
@@ -9,11 +10,13 @@ struct LibrarySettingsView: View {
     @State private var reviewCount: Int?
 
     var body: some View {
-        Form {
+        SettingsPane(title: "Library", summary: SettingsTexts.librarySummary) {
             Section {
                 Toggle("Scan Sources When the App Opens", isOn: $scanOnLaunch)
-                Button(services.isScanning ? "Scanning" : "Scan Now", systemImage: "arrow.clockwise") {
+                Button {
                     Task { await services.scanAll() }
+                } label: {
+                    RowLabel(services.isScanning ? "Scanning" : "Scan Now", systemImage: "arrow.clockwise")
                 }
                 .disabled(services.isScanning)
                 ScanProgressRow(progress: services.scanProgress)
@@ -34,7 +37,6 @@ struct LibrarySettingsView: View {
                 }
             }
         }
-        .pushedScreen("Library")
         .task(id: services.libraryRevision) {
             counts = try? await services.store.counts()
             reviewCount = try? await services.store.needsReviewCount()

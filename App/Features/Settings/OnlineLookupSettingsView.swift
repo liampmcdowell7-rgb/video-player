@@ -9,12 +9,15 @@ struct OnlineLookupSettingsView: View {
     @Environment(AppServices.self) private var services
     @AppStorage(OnlineLookupPrefs.regionKey) private var region = OnlineLookupPrefs.defaultRegion
 
+    // #15 3.5: bounded column; the on/off state is status text (L3); the 8-line paragraph is a one-line footer plus the
+    // "What Is Sent" page with the complete text unchanged (L5). The key fields and Save Key buttons come first.
     var body: some View {
-        Form {
+        SettingsPane(title: OnlineLookupText.settingsTitle, summary: SettingsTexts.onlineSummary,
+                     status: [OnlineLookupText.status(hasTMDB: services.online.hasCatalogueKey, hasOMDb: services.online.hasRatingsKey)]) {
             Section {
-                Text(OnlineLookupText.status(hasTMDB: services.online.hasCatalogueKey, hasOMDb: services.online.hasRatingsKey))
+                LearnMoreLink(title: SettingsTexts.whatIsSentTitle, text: OnlineLookupText.whatIsSent)
             } footer: {
-                Text(OnlineLookupText.whatIsSent)
+                Text(SettingsTexts.whatIsSentShort)
             }
             KeyRow(kind: .tmdb, label: OnlineLookupText.tmdbLabel, help: OnlineLookupText.tmdbHelp)
             KeyRow(kind: .omdb, label: OnlineLookupText.omdbLabel, help: OnlineLookupText.omdbHelp)
@@ -25,17 +28,11 @@ struct OnlineLookupSettingsView: View {
                 Text(OnlineLookupText.regionHelp)
             }
             Section {
-                Text(OnlineLookupText.keysAreOptional)
-                Text(OnlineLookupText.storage)
-                Text(OnlineLookupText.removeNote)
-            }
-            // The data providers' required notices (docs/ARTWORK_DISCOVER.md section 5a), as plain text.
-            Section(Attribution.aboutHeading) {
-                Text(Attribution.catalogueNotice)
-                Text(Attribution.whereToWatchNotice)
+                LearnMoreLink(title: SettingsTexts.aboutKeysTitle, text: SettingsTexts.aboutKeysFull)
+                // The data providers' required notices (docs/ARTWORK_DISCOVER.md section 5a), complete, one press away.
+                LearnMoreLink(title: Attribution.aboutHeading, text: Attribution.catalogueNotice + "\n\n" + Attribution.whereToWatchNotice)
             }
         }
-        .pushedScreen(OnlineLookupText.settingsTitle)
         .onChange(of: region) {
             let clean = OnlineLookupPrefs.normalizedRegion(region)
             if region.count == 2 && clean != region { region = clean }
@@ -70,12 +67,9 @@ private struct KeyRow: View {
                 .autocorrectionDisabled()
             Button("Save Key") { Task { await save() } }
                 .disabled(entry.isEmpty || working)
-            if let message {
-                Text(message)
-                    .foregroundStyle(.secondary)
-            }
         } footer: {
-            Text(help)
+            // L3: the result of Save or Remove is footer text, not a row.
+            Text(message.map { $0 + " " + help } ?? help)
         }
         .confirmationDialog("Remove \(label)?", isPresented: $confirmRemove) {
             Button("Remove Key", role: .destructive) { Task { await remove() } }

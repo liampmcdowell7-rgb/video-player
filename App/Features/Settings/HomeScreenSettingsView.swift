@@ -1,6 +1,7 @@
 import SwiftUI
 import AppLogic
 
+/// Settings > Home Screen. #15 3.2: bounded column (`SettingsPane`), one-line footers.
 struct HomeScreenSettingsView: View {
     @AppStorage(SettingsKey.showContinueWatching.rawValue) private var showContinue = true
     @AppStorage(SettingsKey.showNextUp.rawValue) private var showNextUp = true
@@ -9,7 +10,7 @@ struct HomeScreenSettingsView: View {
     @AppStorage(SettingsKey.showDiscover.rawValue) private var showDiscover = true
 
     var body: some View {
-        Form {
+        SettingsPane(title: "Home Screen", summary: SettingsTexts.homeSummary) {
             Section("Rows") {
                 Toggle("Continue Watching", isOn: $showContinue)
                 Toggle("Next Up", isOn: $showNextUp)
@@ -22,16 +23,15 @@ struct HomeScreenSettingsView: View {
                     }
                 }
             } footer: {
-                Text("The same titles appear in the Top Shelf row on the Apple TV Home Screen once artwork is available for them.")
+                Text(SettingsTexts.continueFooter)
             }
             Section {
                 Toggle("Show Discover", isOn: $showDiscover)
             } header: {
                 Text("Discover")
             } footer: {
-                Text("Discover appears in the Search tab while the search field is empty. When it is off, nothing is looked up for it.")
+                Text(SettingsTexts.discoverFooter)
             }
         }
-        .pushedScreen("Home Screen")
     }
 }

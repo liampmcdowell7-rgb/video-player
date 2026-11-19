@@ -23,50 +23,34 @@ struct BackupSettingsView: View {
 
     var body: some View {
         @Bindable var backup = services.backup
-        Form {
-            Section {
-                Text(BackupStatusText.intro)
-            } footer: {
-                Text(BackupStatusText.storageNote)
-            }
-
+        // #15 3.9 and #17 D: bounded column (`SettingsPane`); one summary sentence and a short "what" line; the complete
+        // text (intro, storage note, what each part holds, never included) on "About Backup" (L5); status as text (L3).
+        SettingsPane(title: "Backup", summary: BackupStatusText.summary,
+                     status: [statusLine(backup) ?? "", backup.skippedLine ?? ""]) {
             Section {
                 Toggle("Library Data", isOn: $backup.settings.library)
-                Text(BackupStatusText.libraryDetail)
-                    .foregroundStyle(.secondary)
                 Toggle("Artwork", isOn: $backup.settings.artwork)
                 LabeledContent("Artwork in iCloud", value: BackupStatusText.size(backup.usage[.artwork] ?? 0))
-                Text(BackupStatusText.artworkDetail)
-                    .foregroundStyle(.secondary)
                 if backup.settings.artwork {
                     Toggle("Only Artwork for Items in Your Library", isOn: $backup.settings.artworkLibraryOnly)
                 }
                 LabeledContent("Settings and Watch State", value: "Kept by iCloud Sync")
-                Text(BackupStatusText.userDataDetail)
-                    .foregroundStyle(.secondary)
+                LearnMoreLink(title: BackupStatusText.learnMoreTitle, text: BackupStatusText.learnMore)
             } header: {
                 Text("What Is Backed Up")
             } footer: {
-                Text(BackupStatusText.neverIncluded)
+                Text(BackupStatusText.whatShort)
             }
 
             Section("iCloud") {
                 LabeledContent("Size in iCloud", value: BackupStatusText.size(backup.totalSize))
                 LabeledContent("Last Backup", value: backup.lastSuccess.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "Never")
-                if let line = statusLine(backup) {
-                    Text(line)
-                }
-                if let skipped = backup.skippedLine {
-                    Text(skipped)
-                        .foregroundStyle(.secondary)
-                }
                 Button("Back Up Now") { backup.backUpNow() }
                     .disabled(backup.isWorking || backup.unavailableReason != nil || !(backup.settings.library || backup.settings.artwork))
                 Button("Restore from iCloud", role: .destructive) { confirmRestore = true }
                     .disabled(backup.isWorking || backup.unavailableReason != nil)
             }
         }
-        .pushedScreen("Backup")
         .confirmationDialog("Restore from iCloud?", isPresented: $confirmRestore, titleVisibility: .visible) {
             Button("Restore", role: .destructive) {
                 backup.restoreNow(afterLibrary: { await services.reapplyUserData() })

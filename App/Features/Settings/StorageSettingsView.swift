@@ -2,7 +2,8 @@ import SwiftUI
 import AppLogic
 import LibraryIndex
 
-/// Says plainly where everything is kept and what a reset does.
+/// Says plainly where everything is kept and what a reset does. #15 3.6: the status sentences are plain text in the left
+/// column (L3), not pills; the only control, Sync Now, sits in the bounded column.
 struct StorageSettingsView: View {
     @Environment(AppServices.self) private var services
     @State private var counts: LibraryCounts?
@@ -10,27 +11,17 @@ struct StorageSettingsView: View {
     var body: some View {
         let status = StorageStatusModel(account: services.accountStatus, secrets: services.secretState, counts: counts,
                                         passwordsNeeded: services.passwordsNeeded, cloudUnavailable: services.cloudUnavailable)
-        Form {
+        SettingsPane(title: "Storage and iCloud", summary: SettingsTexts.storageSummary,
+                     status: [status.accountLine, status.passwordsLine, status.passwordsNeededLine ?? "", status.libraryLine ?? ""]) {
             Section("iCloud") {
-                Text(status.accountLine)
-                Text(services.sync.line)
                 Button("Sync Now") { services.sync.syncNow() }
+            } footer: {
+                Text(services.sync.line)
             }
             Section("Passwords") {
-                Text(status.passwordsLine)
-                if let needed = status.passwordsNeededLine {
-                    Text(needed)
-                }
-                Text(status.resetLine)
-                    .foregroundStyle(.secondary)
-            }
-            if let line = status.libraryLine {
-                Section("Library Index") {
-                    Text(line)
-                }
+                LearnMoreLink(title: "About Resetting", text: status.resetLine)
             }
         }
-        .pushedScreen("Storage and iCloud")
         .task(id: services.libraryRevision) {
             counts = try? await services.store.counts()
             await services.refreshCloudStatus()

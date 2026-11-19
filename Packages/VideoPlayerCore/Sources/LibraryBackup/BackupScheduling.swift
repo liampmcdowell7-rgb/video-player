@@ -64,6 +64,16 @@ public enum BackupStatusText {
     public static let restoreConfirmation = "Restore from iCloud replaces the library index, details and pictures on this Apple TV with the copy in iCloud. Your watch history and anything you changed more recently on this Apple TV are kept."
     public static let restoringBanner = "Restoring your library from iCloud"
 
+    // #15 3.9 and #17 D: the Backup page keeps one summary sentence and short lines; the complete explanation (the texts
+    // above, unchanged) is on its "Learn More" page.
+    public static let summary = "A copy in your own iCloud of what the app built from your videos. Your videos are never uploaded."
+    public static let whatShort = "The library and pictures. Never your videos, passwords, sign-in tokens or API keys."
+    public static let learnMoreTitle = "About Backup"
+    public static var learnMore: String {
+        [intro, storageNote, "Library Data: " + libraryDetail, "Artwork: " + artworkDetail,
+         "Settings and Watch State: " + userDataDetail, neverIncluded].joined(separator: "\n\n")
+    }
+
     public static func line(_ status: BackupStatus) -> String {
         switch status {
         case .idle: return ""
