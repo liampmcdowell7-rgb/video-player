@@ -395,7 +395,9 @@ them in compile-check.yml.
 4. Open `screenshots\index.md` (any text editor) and look at the pictures in number order, then
    `screenshots-library\index.md` (the numbers continue across both: part 2 holds 07, 08, 44–62 and 70–78). At the end
    of each `index.md`, "Fixed in code, verify in these screenshots" (#21 G) lists each change still to be checked by eye,
-   what to look for, and the pictures that show it (or NOT REACHED). Then open
+   what to look for, and the pictures that show it (or NOT REACHED). Look at 08 (the card long-press menu) every time:
+   a wrong SF Symbol name builds and passes every test but draws a blank icon, and the three icons of that menu were
+   named from memory (#22 D; every symbol and its screenshot are in docs/SYMBOLS.md). Then open
    `accessibility-screenshots`: `text` holds the Larger Text pictures (80–84, 90–95), the Bold Text pictures (85–89,
    96–101) and the same eleven screens at the default size (102–112), so each can be compared with its default one;
    `a11y-compare.txt` says for each whether it differs from the default outside the tab bar (#17 A). Then open

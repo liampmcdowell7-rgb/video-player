@@ -683,6 +683,9 @@ jobs:
           bash scripts/ci-summarise-errors.sh "Screenshots: build and UI tests" "$OUT/test.log" "$OUT/resolve.log" "$OUT/xcodegen.log"
           python3 scripts/ci-test-report.py "$OUT/test.log" "$OUT/test-report.md" | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # #22 D: SF Symbol names are plain strings. A wrong name does NOT fail the build or any test; it draws a blank icon.
+      # So screenshot 08 (the card long-press menu: Go to Movie / Go to Show, Remove from Continue Watching, whose icon names
+      # were written from memory in #21 F) must be looked at. Every symbol and the screenshot that shows it: docs/SYMBOLS.md.
       - name: Export the screenshots in viewing order (01-..., 02-...) with index.md
         if: always()
         timeout-minutes: 4

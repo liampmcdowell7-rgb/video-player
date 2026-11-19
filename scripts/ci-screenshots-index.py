@@ -40,7 +40,9 @@ VERIFY = [
     ("Shows has the Movies row: Sort, Filter, Saved Views, Jump to Letter, count (#21 F)",
      "the same buttons in the same order as on Movies (53), and each menu opens", ["07-shows-toolbar"]),
     ("The card long-press menu: Go to Movie / Go to Show and Remove from Continue Watching (#21 F)",
-     "Go to ... is first; Remove from Continue Watching shows on a card in that row; Go to opens the page", ["52-card-long-press-menu", "08-card"]),
+     "Go to ... is first; Remove from Continue Watching shows on a card in that row; Go to opens the page; each of the three "
+     "items has its icon (film, tv, minus.circle: names written from memory, and a wrong name is a blank icon, not a build "
+     "error; docs/SYMBOLS.md)", ["52-card-long-press-menu", "08-card"]),
     ("The show page has the movie page's synopsis and cast (#22 B, R193)",
      "three lines of synopsis above Play that open the whole text, the cast shelf under the buttons, nothing cut off; "
      "Sample Show 2 has no empty band", ["77-show-long-synopsis", "78-show-no-synopsis-or-cast"]),
