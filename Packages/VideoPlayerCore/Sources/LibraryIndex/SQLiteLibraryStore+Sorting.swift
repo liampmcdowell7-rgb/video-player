@@ -15,6 +15,11 @@ public struct ReviewEntry: Equatable, Sendable, Identifiable {
     /// Why the file could not be sorted.
     public var note: String
     public var addedAt: Date
+
+    public init(id: Int64, fileID: Int64, sourceID: String, path: String, fileName: String, title: String, year: Int?, note: String, addedAt: Date) {
+        self.id = id; self.fileID = fileID; self.sourceID = sourceID; self.path = path; self.fileName = fileName
+        self.title = title; self.year = year; self.note = note; self.addedAt = addedAt
+    }
 }
 
 /// How an item's file was sorted, for the item info.
