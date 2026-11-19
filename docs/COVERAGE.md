@@ -320,7 +320,7 @@ Spec documents:
 | docs/SORTING.md (per-file sorting into Movies, Shows and Needs Review, R171) | sorting rules, sort records (schema 3), overrides in the ledger, Jellyfin/Emby item types, Move form, online check and Needs Review list built and tested (WSL: 15 LibraryIndex, 7 AppLogic, 2 source tests); Needs Review screen, Move sheet, long-press items, How This Was Sorted, source setting and scan wiring built, device-only (never compiled, never run); online check never run against TMDB; sync of a Move between two Apple TVs unproven | checklist docs/DEVICE_TEST_CHECKLIST_SORTING.md SO1 ("flat mixed folder sorts into Movies and Shows") to SO14 |
 | docs/LIBRARY_INDEX.md | built and tested | |
 | docs/METADATA_LOCAL.md | built and tested | MP4 chapters not done (SEGMENTS) |
-| docs/METADATA.md | built and tested (clients, matcher, Fix Match); OMDb client built but unused by the app | ratings never fetched (G18) |
+| docs/METADATA.md | built and tested (clients, matcher, Fix Match); OMDb client removed in #27 (R211) | only the TMDB score (G18) |
 | docs/PLAYBACK_LOGIC.md | built and tested | |
 | docs/SUBTITLES.md | built and tested (parsers, PGS placement, selection, sync) | VobSub bitmaps missing |
 | docs/PLAYBACK_STATUS.md | regenerated this batch (474 rows) | |

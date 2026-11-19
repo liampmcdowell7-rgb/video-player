@@ -19,7 +19,7 @@ say it (section 3).
 | Service / credential | Where it is asked for | Where it is stored | Where it is read | Required / optional / removable | Licence status for commercial use | What the app does without it |
 |---|---|---|---|---|---|---|
 | TMDB key (API key or read access token), the user's own | Settings > Online Lookup only (one row, native secure field) | `OnlineKeyStore`: Keychain items of service `com.liamp.videoplayer.keys`, one per keyed service, plus the encrypted iCloud copy (`MirroredSecrets` → `CloudKitSecretCloud`, private database, encrypted values) | `OnlineServices.rebuild` (TMDB client for pictures, details, Fix Match, Discover, where to watch, Needs Review sorting); with Free Data Sources on, TMDB's external ids give the IMDb id for IntroDB | Optional | Personal, non-commercial only; commercial use needs a written agreement with TMDB | Plays everything; pictures and details come from files next to the videos; Discover says "Discover Needs a Key"; Fix Match, Synopsis and online pictures each say in one line that the key is needed and where |
-| OMDb key, the user's own | Settings > Online Lookup only | same store, its own item | Nowhere: saved but no code path calls OMDb | Optional, **removable** (R211) | Not reviewed in #26 (no request is ever made) | Nothing changes: nothing uses it |
+| OMDb key | **Removed in #27** (R211): no row, no client, no stored item. A key saved by an earlier version is deleted once from this device, the old items and the iCloud copy (`OnlineKeyStore.removeRetiredKeys`) | — | Nothing read it: the only uses were the Settings row and the status line; the OMDb client was never created by the app | — | — | Nothing changes |
 | Source passwords and sign-in tokens (WebDAV, SMB, NFS, SFTP, FTP, Jellyfin, Emby, Plex, Web Link, OneDrive) | The source's own form (Add a Source) or its sign-in | Keychain service `com.liamp.videoplayer.sources` (not synchronizable; tvOS ignores the flag anyway) plus the encrypted iCloud copy | The source client only | Required for that source when it needs a sign-in | Not a data source: the user's own server | That source asks again (`CredentialGap`) |
 | OneDrive app registration (client id) | Nowhere (would be built into the app) | — | `SourceConfiguration` (nil today) | Not set: OneDrive sign-in is blocked until an app is registered | A public app id, not a secret | OneDrive shows "blocked: needs an app registration" with the alternatives |
 | Wikidata | No key exists | — | `WikidataClient` (MetadataOnline) | Optional (Free Data Sources) | CC0 for the structured data: commercial use allowed | Cast from TMDB only (with a key) or none |
@@ -47,10 +47,61 @@ synthetic key's whole text is in any artifact file), crash text (no key is put i
 **iCloud Keychain sync on tvOS (R207).** The user asked for kSecAttrSynchronizable. Apple's page for that key (re-read
 2026-11-19) says tvOS does not synchronize keychain items through iCloud and items stored on tvOS never leave the device.
 The key store sets the flag anyway (reads and deletes match with "any"), and if the system refuses a synchronizable item the
-key is stored without it (behaviour on tvOS unverified). What actually brings the key to another Apple TV on the same
-iCloud account, or back after a reinstall, is the encrypted iCloud copy the app already keeps for source passwords. Keys an
-earlier version kept with the source passwords are moved once (`OnlineKeyStore.migrateLegacy`). Device check: checklist
-items K1–K4.
+key is stored without it (behaviour on tvOS unverified). Keys an earlier version kept with the source passwords are moved
+once (`OnlineKeyStore.migrateLegacy`). What brings the key to another Apple TV is the encrypted iCloud copy below.
+
+### 2a. The encrypted iCloud copy, in plain words (#27 item 1, OPEN_QUESTIONS R220)
+
+Apple pages read 2026-11-19: CKRecord.encryptedValues and "Encrypting User Data" (developer.apple.com), "iCloud data
+security overview" (support.apple.com/102651) and "How to turn on Advanced Data Protection for iCloud"
+(support.apple.com/108756).
+
+**(a) Where it is stored.** Not in a file and not in iCloud Drive. It is one CloudKit record in the app's own iCloud
+container `iCloud.com.liamp.videoplayer`, in the user's **private** database (only that Apple Account can reach it), in a
+record zone called **Secrets** (`UserDataModule.secretsZoneName`). The record type is `SourceSecret`, the record name is
+`secret-online-key.tmdb`, and the key itself is in one field, `secret`, written through `encryptedValues`
+(`CloudKitSecretCloud`). Source passwords sit in the same zone, one record each (named after the source's random id). The
+library sync uses a different zone, **UserData**, and never holds a key: `AppWideKeyStoreTests.testTheEncryptedKeyCopyIsSeparateFromTheLibrarySync`
+runs a full library sync and checks that no key (and no key record) reaches it, and that the key is only in the secrets
+store. The library backup refuses any file that contains a key (section 2).
+
+**(b) What encrypts it.** CloudKit itself. Apple's page says CloudKit encrypts an `encryptedValues` field on the device
+before saving it to iCloud and decrypts it only after fetching it. The app adds no encryption of its own and never sees
+the encryption key.
+
+**(c) Where the encryption key lives, and whether a second Apple TV can decrypt it.**
+- Apple's "Encrypting User Data" page says CloudKit encrypts with key material in the user's **iCloud Keychain**. That is
+  the system's own keychain for the Apple Account, not the app's Keychain items (which, on tvOS, never leave the device).
+- With standard iCloud data protection, Apple's overview says third-party CloudKit data is encrypted in transit and on the
+  server, and the keys from the user's trusted devices are kept in Apple's data centres. So **Apple holds the means to
+  decrypt it**. The key is not stored next to the data in the record, but the same company holds both.
+- With Advanced Data Protection turned on, the overview says CloudKit encrypted fields are end-to-end encrypted. Only the
+  user's trusted devices hold the keys, and Apple cannot read the value.
+- **Second Apple TV.** Apple's Advanced Data Protection page lists "Apple TV with tvOS 16.2 or later" among the devices
+  that must meet its requirements. That fits Apple TVs holding the account's keys, but no Apple page read says in so many
+  words that an Apple TV can decrypt a CloudKit encrypted field. **Unverified; device checks K1–K4.** If it cannot, the
+  download fails or comes back empty, the app keeps working without online lookup, and Settings > Online Lookup shows
+  "Not set" on that Apple TV, so the user types the key once there. Nothing is lost on the first Apple TV.
+- If the user resets their iCloud Keychain, CloudKit reports that the encrypted data is gone for good. The app deletes and
+  recreates the Secrets zone and uploads the key again from a device that still has it (Apple's documented handling).
+
+**(d) What someone with only the iCloud data could read.** Not the key: the field is encrypted, and the key material is
+not in the record. What is visible without it:
+- the container name;
+- the zone name "Secrets";
+- the record type;
+- the record names, which show that a TMDB key exists and, for passwords, a random source id;
+- when each record was changed, and roughly how large it is.
+
+Someone who can sign in to the Apple Account on a trusted device can read the key, the same as the user. Under standard
+protection, so can Apple, or anyone Apple must hand data to. With Advanced Data Protection, only trusted devices can.
+
+**Assessment.** The copy is separate from the library data, it is encrypted, and the app never holds its encryption key.
+It is not end-to-end encrypted unless the user has Advanced Data Protection on. Whether a second Apple TV can read it is
+unverified. Kept as PROVISIONAL (R220). The closest alternatives:
+- no iCloud copy for keys (`mirrored: false`, already supported), so the key is typed once on each Apple TV;
+- an iCloud copy only when the user turns it on;
+- record names that do not reveal which service a record is for.
 
 ## 3. Terms, summarised (read 2026-11-19)
 
@@ -88,7 +139,8 @@ items K1–K4.
 their sales team); images not stated as covered. Provisional only, OFF, nothing built (R212).
 
 **Conflicts flagged:** TMDB prominence vs About-only placement (R214); kSecAttrSynchronizable has no effect on tvOS (R207);
-IntroDB gives no release duration, so the strict duration rule B1 had to be relaxed for intro and recap (R208).
+IntroDB gives no release duration, so the strict duration rule B1 had to be relaxed for intro and recap (R208); #27 adds
+the safeguards in section 5.
 
 ## 4. Licence table: if the app were sold
 
@@ -98,7 +150,7 @@ IntroDB gives no release duration, so the strict duration rule B1 had to be rela
 | JustWatch (where to watch, through TMDB) | Through TMDB's terms, credit required | Shown with credit | Covered only by a TMDB commercial agreement |
 | Wikidata | CC0 | Allowed | Allowed, unchanged |
 | IntroDB | Their terms: commercial with reasonable use | Allowed | Allowed with reasonable use; bulk only via the ODbL export (share-alike on the database) |
-| OMDb | Not reviewed (not used) | Not used | Review before any use |
+| OMDb | — | Removed (#27) | — |
 | TVmaze | CC BY-SA 4.0, commercial use unclear | Not built | Ask TVmaze first |
 | Fanart.tv | Open decision | Not built | Open |
 
@@ -117,6 +169,14 @@ Skip Intro (item 5a): chapters, sidecars and user marks first; IntroDB only when
 same 6-second deadline. IntroDB intro and recap are accepted without a reference duration (R208); IntroDB credits are not.
 A failure gives a note in File Details and no segment, so no Skip button.
 
+Safeguards for IntroDB timings (#27 item 2, docs/PLAYBACK_LOGIC.md SEG-15 and SESS-8 to SESS-12):
+- An intro or recap whose end is after the end of this file is dropped, not trimmed (it was made for another cut).
+- The Skip button, a press and an automatic skip act only while the playhead is inside the returned window.
+- A skip never seeks past the end of the file.
+
+A different cut that is long enough cannot be told apart, so these rules limit the harm to "a wrong button inside that
+window".
+
 ## 6. Code map
 
 - Key store: `AppLogic/OnlineLookup.swift` (`OnlineKeyStore`, texts), `UserData/Apple/KeychainCredentialStore.swift`,
@@ -127,4 +187,4 @@ A failure gives a note in File Details and no segment, so no Skip button.
 - Use: `AppLogic/OnlineSegments.swift` (IMDb id chain, IntroDB → segments), `AppLogic/SegmentSourcing.swift` (online slot),
   `AppLogic/DetailsLayers.swift` (layer order), `App/Support/OnlineServices.swift`, `App/Support/SegmentService.swift`.
 - Tests: `MetadataOnlineTests/KeyFreeSourceTests.swift`, `AppLogicTests/AppWideKeyTests.swift`,
-  `PlaybackLogicTests/SegmentTests.swift` (SEG-3), UI test `test03_Settings` and `test02_AddASource` (no key field).
+  `PlaybackLogicTests/SegmentTests.swift` (SEG-3), `PlaybackLogicTests/OnlineSkipSafeguardTests.swift` (SEG-15, SESS-8 to SESS-12), UI test `test03_Settings` and `test02_AddASource` (no key field).

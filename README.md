@@ -29,7 +29,6 @@ summaries and code map: `docs/DATA_SOURCES.md`.
 | JustWatch (through TMDB) | where to watch | through TMDB, credit required | the TMDB key | covered only by a TMDB agreement |
 | Wikidata | cast names, IMDb numbers | CC0 | Free Data Sources on | unchanged |
 | IntroDB | intro and recap times | IntroDB terms: commercial with reasonable use | Free Data Sources on | unchanged (bulk use only via their ODbL export) |
-| OMDb | nothing yet (key saved, unused) | not reviewed | the user's own key | review first |
 
 To get a TMDB key: create a free account at themoviedb.org, open account settings > API, ask for a developer key for
 personal use and accept the terms, then enter the key in Settings > Online Lookup.

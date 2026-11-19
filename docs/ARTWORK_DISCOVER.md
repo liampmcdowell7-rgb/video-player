@@ -23,7 +23,7 @@ If any of these changes, the screen text, the policy draft and `OnlineKeyTests.t
 
 ## 2. Keys
 
-`OnlineKeyStore` (AppLogic) keeps the keys under the ids `online-key.tmdb` and `online-key.omdb` through `MirroredSecrets`: protected local storage plus an encrypted copy in the user's own cloud storage, the same path as source passwords. PROVISIONAL; alternative: local only (`mirrored: false`). The screen shows a key masked (`••••1a2b`), never whole, with Replace and Remove (with a confirmation). A key is validated by shape only (no spaces, printable, at most 2000 characters). There is no "Test key" button (PROVISIONAL; alternative: one request on an explicit press, never from tests). The region for where-to-watch lists is the setting `onlineRegion`, default `US` (R37, PROVISIONAL; alternative: the device region).
+`OnlineKeyStore` (AppLogic) keeps the key under the id `online-key.tmdb` (#27: the OMDb key is removed, R211) through `MirroredSecrets`: protected local storage plus an encrypted copy in the user's own cloud storage, the same path as source passwords. PROVISIONAL; alternative: local only (`mirrored: false`). The screen shows a key masked (`••••1a2b`), never whole, with Replace and Remove (with a confirmation). A key is validated by shape only (no spaces, printable, at most 2000 characters). There is no "Test key" button (PROVISIONAL; alternative: one request on an explicit press, never from tests). The region for where-to-watch lists is the setting `onlineRegion`, default `US` (R37, PROVISIONAL; alternative: the device region).
 
 ## 3. Artwork
 

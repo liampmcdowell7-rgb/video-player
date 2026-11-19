@@ -58,7 +58,7 @@ Target: `MetadataOnline` (`Packages/VideoPlayerCore/Sources/MetadataOnline`), te
 | `Cache.swift` | `MetadataCache` protocol, `InMemoryMetadataCache`, `JSONFileMetadataCache`, TTLs, `RefreshScope` and `MetadataRefresh.invalidate` |
 | `JSONValue.swift`, `TMDBMapping.swift` | Tolerant JSON reading and mapping of TMDB shapes |
 | `TMDBClient.swift` | TMDB v3 client (search, details, season, episode, credits, images, external_ids, collection, configuration, release dates, translations, `append_to_response`). The key or token is passed in and never stored |
-| `OMDbClient.swift` | OMDb by IMDb id and by title/year; IMDb, Rotten Tomatoes and Metacritic scores, each labelled |
+| ~~`OMDbClient.swift`~~ | **Removed in #27** (OPEN_QUESTIONS R211): the app never created it; the key, client, ratings hook and tests are gone. The OMDb notes below are history |
 | `TextSimilarity.swift` | Title normalisation and similarity |
 | `MatchEngine.swift` | Scores candidates, produces confidence 0...1, auto-accepts or marks Needs Review |
 | `MatchStore.swift` | `MatchStore` protocol, in-memory and JSON-file stores (saved Fix Match choices) |

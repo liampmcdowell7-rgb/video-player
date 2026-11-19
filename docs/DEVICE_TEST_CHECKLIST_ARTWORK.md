@@ -1,6 +1,6 @@
 # Device test checklist: artwork, online lookups, Discover, letter jump, ledger sync
 
-New items from docs/ARTWORK_DISCOVER.md. The parent merges them into the main checklist. Needs a real Apple TV, your own TMDB key (and optionally an OMDb key), a source with real files, and two devices for the sync items. Nothing in App/ has been compiled or run. Ids A1 onward. "Record" means write down what happened.
+New items from docs/ARTWORK_DISCOVER.md. The parent merges them into the main checklist. Needs a real Apple TV, your own TMDB key, a source with real files, and two devices for the sync items. Nothing in App/ has been compiled or run. Ids A1 onward. "Record" means write down what happened.
 
 ## Keys and the no-key states
 
@@ -22,6 +22,9 @@ New items from docs/ARTWORK_DISCOVER.md. The parent merges them into the main ch
 - K6. Free Data Sources on, no TMDB key: open a movie with no NFO. Pass: a cast list may appear (from Wikidata) and the page says in one line that the synopsis needs your TMDB key. Watch the network: only query.wikidata.org and api.introdb.app, nothing else.
 - K7. Free Data Sources on: play an episode with no chapters and no sidecar. Pass: if IntroDB knows it, Skip Intro appears at the right time; if not, File Details says why and there is no button. Turn Wi-Fi off and play again: no crash, no button (unless the answer was cached).
 - K8. Record coverage on a real library: for 20 titles, which layer gave the cast and synopsis (source, Wikidata, TMDB) — the source layer is expected to give nothing yet (R210).
+- K9 (#27, R220). Repeat K2 twice: once with Advanced Data Protection off and once with it on (Settings on an iPhone, same Apple Account). Pass: the second Apple TV gets the key both times, or, if it cannot decrypt the copy, it shows "Not set", the app still plays everything, and typing the key once there works. Record which happened.
+- K10 (#27, R221). Free Data Sources on, an episode with no chapters or markers that IntroDB knows. Play a cut of a different length if you have one. Pass: Skip Intro shows only inside the intro, a press after the intro has passed does nothing, and no skip lands past the end of the file.
+- K11 (#27, R211). An Apple TV that had an OMDb key saved by an earlier build: update. Pass: Settings > Online Lookup shows only the TMDB row; the OMDb key is gone (it is deleted once from the device and the iCloud copy).
 
 ## Artwork
 

@@ -64,4 +64,4 @@ Music, photos, podcasts, live TV, DVR, a hosted server, user accounts, ads.
 33. Online timestamp lookups for intro, recap and credits (an online database of community timestamps): later. First release produces segments from chapters, sidecar files and user-marked positions only.
 34. On-device detection of intros and credits (audio or picture analysis): later, research first.
 35. Swift 6 language mode for App and TopShelf (after the first clean compile; OPEN_QUESTIONS R104/R108): first raise SWIFT_STRICT_CONCURRENCY from minimal to targeted, then complete, in Swift 5 mode and fix the warnings; then set SWIFT_VERSION to "6.0". Then decide the same for the package targets (VideoPlayerCore tools 5.9). The vendored SMB library is already Swift 6 mode.
-36. OMDb ratings lookup (IMDb, Rotten Tomatoes, Metacritic scores): the key is stored but nothing calls OMDb yet (OPEN_QUESTIONS R120).
+36. OMDb ratings lookup (IMDb, Rotten Tomatoes, Metacritic scores): removed in #27 (OPEN_QUESTIONS R211); would need a new decision and a new key row.
