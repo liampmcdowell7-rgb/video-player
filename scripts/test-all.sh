@@ -77,6 +77,12 @@ if bash "$HERE/scripts/test-ci-sim.sh" >"$LOG/ci-sim-tests.log" 2>&1; then CST=o
 SUMMARY="$SUMMARY
 ci-sim self-test ($CST): $(tail -1 "$LOG/ci-sim-tests.log")"
 
+# 0b6b. The one-test-per-call screenshot runner and its index.md (scripts/ci-ui-tests.sh, ci-ui-index.py, #24 A and D) with
+# a fake xcodebuild: a failed test in the middle, a deadline stop with an incomplete bundle, pictures from the simulator.
+if bash "$HERE/scripts/test-ci-ui-tests.sh" >"$LOG/ci-ui-tests-tests.log" 2>&1; then CUT=ok; else CUT=bad; fi
+SUMMARY="$SUMMARY
+ci-ui-tests self-test ($CUT): $(tail -1 "$LOG/ci-ui-tests-tests.log")"
+
 # 0b7. The Larger Text / Bold Text against default comparison (scripts/ci-a11y-compare.py, #17 A) on generated PNGs.
 if bash "$HERE/scripts/test-ci-a11y-compare.sh" >"$LOG/a11y-compare-tests.log" 2>&1; then ACT=ok; else ACT=bad; fi
 SUMMARY="$SUMMARY
