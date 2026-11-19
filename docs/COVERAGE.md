@@ -60,14 +60,24 @@ The budget is **25 minutes from the start of the first UI test** (`CI_TEST_BUDGE
 
 | Job | Tests, in run order | Planned pictures | UI tests | Job, start to end (estimate) |
 |---|---|---|---|---|
-| Screenshots, part 1 | 01 (68 s), 02 (36 s), 03 (148 s), 05 (39 s), 12, 13, 14 (never reached on fa00af8: about 90 s each), 10 (312 s) | 5 + 12 + 16 + 7 + 6 + 8 + 6 + 20 = **80** | about 14:30 (10:03 measured + 4:30 estimated) | about 28 min |
+| Screenshots, part 1 | 01 (68 s), 02 (36 s), 03 (148 s), 05 (39 s), 12, 13, 14 (never reached on fa00af8: about 90 s each), 10 (312 s) | 5 + 13 + 16 + 7 + 6 + 8 + 6 + 20 = **81** (#25: + 10-add-source-learn-more) | about 14:30 (10:03 measured + 4:30 estimated) | about 28 min |
 | Screenshots, part 2 (`screenshots-library`) | 04 alone (436 s) | **26** | 7:16 measured | about 21 min |
 | Accessibility screenshots | 06 (628 s), then 11 (about 315 s: half as many screens) | 22 + 11 = **33** | about 15:45 | about 28 min |
 
 Before the tests every UI job spends about 12 minutes (fa00af8, measured: prepare 1:18, pick and boot 1:29, build
 7:37-7:48, launch smoke 1:11-1:21; the accessibility job has no smoke). The collect, check and upload steps after the
 tests take about 1-2 minutes. Each job stays well inside its budget (part 1 and accessibility use about 60% of the 25
-minutes). Total planned: **139 pictures**. The plan is scripts/screenshot-plan.tsv; every index.md counts taken, missing
+minutes). Total planned: **140 pictures** (81 / 26 / 33; #25 added 10-add-source-learn-more to part 1).
+
+**#25 C1 (2026-11-19), the budget after the #25 test changes.** The run on 1fe5d50 delivered 54 / 20 / 33 pictures; its
+accessibility job took **24:47 start to end** (the owner's figure). With about 10:30 before the tests (no launch smoke in
+that job) and 1-2 minutes after, its UI tests (06 then 11) took about **12-13 minutes**: about half of the 25-minute
+budget, far under the 60-minute cap. #25 adds no picture to that set; its changes there are waits that end as soon as the
+element is there (the add-source list's first row, the form's Cancel row standing still: at most 10 s each, usually about
+1 s) in place of the fixed 2 s settle. Estimate: the same 12-14 minutes. **test11 stays in the accessibility job**
+(scripts/ci-a11y-compare.py needs the default pictures next to the Larger/Bold ones); it would move to its own job only if a
+run shows that job's tests above about 20 minutes. Part 1 gains one picture and short waits for menus (at most 5 s each,
+about 20 of them): estimate +1 to +2 minutes, still inside its budget. All three are estimates until the next run. The plan is scripts/screenshot-plan.tsv; every index.md counts taken, missing
 and failed pictures against it.
 
 Two deviations from the #24 request, with the reason:

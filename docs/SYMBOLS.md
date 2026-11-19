@@ -63,6 +63,7 @@ The same views on Movies (53) and Shows (07, #21 F reuses them; no new names).
 | `plus` | Save Current View | not in a screenshot (menu content; 07-shows-toolbar-saved-views-menu should show it) |
 | `trash` | Delete a Saved View | not in a screenshot |
 | `textformat.abc` | Jump to Letter | in screenshots (53, 07) |
+| `ellipsis` | More (#25 B2): the toolbar folds Saved Views, Needs Review and Jump to Letter into it when the row does not fit (Larger Text) | fixed in code, verify in next screenshots (81) |
 | `xmark` | a filter chip | not in a screenshot |
 
 ## Movie page (App/Features/Detail/: ItemDetailContentView, VersionsMenu, ExtrasMenu)
@@ -77,6 +78,7 @@ The same views on Movies (53) and Shows (07, #21 F reuses them; no new names).
 | `eye`, `eye.slash` | Mark as Watched / Unwatched (More) | in screenshots (44) |
 | `heart`, `heart.slash` | Add to / Remove from Favorites (More) | in screenshots (44) |
 | `magnifyingglass` | Fix Match (More) | in screenshots (44) |
+| `person.crop.circle.fill` | a cast member without a photo (#25 B7), in a circle | fixed in code, verify in next screenshots (55, 58, 61, 77) |
 | `arrow.up.arrow.down` | How This Was Sorted (More) | in screenshots (44) |
 
 ## Show page (App/Features/Shows/SeasonsList.swift)
@@ -125,7 +127,8 @@ The same views on Movies (53) and Shows (07, #21 F reuses them; no new names).
 | `icloud` | Storage and iCloud row | in screenshots (30) |
 | `arrow.clockwise.icloud` | Backup row | in screenshots (30) |
 | `accessibility` | Accessibility row | in screenshots (30) |
-| `info.circle` | About row; every "Learn More" link | in screenshots (30, 31-38) |
+| `info.circle` | About row; every "Learn More" link (#25: also About Source Types, each form's About <type>, About's Source Code, Licence Notices and Trademarks) | in screenshots (30, 31-38); the new ones: verify in next screenshots (10, 40) |
+| `doc.text` | Full Licence Texts (About, #25 B9) | fixed in code, verify in next screenshots (40) |
 | `plus` | Add a Source | in screenshots (33) |
 | `wifi` | Search Your Network | in screenshots (10) |
 | `arrow.clockwise` | Scan Now (Library); Try Again (Needs Review) | in screenshots (35) |

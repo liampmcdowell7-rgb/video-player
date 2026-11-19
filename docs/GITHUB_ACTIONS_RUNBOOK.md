@@ -386,9 +386,14 @@ summary.
 
 | Job | Tests | Planned pictures | UI tests | Job time (estimate) |
 |---|---|---|---|---|
-| Screenshots, part 1 | 01, 02, 03, 05, 12, 13, 14, 10 | 80 | about 14:30 | about 28 min |
+| Screenshots, part 1 | 01, 02, 03, 05, 12, 13, 14, 10 | 81 (#25: + 10-add-source-learn-more) | about 15:30 | about 29 min |
 | Screenshots, part 2 | 04 | 26 | 7:16 (measured) | about 21 min |
-| Accessibility screenshots | 06, 11 | 33 | about 15:45 | about 28 min |
+| Accessibility screenshots | 06, 11 | 33 | about 12-13 (from the 24:47 job on 1fe5d50) | about 25 min (24:47 measured on 1fe5d50) |
+
+**#25 C1:** the accessibility job measured 24:47 start to end on 1fe5d50, so its UI tests took about 12-13 minutes, half
+of the 25-minute budget; #25 adds no picture there and its new waits end as soon as the element is there. test11 stays in
+that job (docs/COVERAGE.md has the reasoning). Expected pictures per set: **81 / 26 / 33 = 140** (the run on 1fe5d50
+delivered 54 / 20 / 33).
 
 **How many minutes a full run uses (estimate; each job's summary now prints its own "Runner minutes for this job"):**
 
@@ -397,10 +402,10 @@ summary.
 | Build app + Top Shelf (Simulator) | macOS (xcode-27) | about 7 |
 | Build app + Top Shelf (Apple TV device) | macOS | about 7 (6:23 in the run of 5ea8e96) |
 | Package tests | macOS | about 12 (not in the #24 numbers; an estimate) |
-| Screenshots, part 1 | macOS | about 28 |
+| Screenshots, part 1 | macOS | about 29 |
 | Screenshots, part 2 | macOS | about 21 |
-| Accessibility screenshots | macOS | about 28 |
-| **All jobs** | | **about 103 macOS minutes** |
+| Accessibility screenshots | macOS | about 25 (24:47 measured on 1fe5d50) |
+| **All jobs** | | **about 101 macOS minutes** |
 
 The run takes about **35 minutes** from the button to the last upload (the Simulator build first, then the five other
 jobs side by side). GitHub bills every job in whole minutes, rounded up. On a standard runner in a **public** repository
