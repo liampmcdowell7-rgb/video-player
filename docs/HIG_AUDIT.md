@@ -140,6 +140,8 @@ tested on any screen: **unproven everywhere**, and nothing was run with those se
   cast shelf uses `scrollClipDisabled(_:)` (checked: tvOS 17.0+) so focused entries are not cut. Cast entries and the
   Media Info block take focus with `.focusable()` and no action; whether tvOS draws a focus look for them is unproven.
   Fixed in code, verify in next screenshots.
+- #15 5.2 and 5.3 (R189): episode shelves of 16:9 cards (system .card style) per season; Play has default focus; no
+  separate season page exists; the episode page is the detail page. Fixed in code, verify in next screenshots.
 - #15 8.1 (R183): a title that cannot be played is a system alert over the unchanged page, with "Try Again" when it
   can help and "Done" (was a view inside the player cover). Fixed in code, verify in next screenshots (49, 62).
 
