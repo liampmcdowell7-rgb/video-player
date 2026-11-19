@@ -45,8 +45,10 @@ struct JFItem: Decodable {
     var path: String?
     var etag: String?
     var mediaSources: [JFMediaSource]?
+    /// "Movie", "Episode", "Video"...: what the server\'s own library calls the item (docs/SORTING.md).
+    var type: String?
     enum CodingKeys: String, CodingKey {
-        case id = "Id", path = "Path", etag = "Etag", mediaSources = "MediaSources"
+        case id = "Id", path = "Path", etag = "Etag", mediaSources = "MediaSources", type = "Type"
     }
 }
 

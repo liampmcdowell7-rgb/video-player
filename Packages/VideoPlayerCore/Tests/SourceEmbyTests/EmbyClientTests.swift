@@ -43,6 +43,16 @@ final class EmbyClientTests: XCTestCase {
         XCTAssertNotNil(entry.serverToken)
     }
 
+    /// The server's own item type travels with each file as a sorting hint (docs/SORTING.md).
+    func testServerItemTypeIsCarriedOnEachFile() async throws {
+        let source = client(try FakeEmbyServer())
+        let movies = try await source.list("/VPTest/Movies")
+        XCTAssertEqual(movies.map(\.serverItemType), [.movie])
+        let episodes = try await source.list("/VPTest/Shows/Test Show (2019)/Season 1")
+        XCTAssertEqual(episodes.map(\.serverItemType), [.episode, .episode])
+        XCTAssertNil(serverItemType("Folder"))
+    }
+
     func testSpecialCharactersSurvive() async throws {
         let source = client(try FakeEmbyServer())
         let odd = try await source.list("/VPTest/Odd Names")

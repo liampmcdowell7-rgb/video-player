@@ -77,7 +77,8 @@ struct EMTree: Sendable {
                 tree.addFile(
                     path: full, name: relative[relative.count - 1], itemID: item.id, mediaSourceID: file.id,
                     size: (file.size ?? 0) > 0 ? file.size : nil,   // 0 means "not measured yet" on some servers
-                    contentType: file.container.flatMap(contentType(forContainer:)), token: file.etag)
+                    contentType: file.container.flatMap(contentType(forContainer:)), token: file.etag,
+                    serverType: serverItemType(item.type))
             }
         }
         return tree
@@ -110,13 +111,13 @@ struct EMTree: Sendable {
 
     private mutating func addFile(
         path: String, name: String, itemID: String, mediaSourceID: String?,
-        size: Int64?, contentType: String?, token: String?
+        size: Int64?, contentType: String?, token: String?, serverType: ServerItemType? = nil
     ) {
         if nodes[path] != nil { return }   // two items claiming one path: the first one stays
         let parent = EMTree.dirname(path)
         addDirectory(parent)
         nodes[path] = Node(
-            entry: SourceEntry(path: path, name: name, isDirectory: false, size: size, contentType: contentType, serverToken: token),
+            entry: SourceEntry(path: path, name: name, isDirectory: false, size: size, contentType: contentType, serverToken: token, serverItemType: serverType),
             itemID: itemID, mediaSourceID: mediaSourceID)
         childPaths[parent, default: []].insert(path)
     }
@@ -156,6 +157,15 @@ func contentType(forContainer container: String) -> String? {
     case "avi": return "video/x-msvideo"
     case "webm": return "video/webm"
     case "ts", "mpegts": return "video/mp2t"
+    default: return nil
+    }
+}
+
+/// The server's item type as a sorting hint (docs/SORTING.md): only "Movie" and "Episode" mean anything.
+func serverItemType(_ type: String?) -> ServerItemType? {
+    switch type {
+    case "Movie": return .movie
+    case "Episode": return .episode
     default: return nil
     }
 }

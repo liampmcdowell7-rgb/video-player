@@ -42,6 +42,21 @@ final class JellyfinClientTests: XCTestCase {
         XCTAssertNotNil(entry.serverToken)
     }
 
+    /// The server's own item type travels with each file as a sorting hint (docs/SORTING.md); "Video" means nothing.
+    func testServerItemTypeIsCarriedOnEachFile() async throws {
+        let source = client(try FakeJellyfinServer())
+        let movies = try await source.list("/VPTest/Movies")
+        XCTAssertEqual(movies.map(\.serverItemType), [.movie])
+        let episodes = try await source.list("/VPTest/Shows/Test Show (2019)/Season 1")
+        XCTAssertEqual(episodes.map(\.serverItemType), [.episode, .episode])
+        let odd = try await source.list("/VPTest/Odd Names")
+        XCTAssertEqual(odd.map(\.serverItemType), [.movie])   // the recorded server filed it as a movie
+        let big = try await source.list("/VPTest/big")
+        XCTAssertEqual(big.map(\.serverItemType), [nil])       // recorded as "Video"
+        XCTAssertNil(serverItemType("Video"))
+        XCTAssertNil(serverItemType(nil))
+    }
+
     func testSpecialCharactersSurvive() async throws {
         let source = client(try FakeJellyfinServer())
         let odd = try await source.list("/VPTest/Odd Names")
