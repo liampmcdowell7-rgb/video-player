@@ -351,6 +351,14 @@ jobs:
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)"
           bash scripts/ci-sim.sh prepare
 
+      # Seconds, before the long package-test build: a test target that uses one of our type names bare while a tvOS SDK
+      # framework declares the same name (LibraryItem, #15 item 1.1) is named here instead of failing deep in the build.
+      - name: Check test targets for type names the tvOS SDK also declares
+        timeout-minutes: 5
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Check test targets for type names the tvOS SDK also declares"
+          bash scripts/ci-ambiguous-types.sh "$(xcrun --sdk appletvsimulator --show-sdk-path)" Packages/VideoPlayerCore
+
       - name: Run the package tests (VideoPlayerCore-Package scheme)
         working-directory: Packages/VideoPlayerCore
         run: |

@@ -1,0 +1,10 @@
+// swift-interface-format-version: 1.0
+// Fixture for scripts/test-ci-ambiguous-types.sh: a fake SDK module (never compiled).
+import Swift
+public struct LibraryItem {
+  public struct Nested {
+  }
+}
+@available(tvOS 17.0, *)
+public protocol SharedProto {
+}

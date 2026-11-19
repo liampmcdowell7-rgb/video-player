@@ -62,6 +62,11 @@ if bash "$HERE/scripts/test-ci-inspect.sh" >"$LOG/ci-inspect-tests.log" 2>&1; th
 SUMMARY="$SUMMARY
 ci-inspect self-test ($CIT): $(tail -1 "$LOG/ci-inspect-tests.log")"
 
+# 0b4. The check for type names a tvOS SDK framework also declares, on a fake SDK (#15 item 1.1; the real SDK only in CI).
+if bash "$HERE/scripts/test-ci-ambiguous-types.sh" >"$LOG/ambiguous-types-tests.log" 2>&1; then CAT=ok; else CAT=bad; fi
+SUMMARY="$SUMMARY
+ambiguous-types self-test ($CAT): $(tail -1 "$LOG/ambiguous-types-tests.log")"
+
 # 0c. Syntax check of the app and extension sources (swiftc -parse). SYNTAX ONLY: it cannot see missing imports, wrong
 # labels or unknown names, because the Apple frameworks do not exist here. A pass is never "it compiles".
 if bash "$HERE/scripts/parse-app.sh" >"$LOG/parse-app.log" 2>&1; then PA=ok; else PA=bad; fi
