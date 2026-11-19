@@ -39,6 +39,17 @@ struct SourceDetailView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            if SortSourceOption.applies(toKind: current.kind) {
+                // docs/SORTING.md; PROVISIONAL setting, OPEN_QUESTIONS.
+                Section {
+                    Toggle(SortSourceOption.title, isOn: Binding(
+                        get: { SortSourceOption.preferFilename(current) },
+                        set: { on in Task { await services.setSortByFilename(on, for: current) } }
+                    ))
+                } footer: {
+                    Text(SortSourceOption.footer)
+                }
+            }
             if SourceBuilder.trustKind(for: current) != nil {
                 Section("Approved Fingerprint") {
                     if let shown = current.approvedFingerprintDisplay {

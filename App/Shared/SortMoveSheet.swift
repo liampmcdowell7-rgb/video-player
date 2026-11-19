@@ -1,0 +1,148 @@
+import SwiftUI
+import AppLogic
+import LibraryIndex
+import UserData
+
+/// What a Move choice is for: a library item (every version of it) or one Needs Review file.
+enum SortMoveTarget: Identifiable, Equatable {
+    case item(Int64, UDSortOverrideValue.Kind)
+    case review(ReviewEntry, UDSortOverrideValue.Kind)
+
+    var id: String {
+        switch self {
+        case .item(let id, let kind): return "item-\(id)-\(kind.rawValue)"
+        case .review(let entry, let kind): return "review-\(entry.id)-\(kind.rawValue)"
+        }
+    }
+
+    var kind: UDSortOverrideValue.Kind {
+        switch self {
+        case .item(_, let kind), .review(_, let kind): return kind
+        }
+    }
+
+    static func == (a: SortMoveTarget, b: SortMoveTarget) -> Bool { a.id == b.id }
+}
+
+/// Move to Movies / Move to Shows (docs/SORTING.md): a system form, filled from the file name. The choice is a synced
+/// user-data record, so it survives rescans and reaches the other Apple TVs; the next scan files the item.
+struct SortMoveSheet: View {
+    let target: SortMoveTarget
+    var onSaved: () -> Void = {}
+    @Environment(AppServices.self) private var services
+    @Environment(\.dismiss) private var dismiss
+    @State private var draft: SortMoveDraft?
+    @State private var problem: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if let binding = Binding($draft) {
+                    Section {
+                        TextField(binding.wrappedValue.titleLabel, text: binding.title)
+                        TextField("Year (Optional)", text: binding.year)
+                    }
+                    if target.kind == .episode {
+                        Section("Episode") {
+                            TextField("Season", text: binding.season)
+                            TextField("Episode", text: binding.episode)
+                            TextField("Last Episode (Optional)", text: binding.episodeEnd)
+                        }
+                    }
+                    if let problem {
+                        Section {
+                            Text(problem)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Section {
+                        Button(binding.wrappedValue.sheetTitle) { Task { await save() } }
+                        Button("Cancel", role: .cancel) { dismiss() }
+                    }
+                } else {
+                    ProgressView()
+                }
+            }
+            .navigationTitle(draft?.sheetTitle ?? "")
+        }
+        .task { await load() }
+    }
+
+    private func load() async {
+        let mover = services.sortMover
+        switch target {
+        case .item(let id, let kind): draft = (try? await mover.draft(itemID: id, to: kind)) ?? SortMoveDraft(kind: kind, title: "")
+        case .review(let entry, let kind): draft = mover.draft(for: entry, to: kind)
+        }
+    }
+
+    private func save() async {
+        guard let draft else { return }
+        do {
+            switch target {
+            case .item(let id, _): try await services.sortMover.move(itemID: id, draft)
+            case .review(let entry, _): try services.sortMover.move(entry, draft)
+            }
+            services.sortChoiceSaved()
+            onSaved()
+            dismiss()
+        } catch {
+            problem = (error as? LocalizedError)?.errorDescription ?? "The choice could not be saved."
+        }
+    }
+}
+
+/// How an item was sorted (the item info): the rule that decided and why, with Move and, after a Move, Sort Automatically.
+struct SortInfoSheet: View {
+    let itemID: Int64
+    let kind: ItemKind
+    @Environment(AppServices.self) private var services
+    @Environment(\.dismiss) private var dismiss
+    @State private var info: ItemSortInfo?
+    @State private var loaded = false
+    @State private var move: SortMoveTarget?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    if let info {
+                        LabeledContent("Sorted By", value: SortTexts.title(info.record.signal))
+                        if !info.record.note.isEmpty { Text(info.record.note) }
+                        LabeledContent("File", value: info.fileName)
+                    } else if loaded {
+                        Text("This title was sorted before the app recorded how. The next scan records it.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ProgressView()
+                    }
+                }
+                Section {
+                    if kind == .movie {
+                        Button("Move to Shows", systemImage: "tv") { move = .item(itemID, .episode) }
+                    } else {
+                        Button("Move to Movies", systemImage: "film") { move = .item(itemID, .movie) }
+                    }
+                    if let signal = info?.record.signal, signal == .manual || signal == .onlineLookup {
+                        Button("Sort Automatically", systemImage: "arrow.uturn.backward") {
+                            Task {
+                                try? await services.sortMover.sortAutomatically(itemID: itemID)
+                                services.sortChoiceSaved()
+                                dismiss()
+                            }
+                        }
+                    }
+                    Button("Done") { dismiss() }
+                }
+            }
+            .navigationTitle("How This Was Sorted")
+        }
+        .task {
+            info = try? await services.store.sortInfo(itemID: itemID)
+            loaded = true
+        }
+        .sheet(item: $move) { target in
+            SortMoveSheet(target: target, onSaved: { dismiss() })
+        }
+    }
+}

@@ -1,5 +1,6 @@
 import SwiftUI
 import Observation
+import os
 import VideoPlayerCore
 import LibraryIndex
 import UserData
@@ -158,10 +159,14 @@ final class AppServices {
         if let running = scanTask { await running.value; return }
         let task = Task { @MainActor in
             isScanning = true
-            for definition in definitions {
-                guard let source = makeSource(definition) else { continue }
-                let syncer = LibrarySyncer(store: sqlite, source: source, sourceID: definition.id)
-                _ = try? await syncer.sync()
+            await scanSources()
+            // Signal d (docs/SORTING.md): with the user's own key, Needs Review files are checked online once per launch;
+            // anything it moves is filed by one more scan.
+            if let lookup = online.sortLookup, let entries = try? await sqlite.needsReview(limit: NeedsReviewViewModel.limit), !entries.isEmpty {
+                let resolver = OnlineSortResolver(lookup: lookup, writer: ledger)
+                let saved = await resolver.run(entries, skipping: onlineSortTried)
+                onlineSortTried.formUnion(entries.prefix(OnlineSortResolver.perRun).map(OnlineSortResolver.key))
+                if !saved.isEmpty { await scanSources() }
             }
             isScanning = false
             libraryRevision += 1
@@ -174,6 +179,50 @@ final class AppServices {
     }
 
     @ObservationIgnored private var scanTask: Task<Void, Never>?
+    /// Needs Review files already checked online in this launch (not sent again until the next launch).
+    @ObservationIgnored private var onlineSortTried: Set<String> = []
+
+    /// One pass over every source. Each file is sorted on its own (docs/SORTING.md): Move choices come from the ledger,
+    /// the source's "Sort by filename" setting is applied, and every decision is logged (category "Sorting").
+    private func scanSources() async {
+        let overrides = LedgerSortOverrides(ledger: ledger)
+        let log = Self.sortLogger
+        for definition in definitions {
+            guard let source = makeSource(definition) else { continue }
+            let syncer = LibrarySyncer(store: sqlite, source: source, sourceID: definition.id, overrides: overrides,
+                                       preferFilename: SortSourceOption.preferFilename(definition),
+                                       sortLog: { path, outcome, signal, note in
+                                           log.debug("sorted \(outcome.rawValue, privacy: .public) by \(signal.rawValue, privacy: .public): \(path, privacy: .private) (\(note, privacy: .public))")
+                                       })
+            _ = try? await syncer.sync()
+        }
+    }
+
+    private static let sortLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "VideoPlayer", category: "Sorting")
+
+    // MARK: Sorting (docs/SORTING.md)
+
+    var sortMover: SortMover { SortMover(store: sqlite, writer: ledger) }
+
+    /// After a Move choice: the list and counts change at the next scan, which is started here.
+    func sortChoiceSaved() {
+        libraryRevision += 1
+        Task { await rescanAfterSortChange() }
+    }
+
+    /// Saves the source's "Sort by Filename Instead of Server Library Types" setting and sorts again.
+    func setSortByFilename(_ on: Bool, for definition: UDSourceDefinition) async {
+        try? await definitionSaver.saveDefinition(SortSourceOption.setting(on, on: definition))
+        libraryRevision += 1
+        await rescanAfterSortChange()
+    }
+
+    /// A scan already running may have passed the changed file; one more scan then picks the change up.
+    private func rescanAfterSortChange() async {
+        let wasRunning = isScanning
+        await scanAll()
+        if wasRunning { await scanAll() }
+    }
 
     // MARK: Launch (time-boxed, OPEN_QUESTIONS R169)
 

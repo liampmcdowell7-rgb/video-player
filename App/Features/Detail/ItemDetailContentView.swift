@@ -7,6 +7,7 @@ struct ItemDetailContentView: View {
     let model: ScreenModel<ItemDetailViewModel>
     var onPlay: (Bool) -> Void
     var onFixMatch: () -> Void
+    var onSortInfo: () -> Void = {}
 
     var body: some View {
         ScrollView {
@@ -64,6 +65,8 @@ struct ItemDetailContentView: View {
                 Task { await model.run { await $0.toggleFavorite() } }
             }
             Button("Fix Match", systemImage: "magnifyingglass", action: onFixMatch)
+            // docs/SORTING.md: which rule put this title in Movies or Shows, with Move and Sort Automatically.
+            Button("How This Was Sorted", systemImage: "arrow.up.arrow.down", action: onSortInfo)
         }
     }
 }

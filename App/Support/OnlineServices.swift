@@ -20,6 +20,8 @@ final class OnlineServices {
     private(set) var searcher: any MatchSearching = UnavailableMatchSearcher()
     private(set) var recorder: (any MatchChoiceRecording)?
     private(set) var discoverSource: (any DiscoverDataSource)?
+    /// The title search that sorts Needs Review files (signal d, docs/SORTING.md); nil without a key.
+    private(set) var sortLookup: (any SortLookup)?
     let imageSession: URLSession
 
     @ObservationIgnored private let store: SQLiteLibraryStore
@@ -58,6 +60,7 @@ final class OnlineServices {
             searcher = UnavailableMatchSearcher()
             recorder = nil
             discoverSource = nil
+            sortLookup = nil
             keyRevision += 1
             return
         }
@@ -69,6 +72,7 @@ final class OnlineServices {
         searcher = TMDBMatchSearcher(client: client)
         recorder = StoredMatchRecorder(service: service, store: store)
         discoverSource = client
+        sortLookup = MatchEngine(provider: client)
         keyRevision += 1
     }
 

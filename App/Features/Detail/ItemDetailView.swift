@@ -7,12 +7,14 @@ struct ItemDetailView: View {
     @Environment(AppServices.self) private var services
     @State private var model: ScreenModel<ItemDetailViewModel>?
     @State private var showFixMatch = false
+    @State private var showSortInfo = false
 
     var body: some View {
         Group {
             if let model {
                 ScreenStateView(state: model.screen.state, onRetry: { Task { await reload() } }) { content in
-                    ItemDetailContentView(content: content, model: model, onPlay: play, onFixMatch: { showFixMatch = true })
+                    ItemDetailContentView(content: content, model: model, onPlay: play, onFixMatch: { showFixMatch = true },
+                                          onSortInfo: { showSortInfo = true })
                 }
             } else {
                 LoadingView()
@@ -22,6 +24,11 @@ struct ItemDetailView: View {
         .sheet(isPresented: $showFixMatch) {
             if let content = model?.screen.state.content {
                 FixMatchView(itemID: itemID, kind: content.kind, currentTitle: content.title)
+            }
+        }
+        .sheet(isPresented: $showSortInfo) {
+            if let content = model?.screen.state.content {
+                SortInfoSheet(itemID: itemID, kind: content.kind)
             }
         }
     }
