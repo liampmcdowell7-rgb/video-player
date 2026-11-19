@@ -26,7 +26,29 @@ public enum UITestFixtures {
                            addedAt: referenceDate)
     }
 
+    /// A Jellyfin source that is never scanned or contacted (UI-test launches do not scan; `.invalid` never resolves). It
+    /// exists only so the source page with "Sort by Filename Instead of Server Library Types" can be drawn (addendum #18 B).
+    public static let serverID = "uitest-sample-server"
+    public static var serverDefinition: UDSourceDefinition {
+        UDSourceDefinition(id: serverID, kind: SourceKind.jellyfin.rawValue, name: "Sample Server", host: "server.sample.invalid",
+                           addedAt: referenceDate)
+    }
+
     // MARK: Content
+
+    /// Files that end in Needs Review (addendum #18 B): no episode marker, no year, no folder hint. One very long name (it
+    /// must wrap, never be cut) and one plain name with no year. Synthetic names only.
+    static let review: [String] = [
+        "/Unsorted/Sample Clip.mkv",
+        "/Unsorted/Sample Unsorted Recital.mkv",
+        "/Unsorted/Sample Unsorted Birthday.mp4",
+        "/Unsorted/Sample Unsorted Garden Walk.mkv",
+        "/Unsorted/Sample Unsorted Holiday Morning.mkv",
+        "/Unsorted/Sample Unsorted Lecture.m4v",
+        "/Unsorted/Sample Unsorted Lone Show - 007.mkv",
+        "/Unsorted/Sample Unsorted Road Trip.mkv",
+        "/Unsorted/Sample Unsorted Clip With A Very Long File Name That Runs Far Past The Width Of One Row On The Screen And Keeps Going.mkv",
+    ]
 
     struct Video {
         var path: String
@@ -130,6 +152,7 @@ public enum UITestFixtures {
             files[show.folder + "/fanart.png"] = .init(data: GradientPNG.make(width: 480, height: 270, hue: show.hue + 0.08))
         }
         for episode in episodes { files[episode.path] = .init(size: episode.size, data: nil) }
+        for (i, path) in review.enumerated() { files[path] = .init(size: 700_000_000 + Int64(i) * 10_000_000, data: nil) }
         return files
     }
 
@@ -182,7 +205,7 @@ public enum UITestFixtures {
     }
 
     /// Every title, show and person-free text in the sample library, for the test that checks only generic names are used.
-    static var allNames: [String] { Array(files().keys) + [sourceName, sampleSubtitles] }
+    static var allNames: [String] { Array(files().keys) + [sourceName, serverDefinition.name, sampleSubtitles] }
 }
 
 /// In-memory source with the sample files. Lists folders, gives the bytes of pictures and subtitles, and refuses to read a

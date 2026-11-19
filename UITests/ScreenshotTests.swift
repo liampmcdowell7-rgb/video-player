@@ -403,4 +403,55 @@ final class ScreenshotTests: XCTestCase {
     func test08_ReduceTransparency() { accessibilityShots("reduce-transparency", first: 90) }
 
     func test09_ReduceMotion() { accessibilityShots("reduce-motion", first: 90) }
+
+    // MARK: Sorting screens (docs/SORTING.md, addendum #18 B and C)
+
+    /// Movies with the "Needs Review (N)" button, Needs Review (the sample library has 8 unsorted files, one with a very long
+    /// name and one with no year), the Move choice and sheet, How This Was Sorted, and the long-press menu with Move to Shows;
+    /// each at the default size and the main ones again with Larger Text. Numbers 63 to 69 (free in the main set).
+    func sortingShots(suffix: String, extra: [String]) {
+        var app = launch("-UITestFixtures", tab: "movies", extra: extra)
+        guard waitForScreen("screen.movies", in: app), waitFor("Needs Review", in: app, timeout: 60) else {
+            return notReached("63-movies-needs-review-button\(suffix)", "Movies showed no “Needs Review” button within 60 s.")
+        }
+        settle(); shot("63-movies-needs-review-button\(suffix)")
+        if open("Needs Review", in: app, name: "64-needs-review\(suffix)"), waitForScreen("screen.needsReview", in: app) {
+            settle(); shot("64-needs-review\(suffix)"); hierarchy("64-needs-review\(suffix)", of: app)
+            for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); shot("64-needs-review-scrolled-\(step)\(suffix)") }
+            if open("Sample Clip", in: app, name: "65-needs-review-choice\(suffix)") {
+                settle(); shot("65-needs-review-choice\(suffix)")
+                if open("Move to Shows", in: app, name: "66-move-sheet\(suffix)") { settle(); shot("66-move-sheet\(suffix)"); back() }
+            }
+        }
+        app.terminate()
+
+        app = launch("-UITestFixtures", open: "Sample Movie 1", extra: extra)
+        if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 1", in: app) {
+            if open("More", in: app, name: "67-sorted-how\(suffix)"), open("How This Was Sorted", in: app, name: "67-sorted-how\(suffix)") {
+                settle(); shot("67-sorted-how\(suffix)")
+            }
+        } else { notReached("67-sorted-how\(suffix)", "The movie page did not open.") }
+        app.terminate()
+
+        app = launch("-UITestFixtures", tab: "movies", extra: extra)
+        if waitForScreen("screen.movies", in: app), waitFor("Sample Movie", in: app, timeout: 60), focus(control("Sample Movie", in: app), in: app) {
+            XCUIRemote.shared.press(.select, forDuration: 1.5); sleep(1)
+            shot("68-card-long-press-move\(suffix)")
+        } else { notReached("68-card-long-press-move\(suffix)", "No movie card could be focused.") }
+        app.terminate()
+
+        // The Jellyfin/Emby setting: the sample server's source page (never scanned or contacted in UI-test mode).
+        app = launch("-UITestFixtures", tab: "settings", extra: extra)
+        if waitForScreen("screen.settings", in: app), open("Sources", in: app, name: "69-source-sort-by-filename\(suffix)"),
+           open("Sample Server", in: app, name: "69-source-sort-by-filename\(suffix)") {
+            settle(); shot("69-source-sort-by-filename\(suffix)")
+            if focus(control("Sort by Filename", in: app), in: app) { sleep(1); shot("69-source-sort-by-filename-focused\(suffix)") }
+        }
+        app.terminate()
+    }
+
+    func test10_SortingScreens() {
+        sortingShots(suffix: "", extra: [])
+        sortingShots(suffix: "-larger-text", extra: ["-UITestTextSize", "accessibility3"])
+    }
 }

@@ -16,11 +16,12 @@ struct LibrarySettingsView: View {
                     Task { await services.scanAll() }
                 }
                 .disabled(services.isScanning)
+                ScanProgressRow(progress: services.scanProgress)
             }
             // docs/SORTING.md: files that are neither a clear movie nor a clear episode wait here, never in Movies or Shows.
             Section {
                 NavigationLink {
-                    NeedsReviewView()
+                    NeedsReviewView().screenIdentifier("screen.needsReview")
                 } label: {
                     LabeledContent("Needs Review", value: reviewCount.map(String.init) ?? "")
                 }

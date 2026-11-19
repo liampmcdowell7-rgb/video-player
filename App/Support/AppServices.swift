@@ -47,6 +47,9 @@ final class AppServices {
     var pendingLink: DeepLink?
     var playRequest: PlayRequest?
     var isScanning = false
+    /// Folders done and still queued in the running scan (the one-time re-sort runs inside a scan, addendum #18 F); nil when
+    /// no scan runs. Shown with a system ProgressView in Settings > Library and Needs Review.
+    var scanProgress: ScanProgress?
     var accountStatus: UDAccountStatus = .unknown
     var secretState: CloudSecretState = .signedOut
     var passwordsNeeded = 0
@@ -169,6 +172,7 @@ final class AppServices {
                 if !saved.isEmpty { await scanSources() }
             }
             isScanning = false
+            scanProgress = nil
             libraryRevision += 1
             backup.libraryChanged()
             await writeTopShelf()
@@ -194,7 +198,8 @@ final class AppServices {
                                        sortLog: { path, outcome, signal, note in
                                            log.debug("sorted \(outcome.rawValue, privacy: .public) by \(signal.rawValue, privacy: .public): \(path, privacy: .private) (\(note, privacy: .public))")
                                        })
-            _ = try? await syncer.sync()
+            // Runs off the main thread (the store is an actor); only the progress numbers come back to the screen.
+            _ = try? await syncer.sync(progress: { p in Task { @MainActor [weak self] in self?.scanProgress = p } })
         }
     }
 

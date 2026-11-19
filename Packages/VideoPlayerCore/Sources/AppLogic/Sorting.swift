@@ -37,6 +37,32 @@ public enum SortTexts {
     }
 
     public static let reviewFooter = "These files could not be sorted into Movies or Shows. They are not shown anywhere else until you move them."
+
+    // Short texts for the sorting screens (addendum #18 B; #15 S1: each fits one line at default size, footers stay short).
+
+    /// Needs Review page summary (left column of `SettingsPane`).
+    public static let reviewSummary = "Video files that are not clearly a movie or an episode. Choose one to move it."
+    /// The button in Movies and Shows (addendum #18 C); only shown when the count is above 0.
+    public static func reviewButton(_ count: Int) -> String { "Needs Review (\(count))" }
+    /// Move sheet title and summary.
+    public static func moveTitle(_ kind: UDSortOverrideValue.Kind) -> String { kind == .movie ? "Move to Movies" : "Move to Shows" }
+    public static func moveSummary(_ kind: UDSortOverrideValue.Kind) -> String {
+        kind == .movie
+            ? "Files this title as a movie on every Apple TV with this iCloud account."
+            : "Files this title as an episode on every Apple TV with this iCloud account."
+    }
+    /// How This Was Sorted summary, and the footer when a file has no sort record yet (indexed before sorting existed).
+    public static let infoSummary = "The rule that put this title in Movies or Shows, and the file it read."
+    public static let notRecorded = "Not recorded yet. It is recorded at the next scan."
+    /// The progress row while a scan (and the one-time re-sort in it) runs (addendum #18 F).
+    public static let scanningTitle = "Scanning and Sorting"
+    public static func scanningDetail(foldersDone: Int, total: Int) -> String { "\(foldersDone) of \(total) folders" }
+
+    /// Every fixed text above, for the length and wording tests.
+    public static var screenTexts: [String] {
+        [reviewSummary, reviewButton(12), moveTitle(.movie), moveTitle(.episode), moveSummary(.movie), moveSummary(.episode),
+         infoSummary, notRecorded, scanningTitle, scanningDetail(foldersDone: 12, total: 340), reviewFooter]
+    }
 }
 
 // MARK: Source setting

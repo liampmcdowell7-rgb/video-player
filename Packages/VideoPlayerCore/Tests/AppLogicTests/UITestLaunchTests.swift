@@ -78,7 +78,7 @@ final class UITestLaunchTests: XCTestCase {
 
     func testTheSampleLibraryUsesOnlyGenericNames() {
         let allowed = try! NSRegularExpression(pattern:
-            #"^(Movies|Shows|Season \d+|poster\.png|fanart\.png|Sample (Movie|Show) \d+( \(\d{4}\))?( - S\d\dE\d\d)?( - )?( ?(2160p|1080p|720p))?(\.en)?\.(mkv|mp4|srt|sup))$|^Sample (Movie|Show) \d+( \(\d{4}\))?$"#)
+            #"^(Movies|Shows|Season \d+|poster\.png|fanart\.png|Sample (Movie|Show) \d+( \(\d{4}\))?( - S\d\dE\d\d)?( - )?( ?(2160p|1080p|720p))?(\.en)?\.(mkv|mp4|srt|sup))$|^Sample (Movie|Show) \d+( \(\d{4}\))?$|^Unsorted$|^Sample (Clip|Unsorted [A-Za-z0-9 -]+)\.(mkv|mp4|m4v)$"#)
         for path in UITestFixtures.files().keys {
             for part in path.split(separator: "/") {
                 let s = String(part)
@@ -86,6 +86,26 @@ final class UITestLaunchTests: XCTestCase {
             }
         }
         XCTAssertEqual(UITestFixtures.sourceName, "Sample Library")
+        XCTAssertEqual(UITestFixtures.serverDefinition.name, "Sample Server")
+        XCTAssertTrue(UITestFixtures.serverDefinition.host.hasSuffix(".invalid"), "never resolves, so it can never be contacted")
+        XCTAssertEqual(UITestFixtures.serverDefinition.auth, "none", "no password gap is shown for it")
+    }
+
+    /// Addendum #18 B: at least 8 Needs Review files, one very long name and one with no year, all ending in Needs Review
+    /// through the real scan, and none in Movies or Shows.
+    func testTheSampleLibraryHasNeedsReviewFiles() async throws {
+        XCTAssertGreaterThanOrEqual(UITestFixtures.review.count, 8)
+        let names = UITestFixtures.review.map { ($0 as NSString).lastPathComponent }
+        XCTAssertTrue(names.contains { $0.count > 100 }, "one very long file name")
+        XCTAssertTrue(names.contains("Sample Unsorted Recital.mkv"), "one with no year")
+        let store = try SQLiteLibraryStore(path: ":memory:")
+        try await UITestFixtures.seed(into: store, now: Date(timeIntervalSince1970: 1_780_000_000))
+        let review = try await store.needsReview(limit: 100)
+        XCTAssertEqual(Set(review.map(\.fileName)), Set(names))
+        let count = try await store.needsReviewCount()
+        XCTAssertEqual(count, UITestFixtures.review.count)
+        let items = try await UITestFixtures.allItems(store)
+        XCTAssertFalse(items.contains { $0.title.contains("Unsorted") || $0.title == "Sample Clip" }, "never in Movies or Shows")
     }
 
     func testThePicturesAreValidPNGFilesOfTheRightSize() throws {
@@ -140,7 +160,7 @@ final class UITestLaunchTests: XCTestCase {
     func testTheSampleSourceRefusesToReadAVideo() async throws {
         let source = FixtureSource()
         let root = try await source.list("/")
-        XCTAssertEqual(root.map(\.name), ["Movies", "Shows"])
+        XCTAssertEqual(root.map(\.name), ["Movies", "Shows", "Unsorted"])
         let poster = try await source.read("/Movies/Sample Movie 1 (2021)/poster.png", range: ByteRange(offset: 0, length: 8))
         XCTAssertEqual(Array(poster), [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
         do {

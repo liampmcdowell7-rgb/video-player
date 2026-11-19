@@ -7,12 +7,16 @@ struct MoviesView: View {
     @State private var model: ScreenModel<ItemGridViewModel>?
     @State private var showSetup = false
     @State private var showSaveView = false
+    @State private var reviewCount = 0
 
     var body: some View {
         VStack(alignment: .leading) {
             if let model {
                 if showsControls(model) {
-                    GridControls(model: model, onSave: { showSaveView = true })
+                    GridControls(model: model, onSave: { showSaveView = true }, reviewCount: reviewCount)
+                } else {
+                    // An empty Movies screen still says where unsorted files are (addendum #18 C).
+                    NeedsReviewButton(count: reviewCount)
                 }
                 ScreenStateView(state: model.screen.state, onEmptyAction: { emptyAction(model) }, onRetry: { Task { await reload() } }) { grid in
                     PosterGrid(cards: grid.cards, onCardAppear: { id in
@@ -48,5 +52,6 @@ struct MoviesView: View {
         if model == nil { model = ScreenModel(ItemGridViewModel.movies(store: services.store)) }
         await model?.run { await $0.load() }
         await model?.run { await $0.refreshSavedViews() }
+        reviewCount = (try? await services.store.needsReviewCount()) ?? 0
     }
 }

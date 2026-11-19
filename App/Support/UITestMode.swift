@@ -42,6 +42,9 @@ enum UITestMode {
     static func prepare(_ services: AppServices) async {
         guard current == .fixtures else { return }
         services.ledger.upsertSource(UITestFixtures.definition)
+        // A Jellyfin source that is never scanned or contacted (UI-test launches do not scan; its host is .invalid), only
+        // so its source page with "Sort by Filename Instead of Server Library Types" can be drawn (addendum #18 B).
+        services.ledger.upsertSource(UITestFixtures.serverDefinition)
         try? services.essentials.save(from: services.ledger)
         services.isScanning = true
         try? await UITestFixtures.seed(into: services.sqlite)

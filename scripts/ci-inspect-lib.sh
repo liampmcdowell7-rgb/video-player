@@ -9,7 +9,7 @@
 
 # Texts that exist only in the debug-only UI-test code and sample library (UITestLaunch.swift, UITestFixtures.swift,
 # App/Support/UITestMode.swift, all inside #if DEBUG). None may appear in a Release binary.
-VP_RELEASE_FORBIDDEN_RE='Sample Movie|Sample Show|Sample Library|uitest-sample-library|sample\.invalid|-UITestEmpty|-UITestFixtures|-UITestTab|-UITestOpen|-UITestTextSize|-UITestBoldText|UITestFixtures|UITestLaunch|UITestMode'
+VP_RELEASE_FORBIDDEN_RE='Sample Movie|Sample Show|Sample Library|Sample Clip|Sample Unsorted|Sample Server|uitest-sample-library|uitest-sample-server|sample\.invalid|-UITestEmpty|-UITestFixtures|-UITestTab|-UITestOpen|-UITestTextSize|-UITestBoldText|UITestFixtures|UITestLaunch|UITestMode'
 
 # vp_symbols_defined NM_OUTPUT_FILE PREFIX: 0 when `nm -m` output lists at least one DEFINED external symbol starting
 # with PREFIX (for example _nfs_ or _dovi_), 1 otherwise. "(undefined)" lines (imports) do not count.

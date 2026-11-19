@@ -202,4 +202,20 @@ final class SortingLogicTests: XCTestCase {
         XCTAssertEqual(SortTexts.line(r), "File Name, Not the Server. Sorted by filename, not by the server.")
         XCTAssertEqual(SortTexts.logLine(path: "/a.mkv", outcome: .movie, signal: .moviePattern, note: "n"), "sorted movie by moviePattern: /a.mkv (n)")
     }
+
+    /// Addendum #18 B and C: the screen texts are short plain sentences (S1), the button carries its count, and nothing
+    /// claims more than the code does.
+    func testTheSortingScreenTextsAreShortAndPlain() {
+        XCTAssertEqual(SortTexts.reviewButton(8), "Needs Review (8)")
+        XCTAssertEqual(SortTexts.moveTitle(.movie), "Move to Movies")
+        XCTAssertEqual(SortTexts.moveTitle(.episode), "Move to Shows")
+        XCTAssertEqual(SortTexts.scanningDetail(foldersDone: 3, total: 40), "3 of 40 folders")
+        for text in SortTexts.screenTexts {
+            XCTAssertFalse(text.isEmpty)
+            XCTAssertLessThanOrEqual(text.count, 120, text)
+            XCTAssertFalse(text.contains("!"), text)
+            XCTAssertFalse(text.contains("  "), text)
+        }
+        XCTAssertFalse(SortTexts.scanningDetail(foldersDone: 1, total: 2).contains("left"), "no time-left claim")
+    }
 }

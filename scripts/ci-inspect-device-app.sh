@@ -7,7 +7,7 @@
 #   static-libraries.txt      the two static libraries linked into the app binary (libnfs, libdovi): platform tag of the
 #                             device slice, and the process-spawning symbols they reference (posix_spawn, posix_spawnp, fork, exec*)
 #   release-strings.txt       proof that the debug-only UI-test code is compiled out of Release: no launch-argument text
-#                             (-UITestEmpty, -UITestFixtures, -UITestTab, -UITestOpen) and no sample-library text
+#                             (-UITestEmpty, -UITestFixtures, -UITestTab, -UITestOpen) and no sample-library text (incl. the Needs Review fixtures "Sample Clip" and "Sample Unsorted ...", addendum #18 E)
 #   app-nm.txt                `nm -m` of the app binary, saved once; the symbol checks read this file (ci-inspect-lib.sh)
 set -uo pipefail
 : "${OUT:?}"

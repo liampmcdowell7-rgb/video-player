@@ -24,8 +24,9 @@ enum SortMoveTarget: Identifiable, Equatable {
     static func == (a: SortMoveTarget, b: SortMoveTarget) -> Bool { a.id == b.id }
 }
 
-/// Move to Movies / Move to Shows (docs/SORTING.md): a system form, filled from the file name. The choice is a synced
-/// user-data record, so it survives rescans and reaches the other Apple TVs; the next scan files the item.
+/// Move to Movies / Move to Shows (docs/SORTING.md): system form fields, filled from the file name. The choice is a synced
+/// user-data record, so it survives rescans and reaches the other Apple TVs; the next scan files the item. Layout:
+/// `SettingsPane` (#15 L1, D1); the main action is the first button under the fields (L7).
 struct SortMoveSheet: View {
     let target: SortMoveTarget
     var onSaved: () -> Void = {}
@@ -35,35 +36,28 @@ struct SortMoveSheet: View {
     @State private var problem: String?
 
     var body: some View {
-        NavigationStack {
-            Form {
-                if let binding = Binding($draft) {
-                    Section {
-                        TextField(binding.wrappedValue.titleLabel, text: binding.title)
-                        TextField("Year (Optional)", text: binding.year)
-                    }
-                    if target.kind == .episode {
-                        Section("Episode") {
-                            TextField("Season", text: binding.season)
-                            TextField("Episode", text: binding.episode)
-                            TextField("Last Episode (Optional)", text: binding.episodeEnd)
-                        }
-                    }
-                    if let problem {
-                        Section {
-                            Text(problem)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Section {
-                        Button(binding.wrappedValue.sheetTitle) { Task { await save() } }
-                        Button("Cancel", role: .cancel) { dismiss() }
-                    }
-                } else {
-                    ProgressView()
+        SettingsPane(title: SortTexts.moveTitle(target.kind), summary: SortTexts.moveSummary(target.kind)) {
+            if let binding = Binding($draft) {
+                Section {
+                    TextField(binding.wrappedValue.titleLabel, text: binding.title)
+                    TextField("Year (Optional)", text: binding.year)
                 }
+                if target.kind == .episode {
+                    Section("Episode") {
+                        TextField("Season", text: binding.season)
+                        TextField("Episode", text: binding.episode)
+                        TextField("Last Episode (Optional)", text: binding.episodeEnd)
+                    }
+                }
+                Section {
+                    Button(binding.wrappedValue.sheetTitle, systemImage: target.kind == .movie ? "film" : "tv") { Task { await save() } }
+                    Button("Cancel", role: .cancel) { dismiss() }
+                } footer: {
+                    if let problem { Text(problem) }
+                }
+            } else {
+                ProgressView()
             }
-            .navigationTitle(draft?.sheetTitle ?? "")
         }
         .task { await load() }
     }
@@ -92,7 +86,8 @@ struct SortMoveSheet: View {
     }
 }
 
-/// How an item was sorted (the item info): the rule that decided and why, with Move and, after a Move, Sort Automatically.
+/// How an item was sorted (the item info, from the detail page's More menu): the rule that decided and why, with Move and,
+/// after a Move, Sort Automatically. Plain facts are `LabeledContent` and footer text, never rows that look like buttons (L3).
 struct SortInfoSheet: View {
     let itemID: Int64
     let kind: ItemKind
@@ -103,39 +98,38 @@ struct SortInfoSheet: View {
     @State private var move: SortMoveTarget?
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    if let info {
-                        LabeledContent("Sorted By", value: SortTexts.title(info.record.signal))
-                        if !info.record.note.isEmpty { Text(info.record.note) }
-                        LabeledContent("File", value: info.fileName)
-                    } else if loaded {
-                        Text("This title was sorted before the app recorded how. The next scan records it.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ProgressView()
-                    }
+        SettingsPane(title: "How This Was Sorted", summary: SortTexts.infoSummary) {
+            Section {
+                if let info {
+                    LabeledContent("Sorted By", value: SortTexts.title(info.record.signal))
+                    LabeledContent("File", value: info.fileName)
+                } else if !loaded {
+                    ProgressView()
                 }
-                Section {
-                    if kind == .movie {
-                        Button("Move to Shows", systemImage: "tv") { move = .item(itemID, .episode) }
-                    } else {
-                        Button("Move to Movies", systemImage: "film") { move = .item(itemID, .movie) }
-                    }
-                    if let signal = info?.record.signal, signal == .manual || signal == .onlineLookup {
-                        Button("Sort Automatically", systemImage: "arrow.uturn.backward") {
-                            Task {
-                                try? await services.sortMover.sortAutomatically(itemID: itemID)
-                                services.sortChoiceSaved()
-                                dismiss()
-                            }
-                        }
-                    }
-                    Button("Done") { dismiss() }
+            } footer: {
+                if let info, !info.record.note.isEmpty {
+                    Text(info.record.note)
+                } else if loaded && info == nil {
+                    Text(SortTexts.notRecorded)
                 }
             }
-            .navigationTitle("How This Was Sorted")
+            Section {
+                if kind == .movie {
+                    Button("Move to Shows", systemImage: "tv") { move = .item(itemID, .episode) }
+                } else {
+                    Button("Move to Movies", systemImage: "film") { move = .item(itemID, .movie) }
+                }
+                if let signal = info?.record.signal, signal == .manual || signal == .onlineLookup {
+                    Button("Sort Automatically", systemImage: "arrow.uturn.backward") {
+                        Task {
+                            try? await services.sortMover.sortAutomatically(itemID: itemID)
+                            services.sortChoiceSaved()
+                            dismiss()
+                        }
+                    }
+                }
+                Button("Done") { dismiss() }
+            }
         }
         .task {
             info = try? await services.store.sortInfo(itemID: itemID)
