@@ -64,11 +64,15 @@ final class ScreenshotTests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
-        // #15 item 1.6: every capture must show something new. The CI run for 8bb0f0c saved 58 and 61 "scrolled" three
-        // times each, pixel for pixel the same as the page before: Down moved nothing. Same pixels = a failed step.
+        // #24 A: the same picture as a file at once, so it survives a test run that is stopped before the result bundle is
+        // complete (the run on fa00af8 lost every picture that way).
         let png = screenshot.pngRepresentation
+        writeFile(name + ".png", png)
+        // #15 item 1.6: every capture must show something new. The CI run for 8bb0f0c saved 58 and 61 "scrolled" three
+        // times each, pixel for pixel the same as the page before: Down moved nothing. #24 C: same pixels is a WARNING
+        // (the -UNCHANGED note, listed in index.md), not a test failure; the picture is kept either way.
         if let previous = lastShot, previous.png == png {
-            XCTFail("\(name): the screen did not change since \(previous.name) (identical pixels).")
+            print("WARNING: \(name): the screen did not change since \(previous.name) (identical pixels).")
             note(name + "-UNCHANGED", "Identical, pixel for pixel, to \(previous.name): the step before it did not change the screen.")
         }
         lastShot = (name, png)
@@ -82,6 +86,44 @@ final class ScreenshotTests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+        writeFile(name + ".txt", Data(text.utf8))
+    }
+
+    /// #24 A: the folder every picture and note of this test is also written to, as files: $SCREENSHOT_DIR/<test name>/
+    /// when the CI passes SCREENSHOT_DIR (xcodebuild hands TEST_RUNNER_SCREENSHOT_DIR to the runner as SCREENSHOT_DIR:
+    /// the TEST_RUNNER_ prefix rule of `man xcodebuild`, from memory, unverified) and that host folder can be written from the
+    /// simulator; otherwise the runner's own temporary folder, vp-screenshots/<test name>/, which the CI finds inside the
+    /// simulator's data folder (scripts/ci-ui-tests.sh). The folder used is printed ("SCREENSHOT FILES: ...").
+    private lazy var fileFolder: URL? = {
+        // XCTestCase.name is "-[ScreenshotTests test01_FirstLaunchAndEmptyScreens]".
+        let method = self.name.split(separator: " ").last.map { String($0.filter { $0 != "]" }) } ?? "unknown-test"
+        var bases: [URL] = []
+        if let dir = ProcessInfo.processInfo.environment["SCREENSHOT_DIR"], !dir.isEmpty {
+            bases.append(URL(fileURLWithPath: dir, isDirectory: true))
+        }
+        bases.append(FileManager.default.temporaryDirectory.appendingPathComponent("vp-screenshots", isDirectory: true))
+        for base in bases {
+            let folder = base.appendingPathComponent(method, isDirectory: true)
+            do {
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                let probe = folder.appendingPathComponent("write-check.tmp")
+                try Data("ok".utf8).write(to: probe)
+                try? FileManager.default.removeItem(at: probe)
+                print("SCREENSHOT FILES: \(folder.path)")
+                return folder
+            } catch {
+                print("SCREENSHOT FILES: cannot write to \(folder.path): \(error)")
+            }
+        }
+        return nil
+    }()
+
+    /// Writes one picture or note into `fileFolder`. A failed write is printed, never a test failure.
+    private func writeFile(_ fileName: String, _ data: Data) {
+        guard let folder = fileFolder else { return }
+        do { try data.write(to: folder.appendingPathComponent(fileName)) } catch {
+            print("SCREENSHOT FILE NOT WRITTEN: \(fileName): \(error)")
+        }
     }
 
     /// A screen that was not reached: a note with the reason, and a screenshot of what IS on screen instead (when the app
@@ -89,11 +131,20 @@ final class ScreenshotTests: XCTestCase {
     func notReached(_ name: String, _ reason: String) {
         note(name + "-NOT-REACHED", reason)
         if let app = current, appIsInFront(app, timeout: 2) {
-            let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            let screenshot = XCUIScreen.main.screenshot()
+            let attachment = XCTAttachment(screenshot: screenshot)
             attachment.name = name + "-NOT-REACHED"
             attachment.lifetime = .keepAlways
             add(attachment)
+            writeFile(name + "-NOT-REACHED.png", screenshot.pngRepresentation)
         }
+    }
+
+    /// #24 C: the first `lines` lines of the accessibility tree, printed to the test log and returned for a note.
+    func trimmedHierarchy(_ app: XCUIApplication, lines: Int = 60) -> String {
+        let text = app.debugDescription.split(separator: "\n", omittingEmptySubsequences: false).prefix(lines).joined(separator: "\n")
+        print("HIERARCHY (first \(lines) lines):\n\(text)")
+        return text
     }
 
     /// Waits for text containing `text` anywhere on screen.
@@ -112,7 +163,8 @@ final class ScreenshotTests: XCTestCase {
                           NSPredicate(format: "label BEGINSWITH %@ OR label BEGINSWITH %@", text + ",", text + " "),
                           NSPredicate(format: "label CONTAINS %@", text)]
         for predicate in predicates {
-            for query in [app.buttons.matching(predicate), app.cells.matching(predicate)] {
+            // #24 C: switches too (the Sort by Filename toggle on a source page).
+            for query in [app.buttons.matching(predicate), app.cells.matching(predicate), app.switches.matching(predicate)] {
                 for element in query.allElementsBoundByIndex.prefix(12) where element.exists {
                     if !tabFrame.isNull, tabFrame.contains(CGPoint(x: element.frame.midX, y: element.frame.midY)) { continue }
                     return element
@@ -235,7 +287,8 @@ final class ScreenshotTests: XCTestCase {
 
     func test01_FirstLaunchAndEmptyScreens() {
         let app = launch("-UITestEmpty")
-        shot("01-first-launch")
+        // #24 C: no "01-first-launch" shot any more. The app has no first-launch screen of its own (no onboarding): a clean
+        // start opens Home, so 01 was pixel for pixel 02-home-empty (run on fa00af8). 02 is the first-launch picture.
         if waitForScreen("screen.home", in: app) {
             _ = waitFor("Add a Source", in: app, timeout: 10)
             settle(); shot("02-home-empty")
@@ -320,9 +373,12 @@ final class ScreenshotTests: XCTestCase {
         guard open("About", in: about, name: "40-about") else { return }
         settle()
         shot("40-about")
-        // Text rows are not focusable; moving down to the licence link scrolls the page past Data Sources and Trademarks.
+        // #24 C: the run on fa00af8 had 41-1/2/3 identical to 40: the page is longer than the screen, but its text rows were
+        // not focusable, so Down had nothing to move to. The rows now take focus (App/Features/Settings/AboutView.swift);
+        // four Down presses per picture move the focus, and the page with it, a screen further.
         for step in 1...3 {
-            XCUIRemote.shared.press(.down); sleep(1)
+            for _ in 0..<4 { XCUIRemote.shared.press(.down); usleep(400_000) }
+            sleep(1)
             shot("41-about-scrolled-\(step)")
         }
         if open("Full Licence Texts", in: about, name: "42-licence-texts") {
@@ -557,9 +613,14 @@ final class ScreenshotTests: XCTestCase {
                     settle(); shot("72-files-folder")
                     // #15 7.2: opening a folder must keep the Files tab. If the Movies tab got selected instead, say so (the
                     // test pressed the tab, or the app switched tabs) rather than leave a Movies grid named "files-folder".
-                    let filesTab = app.tabBars.buttons["Files"]
-                    if filesTab.exists, !filesTab.isSelected {
-                        notReached("72-files-folder", "After opening the Movies folder the Files tab is not selected (selected: \(app.tabBars.buttons.matching(NSPredicate(format: "isSelected == true")).firstMatch.label)).")
+                    // #24 C: the run on fa00af8 failed here ("no match for TabBar > Button where isSelected == 1", line 562):
+                    // reading `label` of a query with no match fails the test. Now the screens tell it: the folder screen
+                    // (screen.folder, App/Shell/RootView.swift) is shown and the Movies tab's screen (screen.movies) is not.
+                    // Only existence checks, so this can never fail the test; the trimmed tree goes into the note and log.
+                    let onFolder = waitForScreen("screen.folder", in: app, timeout: 5)
+                    let onMovies = app.descendants(matching: .any).matching(identifier: "screen.movies").firstMatch.exists
+                    if !onFolder || onMovies {
+                        notReached("72-files-folder", "After opening the Movies folder: folder screen shown \(onFolder), Movies tab screen shown \(onMovies). Accessibility tree (first 60 lines):\n\(trimmedHierarchy(app))")
                     }
                     if open("Sample Movie 1 (2021)", in: app, name: "73-files-movie-folder") {
                         settle(); shot("73-files-movie-folder")
@@ -663,7 +724,12 @@ final class ScreenshotTests: XCTestCase {
                 return fail(app, "Home with “Add a Source” did not appear within \(Int(wait)) s.")
             }
             guard step(app, "Add a Source") else { return nil }
-            guard waitFor("Type an Address", in: app, timeout: wait) else { return fail(app, "The source type list did not open.") }
+            // #24 C: 93, 94, 99 and 100 were NOT REACHED here. "Type an Address" is a section header further down the list;
+            // at Larger Text it is below the screen, and a lazy list does not build it yet. "Search Your Network" is the
+            // first row (App/Features/Sources/SourceKindListView.swift), on screen at every text size.
+            guard waitFor("Search Your Network", in: app, timeout: wait) else {
+                return fail(app, "The source type list did not open (no “Search Your Network” row within \(Int(wait)) s).")
+            }
             if key == "add-source" { return app }
             return step(app, "WebDAV") ? app : nil
         default:
@@ -754,8 +820,20 @@ final class ScreenshotTests: XCTestCase {
         app = launch("-UITestFixtures", tab: "settings", extra: extra)
         if waitForScreen("screen.settings", in: app), open("Sources", in: app, name: "69-source-sort-by-filename\(suffix)"),
            open("Sample Server", in: app, name: "69-source-sort-by-filename\(suffix)") {
-            settle(); shot("69-source-sort-by-filename\(suffix)")
-            if focus(control("Sort by Filename", in: app), in: app) { sleep(1); shot("69-source-sort-by-filename-focused\(suffix)") }
+            settle()
+            // #24 C: the toggle is the page's first control, so it has the focus on arrival and 69 equalled -focused (run on
+            // fa00af8). The plain picture is now taken with the focus on Check Connection, the -focused one on the toggle.
+            let toggle = control("Sort by Filename", in: app)
+            if focus(control("Check Connection", in: app), in: app) {
+                sleep(1); shot("69-source-sort-by-filename\(suffix)")
+            } else {
+                notReached("69-source-sort-by-filename\(suffix)", "The focus could not leave the toggle for Check Connection (focus on \(focusedLabel(in: app))).")
+            }
+            if toggle.exists, focus(toggle, in: app) {
+                sleep(1); shot("69-source-sort-by-filename-focused\(suffix)")
+            } else {
+                notReached("69-source-sort-by-filename-focused\(suffix)", "The Sort by Filename toggle was not found or could not be focused (focus on \(focusedLabel(in: app))).")
+            }
         }
         app.terminate()
     }
