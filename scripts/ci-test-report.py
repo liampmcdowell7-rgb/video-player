@@ -16,6 +16,17 @@ CASE = re.compile(r"Test [Cc]ase '-?\[?(?:(?P<mod>[\w]+)\.)?(?P<cls>\w+)[ .](?P<
 FAILURE = re.compile(r"^(?P<loc>/[^:]+:\d+): error: -\[(?P<mod>\w+)\.(?P<cls>\w+) (?P<test>\w+)\] : (?P<msg>.*)$")
 
 
+RUNTIME = re.compile(r"Failed to load requested runtime bundle|Failed to prepare device")
+
+
+def no_tests_cause(lines):
+    """The first log line that says the simulator runtime failed (shortened), or None."""
+    for line in lines:
+        if RUNTIME.search(line):
+            return line.strip()[:400]
+    return None
+
+
 def main():
     log, out = sys.argv[1], sys.argv[2]
     counts = collections.defaultdict(lambda: collections.Counter())
@@ -45,6 +56,16 @@ def main():
         rows.append("| %s | %d | %d | %d |" % (target, c["passed"], c["skipped"], c["failed"]))
     with open(out, "w", encoding="utf-8") as fh:
         fh.write("## Package tests on the tvOS Simulator (report only, not a gate)\n\n")
+        # #21 A: zero tests is never shown as only an empty table. The cause line comes first.
+        if sum(total.values()) == 0 and not counts:
+            cause = no_tests_cause(lines)
+            if cause:
+                fh.write("**NO TESTS RAN: simulator runtime failed to load**\n\nCause: `%s`\n\n" % cause)
+            elif lines:
+                fh.write("**NO TESTS RAN** (the log has no test result; see its last lines)\n\n```\n%s\n```\n\n"
+                         % "\n".join(lines[-8:]))
+            else:
+                fh.write("**NO TESTS RAN** (no test log was written)\n\n")
         fh.write("| Test target | Passed | Skipped | Failed |\n|---|---|---|---|\n")
         fh.write("\n".join(rows) + ("\n" if rows else "| (no test results found in the log) | 0 | 0 | 0 |\n"))
         fh.write("| **Total** | **%d** | **%d** | **%d** |\n\n" % (total["passed"], total["skipped"], total["failed"]))

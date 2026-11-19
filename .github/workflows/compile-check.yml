@@ -350,11 +350,13 @@ jobs:
           sudo xcode-select -s "$XCODE_APP/Contents/Developer"
           xcodebuild -version | tee "$OUT/xcode-version.txt"
 
-      # Runtime lists, pick by name, boot and wait; one retry (erase + boot) if that fails (scripts/ci-sim.sh).
-      - name: Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)
+      # Runtime lists, pick (runtime first: the one matching the Simulator SDK, else the newest; then the device name), then
+      # the stage "Boot and retry": boot and wait; one retry, on the next runtime when this one failed to load (#21 A,
+      # scripts/ci-sim.sh).
+      - name: Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry
         timeout-minutes: 8
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)"
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry"
           bash scripts/ci-sim.sh prepare
 
       # Seconds, before the long package-test build: a test target that uses one of our type names bare while a tvOS SDK
@@ -449,11 +451,13 @@ jobs:
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)"
           bash scripts/ci-prepare.sh
 
-      # Runtime lists, pick by name, boot and wait; one retry (erase + boot) if that fails (scripts/ci-sim.sh).
-      - name: Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)
+      # Runtime lists, pick (runtime first: the one matching the Simulator SDK, else the newest; then the device name), then
+      # the stage "Boot and retry": boot and wait; one retry, on the next runtime when this one failed to load (#21 A,
+      # scripts/ci-sim.sh).
+      - name: Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry
         timeout-minutes: 8
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)"
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry"
           bash scripts/ci-sim.sh prepare
 
       # Ad-hoc signing for this simulator build (OPEN_QUESTIONS R164, PROVISIONAL): identity "-" with no team, no profile and
@@ -600,11 +604,13 @@ jobs:
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)"
           bash scripts/ci-prepare.sh
 
-      # Runtime lists, pick by name, boot and wait; one retry (erase + boot) if that fails (scripts/ci-sim.sh).
-      - name: Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)
+      # Runtime lists, pick (runtime first: the one matching the Simulator SDK, else the newest; then the device name), then
+      # the stage "Boot and retry": boot and wait; one retry, on the next runtime when this one failed to load (#21 A,
+      # scripts/ci-sim.sh).
+      - name: Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry
         timeout-minutes: 8
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)"
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry"
           bash scripts/ci-sim.sh prepare
 
       - name: Build the app and the UI tests (Debug, simulator, ad-hoc signed; unsigned if that fails)
@@ -717,10 +723,10 @@ jobs:
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)"
           bash scripts/ci-prepare.sh
 
-      - name: Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)
+      - name: Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry
         timeout-minutes: 8
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick and boot the simulator by name (Apple TV 4K, at 1080p preferred)"
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator (newest tvOS runtime matching the SDK first), boot and retry"
           bash scripts/ci-sim.sh prepare
 
       - name: Build the app and the UI tests (Debug, simulator, ad-hoc signed; unsigned if that fails)

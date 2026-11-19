@@ -328,15 +328,24 @@ the app is in front; otherwise the test fails and `index.md` lists the screen as
 `Malformed bundle does not contain an identifier`. The same runner image had worked the run before. Since then, the three
 jobs that use the simulator (Package tests, Screenshots, both Accessibility screenshots jobs) do this (scripts/ci-sim.sh):
 
-- They print `xcrun simctl list runtimes` and `xcrun simctl runtime list` in the step "Pick and boot the simulator", and
+- They print `xcrun simctl list runtimes` and `xcrun simctl runtime list` in the step "Pick the simulator", and
   the same lists sit in the job summary under "Simulator runtimes on this runner" (and in `sim-runtimes.txt` in the
   download). A missing or broken tvOS runtime shows there.
-- They boot the simulator and wait for it before any test.
+- They pick the **runtime first** (#21 A): the one matching the tvOS Simulator SDK (27.2 with Xcode 27.2), else the
+  newest; an older runtime only when no newer one exists. Then the device by name on that runtime. The log lists every
+  runtime found and says which was chosen and why (`runtime found: …`, `chosen: …`, `why: …`). The earlier order (name
+  first) is why the Package tests job of the last run took the 3rd generation on tvOS 27.0 and failed with 0 tests.
+- They boot the simulator and wait for it before any test, in the stage **Boot and retry** of the Stage times table.
 - If booting fails, or a test run stops with "Failed to load requested runtime bundle" or "Failed to prepare device", the
-  job tries **once** more: it shuts all simulators down, erases the chosen one, boots it again and repeats that run. The
-  log then shows a yellow warning and a line `SIMULATOR RETRY: <reason>`. A test that fails for any other reason is
+  job tries **once** more. When the runtime failed to load, that runtime is marked unavailable for the job and the
+  simulator on the next runtime is booted and used (the same test call runs again with its id). When there is no other
+  runtime, or the failure was something else, it shuts all simulators down, erases the chosen one and boots it again.
+  The log then shows a yellow warning and a line `SIMULATOR RETRY: <reason>`. A test that fails for any other reason is
   never retried. After one retry, later failures in the same job are reported as they are.
-- The job summary says `Simulator ready after N s (retries: 0/1)` (or `1/1` and the reason).
+- The job summary says `Simulator ready after N s (retries: 0/1)`, the runtime used, any runtime marked unavailable,
+  and the retry reason.
+- When no test ran because the runtime did not load, the test report starts with **NO TESTS RAN: simulator runtime
+  failed to load** and the cause line, not only an empty table.
 
 *If such a job is still red with one of those two messages:* on the run page press **Re-run jobs**, then **Re-run failed
 jobs**. That is the first thing to try; it starts only the red jobs again, on a fresh runner. Do not change the app or
