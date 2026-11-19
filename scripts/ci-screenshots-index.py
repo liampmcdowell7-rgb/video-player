@@ -25,7 +25,7 @@ VERIFY = [
     ("Play has the focus when the movie page opens",
      "Play is the focused (raised, highlighted) button on arrival", ["57-movie-detail"]),
     ("The episode shelves on the show page",
-     "each season's episodes in one row with stills, the season 2 row reachable", ["55-show-page", "56-show-season-2-episode-row", "59-fix-match"]),
+     "each season's episodes in one row with stills, the season 2 row reachable", ["55-show-page", "56-show-season-2-episode-row"]),
     ("The new Needs Review button",
      "the button sits in the row above the grid and opens the Needs Review list", ["63-movies-needs-review-button", "64-needs-review"]),
     ("The Settings two-pane layout",
