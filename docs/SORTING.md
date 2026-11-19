@@ -162,9 +162,15 @@ one show when at most one year is known or the years match.
   show year; only a different year in the name counts.
 - The scan files every episode under the plain keys first (`s|name`, `e|name|season|episode`), as before. Then, for every
   show name the change touched, `reconcileShowYears` looks at the years of all its live files. With two or more different
-  years, each file with a year moves to `s|name|yYEAR` / `e|name|yYEAR|...`, titled "Name (YEAR)"; a file with no year
-  stays in the plain show, because it cannot be told apart. With fewer than two years every file stays in, or goes back
-  to, the plain keys, so a library without such a pair keeps every key and every watch state it had.
+  years, each file with a year moves to `s|name|yYEAR` / `e|name|yYEAR|...`, titled "Name (YEAR)". With fewer than two
+  years every file stays in, or goes back to, the plain keys, so a library without such a pair keeps every key and every
+  watch state it had.
+- A file with no year, while two years share its name, goes to **Needs Review** with the note "Two shows share this
+  name: “Name (2005)” and “Name (2019)”. The file name has no year to tell which one." (addendum #19 C, PROVISIONAL,
+  R174), so the user decides with Move to Shows; before #19 it stayed in a third, plain show. A file put there by a Move
+  or by the online check stays where it was put. The file keeps where it came from (`files.shared_name`, schema 5: its
+  plain item key, signal and note); a rescan leaves it alone, and when fewer than two years are left it goes back to that
+  item by itself, with its own signal and note (and the watch state that item kept).
 - The result depends only on which files are in the library, not on scan order.
 - Watch state: a new item takes the watch state of the item its file came from only if the file was already there when
   that item was last played; a file that arrived later starts unwatched. A watch state saved in iCloud for the new key
@@ -194,8 +200,9 @@ Source setting (Jellyfin and Emby only): **Sort by Filename Instead of Server Li
 
 `LibraryIndexTests/SortingTests`: a flat folder of 42 synthetic files (25 episode files, 11 movies, 6 Needs Review; the
 two added in #18 D are "Sample Remake (2005) S01E01" and "Sample Remake (2019) S01E01"), shows with one name and
-different years (two years, one year, the same year, a yearless file beside two years, a second year arriving later with
-watch state, the keys),
+different years (two years, one year, the same year, a second year arriving later with watch state, the keys; #19 C: a
+yearless file beside two years goes to Needs Review and stays there on a rescan, goes back when one year is left, and
+stays where a Move put it),
 release-tag noise, "Sample Show" beside "Sample Show Two", "Sample Movie 2049 (2017)" (a movie of 2017, title
 "Sample Movie 2049"), absolute numbering alone and with siblings, weak markers with a year, folder hints, server types
 (agree, disagree, unclear, preferFilename), the flat folder through a real scan, the sort info and the log hook, rescan
@@ -217,9 +224,9 @@ Accepted on purpose but can be wrong:
 6. A year plus a weak marker is a movie: "Sample Movie Seven Ep 2 (2012)" keeps "Ep 2" in its title; an episode named this
    way needs Move to Shows.
 7. A name that looks like a strong marker is an episode even in a movie title (a title containing "S01E01" or "1x02").
-8. A show file with no year in its name, when the same name exists with two different years, stays in the plain show
-   "Sample Remake" beside "Sample Remake (2005)" and "Sample Remake (2019)" (addendum #18 D; before that change all three
-   were one show).
+8. (Changed in #19 C, no longer accepted as is.) A show file with no year in its name, when the same name exists with two
+   different years, goes to Needs Review ("two shows share this name") instead of staying in a third, plain show
+   "Sample Remake" beside "Sample Remake (2005)" and "Sample Remake (2019)". Before #18 D all three were one show.
 9. Date episodes are filed by date (season 0 when no season is known), not by episode number.
 10. The online check can confirm a wrong title with high confidence; it only ever moves Needs Review files, never a file
     the rules already decided, and How This Was Sorted shows "Online Lookup" with Sort Automatically to take it back.

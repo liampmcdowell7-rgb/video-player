@@ -215,7 +215,7 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
     static let fileColumns = """
     SELECT f.id, f.source_id, f.path, f.name, f.parent, f.kind, f.size, f.modified, f.etag, f.token, f.item_id, f.first_seen, f.version_label,
            f.has_tech, f.duration, f.container, f.width, f.height, f.hdr_mask, f.dv_profile, f.vcodec, f.acodec, f.channels, f.atmos, f.bitrate,
-           f.sort_signal, f.sort_note, f.sort_rev, f.sort_inputs, f.review
+           f.sort_signal, f.sort_note, f.sort_rev, f.sort_inputs, f.review, f.shared_name
     """
 
     static func mapFile(_ s: SQLiteStatement) -> StoredFile {
@@ -233,7 +233,8 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
             size: s.optInt64(6), modified: s.optDate(7), etag: s.optText(8), serverToken: s.optText(9), itemID: s.optInt64(10),
             technical: tech, firstSeen: s.optDate(11) ?? Date(timeIntervalSince1970: 0), versionLabel: s.optText(12),
             sort: s.optText(25).flatMap(SortSignal.init(rawValue:)).map {
-                FileSortRecord(signal: $0, note: s.optText(26) ?? "", revision: s.int(27), inputs: s.optText(28) ?? "", needsReview: s.bool(29))
+                FileSortRecord(signal: $0, note: s.optText(26) ?? "", revision: s.int(27), inputs: s.optText(28) ?? "", needsReview: s.bool(29),
+                               waitsForSharedName: !s.isNull(30))
             }
         )
     }

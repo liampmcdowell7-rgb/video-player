@@ -221,7 +221,7 @@ extension SQLiteLibraryStore {
                         UPDATE files SET name = ?, name_key = ?, parent = ?, kind = ?, size = ?, modified = ?, etag = ?, token = ?, item_id = ?, version_label = ?,
                             has_tech = ?, duration = ?, container = ?, width = ?, height = ?, res = ?, hdr_mask = ?, dv_profile = ?, vcodec = ?, acodec = ?,
                             channels = ?, atmos = ?, bitrate = ?, sort_signal = ?, sort_note = ?, sort_rev = ?, sort_inputs = ?, review = ?,
-                            series_year = ?, removed_at = NULL WHERE id = ?
+                            series_year = ?, shared_name = NULL, removed_at = NULL WHERE id = ?
                         """,
                         common + [.int(existing.id)]
                     )

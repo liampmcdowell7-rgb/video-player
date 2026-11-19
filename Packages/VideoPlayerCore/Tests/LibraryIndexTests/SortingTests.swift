@@ -250,14 +250,72 @@ final class SortingTests: XCTestCase {
         XCTAssertTrue(keys.contains("e|sample revival|1|1"), "a library without a pair keeps its old keys: \(keys)")
     }
 
-    func testWithTwoYearsAYearlessFileStaysInThePlainShow() async throws {
+    // Addendum #19 C (PROVISIONAL, R174): a file with no year beside two dated shows goes to Needs Review, not a third show.
+
+    func testWithTwoYearsAYearlessFileGoesToNeedsReview() async throws {
         let h = try Harness.make()
         defer { h.cleanup() }
         put(h, ["Sample Remake (2005) S01E01.mkv", "Sample Remake (2019) S01E01.mkv", "Sample Remake S01E05.mkv"])
         try await h.syncer.sync()
         let byShow = try await shows(h)
-        XCTAssertEqual(Set(byShow.keys), ["Sample Remake (2005)", "Sample Remake (2019)", "Sample Remake"],
-                       "a file with no year cannot be told apart, so it is not guessed into either")
+        XCTAssertEqual(Set(byShow.keys), ["Sample Remake (2005)", "Sample Remake (2019)"], "no third, plain show")
+        let review = try await h.store.needsReview(limit: 10)
+        XCTAssertEqual(review.map(\.fileName), ["Sample Remake S01E05.mkv"])
+        XCTAssertEqual(review.first?.note,
+                       "Two shows share this name: \u{201C}Sample Remake (2005)\u{201D} and \u{201C}Sample Remake (2019)\u{201D}. The file name has no year to tell which one.")
+        let info = try await h.store.sortInfo(itemID: try XCTUnwrap(review.first?.id))
+        XCTAssertEqual(info?.record.signal, .undecided)
+        XCTAssertEqual(info?.record.needsReview, true)
+
+        let again = try await h.syncer.sync()
+        XCTAssertEqual(again.progress.changed + again.progress.added, 0, "a rescan leaves the waiting file alone")
+        try await expectEqual(try await h.store.needsReviewCount(), 1)
+    }
+
+    func testAYearlessFileGoesBackWhenOnlyOneYearIsLeft() async throws {
+        let h = try Harness.make()
+        defer { h.cleanup() }
+        put(h, ["Sample Remake (2005) S01E01.mkv", "Sample Remake (2019) S01E01.mkv", "Sample Remake S01E05.mkv"])
+        try await h.syncer.sync()
+        try await expectEqual(try await h.store.needsReviewCount(), 1)
+
+        h.source.remove("/Sample Remake (2019) S01E01.mkv")
+        try await h.syncer.sync()
+        try await expectEqual(try await h.store.needsReviewCount(), 0)
+        let byShow = try await shows(h)
+        XCTAssertEqual(Set(byShow.keys), ["Sample Remake"], "one year left: one show again")
+        XCTAssertEqual(byShow["Sample Remake"]?.count, 2)
+        let back = try XCTUnwrap(byShow["Sample Remake"]?.first { $0.episode == 5 })
+        let info = try await h.store.sortInfo(itemID: back.id)
+        XCTAssertEqual(info?.record.signal, .episodePattern, "its own signal and note come back")
+        XCTAssertEqual(info?.record.needsReview, false)
+        let again = try await h.syncer.sync()
+        XCTAssertEqual(again.progress.changed + again.progress.added, 0)
+    }
+
+    func testAYearlessFileMovedByHandStaysWhereItWasPut() async throws {
+        let h = try Harness.make()
+        defer { h.cleanup() }
+        put(h, ["Sample Remake (2005) S01E01.mkv", "Sample Remake (2019) S01E01.mkv", "Sample Remake S01E05.mkv"])
+        let moved = FixedSortOverrides([Harness.sourceID: [
+            "/Sample Remake S01E05.mkv": SortOverride(kind: .episode, title: "Sample Remake", season: 1, episode: 5),
+        ]])
+        let syncer = LibrarySyncer(store: h.store, source: h.source, sourceID: Harness.sourceID, overrides: moved)
+        try await syncer.sync()
+        try await expectEqual(try await h.store.needsReviewCount(), 0, "the user's choice is kept")
+        let byShow = try await shows(h)
+        XCTAssertEqual(Set(byShow.keys), ["Sample Remake (2005)", "Sample Remake (2019)", "Sample Remake"])
+    }
+
+    func testSharedNameTextRoundTrip() {
+        let s = SQLiteLibraryStore.SharedName(key: "e|sample remake|1|5", signal: "episodePattern", note: "Season and episode numbers.")
+        XCTAssertEqual(SQLiteLibraryStore.SharedName(encoded: s.encoded), s)
+        XCTAssertNil(SQLiteLibraryStore.SharedName(encoded: "no separators"))
+        XCTAssertEqual(SQLiteLibraryStore.sharedNameNote("Sample Remake", years: [2019, 2005, 2012]),
+                       "Two shows share this name: \u{201C}Sample Remake (2005)\u{201D}, \u{201C}Sample Remake (2012)\u{201D} and \u{201C}Sample Remake (2019)\u{201D}. The file name has no year to tell which one.")
+        XCTAssertTrue(SQLiteLibraryStore.placedByChoice("manual"))
+        XCTAssertTrue(SQLiteLibraryStore.placedByChoice("onlineLookup"))
+        XCTAssertFalse(SQLiteLibraryStore.placedByChoice("episodePattern"))
     }
 
     func testASecondYearArrivingLaterSplitsTheShowAndKeepsWatchState() async throws {

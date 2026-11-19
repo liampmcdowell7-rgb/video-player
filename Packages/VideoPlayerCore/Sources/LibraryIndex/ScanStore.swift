@@ -75,13 +75,18 @@ public struct FileSortRecord: Equatable, Sendable {
     /// the file again although the file did not change.
     public var inputs: String
     public var needsReview: Bool
+    /// In Needs Review only because two shows with different years share its show name and the file has no year
+    /// (addendum #19 C). The scan leaves such a file to the show-year pass, which also takes it back out.
+    public var waitsForSharedName: Bool
 
-    public init(signal: SortSignal, note: String, revision: Int = MediaSorter.revision, inputs: String = "", needsReview: Bool = false) {
+    public init(signal: SortSignal, note: String, revision: Int = MediaSorter.revision, inputs: String = "", needsReview: Bool = false,
+                waitsForSharedName: Bool = false) {
         self.signal = signal
         self.note = note
         self.revision = revision
         self.inputs = inputs
         self.needsReview = needsReview
+        self.waitsForSharedName = waitsForSharedName
     }
 }
 

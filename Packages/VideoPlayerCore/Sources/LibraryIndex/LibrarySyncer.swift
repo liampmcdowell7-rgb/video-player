@@ -236,8 +236,11 @@ public struct LibrarySyncer: Sendable {
     }
 
     /// An unchanged file is looked at again when it was sorted by older rules or other inputs, or is in Needs Review.
+    /// A file waiting because two shows share its name is the exception: its file name already said episode, and only the
+    /// show-year pass (SQLiteLibraryStore+ShowYears) can take it out, so sorting it again would only rewrite it each scan.
     static func mayNeedSorting(_ old: FileSortRecord?, inputs: String) -> Bool {
         guard let old else { return true }
+        if old.waitsForSharedName { return old.revision < MediaSorter.revision || old.inputs != inputs }
         return old.revision < MediaSorter.revision || old.inputs != inputs || old.needsReview
     }
 

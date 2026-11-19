@@ -3,7 +3,7 @@ import Foundation
 /// The database layout. `PRAGMA user_version` holds the schema number; each step in `migrations` upgrades by one.
 /// A database written by a newer app is refused (`LibraryIndexError.newerSchema`), never modified.
 enum LibrarySchema {
-    static let currentVersion = 4
+    static let currentVersion = 5
 
     static let pragmas = """
     PRAGMA journal_mode = WAL;
@@ -202,6 +202,13 @@ enum LibrarySchema {
         // stay apart. Empty here; every file is sorted again once (MediaSorter.revision 2), which fills it.
         [
             "ALTER TABLE files ADD COLUMN series_year INTEGER",
+        ],
+        // 4 -> 5: a file with no year whose show name is shared by two shows with different years waits in Needs Review
+        // (addendum #19 C). This holds where it came from (plain item key, signal, note), so it goes back by itself when
+        // only one year is left, and a rescan leaves it alone. NULL for every other file.
+        [
+            "ALTER TABLE files ADD COLUMN shared_name TEXT",
+            "CREATE INDEX idx_files_shared_name ON files (shared_name) WHERE shared_name IS NOT NULL",
         ],
     ]
 }
