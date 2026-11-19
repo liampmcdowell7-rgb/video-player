@@ -72,13 +72,14 @@ OUT="$(bash "$CHECK" "$A" accessibility 2>&1)"; RC=$?
 NT="$TMP/not-taken"
 OUT="$(GITHUB_STEP_SUMMARY="$TMP/nt-summary.md" bash "$HERE/scripts/ci-not-taken.sh" "$NT" failure "App/Features/Settings/StorageSettingsView.swift:16: generic parameter 'Content' could not be inferred" 2>&1)"; RC=$?
 ok=0; [ "$RC" -eq 0 ] || ok=1
-for a in screenshots screenshots-library accessibility-screenshots accessibility-settings-screenshots; do
+for a in screenshots screenshots-library accessibility-screenshots; do
   head -n 1 "$NT/$a/NOT-TAKEN.txt" | grep -qx 'NOT TAKEN: the app did not compile' || ok=1
   grep -qF "first error: App/Features/Settings/StorageSettingsView.swift:16: generic parameter" "$NT/$a/NOT-TAKEN.txt" || ok=1
   grep -qF 'NOT TAKEN: the app did not compile' "$NT/$a/index.md" || ok=1
   grep -qi 'no picture' "$NT/$a/index.md" && ! grep -qF 'NOT TAKEN' "$NT/$a/index.md" && ok=1
 done
 check "compile failed: every screenshot artifact says NOT TAKEN and the first error line" $ok
+[ ! -e "$NT/accessibility-settings-screenshots" ]; check "compile failed: no artifact for the removed accessibility-settings job" $?
 ok=0
 for r in embedded-frameworks.txt release-strings.txt process-spawning.txt; do
   grep -q '^NOT CHECKED: the app did not compile' "$NT/device-build-results/$r" || ok=1
@@ -89,6 +90,18 @@ OUT="$(bash "$HERE/scripts/ci-not-taken.sh" "$TMP/nt2" cancelled "" 2>&1)"
 head -n 1 "$TMP/nt2/screenshots/NOT-TAKEN.txt" | grep -qF 'NOT TAKEN: the Compile job did not finish (result: cancelled)' \
   && grep -qF 'first error: (no error line was passed on' "$TMP/nt2/screenshots/NOT-TAKEN.txt"
 check "compile cancelled, no error line: says so instead of inventing one" $?
+
+# #24 D: a main set made by scripts/ci-ui-tests.sh after a deadline stop with an INCOMPLETE result bundle: only the loose
+# PNG files of the tests before the stop, notes/ beside them, index.md saying TEST STOPPED. It must pass the check, and its
+# index must list every picture and the counts.
+D="$TMP/deadline"; mkdir -p "$D/notes"; pic "$D/02-home-empty.png"; pic "$D/10-add-source-types.png"; pic "$D/11-form-webdav-NOT-REACHED.png"
+printf 'The row could not be focused.' > "$D/notes/11-form-webdav-NOT-REACHED.txt"
+printf 'test\tresult\tseconds\tpictures\ntest01_FirstLaunchAndEmptyScreens\tpassed\t68\t1\ntest02_AddASource\tstopped by the time budget\t900\t2\ntest03_Settings\tnot started (time budget)\t0\t0\n' > "$TMP/ui-tests.tsv"
+python3 "$HERE/scripts/ci-ui-index.py" "$D" "$HERE/scripts/screenshot-plan.tsv" "$TMP/ui-tests.tsv" test01_FirstLaunchAndEmptyScreens test02_AddASource test03_Settings > /dev/null
+OUT="$(bash "$CHECK" "$D" main 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && has "ARTIFACT OK (main): 3 pictures" && grep -qF 'TEST STOPPED BY THE TIME BUDGET: pictures up to 10-add-source-types' "$D/index.md" \
+  && grep -qF 'Planned: 33. Taken: 2. Missing: 30. Failed (not reached): 1.' "$D/index.md" && grep -qE '^- \[02-home-empty\]\(02-home-empty.png\) [0-9]+ KB' "$D/index.md"
+check "deadline stop, incomplete bundle: the loose pictures pass the check; index says TEST STOPPED and counts" $?
 
 echo "artifact-contents tests: passed $P, failed $X"
 [ "$X" -eq 0 ]

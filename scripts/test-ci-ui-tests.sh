@@ -75,6 +75,15 @@ check "deadline: index.md says TEST STOPPED BY THE TIME BUDGET with the last pic
 check "deadline: the next test was not started, and says so" "! [ -d '$S/out/xcresult/$T3.xcresult' ] && grep -qF '| $T3 | not started (time budget) |' '$S/dest/index.md'"
 check "deadline: the earlier test's pictures are there" "[ -f '$S/dest/02-home-empty.png' ] && [ -f '$S/dest/03-movies-empty.png' ]"
 
+# The step's own time limit kills the runner in the middle of a test (no budget stop): --collect still copies that test's
+# pictures and says the test was cut off; the test after it is listed as not started.
+setup; printf '%s ok\n%s hang\n%s ok\n' $T1 $T2 $T3 > "$S/behaviour"
+PATH="$S/bin:$PATH" OUT="$S/out" SIM_UDID=UDID-1 CI_UI_XCODEBUILD=fake-xcodebuild CI_SIM_DEVICES="$S/devices" CI_UI_EXPORT=0 \
+  timeout -s KILL 4 bash "$here/ci-ui-tests.sh" "$S/dest" $T1 $T2 $T3 > "$S/stdout" 2>&1
+PATH="$S/bin:$PATH" OUT="$S/out" CI_SIM_DEVICES="$S/devices" CI_UI_EXPORT=0 bash "$here/ci-ui-tests.sh" --collect "$S/dest" $T1 $T2 $T3 >> "$S/stdout" 2>&1; rc=$?
+check "step killed mid-test: --collect copies the cut-off test's picture (exit 0)" "[ $rc -eq 0 ] && [ -f '$S/dest/10-add-source-types.png' ] && [ -f '$S/dest/02-home-empty.png' ]"
+check "step killed mid-test: index.md says cut off, and not started for the next test" "grep -qF \"| $T2 | cut off (the step's time limit) |\" '$S/dest/index.md' && grep -qF '| $T3 | not started (the step ended first) |' '$S/dest/index.md' && grep -qF '| $T1 | passed |' '$S/dest/index.md'"
+
 # The host folder could not be written: the pictures are found in the simulator's data folder.
 setup; printf '%s simdata\n' $T5 > "$S/behaviour"; run $T5; rc=$?
 check "simulator data folder: pictures found there and copied" "[ $rc -eq 0 ] && [ -f '$S/dest/70-files-sources.png' ] && grep -q 'simulator data folder' '$S/out/ui-tests-sources.txt'"

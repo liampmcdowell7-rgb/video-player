@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CI only (compile-check.yml, jobs "screenshots", "accessibility-screenshots" and "accessibility-settings-screenshots": all build exactly this way).
+# CI only (compile-check.yml, jobs "screenshots", "screenshots-library" and "accessibility-screenshots": all build exactly this way).
 # Builds the app and the UI tests for the booted simulator ($SIM_UDID), Debug, AD-HOC signed (identity "-", no team, no
 # profile, no secret; OPEN_QUESTIONS R164); if that build fails, builds again unsigned and says so.
 # Writes SIGNING and APP_PATH to $GITHUB_ENV for the later steps. Log: $OUT/test.log.
@@ -20,3 +20,7 @@ fi
 APP="$(find build/DerivedData/Build/Products/Debug-appletvsimulator -maxdepth 1 -name 'VideoPlayer.app' -type d | head -n 1)"
 [ -n "$APP" ] || { echo "::error::No VideoPlayer.app in build/DerivedData/Build/Products/Debug-appletvsimulator"; exit 1; }
 echo "APP_PATH=$APP" >> "$GITHUB_ENV"
+# #24 B: how big one shared build-for-testing artifact would be (the three UI jobs each build for about 7:45 now).
+# Not shared yet: the size was never measured (docs/COVERAGE.md "UI-test jobs"). This line measures it.
+{ echo "Build products (what a shared build-for-testing artifact would hold):"; du -sh build/DerivedData/Build/Products 2>&1
+  du -sh build/DerivedData/Build/Products/* 2>&1; } | tee "$OUT/build-products-size.txt" || true

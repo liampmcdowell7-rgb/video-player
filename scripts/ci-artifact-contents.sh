@@ -14,7 +14,8 @@
 #                  pictures only in contrast/, transparency/ or motion/ (the simulator settings, 113 and up), each NN 80 or
 #                  more; settings-applied.txt at the top (it says which settings were applied; one that was not has no
 #                  pictures, so none at all is allowed).
-#   (#16 item 1.10: the accessibility job was split in two, one artifact each.)
+#   (#16 item 1.10: the accessibility job was split in two, one artifact each. #24: the accessibility-settings job is
+#   removed, OPEN_QUESTIONS R197; its check stays for the alternative of putting it back.)
 #
 # Writes DIR/CONTENTS.txt (every file with its size, then the counts) so the artifact says what it is, prints the same,
 # and prints "ARTIFACT OK (<set>)" or one "ARTIFACT PROBLEM: ..." line per problem (exit 1).

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# CI only (compile-check.yml, jobs "screenshots", "accessibility-screenshots" and "accessibility-settings-screenshots").
+# Not called by the workflow since #24: scripts/ci-ui-tests.sh exports each test's own bundle (through
+# scripts/ci-screenshots-index.py). Kept to export one whole result bundle by hand on a Mac.
 # Usage: ci-export-screenshots.sh RESULT.xcresult OUT_DIR
 # Exports the attachments of one result bundle and puts the screenshots in viewing order (01-..., 02-...) with index.md in
 # OUT_DIR (scripts/ci-screenshots-index.py). Crash reports, screen recordings and text attachments go to $OUT/attachments

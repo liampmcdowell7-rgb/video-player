@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# CI only (compile-check.yml, job "accessibility-settings-screenshots").
+# NOT RUN BY ANY JOB since #24 (the job "accessibility-settings-screenshots" was removed; OPEN_QUESTIONS R197, provisional).
+# Kept, with scripts/ci-a11y-setting.sh, for the alternative in R197: putting that job back.
 # Usage: ci-a11y-run.sh WORD TEST   (WORD: contrast, transparency or motion; TEST: the ScreenshotTests method)
 # Turns the setting on in the simulator ($SIM_UDID), runs that one UI test into $OUT/A11y-WORD.xcresult, turns it off.
 # When the setting cannot be applied, nothing runs and a11y-settings.txt says NOT APPLIED (no screenshot is ever saved
