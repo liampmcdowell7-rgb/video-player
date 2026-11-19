@@ -67,7 +67,7 @@ The budget is **25 minutes from the start of the first UI test** (`CI_TEST_BUDGE
 Before the tests every UI job spends about 12 minutes (fa00af8, measured: prepare 1:18, pick and boot 1:29, build
 7:37-7:48, launch smoke 1:11-1:21; the accessibility job has no smoke). The collect, check and upload steps after the
 tests take about 1-2 minutes. Each job stays well inside its budget (part 1 and accessibility use about 60% of the 25
-minutes). Total planned: **140 pictures** (81 / 26 / 33; #25 added 10-add-source-learn-more to part 1).
+minutes). Total planned: **142 pictures** (83 / 26 / 33; #25 added 10-add-source-learn-more to part 1; #26 added 36-settings-online-lookup-key-set and its scrolled picture to test03, about 40 s more in part 1).
 
 **#25 C1 (2026-11-19), the budget after the #25 test changes.** The run on 1fe5d50 delivered 54 / 20 / 33 pictures; its
 accessibility job took **24:47 start to end** (the owner's figure). With about 10:30 before the tests (no launch smoke in

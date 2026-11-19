@@ -69,6 +69,17 @@ else
   [ -f "$dir/settings-applied.txt" ] || problems+=("no settings-applied.txt (which simulator settings were applied)")
 fi
 
+# #26 item 2: no API key may be in an artifact. The UI tests use one synthetic key (AppLogic UITestLaunch.fakeTMDBKey, set
+# with -UITestFakeTMDBKey); the app shows it masked, so its whole text must never appear in any file (pictures are read as
+# bytes too, which finds text only, not a key drawn in a picture: a picture is checked by looking at it).
+fake_key="uitestFAKEkeyNOTrealDoNotUse0000c0de"
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  grep -qaF -- "$fake_key" "$dir/$f" && problems+=("$f contains the whole synthetic test key; keys must only ever be shown masked")
+done <<EOF
+$listing
+EOF
+
 {
   echo "Artifact folder: $(basename "$dir") (expected: the $set_name set)"
   echo

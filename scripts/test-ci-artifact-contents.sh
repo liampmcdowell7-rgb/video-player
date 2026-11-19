@@ -100,8 +100,21 @@ printf 'test\tresult\tseconds\tpictures\ntest01_FirstLaunchAndEmptyScreens\tpass
 python3 "$HERE/scripts/ci-ui-index.py" "$D" "$HERE/scripts/screenshot-plan.tsv" "$TMP/ui-tests.tsv" test01_FirstLaunchAndEmptyScreens test02_AddASource test03_Settings > /dev/null
 OUT="$(bash "$CHECK" "$D" main 2>&1)"; RC=$?
 [ "$RC" -eq 0 ] && has "ARTIFACT OK (main): 3 pictures" && grep -qF 'TEST STOPPED BY THE TIME BUDGET: pictures up to 10-add-source-types' "$D/index.md" \
-  && grep -qF 'Planned: 34. Taken: 2. Missing: 31. Failed (not reached): 1.' "$D/index.md" && grep -qE '^- \[02-home-empty\]\(02-home-empty.png\) [0-9]+ KB' "$D/index.md"
+  && grep -qF 'Planned: 36. Taken: 2. Missing: 33. Failed (not reached): 1.' "$D/index.md" && grep -qE '^- \[02-home-empty\]\(02-home-empty.png\) [0-9]+ KB' "$D/index.md"
 check "deadline stop, incomplete bundle: the loose pictures pass the check; index says TEST STOPPED and counts" $?
+
+# #26: the whole synthetic test key in any artifact file fails the check; the masked form passes.
+K="$TMP/keyed"; pic "$K/36-settings-online-lookup-key-set.png"; echo "# index" >"$K/index.md"
+mkdir -p "$K/notes"; printf 'StaticText, label: "Key", value: ••••c0de
+' >"$K/notes/36-settings-online-lookup-key-set-HIERARCHY.txt"
+OUT="$(bash "$CHECK" "$K" main 2>&1)"; RC=$?
+[ "$RC" -eq 0 ]; check "a masked key in a note passes" $?
+printf 'TextField value: uitestFAKEkeyNOTrealDoNotUse0000c0de
+' >"$K/notes/leak.txt"
+OUT="$(bash "$CHECK" "$K" main 2>&1)"; RC=$?
+[ "$RC" -eq 1 ] && has "notes/leak.txt contains the whole synthetic test key"; check "the whole synthetic key in any artifact file fails" $?
+grep -qF '"uitestFAKEkeyNOTrealDoNotUse0000c0de"' "$HERE/Packages/VideoPlayerCore/Sources/AppLogic/UITestLaunch.swift"
+check "the check looks for the same key text the app uses (UITestLaunch.fakeTMDBKey)" $?
 
 echo "artifact-contents tests: passed $P, failed $X"
 [ "$X" -eq 0 ]

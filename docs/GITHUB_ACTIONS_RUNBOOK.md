@@ -392,7 +392,7 @@ summary.
 
 **#25 C1:** the accessibility job measured 24:47 start to end on 1fe5d50, so its UI tests took about 12-13 minutes, half
 of the 25-minute budget; #25 adds no picture there and its new waits end as soon as the element is there. test11 stays in
-that job (docs/COVERAGE.md has the reasoning). Expected pictures per set: **81 / 26 / 33 = 140** (the run on 1fe5d50
+that job (docs/COVERAGE.md has the reasoning). Expected pictures per set: **83 / 26 / 33 = 142** (#26 added two Online Lookup pictures with a synthetic key) (the run on 1fe5d50
 delivered 54 / 20 / 33).
 
 **How many minutes a full run uses (estimate; each job's summary now prints its own "Runner minutes for this job"):**

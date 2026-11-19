@@ -433,6 +433,7 @@ final class ScreenshotTests: XCTestCase {
             // The form is ready when its Cancel row (the last row but one) stands still.
             _ = waitUntilStill(control(id: ControlID.sourceCancel, label: "Cancel", in: app))
             shot(name)
+            checkNoKeyField(in: app, name: name)
             back()
             _ = waitForScreen(ControlID.searchYourNetwork, in: app, timeout: 5)
         }
@@ -504,6 +505,43 @@ final class ScreenshotTests: XCTestCase {
             settle(); shot("42-licence-texts")
             for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); shot("43-licence-texts-scrolled-\(step)") }
         }
+        about.terminate()
+
+        // #26: Online Lookup with a key set (a synthetic key in the in-memory store, -UITestFakeTMDBKey; nothing is sent),
+        // shown masked; then a second source is added and its form must have no key field (one key for the whole app).
+        let keyed = launch("-UITestFixtures", tab: "settings", extra: ["-UITestFakeTMDBKey"])
+        guard waitForScreen("screen.settings", in: keyed), waitFor("Playback", in: keyed) else {
+            return notReached("36-settings-online-lookup-key-set", "Settings did not open with the synthetic key.")
+        }
+        if open("Online Lookup", in: keyed, name: "36-settings-online-lookup-key-set") {
+            settle()
+            let masked = keyed.descendants(matching: .any).matching(identifier: ControlID.keyValue("tmdb")).firstMatch
+            if !masked.waitForExistence(timeout: 5) {
+                notReached("36-settings-online-lookup-key-set", "No masked key row (identifier “\(ControlID.keyValue("tmdb"))”).\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(keyed, lines: 80))")
+            }
+            shot("36-settings-online-lookup-key-set")
+            for _ in 0..<6 { XCUIRemote.shared.press(.down); usleep(400_000) }
+            sleep(1)
+            shot("36-settings-online-lookup-key-set-scrolled")
+            back()
+        }
+        if open("Sources", in: keyed, name: "39-second-source-no-key-field"), open("Add a Source", in: keyed, name: "39-second-source-no-key-field"),
+           waitForScreen(ControlID.searchYourNetwork, in: keyed, timeout: 15),
+           open("WebDAV", id: ControlID.sourceKind("webdav"), in: keyed, name: "39-second-source-no-key-field") {
+            _ = waitUntilStill(control(id: ControlID.sourceCancel, label: "Cancel", in: keyed))
+            checkNoKeyField(in: keyed, name: "39-second-source-no-key-field")
+        }
+    }
+
+    /// #26 item 9: a source form never asks for an API key or token (the one app-wide key is in Settings > Online Lookup).
+    /// Fails, with the fields found, when any text or secure field is labelled with "key" or "token".
+    func checkNoKeyField(in app: XCUIApplication, name: String) {
+        let fields = app.textFields.allElementsBoundByIndex + app.secureTextFields.allElementsBoundByIndex
+        let labels = fields.map { [$0.label, $0.placeholderValue ?? "", $0.identifier].joined(separator: " | ") }
+        let offending = labels.filter { $0.range(of: "key", options: .caseInsensitive) != nil || $0.range(of: "token", options: .caseInsensitive) != nil }
+        note(name + "-FIELDS", (labels.isEmpty ? ["(no text fields)"] : labels).joined(separator: "\n")
+             + "\n" + (offending.isEmpty ? "NO KEY FIELD OK" : "KEY FIELD FOUND: " + offending.joined(separator: "; ")))
+        XCTAssertTrue(offending.isEmpty, "\(name): a source form asks for a key: \(offending)")
     }
 
     // MARK: Library screens with the sample library
