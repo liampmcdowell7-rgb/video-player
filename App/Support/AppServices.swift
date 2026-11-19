@@ -360,13 +360,21 @@ final class AppServices {
         guard let item = try await store.item(id: itemID) else { throw PlaybackError.noFile }
         let files = try await store.versions(of: itemID)
         guard let file = files.first(where: { $0.id == item.preferredFileID }) ?? files.first else { throw PlaybackError.noFile }
+        #if DEBUG
+        // #21 E: in fixture mode one sample file plays a generated clip (screenshots of the player). Not in Release.
+        let clip: URL? = UITestClip.standsIn(for: file) ? try await UITestClip.url() : nil
+        #else
+        let clip: URL? = nil
+        #endif
         // MKV and the other containers the converting player opens go through it (PLAYBACK); the rest is refused with the reason.
         let route = PlaybackRoute.route(fileName: file.name)
-        if case .unsupported(let failure) = route { throw failure }
+        if clip == nil, case .unsupported(let failure) = route { throw failure }
         let location: URL
         var headers: [String: String] = [:]
         var remux: RemuxPlayback?
-        if route == .remux {
+        if let clip {
+            location = clip
+        } else if route == .remux {
             let opened = try await RemuxPlayback.open(reader: try await sourceFactory.byteReader(for: file))
             remux = opened
             location = opened.url

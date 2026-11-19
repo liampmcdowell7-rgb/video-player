@@ -376,8 +376,8 @@ with its own runner, prepare, boot and build:
 
 | Job | Tests | Screenshots | UI tests (projected) | First stage to end of tests (projected) |
 |---|---|---|---|---|
-| 4: Screenshots, part 1 | 01, 02, 03, 10, and the player clip test (#21 E) | 3 + 4 + 8 + 20 + 6 = 41 | 11:17 | 19:28 |
-| 4b: Screenshots, part 2 | 04, 05, with the synopsis and cast screens (#21 D), the Shows toolbar and card menu (#21 F) | 26 + 7 + 4 + 4 + 2 = 43 | 11:50 | 20:01 |
+| 4: Screenshots, part 1 | 01, 02, 03, 10, and 12, the player clip (#21 E) | 3 + 4 + 8 + 20 + 6 = 41 | 11:17 | 19:28 |
+| 4b: Screenshots, part 2 | 04, 05, 13, with the synopsis and cast screens (#21 D), the Shows toolbar and card menu (#21 F) | 26 + 7 + 4 + 4 + 2 = 43 | 11:50 | 20:01 |
 
 Both stay under the 22-minute deadline with about 2 minutes to spare; the projection is an estimate from one run and is
 checked by the next run's Stage times. Cost: one more macOS job per run, about 20 minutes (prepare, boot and build are

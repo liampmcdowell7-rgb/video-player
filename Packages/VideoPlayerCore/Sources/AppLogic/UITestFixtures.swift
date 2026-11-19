@@ -140,6 +140,16 @@ public enum UITestFixtures {
 
     static func two(_ n: Int) -> String { n < 10 ? "0\(n)" : "\(n)" }
 
+    /// #21 E: the one sample file that plays. In fixture mode the app swaps in a tiny generated clip for it (App
+    /// `UITestClip`, debug only), so the screenshot job can draw the player. Sample Show 1 S01E01: it has a next episode
+    /// (Next Episode) and the intro marker below (Skip Intro).
+    public static var clipEpisodePath: String { episodePath(show: shows[0].folder, season: 1, episode: 1) }
+
+    /// Its intro marker (docs/SEGMENTS.md sidecar format). Checked against the indexed length (2580 s), so the intro passes the
+    /// 10 to 180 s rule; credits are not marked (a 40 s clip cannot have credits in the last 40 % of 2580 s), so Next Episode
+    /// comes at the end of the clip.
+    static let clipSegments = #"{"version":1,"referenceDuration":2580,"segments":[{"type":"intro","start":2,"end":20}]}"#
+
     static var episodes: [Video] {
         var out: [Video] = []
         for (index, show) in shows.enumerated() {
@@ -176,6 +186,7 @@ public enum UITestFixtures {
         }
         for (folder, logo) in logos { files[folder + "/clearlogo.png"] = .init(data: logo.png) }
         for episode in episodes { files[episode.path] = .init(size: episode.size, data: nil) }
+        files[(clipEpisodePath as NSString).deletingPathExtension + ".segments.json"] = .init(data: Data(clipSegments.utf8))
         for (i, path) in review.enumerated() { files[path] = .init(size: 700_000_000 + Int64(i) * 10_000_000, data: nil) }
         return files
     }

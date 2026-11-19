@@ -9,8 +9,8 @@
 #   3. simulator-tests   the package unit tests (VideoPlayerCore) on a tvOS Simulator; counts are a report, not a gate
 #   4. screenshots       a launch smoke (the app must still be running 8 s after launch, plain and -UITestEmpty; the
 #                        cause is printed in the log if not), then UI tests that take a named screenshot of every screen
-#                        they can reach, with debug-only sample data: part 1 (tests 01, 02, 03, 10)
-#   4b. screenshots-library   the same, part 2 (tests 04, 05: library and detail pages). Split from job 4 by #21 B so
+#                        they can reach, with debug-only sample data: part 1 (tests 01, 02, 03, 10, 12)
+#   4b. screenshots-library   the same, part 2 (tests 04, 05, 13: library and detail pages). Split from job 4 by #21 B so
 #                        neither part is cut off by the time budget (projection: docs/GITHUB_ACTIONS_RUNBOOK.md)
 #   5. accessibility-screenshots   eleven screens under Larger Text and Bold Text (drawn by the app) and at the default
 #                        size, and a check that the first two differ from the default outside the tab bar (rule 17, R170)
@@ -425,9 +425,9 @@ jobs:
           retention-days: 14
 
   # JOB 4. Screenshots, part 1 of 2: first launch, Add a Source, Settings, the sorting screens (UITests/ScreenshotTests.swift,
-  # tests 01, 02, 03, 10), on a tvOS Simulator, with the debug-only sample library (launch arguments -UITestEmpty /
+  # tests 01, 02, 03, 10, 12 the player clip), on a tvOS Simulator, with the debug-only sample library (launch arguments -UITestEmpty /
   # -UITestFixtures, App/Support/UITestMode.swift; R160). Part 2 (Home, Movies, Shows, the detail pages, Files, Search,
-  # Discover; tests 04, 05) is job 4b. SPLIT (#21 B, docs/GITHUB_ACTIONS_RUNBOOK.md "Run time budget"): the last run spent
+  # Discover; tests 04, 05, 13) is job 4b. SPLIT (#21 B, docs/GITHUB_ACTIONS_RUNBOOK.md "Run time budget"): the last run spent
   # 10:43 on 39 screenshots (16.5 s each); the set has 68 now and about 84 with #21 C-G, about 23 minutes of UI tests in
   # one job against the 13:49 left before the 22-minute deadline. Each part now has about 41-43 (about 11-12 minutes).
   # Tests 06-09 and 11 are the accessibility screenshots: jobs 5 and 6. Every test is named in exactly one job
@@ -528,7 +528,8 @@ jobs:
             -only-testing:VideoPlayerUITests/ScreenshotTests/test01_FirstLaunchAndEmptyScreens \
             -only-testing:VideoPlayerUITests/ScreenshotTests/test02_AddASource \
             -only-testing:VideoPlayerUITests/ScreenshotTests/test03_Settings \
-            -only-testing:VideoPlayerUITests/ScreenshotTests/test10_SortingScreens
+            -only-testing:VideoPlayerUITests/ScreenshotTests/test10_SortingScreens \
+            -only-testing:VideoPlayerUITests/ScreenshotTests/test12_PlayerWithSampleClip
 
       - name: Summarise errors (file, line, message)
         if: always()

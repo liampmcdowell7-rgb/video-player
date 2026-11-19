@@ -315,6 +315,7 @@ Continue
 Mark
 Profile
 English
+French
 Unknown
 # Settings > Backup (iCloud backup of generated data, OPEN_QUESTIONS R163; the screen uses the real names iCloud and CloudKit, listed above)
 Backup

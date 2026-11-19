@@ -1,6 +1,7 @@
 import XCTest
 import VideoPlayerCore
 import LibraryIndex
+import PlaybackLogic
 @testable import AppLogic
 
 /// The UI-test launch switch and the synthetic sample library (screenshots in CI). The sample library must never be
@@ -62,6 +63,7 @@ final class UITestLaunchTests: XCTestCase {
             package.appendingPathComponent("Sources/AppLogic/UITestFixtures.swift"),
             package.appendingPathComponent("Sources/AppLogic/UITestLaunch.swift"),
             package.appendingPathComponent("Sources/AppLogic/UITestFixtureDetails.swift"),
+            repo.appendingPathComponent("App/Support/UITestClip.swift"),
             repo.appendingPathComponent("App/Support/UITestMode.swift"),
         ]
         for url in guarded {
@@ -82,7 +84,8 @@ final class UITestLaunchTests: XCTestCase {
     func testShowOneHasEpisodeTitlesAndShowTwoHasMissingData() {
         let files = UITestFixtures.files().keys
         let one = UITestFixtures.shows[0].folder, two = UITestFixtures.shows[1].folder
-        let titles = files.filter { $0.hasPrefix(one + "/Season") }.compactMap {
+        // Videos only: S01E01 also has its intro marker file next to it (#21 E).
+        let titles = files.filter { $0.hasPrefix(one + "/Season") && $0.hasSuffix(".mkv") }.compactMap {
             FilenameParser.parse(fileName: ($0 as NSString).lastPathComponent).episodeTitle
         }
         XCTAssertEqual(titles.count, 7, "\(titles)")
@@ -98,7 +101,7 @@ final class UITestLaunchTests: XCTestCase {
         let allowed = try! NSRegularExpression(pattern:
             // "( [A-Za-z]+)*": plain words after the number, for the long-title fixture (#17 C). "( - [A-Z][a-z]*( [a-z]+)*)?":
             // an invented sentence-case episode title (D7): one capital letter, then lower-case words only.
-            #"^(Movies|Shows|Season \d+|poster\.png|fanart\.png|clearlogo\.png|Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?( - S\d\dE\d\d( - [A-Z][a-z]*( [a-z]+)*)?)?( - )?( ?(2160p|1080p|720p))?(\.en)?\.(mkv|mp4|srt|sup))$|^Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?$|^Unsorted$|^Sample (Clip|Unsorted [A-Za-z0-9 -]+)\.(mkv|mp4|m4v)$"#)
+            #"^(Movies|Shows|Season \d+|poster\.png|fanart\.png|clearlogo\.png|Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?( - S\d\dE\d\d( - [A-Z][a-z]*( [a-z]+)*)?)?( - )?( ?(2160p|1080p|720p))?(\.en)?\.(mkv|mp4|srt|sup|segments\.json))$|^Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?$|^Unsorted$|^Sample (Clip|Unsorted [A-Za-z0-9 -]+)\.(mkv|mp4|m4v)$"#)
         for path in UITestFixtures.files().keys {
             for part in path.split(separator: "/") {
                 let s = String(part)
@@ -194,6 +197,22 @@ final class UITestLaunchTests: XCTestCase {
                           "every fake text carries the marker the Release check looks for")
             XCTAssertTrue(d?.cast.allSatisfy { $0.name.hasPrefix("Sample Actor") } ?? true)
         }
+    }
+
+    /// #21 E: the clip episode has an intro marker next to it that the segment reader finds and accepts.
+    func testTheClipEpisodeHasAnIntroMarkerNextToIt() async throws {
+        let source = FixtureSource()
+        let path = UITestFixtures.clipEpisodePath
+        XCTAssertTrue(path.hasPrefix("/Shows/Sample Show 1/Season 1/"), path)
+        let folder = (path as NSString).deletingLastPathComponent
+        let names = try await source.list(folder).map(\.name)
+        let found = SidecarSegments.matching(videoName: (path as NSString).lastPathComponent, among: names)
+        XCTAssertEqual(found.map(\.format), [.json], "\(names)")
+        let name = try XCTUnwrap(found.first?.name)
+        let data = try await source.read(folder + "/" + name, range: ByteRange(offset: 0, length: 4096))
+        let parsed = SidecarSegments.parse(data, format: .json)
+        XCTAssertTrue(parsed.warnings.isEmpty, "\(parsed.warnings)")
+        XCTAssertEqual(parsed.entries.count, 1)
     }
 
     func testTheSampleSourceRefusesToReadAVideo() async throws {
