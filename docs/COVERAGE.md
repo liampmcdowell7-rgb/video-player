@@ -135,6 +135,47 @@ design-lint self-tests 147, App syntax parse 102 files, ci-inspect self-test 18,
   from 456 passed / 2 skipped to 473 passed / 2 skipped (`vp-filter.sh 'LibraryIndexTests|AppLogicTests|LibraryBackupTests'`).
   The full run was not repeated, so about 1,865 passed is expected but **not run**.
 
+### Final Linux run for #19 E (2026-11-19, after c9ddcda)
+
+`scripts/test-all.sh`, exit 0. Linux only: nothing here builds or runs the tvOS app (that needs the CI simulator).
+
+| Target | Passed | Skipped | Failed |
+|---|---|---|---|
+| AppLogic | 381 | 0 | 0 |
+| DolbyVisionRPU | 7 | 8 | 0 |
+| LibraryBackup | 22 | 0 | 0 |
+| LibraryIndex | 112 | 2 | 0 |
+| MetadataLocal | 123 | 1 | 0 |
+| MetadataOnline | 222 | 0 | 0 |
+| PlaybackLogic | 163 | 0 | 0 |
+| PlaybackStatus | 32 | 0 | 0 |
+| RemuxEngine | 179 | 0 | 0 |
+| SourceEmby | 27 | 11 | 0 |
+| SourceFTP | 47 | 14 | 0 |
+| SourceJellyfin | 27 | 11 | 0 |
+| SourceLinks | 36 | 8 | 0 |
+| SourceNFS | 34 | 13 | 0 |
+| SourceOneDrive | 36 | 0 | 0 |
+| SourceRangeProxy | 7 | 0 | 0 |
+| SourceSFTPCitadel | 19 | 23 | 0 |
+| SourceSFTP | 22 | 0 | 0 |
+| SourceSMB | 20 | 11 | 0 |
+| SourceUPnP | 32 | 9 | 0 |
+| SourceWebDAV | 32 | 10 | 0 |
+| Subtitles | 180 | 0 | 0 |
+| UserData | 106 | 0 | 0 |
+| VideoPlayerCore | 36 | 0 | 0 |
+| **Total** | **1,902** | **121** | **0** |
+
+Same run, other stages (all 0 failed, 0 skipped): live servers rclone 188, sftp 64, jellyfin 38, emby 38, smb 31,
+nfs 47, dovi 17, audio 38; design-lint self-tests 200, design-lint on App/ clean, App syntax parse 109 files,
+test-counts self-test 17, ci-inspect self-test 22, ambiguous-types 10, artifact-contents 14, ci-sim 20, a11y-compare 9,
+stray-folder guard 1, playback-status doc table 1 (474 rows).
+
+- 1,902 − 1,848 = 54 new tests, the same 121 skipped (the server, iCloud and tool tests that need what Linux lacks).
+- The `FixMatchTests` name clash (above) now puts its 5 tests under AppLogic: AppLogic 381 matches
+  `swift test --filter AppLogicTests`, and MetadataOnline shows 222 instead of 227. The total is right.
+
 ## 1. What the first TestFlight build would NOT have that you asked for (gaps first)
 
 | # | You asked for | Status | What exists / what is missing | Where |
