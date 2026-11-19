@@ -27,7 +27,7 @@ public final class CloudKitSecretCloud: SecretCloud, @unchecked Sendable {
 
     public init(containers: LazyCloudResource<CKContainer> = CloudKitContainers.make()) {
         self.containers = containers
-        zoneID = CKRecordZone.ID(zoneName: "Secrets", ownerName: CKCurrentUserDefaultName)
+        zoneID = CKRecordZone.ID(zoneName: UserDataModule.secretsZoneName, ownerName: CKCurrentUserDefaultName)
     }
 
     /// The private database; throws `CloudUnavailable` when the container cannot be made (no iCloud capability).
