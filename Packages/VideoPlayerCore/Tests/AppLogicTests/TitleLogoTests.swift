@@ -93,3 +93,20 @@ final class TitleLogoTests: XCTestCase {
         XCTAssertTrue(SettingsKey.showTitleLogos.defaultBool)
     }
 }
+
+/// #15 9.6: the generated fixture logos give the verdicts the screenshots rely on.
+final class FixtureLogoTests: XCTestCase {
+    func testMovie2AndShow1PassAndTheOthersFallBackToText() throws {
+        var verdicts: [String: TitleLogoRules.Rejection?] = [:]
+        for (folder, logo) in UITestFixtures.logos {
+            let p = try XCTUnwrap(LogoPixels.measure(rgba: logo.rgba, width: logo.width, height: logo.height), folder)
+            verdicts[(folder as NSString).lastPathComponent] = TitleLogoRules.check(p)
+            XCTAssertTrue(logo.png.starts(with: [0x89, 0x50, 0x4E, 0x47]), "a PNG")
+        }
+        XCTAssertEqual(verdicts["Sample Movie 2 (2019)"], .some(nil))
+        XCTAssertEqual(verdicts["Sample Show 1"], .some(nil))
+        XCTAssertEqual(verdicts["Sample Movie 3 (2018)"], .some(.tooDark))
+        XCTAssertEqual(verdicts["Sample Movie 5 (2020)"], .some(.notTransparent))
+        XCTAssertEqual(verdicts["Sample Movie 6 (2017)"], .some(.tooSmall))
+    }
+}

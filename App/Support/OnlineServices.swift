@@ -94,6 +94,11 @@ final class OnlineServices {
 
     func resolveArtwork(key: String) async -> ArtworkResult { await resolver.resolve(key: key) }
 
+    /// Title-logo pictures for a movie or show page, in the device's first preferred language order (#15 9.3).
+    func logoCandidates(key: String) async -> [LogoCandidate] {
+        await resolver.logoCandidates(key: key, userLanguage: Locale.preferredLanguages.first)
+    }
+
     /// Bytes of one picture for the Top Shelf folder (a cached file, or a download of the matched poster). Nil when there is none.
     func artworkBytes(key: String) async -> Data? {
         switch await resolver.resolve(key: key) {

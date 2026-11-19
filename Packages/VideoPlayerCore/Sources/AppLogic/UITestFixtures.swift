@@ -163,10 +163,23 @@ public enum UITestFixtures {
             files[show.folder + "/poster.png"] = .init(data: GradientPNG.make(width: 240, height: 360, hue: show.hue))
             files[show.folder + "/fanart.png"] = .init(data: GradientPNG.make(width: 480, height: 270, hue: show.hue + 0.08))
         }
+        for (folder, logo) in logos { files[folder + "/clearlogo.png"] = .init(data: logo.png) }
         for episode in episodes { files[episode.path] = .init(size: episode.size, data: nil) }
         for (i, path) in review.enumerated() { files[path] = .init(size: 700_000_000 + Int64(i) * 10_000_000, data: nil) }
         return files
     }
+
+    /// #15 9.6 and D7: generated title logos (no real artwork). Movie 2 and Show 1 get a good one (the screenshots of their
+    /// pages, and the accessibility set 90/96/107 and 91/97/108, show it); Movie 3 a dark one, Movie 5 one with a solid
+    /// background, Movie 6 a tiny one: all three are rejected by `TitleLogoRules.check`, so those pages keep the text title.
+    /// The other titles have none.
+    static let logos: [(folder: String, logo: LogoPNG)] = [
+        ("/Movies/Sample Movie 2 (2019)", LogoPNG(width: 800, height: 200, ink: (245, 245, 245), background: nil)),
+        ("/Shows/Sample Show 1", LogoPNG(width: 900, height: 240, ink: (250, 236, 200), background: nil)),
+        ("/Movies/Sample Movie 3 (2018)", LogoPNG(width: 800, height: 200, ink: (25, 20, 35), background: nil)),
+        ("/Movies/Sample Movie 5 (2020)", LogoPNG(width: 800, height: 200, ink: (245, 245, 245), background: (40, 40, 40))),
+        ("/Movies/Sample Movie 6 (2017)", LogoPNG(width: 120, height: 40, ink: (245, 245, 245), background: nil)),
+    ]
 
     static let sampleSubtitles = "1\n00:00:01,000 --> 00:00:04,000\nSample subtitle line one.\n\n2\n00:00:05,000 --> 00:00:08,000\nSample subtitle line two.\n"
 
@@ -291,6 +304,57 @@ public struct FixtureSource: MediaSource {
     }
 
     static let noVideo = "This is a sample file made for screenshots. It has no video."
+}
+
+/// A generated "title logo" (#15 9.6): blocky bars that stand in for lettering, in one ink colour, on a transparent background
+/// (RGBA PNG) or on a solid one. Synthetic: no real title's artwork.
+struct LogoPNG {
+    var width: Int
+    var height: Int
+    var ink: (UInt8, UInt8, UInt8)
+    var background: (UInt8, UInt8, UInt8)?
+
+    /// The pixels, row after row, RGBA (what `LogoPixels.measure` reads; the fixture tests check them).
+    var rgba: [UInt8] {
+        var out: [UInt8] = []
+        out.reserveCapacity(width * height * 4)
+        let letters = 7
+        let cell = max(1, width / (letters * 3 + 1))
+        let top = height / 5, bottom = height - height / 5
+        for y in 0..<height {
+            for x in 0..<width {
+                // Letter k covers columns [cell*(3k+1), cell*(3k+3)); every other letter has a gap in its middle third.
+                let k = x / cell
+                let inLetter = k % 3 != 0 && k / 3 < letters && y >= top && y < bottom
+                let gap = (k / 3) % 2 == 1 && y >= top + (bottom - top) / 3 && y < bottom - (bottom - top) / 3 && k % 3 == 1
+                if inLetter && !gap {
+                    out += [ink.0, ink.1, ink.2, 255]
+                } else if let b = background {
+                    out += [b.0, b.1, b.2, 255]
+                } else {
+                    out += [0, 0, 0, 0]
+                }
+            }
+        }
+        return out
+    }
+
+    var png: Data {
+        let pixels = rgba
+        var raw = Data(capacity: height * (1 + width * 4))
+        for y in 0..<height {
+            raw.append(0) // filter: none
+            raw.append(contentsOf: pixels[(y * width * 4)..<((y + 1) * width * 4)])
+        }
+        var png = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+        var header = Data()
+        header.append(GradientPNG.be32(UInt32(width))); header.append(GradientPNG.be32(UInt32(height)))
+        header.append(contentsOf: [8, 6, 0, 0, 0]) // 8-bit, truecolour with alpha, deflate, adaptive filter, no interlace
+        png.append(GradientPNG.chunk("IHDR", header))
+        png.append(GradientPNG.chunk("IDAT", GradientPNG.zlibStored(raw)))
+        png.append(GradientPNG.chunk("IEND", Data()))
+        return png
+    }
 }
 
 /// A small RGB PNG with a vertical two-colour gradient, encoded here (stored deflate blocks, no compression library).

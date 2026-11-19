@@ -79,7 +79,7 @@ final class UITestLaunchTests: XCTestCase {
     func testTheSampleLibraryUsesOnlyGenericNames() {
         let allowed = try! NSRegularExpression(pattern:
             // "( [A-Za-z]+)*": plain words after the number, for the long-title fixture (#17 C).
-            #"^(Movies|Shows|Season \d+|poster\.png|fanart\.png|Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?( - S\d\dE\d\d)?( - )?( ?(2160p|1080p|720p))?(\.en)?\.(mkv|mp4|srt|sup))$|^Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?$|^Unsorted$|^Sample (Clip|Unsorted [A-Za-z0-9 -]+)\.(mkv|mp4|m4v)$"#)
+            #"^(Movies|Shows|Season \d+|poster\.png|fanart\.png|clearlogo\.png|Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?( - S\d\dE\d\d)?( - )?( ?(2160p|1080p|720p))?(\.en)?\.(mkv|mp4|srt|sup))$|^Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?$|^Unsorted$|^Sample (Clip|Unsorted [A-Za-z0-9 -]+)\.(mkv|mp4|m4v)$"#)
         for path in UITestFixtures.files().keys {
             for part in path.split(separator: "/") {
                 let s = String(part)

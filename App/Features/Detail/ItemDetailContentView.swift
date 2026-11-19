@@ -15,12 +15,8 @@ struct ItemDetailContentView: View {
                 if let series = content.seriesTitle, let seriesID = content.seriesID {
                     NavigationLink(series, value: Route.series(seriesID))
                 }
-                // Rule S1: one line each, scaled to the readable minimum, never cut or wrapped.
-                Text(content.title)
-                    .font(.largeTitle)
-                    .lineLimit(1)
-                    // design-lint:allow rule S1 (OPEN_QUESTIONS R165): the system text style shrinks to fit, never below Apple's 23 pt minimum (HIG Typography)
-                    .minimumScaleFactor(ShortLine.minimumScale(forPointSize: TVTextStyle.title1.pointSize))
+                // #15 Part 9: a movie's title logo when one is found and the setting is on; otherwise the text title (rule S1).
+                TitleHeader(title: content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil)
                 if !content.facts.isEmpty {
                     FittingText(content.facts, style: .body)
                         .foregroundStyle(.secondary)

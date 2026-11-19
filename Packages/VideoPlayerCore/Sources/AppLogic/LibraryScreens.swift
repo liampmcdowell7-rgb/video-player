@@ -415,6 +415,11 @@ public struct SeasonsContent: Equatable, Sendable {
     public var resumeEpisodeID: Int64?
     /// "Play", "Resume", or "Play Again" when everything is watched.
     public var playTitle: String
+
+    /// #15 5.1: the show page offers only the mark that changes something. Mark Show as Watched while any episode is unwatched,
+    /// Mark Show as Unwatched while any is watched (both in the middle of a show).
+    public var canMarkWatched: Bool { seasons.contains { $0.watchedCount < $0.episodes.count } }
+    public var canMarkUnwatched: Bool { seasons.contains { $0.watchedCount > 0 } }
 }
 
 public struct SeasonsViewModel: Sendable {

@@ -33,6 +33,7 @@ public enum SettingsTexts {
 
     public static let sourcesSummary = "The servers and shared folders your videos come from."
     public static let noSources = "No sources yet."
+    public static let titleLogosFooter = "A title’s lettering in place of its name on movie and show pages. Off: plain text titles everywhere."
     public static let librarySummary = "Scanning your sources, files that need a decision, and what the library holds."
     public static let storageSummary = "Where your settings, passwords and library are kept."
     public static let accessibilitySummary = "This app follows the Apple TV’s own accessibility settings and has no separate copies."
@@ -52,5 +53,5 @@ public enum SettingsTexts {
     }
 
     /// The short footers, for the length test.
-    public static let shortFooters = [skipShort, statsFooter, trueHDShort, continueFooter, discoverFooter, whatIsSentShort]
+    public static let shortFooters = [skipShort, statsFooter, trueHDShort, continueFooter, discoverFooter, whatIsSentShort, titleLogosFooter]
 }

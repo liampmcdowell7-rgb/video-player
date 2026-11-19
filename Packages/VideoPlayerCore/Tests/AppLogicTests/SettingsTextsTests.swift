@@ -29,5 +29,8 @@ final class SettingsTextsTests: XCTestCase {
     func testTheShortWhatIsSentAgreesWithTheFullText() {
         XCTAssertTrue(SettingsTexts.whatIsSentShort.hasPrefix("Nothing is sent until you enter a key."))
         XCTAssertTrue(OnlineLookupText.whatIsSent.hasPrefix("Nothing is sent to any online service until you enter a key below."))
+        // #15 3.5 and 9.5: the full text says that title logos are downloaded too, and how to stop it.
+        XCTAssertTrue(OnlineLookupText.whatIsSent.contains("title logos"))
+        XCTAssertTrue(OnlineLookupText.whatIsSent.contains("Show Title Logos is on in Settings > Library"))
     }
 }

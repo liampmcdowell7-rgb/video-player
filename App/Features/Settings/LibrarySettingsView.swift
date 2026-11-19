@@ -6,6 +6,7 @@ import LibraryIndex
 struct LibrarySettingsView: View {
     @Environment(AppServices.self) private var services
     @AppStorage(SettingsKey.scanOnLaunch.rawValue) private var scanOnLaunch = true
+    @AppStorage(SettingsKey.showTitleLogos.rawValue) private var showTitleLogos = true
     @State private var counts: LibraryCounts?
     @State private var reviewCount: Int?
 
@@ -20,6 +21,12 @@ struct LibrarySettingsView: View {
                 }
                 .disabled(services.isScanning)
                 ScanProgressRow(progress: services.scanProgress)
+            }
+            // #15 3.2 and 9.4: title logos on the movie and show pages (on by default).
+            Section {
+                Toggle("Show Title Logos", isOn: $showTitleLogos)
+            } footer: {
+                Text(SettingsTexts.titleLogosFooter)
             }
             // docs/SORTING.md: files that are neither a clear movie nor a clear episode wait here, never in Movies or Shows.
             Section {

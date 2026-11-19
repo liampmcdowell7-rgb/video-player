@@ -11,7 +11,7 @@ struct SeriesView: View {
         Group {
             if let model {
                 ScreenStateView(state: model.screen.state, onRetry: { Task { await reload() } }) { content in
-                    SeasonsList(content: content, model: model, onPlay: play)
+                    SeasonsList(content: content, seriesID: seriesID, model: model, onPlay: play)
                 }
             } else {
                 LoadingView()

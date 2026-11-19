@@ -328,6 +328,9 @@ Sample
 Movie
 Show
 Season
+# The setting name "Show Title Logos" (#15 Part 9), quoted in the What Is Sent text
+Title
+Logos
 # PNG chunk type names written by the sample library's picture generator (PNG specification, not brands)
 IHDR
 IDAT

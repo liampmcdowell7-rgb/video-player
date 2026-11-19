@@ -312,6 +312,8 @@ final class LibraryScreenTests: XCTestCase {
         let first = try XCTUnwrap(c.seasons[0].episodes.first)
         XCTAssertEqual(c.resumeEpisodeID, first.id)
         XCTAssertEqual(c.seasons[0].summary, "0 of 3 watched")
+        XCTAssertTrue(c.canMarkWatched)
+        XCTAssertFalse(c.canMarkUnwatched, "#15 5.1: nothing watched, so no Mark Show as Unwatched")
 
         // First two episodes watched: Play becomes Resume and points at episode 3.
         await vm.setWatched(true, episodeID: c.seasons[0].episodes[0].id)
@@ -320,6 +322,7 @@ final class LibraryScreenTests: XCTestCase {
         XCTAssertEqual(c.playTitle, "Resume")
         XCTAssertEqual(c.resumeEpisodeID, c.seasons[0].episodes[2].id)
         XCTAssertEqual(c.seasons[0].summary, "2 of 3 watched")
+        XCTAssertTrue(c.canMarkWatched && c.canMarkUnwatched, "partly watched: both apply")
 
         // A whole season at once, then the whole series.
         await vm.markSeason(1, watched: true)
@@ -327,6 +330,8 @@ final class LibraryScreenTests: XCTestCase {
         XCTAssertEqual(vm.state.content?.resumeEpisodeID, vm.state.content?.seasons[1].episodes[0].id, "Season 2 is next; specials are never resumed into")
         await vm.markSeries(watched: true)
         XCTAssertEqual(vm.state.content?.playTitle, "Play Again")
+        XCTAssertEqual(vm.state.content?.canMarkWatched, false, "all watched: only Mark Show as Unwatched")
+        XCTAssertEqual(vm.state.content?.canMarkUnwatched, true)
         await vm.markSeries(watched: false)
         XCTAssertEqual(vm.state.content?.playTitle, "Play")
     }

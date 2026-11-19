@@ -7,11 +7,16 @@ import AppLogic
 /// Order: a picture next to the video first, then the matched online poster (docs/ARTWORK_DISCOVER.md).
 protocol ArtworkResolving: Sendable {
     func resolve(key: String) async -> ArtworkResult
+    /// Title-logo pictures to try, strongest source first (#15 Part 9).
+    func logoCandidates(key: String, userLanguage: String?) async -> [LogoCandidate]
 }
 
 struct EngineArtworkResolver: ArtworkResolving {
     let engine: ArtworkEngine
     func resolve(key: String) async -> ArtworkResult { await engine.resolve(key: key) }
+    func logoCandidates(key: String, userLanguage: String?) async -> [LogoCandidate] {
+        await engine.logoCandidates(key: key, userLanguage: userLanguage)
+    }
 }
 
 /// Reads a picture file from a source: the first `maxBytes` bytes only.
