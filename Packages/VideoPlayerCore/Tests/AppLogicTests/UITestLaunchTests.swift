@@ -101,7 +101,8 @@ final class UITestLaunchTests: XCTestCase {
         let allowed = try! NSRegularExpression(pattern:
             // "( [A-Za-z]+)*": plain words after the number, for the long-title fixture (#17 C). "( - [A-Z][a-z]*( [a-z]+)*)?":
             // an invented sentence-case episode title (D7): one capital letter, then lower-case words only.
-            #"^(Movies|Shows|Season \d+|poster\.png|fanart\.png|clearlogo\.png|Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?( - S\d\dE\d\d( - [A-Z][a-z]*( [a-z]+)*)?)?( - )?( ?(2160p|1080p|720p))?(\.en)?\.(mkv|mp4|srt|sup|segments\.json))$|^Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?$|^Unsorted$|^Sample (Clip|Unsorted [A-Za-z0-9 -]+)\.(mkv|mp4|m4v)$"#)
+            // "-(poster|fanart).png": #25 B8, each version of a multi-version movie has its own poster and backdrop.
+            #"^(Movies|Shows|Season \d+|poster\.png|fanart\.png|clearlogo\.png|Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?( - S\d\dE\d\d( - [A-Z][a-z]*( [a-z]+)*)?)?( - )?( ?(2160p|1080p|720p))?((\.en)?\.(mkv|mp4|srt|sup|segments\.json)|-(poster|fanart)\.png))$|^Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?$|^Unsorted$|^Sample (Clip|Unsorted [A-Za-z0-9 -]+)\.(mkv|mp4|m4v)$"#)
         for path in UITestFixtures.files().keys {
             for part in path.split(separator: "/") {
                 let s = String(part)
