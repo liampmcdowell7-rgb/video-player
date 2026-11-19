@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """CI only. Counts passed / skipped / failed test cases per test target from an xcodebuild test log and lists the failures.
 
-Usage: ci-test-report.py <xcodebuild log> <output markdown>
+Usage: ci-test-report.py <xcodebuild log> <output markdown> [TITLE]
+TITLE (#24 D): the heading; default "Package tests on the tvOS Simulator". The UI-test jobs pass "UI tests and screenshots".
 Reads lines such as
   Test Case '-[LibraryIndexTests.FoundationTests testX]' passed (0.010 seconds).
   Test case 'FoundationTests.testX()' failed on 'Clone 1 of ...' (0.010 seconds)
@@ -29,6 +30,7 @@ def no_tests_cause(lines):
 
 def main():
     log, out = sys.argv[1], sys.argv[2]
+    title = sys.argv[3] if len(sys.argv) > 3 else "Package tests on the tvOS Simulator"
     counts = collections.defaultdict(lambda: collections.Counter())
     failures = []
     seen = set()
@@ -55,7 +57,7 @@ def main():
         total.update(c)
         rows.append("| %s | %d | %d | %d |" % (target, c["passed"], c["skipped"], c["failed"]))
     with open(out, "w", encoding="utf-8") as fh:
-        fh.write("## Package tests on the tvOS Simulator (report only, not a gate)\n\n")
+        fh.write("## %s (report only, not a gate)\n\n" % title)
         # #21 A: zero tests is never shown as only an empty table. The cause line comes first.
         if sum(total.values()) == 0 and not counts:
             cause = no_tests_cause(lines)

@@ -38,6 +38,23 @@ now="$(date +%s)"
   else
     echo "| (no stage was recorded) | |"
   fi
+  # #24 B: the UI-test jobs (scripts/ci-ui-tests.sh): every test with its time and seconds per picture.
+  if [ -s "$out/ui-tests.tsv" ]; then
+    echo
+    echo "### UI tests (one xcodebuild call each)"
+    echo
+    echo "| Test | Result | Time (min:s) | Pictures | Seconds per picture |"
+    echo "|---|---|---|---|---|"
+    awk -F'\t' 'NR > 1 { s = $3 + 0; p = $4 + 0
+      printf "| %s | %s | %d:%02d | %d | %s |\n", $1, $2, int(s / 60), s % 60, p, (p > 0 ? sprintf("%.1f", s / p) : "-") }' "$out/ui-tests.tsv"
+    awk -F'\t' 'NR > 1 { s += $3; p += $4 } END { printf "| **All UI tests** | | **%d:%02d** | **%d** | **%s** |\n", int(s / 60), s % 60, p, (p > 0 ? sprintf("%.1f", s / p) : "-") }' "$out/ui-tests.tsv"
+  fi
+  # #24 B: what this job costs. GitHub bills each job in whole minutes, rounded up; a standard runner in a public
+  # repository is free. The checkout before the first stage marker is not in this total (a few seconds).
+  if [ -s "$log" ]; then
+    echo
+    echo "Job time from the first stage: $((total / 60)):$(printf '%02d' $((total % 60))). Runner minutes for this job (rounded up): $(( (total + 59) / 60 ))."
+  fi
   # Jobs that use the simulator (scripts/ci-sim.sh): how long it took to be ready, whether it was retried, the runtimes.
   if [ -s "$out/sim-ready.txt" ]; then
     echo
