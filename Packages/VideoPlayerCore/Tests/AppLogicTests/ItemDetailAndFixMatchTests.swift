@@ -28,6 +28,7 @@ final class ItemDetailTests: XCTestCase {
         XCTAssertEqual(content.playTitle, "Play")
         XCTAssertFalse(content.canStartOver)
         XCTAssertNil(content.progress)
+        XCTAssertNil(content.timeLeft)
         XCTAssertEqual(content.versions.count, 1)
         XCTAssertTrue(content.versions[0].isPreferred)
 
@@ -37,10 +38,13 @@ final class ItemDetailTests: XCTestCase {
         XCTAssertEqual(content.playTitle, "Resume")
         XCTAssertTrue(content.canStartOver)
         XCTAssertEqual(try XCTUnwrap(content.progress), 0.3, accuracy: 0.001)
+        // #15 D3: the time left as text (6000 s × 0.7 = 70 min), not a full-width bar.
+        XCTAssertEqual(content.timeLeft, "1 h 10 min left")
 
         await vm.setWatched(true)
         content = try XCTUnwrap(vm.state.content)
         XCTAssertTrue(content.isWatched)
+        XCTAssertNil(content.timeLeft, "a watched title has nothing left")
         XCTAssertEqual(content.playTitle, "Play Again")
         XCTAssertFalse(content.canStartOver)
     }

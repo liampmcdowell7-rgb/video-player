@@ -260,3 +260,18 @@ As of 2026-11-18 (after #16 item 1.11): `design-lint: clean, 18 allowed by desig
 11. `.bordered` text field style on tvOS (D-DS12).
 12. Larger Text, Bold Text, Reduce Motion, Reduce Transparency, Increase Contrast, light and dark appearance: none exercised.
 13. Names (D-DS7): (a) and (c) of the old brand questions are answered by the user's names rule (real names everywhere, docs/NAMES.md). (b) The TMDB notice is shown word for word (Settings > About, Online Lookup, Discover); the TMDB logo, which TMDB's terms require, is the one logo exception (user decision R148), shown only in Settings > About > Data Sources. Whether the SVG renders with its original gradient on the device is not seen (device check N12). Whether the About section reads well with VoiceOver and Larger Text is not seen.
+
+## Shared layout parts (#15, OPEN_QUESTIONS R177)
+
+Screens use these parts instead of drawing their own. All of them are in App/Shared.
+
+| Part | File | Rule | Use |
+|---|---|---|---|
+| `SlotLabel` | LayoutParts.swift | L10, D2 | A symbol and title with the system spacing, the symbol in a fixed slot scaled with the text. Every button label on the detail pages and every list row (through `RowLabel`). |
+| `SymbolColumn` | LayoutParts.swift | D5 | A value-column symbol (the watched check) that keeps its slot when hidden, so columns line up. |
+| `StatusText` | LayoutParts.swift | L3 | Status and explanations: secondary callout text, never a row, pill or button. |
+| `LearnMoreLink` + `LongTextPage` | LayoutParts.swift, LongTextPage.swift | L5 | A one- or two-line footer, with the complete text one press away ("Learn More", "What Is Sent"). |
+| Progress inside the artwork | PosterCard.swift | D4 | A `ProgressView` overlaid on the artwork's bottom edge, so it moves with the focused card. |
+| Time left as text | ItemDetailContentView.swift (`ItemDetailContent.timeLeft`) | D3 | No full-width progress bar on a detail page. |
+
+There are two poster widths only: the shelf poster (six columns, CardRow.swift) and the grid poster (five columns, PosterGridLayout.swift). Part 4.2 records the measured widths.

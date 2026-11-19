@@ -1,10 +1,14 @@
 import SwiftUI
 
-/// The title and symbol of a list row: the system `Label` (the system lays out and spaces icon and title, rule S3).
+/// The title and symbol of a list row.
+///
+/// #15 L10: the screenshots showed the symbol touching the title with the system `Label` in these rows, so the row now uses
+/// `SlotLabel` (App/Shared/LayoutParts.swift): the system `HStack` spacing between symbol and title, and the symbol in a
+/// fixed, text-scaled slot so every row's title starts at the same place. A custom `LabelStyle` is not used (design-lint
+/// rule `custom-focus`). PROVISIONAL, OPEN_QUESTIONS R177. Fixed in code, verify in next screenshots.
 ///
 /// The symbol takes the same hierarchical foreground as the title (`.primary`), so when the focused row turns light the
-/// glyph turns dark with the text. Screenshot review item 6: the "Search Your Network" glyph stayed white on the white focus
-/// pill. The title follows rule S1 (`FittingText`).
+/// glyph turns dark with the text (screenshot review item 6). The title follows rule S1 (`FittingText`).
 struct RowLabel: View {
     let title: String
     let systemImage: String
@@ -15,11 +19,6 @@ struct RowLabel: View {
     }
 
     var body: some View {
-        Label {
-            FittingText(title)
-        } icon: {
-            Image(systemName: systemImage)
-                .foregroundStyle(.primary)
-        }
+        SlotLabel(title, systemImage: systemImage)
     }
 }

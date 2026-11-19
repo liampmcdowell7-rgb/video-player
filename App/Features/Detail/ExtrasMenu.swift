@@ -6,10 +6,13 @@ struct ExtrasMenu: View {
     let extras: [ExtraRow]
 
     var body: some View {
-        Menu("Extras", systemImage: "doc.on.doc") {
+        Menu {
             ForEach(extras) { extra in
                 Text(label(extra))
             }
+        } label: {
+            // #15 D2: the same symbol slot, and so the same height, as the other detail buttons.
+            SlotLabel("Extras", systemImage: "doc.on.doc")
         }
     }
 

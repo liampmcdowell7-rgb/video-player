@@ -29,8 +29,9 @@ struct ItemDetailContentView: View {
                     FittingLine(line: CardBuilder.badgeLine(content.badges), style: .callout)
                         .foregroundStyle(.secondary)
                 }
-                if let progress = content.progress {
-                    ProgressView(value: progress)
+                // #15 D3: how much is left, as text, instead of a full-width bar. Fixed in code, verify in next screenshots.
+                if let timeLeft = content.timeLeft {
+                    StatusText(timeLeft)
                 }
                 actions
             }
@@ -39,11 +40,12 @@ struct ItemDetailContentView: View {
     }
 
     private var actions: some View {
+        // #15 D2: every button in the row uses `SlotLabel`, so the symbol slot, and with it the button height, is the same.
         HStack {
-            Button { onPlay(false) } label: { Label(content.playTitle, systemImage: "play.fill") }
+            Button { onPlay(false) } label: { SlotLabel(content.playTitle, systemImage: "play.fill") }
                 .buttonStyle(.borderedProminent)
             if content.canStartOver {
-                Button("Start Over", systemImage: "arrow.counterclockwise") { onPlay(true) }
+                Button { onPlay(true) } label: { SlotLabel("Start Over", systemImage: "arrow.counterclockwise") }
                     .buttonStyle(.bordered)
             }
             if content.versions.count > 1 {
@@ -57,7 +59,7 @@ struct ItemDetailContentView: View {
     }
 
     private var moreMenu: some View {
-        Menu("More", systemImage: "ellipsis") {
+        Menu {
             Button(content.isWatched ? "Mark as Unwatched" : "Mark as Watched", systemImage: content.isWatched ? "eye.slash" : "eye") {
                 Task { await model.run { await $0.setWatched(!content.isWatched) } }
             }
@@ -67,6 +69,8 @@ struct ItemDetailContentView: View {
             Button("Fix Match", systemImage: "magnifyingglass", action: onFixMatch)
             // docs/SORTING.md: which rule put this title in Movies or Shows, with Move and Sort Automatically.
             Button("How This Was Sorted", systemImage: "arrow.up.arrow.down", action: onSortInfo)
+        } label: {
+            SlotLabel("More", systemImage: "ellipsis")
         }
     }
 }

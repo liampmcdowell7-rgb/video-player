@@ -15,10 +15,9 @@ struct EpisodeRowView: View {
                 if let runtime = episode.runtimeText {
                     Text(runtime)
                 }
-                if episode.isWatched {
-                    Image(systemName: "checkmark.circle")
-                        .accessibilityLabel("Watched")
-                }
+                // #15 D5: the watched mark always takes its slot, so the runtimes of watched and unwatched rows line up.
+                // Fixed in code, verify in next screenshots.
+                SymbolColumn(systemImage: "checkmark.circle", isShown: episode.isWatched, accessibilityText: "Watched")
             } label: {
                 FittingLine(line: ShortLine([.init(episode.code, priority: 2), .init(episode.title, priority: 1)]), style: .body)
             }

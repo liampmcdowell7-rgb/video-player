@@ -32,6 +32,8 @@ public struct ItemDetailContent: Equatable, Sendable {
     public var isWatched: Bool
     public var isFavorite: Bool
     public var progress: Double?
+    /// #15 D3: the detail page says how much is left ("40 min left") instead of a full-width bar. Nil when not started.
+    public var timeLeft: String? = nil
     public var versions: [VersionRow]
     public var extras: [ExtraRow]
     public var artworkKey: String
@@ -87,9 +89,13 @@ public struct ItemDetailViewModel: Sendable {
         let extras = sidecars.map { s in
             ExtraRow(id: s.id, name: s.name, kindText: Self.kindText(s.kind), sizeText: s.size.map(DisplayText.fileSize))
         }
+        var timeLeft: String?
+        if let progress, let duration = item.watch.duration ?? item.runtime, duration > 0 {
+            timeLeft = DisplayText.remaining(duration * (1 - progress))
+        }
         return ItemDetailContent(itemID: item.id, kind: item.kind, title: card.title, seriesID: item.seriesID, seriesTitle: item.seriesTitle,
                                  facts: facts.joined(separator: " · "), badges: card.badges, playTitle: playTitle, canStartOver: started,
-                                 isWatched: item.watch.watched, isFavorite: item.watch.favorite, progress: progress,
+                                 isWatched: item.watch.watched, isFavorite: item.watch.favorite, progress: progress, timeLeft: timeLeft,
                                  versions: versions, extras: extras, artworkKey: card.artworkKey)
     }
 

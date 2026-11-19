@@ -7,12 +7,15 @@ struct VersionsMenu: View {
     let model: ScreenModel<ItemDetailViewModel>
 
     var body: some View {
-        Menu("Versions", systemImage: "square.stack") {
+        Menu {
             Picker("Version", selection: selection) {
                 ForEach(versions) { version in
                     Text(label(version)).tag(version.id)
                 }
             }
+        } label: {
+            // #15 D2: the same symbol slot, and so the same height, as the other detail buttons.
+            SlotLabel("Versions", systemImage: "square.stack")
         }
     }
 
