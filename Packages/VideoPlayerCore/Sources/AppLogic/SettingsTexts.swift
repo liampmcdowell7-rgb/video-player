@@ -43,8 +43,8 @@ public enum SettingsTexts {
 
     // MARK: Online Lookup
 
-    public static let onlineSummary = "Your own keys for pictures, Fix Match, Discover and where to watch."
-    public static let whatIsSentShort = "Nothing is sent until you enter a key. With a TMDB key, titles and years read from your files go to TMDB."
+    public static let onlineSummary = "Your own keys, entered once for the whole app, and free data sources."
+    public static let whatIsSentShort = "Nothing is sent until you add a key or turn on Free Data Sources."
     public static let whatIsSentTitle = "What Is Sent"
     public static let aboutKeysTitle = "About Keys"
     /// The keys page: the three notes that were rows under the key fields, unchanged.

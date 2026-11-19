@@ -25,10 +25,10 @@ final class SettingsTextsTests: XCTestCase {
         }
     }
 
-    /// The short "What Is Sent" footer must not promise less than the full page says: nothing is sent without a key.
+    /// The short "What Is Sent" footer must not promise less than the full page says: nothing is sent without a key or Free Data Sources.
     func testTheShortWhatIsSentAgreesWithTheFullText() {
-        XCTAssertTrue(SettingsTexts.whatIsSentShort.hasPrefix("Nothing is sent until you enter a key."))
-        XCTAssertTrue(OnlineLookupText.whatIsSent.hasPrefix("Nothing is sent to any online service until you enter a key below."))
+        XCTAssertTrue(SettingsTexts.whatIsSentShort.hasPrefix("Nothing is sent until you add a key or turn on Free Data Sources."))
+        XCTAssertTrue(OnlineLookupText.whatIsSent.hasPrefix("Nothing is sent to any online service until you enter a key or turn on Free Data Sources below."))
         // #15 3.5 and 9.5: the full text says that title logos are downloaded too, and how to stop it.
         XCTAssertTrue(OnlineLookupText.whatIsSent.contains("title logos"))
         XCTAssertTrue(OnlineLookupText.whatIsSent.contains("Show Title Logos is on in Settings > Library"))

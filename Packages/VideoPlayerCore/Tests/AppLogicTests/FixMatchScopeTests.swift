@@ -96,6 +96,6 @@ final class FixMatchScopeTests: XCTestCase {
     }
 
     func testTheNeedsKeyTextIsExact() {
-        XCTAssertEqual(OnlineLookupText.fixMatchNeedsKey, "Fix Match uses your own TMDB key to search. Enter it in Settings > Online Lookup. Until then nothing is sent anywhere.")
+        XCTAssertEqual(OnlineLookupText.fixMatchNeedsKey, "Fix Match needs your TMDB key. Add it in Settings > Online Lookup.")
     }
 }

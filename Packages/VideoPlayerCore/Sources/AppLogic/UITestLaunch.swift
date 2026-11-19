@@ -55,5 +55,15 @@ public enum UITestLaunch: Equatable, Sendable {
     public static func boldText(arguments: [String], mode: UITestLaunch) -> Bool {
         mode != .off && arguments.contains(boldTextArgument)
     }
+
+    /// #26: `-UITestFakeTMDBKey` stores this synthetic key in the in-memory key store, so the Online Lookup screenshot shows a
+    /// masked key. Not a real key; UI-test launches never send it (OnlineServices makes no client in a UI-test mode). The CI
+    /// artifact check fails if this whole text appears in any artifact (scripts/ci-artifact-contents.sh).
+    public static let fakeTMDBKeyArgument = "-UITestFakeTMDBKey"
+    public static let fakeTMDBKey = "uitestFAKEkeyNOTrealDoNotUse0000c0de"
+
+    public static func usesFakeTMDBKey(arguments: [String], mode: UITestLaunch) -> Bool {
+        mode != .off && arguments.contains(fakeTMDBKeyArgument)
+    }
 }
 #endif

@@ -18,23 +18,56 @@ public enum OnlineLookupText {
     /// title up; the region is NOT sent (the reply lists every region, the app keeps one on this device); the OMDb key is
     /// stored but no code path calls OMDb. Needs Review sorting (OnlineSortPass, docs/SORTING.md) sends the parsed title and
     /// year of at most `OnlineSortResolver.perRun` (40) files per launch, only with a TMDB key.
-    public static let whatIsSent = "Nothing is sent to any online service until you enter a key below. With a TMDB key, the app sends TMDB the title and year it read from your file and folder names, season numbers, TMDB’s own number for a title it already matched, an IMDb number found in an info file next to your video, the language code en-US and your key. To sort video files that are not clearly a movie or an episode (Needs Review), it also sends TMDB the title and year it read from the file and folder names of at most 40 such files each time the app opens. It uses the answers for pictures, Fix Match, Discover and where to watch. Your where-to-watch region is not sent: the app picks it from the answer on this device. Pictures are downloaded from the addresses TMDB returns, including title logos (pictures of a title’s lettering) for the movie and show pages while Show Title Logos is on in Settings > Library. TMDB also sees this device’s network address, like any web service. The OMDb key is saved but this version does not use it yet, so nothing is sent to OMDb. The app sends nothing else."
-    public static let keysAreOptional = "Both keys are free from the services themselves. Without them the app still plays everything and uses pictures and details found next to your files."
-    public static let storage = "Keys are kept in this device’s protected storage. When you are signed in to iCloud, an encrypted copy is kept in your iCloud account, the same way as source passwords."
+    public static let whatIsSent = "Nothing is sent to any online service until you enter a key or turn on Free Data Sources below. With a TMDB key, the app sends TMDB the title and year it read from your file and folder names, season numbers, TMDB’s own number for a title it already matched, an IMDb number found in an info file next to your video, the language code en-US and your key. To sort video files that are not clearly a movie or an episode (Needs Review), it also sends TMDB the title and year it read from the file and folder names of at most 40 such files each time the app opens. It uses the answers for pictures, Fix Match, Discover and where to watch. Your where-to-watch region is not sent: the app picks it from the answer on this device. Pictures are downloaded from the addresses TMDB returns, including title logos (pictures of a title’s lettering) for the movie and show pages while Show Title Logos is on in Settings > Library. TMDB also sees this device’s network address, like any web service. The OMDb key is saved but this version does not use it yet, so nothing is sent to OMDb. " + freeSourcesSent + " The app sends nothing else."
 
-    public static let tmdbLabel = "TMDB key"
-    public static let omdbLabel = "OMDb key"
-    public static let tmdbHelp = "Needed for pictures, Fix Match, Discover and where to watch. Paste the API key or the read access token from your TMDB account settings."
+    /// #26: what Free Data Sources sends (facts from WikidataClient and IntroDBClient). No key goes to either service.
+    public static let freeSourcesSent = "With Free Data Sources on, the app sends Wikidata the title and year it read from your file and folder names, or TMDB’s number for a matched title, to find the cast and the title’s IMDb number. When a video you play has no intro or credits markers of its own, it sends IntroDB that IMDb number with the season and episode number to find where the intro starts. Both services see this device’s network address. No key is sent to them."
+    public static let keysAreOptional = "Keys are free from the services themselves. You enter a key once here and it works for every source and library; adding a source never asks for one. Without keys the app still plays everything and uses pictures and details found next to your files."
+    public static let storage = "Keys are kept in this device’s protected storage, never in the library backup or the synced library. When you are signed in to iCloud, an encrypted copy is kept in your iCloud account, so another Apple TV signed in to the same account, or this one after a reinstall, gets the key without asking again."
+
+    /// #26 item 3: one row per keyed service, the service's name as text only.
+    public static let tmdbLabel = "TMDB"
+    public static let omdbLabel = "OMDb"
+    public static let keyOn = "On"
+    public static let keyNotSet = "Not set"
+    public static let enterKey = "Enter Key"
+    public static let replaceKey = "Replace Key"
+    /// One short footer line per row (rule S1: never cut).
+    public static let tmdbHelp = "Pictures, details, Fix Match, Discover and where to watch, for every source."
     /// Honest: no code path uses this key yet (no scores are fetched or shown).
-    public static let omdbHelp = "Optional. Meant for IMDb, Rotten Tomatoes and Metacritic scores, which this version does not show yet. The key is kept, but nothing is sent to OMDb."
+    public static let omdbHelp = "Scores are not shown yet, so nothing is sent to OMDb."
+
+    /// #26 item 3: Learn More with plain steps, the address as text (no link button, no quotes from TMDB's pages).
+    public static let getTMDBKeyTitle = "Get a Free TMDB Key"
+    public static let getTMDBKeySteps = """
+    1. On a computer or phone, open themoviedb.org and create a free account.
+    2. Open your account settings and choose API (www.themoviedb.org/settings/api).
+    3. Ask for a developer key for personal use and accept TMDB’s terms of use.
+    4. Copy the API key or the API read access token.
+    5. Here, under TMDB, choose the key field and type or paste the key.
+
+    The key is yours: it is free for personal, non-commercial use under TMDB’s terms, and you can remove it here at any time.
+    """
+
+    /// #26 item 5: Free Data Sources (Wikidata and IntroDB), off until turned on.
+    public static let freeSourcesLabel = "Free Data Sources"
+    public static let freeSourcesFooter = "Wikidata cast and IntroDB intro times, no key needed. Off: nothing is sent to them."
+    public static let freeSourcesTitle = "About Free Data Sources"
+    public static let freeSourcesAbout = "Wikidata is a free, open knowledge base; the app takes only facts from it (title, year, cast names and the IMDb number), never pictures. It is used for cast lists when no TMDB key is set, and to find the IMDb number IntroDB needs.\n\nIntroDB is a free, community-made list of where intros, recaps and credits start. The app asks it only for the video you play, and only when the video and its server give no markers of their own. Times it finds for credits are not used, because they cannot be checked against your file’s length.\n\nAnswers are kept on this device (Wikidata 30 days, IntroDB 7 days) so the same question is not asked twice. Neither service gets a key."
     public static let regionLabel = "Where-to-watch region"
     public static let regionHelp = "A two-letter country code, such as US. Only used on this device to pick which region’s services are listed; it is not sent."
 
     public static let discoverNeedsKeyTitle = "Discover Needs a Key"
-    public static let discoverNeedsKey = "Discover uses your own TMDB key. Enter it in Settings > Online Lookup. Until then nothing is sent anywhere."
-    public static let fixMatchNeedsKey = "Fix Match uses your own TMDB key to search. Enter it in Settings > Online Lookup. Until then nothing is sent anywhere."
+    /// #26 item 4: one short line per feature that needs the key, pointing to Settings > Online Lookup.
+    public static let discoverNeedsKey = "Discover needs your TMDB key. Add it in Settings > Online Lookup."
+    public static let fixMatchNeedsKey = "Fix Match needs your TMDB key. Add it in Settings > Online Lookup."
+    public static let detailsNeedKey = "Synopsis needs your TMDB key. Add it in Settings > Online Lookup."
     public static let keyRejected = "The service did not accept the key. Check it in Settings > Online Lookup."
     public static let removeNote = "Removing a key stops all lookups that need it. Pictures already downloaded stay until the system clears them."
+
+    public static func freeSourcesStatus(_ on: Bool) -> String {
+        on ? "Free Data Sources are on." : "Free Data Sources are off."
+    }
 
     public static func status(hasTMDB: Bool, hasOMDb: Bool) -> String {
         switch (hasTMDB, hasOMDb) {
@@ -48,6 +81,10 @@ public enum OnlineLookupText {
 
 public enum OnlineLookupPrefs {
     public static let regionKey = "onlineRegion"
+    /// #26 item 5 (PROVISIONAL, OPEN_QUESTIONS R209): Free Data Sources (Wikidata and IntroDB) are off until the user turns
+    /// them on, so "nothing is sent until you set up lookup" stays true. Alternative: on by default. Kept on this device.
+    public static let freeSourcesKey = "onlineFreeSources"
+    public static let freeSourcesDefault = false
     /// R37: the region defaults to "US". PROVISIONAL; alternative: the device's region.
     public static let defaultRegion = "US"
 
@@ -80,16 +117,46 @@ extension OnlineKeyError: LocalizedError {
     }
 }
 
-/// The user's keys. PROVISIONAL: stored through `MirroredSecrets` (protected local storage plus the encrypted iCloud copy), the
-/// same path as source passwords. Alternative: local protected storage only (change `OnlineKeyStore.mirrored` to false).
+/// #26 item 2: the ONE app-wide key store. One item per keyed service (`OnlineKeyKind`), entered once in Settings > Online
+/// Lookup and read by every source, library, Discover, artwork and metadata lookup; no source or library has a key of its own.
+/// Stored through `MirroredSecrets`: the app's own Keychain items (service "com.liamp.videoplayer.keys", synchronizable flag
+/// set; tvOS ignores it, OPEN_QUESTIONS R207) plus the encrypted iCloud copy, which is what restores the key on another Apple TV
+/// on the same iCloud account or after a reinstall. Alternative: local protected storage only (`mirrored: false`).
 public struct OnlineKeyStore: Sendable {
     public let secrets: MirroredSecrets
     /// When false the key never goes to the iCloud copy (the local store is used directly).
     public let mirrored: Bool
+    /// Before #26 the keys sat in the same Keychain items as source passwords; `migrateLegacy()` moves them once.
+    public let legacy: (any CredentialStore)?
 
-    public init(secrets: MirroredSecrets, mirrored: Bool = true) {
+    public init(secrets: MirroredSecrets, mirrored: Bool = true, legacy: (any CredentialStore)? = nil) {
         self.secrets = secrets
         self.mirrored = mirrored
+        self.legacy = legacy
+    }
+
+    /// Moves a key stored by an earlier version (in the source-password items) into the key store, then deletes the old item.
+    /// A key already in the key store wins. Never throws; a failed move leaves the old item for the next launch.
+    @discardableResult
+    public func migrateLegacy() -> [OnlineKeyKind] {
+        guard let legacy else { return [] }
+        var moved: [OnlineKeyKind] = []
+        for kind in OnlineKeyKind.allCases {
+            guard let old = ((try? legacy.secret(for: kind.secretID)) ?? nil), !old.isEmpty else { continue }
+            if key(kind) == nil {
+                guard (try? secrets.local.setSecret(old, for: kind.secretID)) != nil else { continue }
+                moved.append(kind)
+            }
+            try? legacy.removeSecret(for: kind.secretID)
+        }
+        return moved
+    }
+
+    /// Every key value this device holds (key store and any not yet migrated), for the backup's forbidden list.
+    public func allValues() -> [String] {
+        OnlineKeyKind.allCases.flatMap { kind -> [String] in
+            [key(kind), legacy.flatMap { (try? $0.secret(for: kind.secretID)) ?? nil }].compactMap { $0 }.filter { !$0.isEmpty }
+        }
     }
 
     public func key(_ kind: OnlineKeyKind) -> String? {
@@ -121,6 +188,7 @@ public struct OnlineKeyStore: Sendable {
 
     /// Run at start-up: restores a key from the iCloud copy on a new device and uploads one that is only here.
     public func reconcile() async {
+        migrateLegacy()
         guard mirrored else { return }
         _ = await secrets.reconcile(sourceIDs: OnlineKeyKind.allCases.map(\.secretID))
     }

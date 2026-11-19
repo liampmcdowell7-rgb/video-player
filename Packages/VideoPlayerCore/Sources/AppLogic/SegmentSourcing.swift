@@ -9,8 +9,8 @@ import UserData
 //   1. user-marked positions, from the user-data ledger;
 //   2. embedded chapters, read from the Matroska file through ranged reads;
 //   3. sidecar files next to the video (`<name>.edl`, `<name>.segments.json`).
-// Online timestamp lookups and on-device detection are later items on the backlog (items 33 and 34): `SegmentSourceInputs`
-// already has empty slots for them.
+// #26 5a: an online timing lookup (IntroDB) is asked only when none of the three gave a candidate. On-device detection is a
+// later item on the backlog (item 34) with an empty slot in `SegmentSourceInputs`.
 //
 // Never throws. A source that cannot be read gives no candidates and one line in `notes`; the others still count.
 
@@ -78,7 +78,10 @@ public struct SegmentCollector: Sendable {
     /// - Parameters:
     ///   - source: where the file lives, nil when it cannot be opened (then only the user marks count).
     ///   - marks: the user marks of this item, already read from the ledger.
-    public func collect(file: SegmentFileInfo, source: (any MediaSource)?, marks: [UDSegmentMark]) async -> SegmentCollection {
+    ///   - online: #26 5a: online timings for this file (IntroDB through `OnlineSegmentLookup`), asked only when the file, its
+    ///     sidecars and the user marks give no candidate. Nil when the user has not turned free data sources on.
+    public func collect(file: SegmentFileInfo, source: (any MediaSource)?, marks: [UDSegmentMark],
+                        online: (@Sendable (FileIdentity) async -> OnlineSegmentResult)? = nil) async -> SegmentCollection {
         var notes: [String] = []
         var chapterCandidates: [SkipSegment] = []
         var sidecarCandidates: [SkipSegment] = []
@@ -156,11 +159,23 @@ public struct SegmentCollector: Sendable {
         }
         if !markCandidates.isEmpty { notes.append("User marks: \(markCandidates.count)") }
 
-        // 3. Merge.
+        // 3. Online timings, only when nothing above gave a candidate (#26 5a), under the same deadline. A failure gives a note
+        // and no segment, so no Skip button appears.
+        var onlineCandidates: [SkipSegment] = []
+        if let online, markCandidates.isEmpty, sidecarCandidates.isEmpty, chapterCandidates.isEmpty {
+            if let result = await Deadline.run(seconds: deadline, { await online(identity) }) {
+                onlineCandidates = result.segments
+                notes.append(result.note)
+            } else {
+                notes.append("Online timings: no answer within \(Int(deadline)) seconds; none used")
+            }
+        }
+
+        // 4. Merge.
         let resolved = SegmentMerger.merge(
             file: identity,
             inputs: SegmentSourceInputs(userMarked: markCandidates, localSidecar: sidecarCandidates, embeddedChapters: chapterCandidates,
-                                        postCreditsStart: postCredits),
+                                        postCreditsStart: postCredits, onlineDatabase: onlineCandidates),
             limits: limits)
         for rejected in resolved.rejected where !isOutranked(rejected.reason) {
             notes.append("Not used: \(rejected.segment.type.rawValue) from \(rejected.segment.source.rawValue) (\(rejected.reason))")
