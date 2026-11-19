@@ -18,6 +18,10 @@ import UserData
 public enum UITestFixtures {
     public static let sourceID = "uitest-sample-library"
     public static let sourceName = "Sample Library"
+    /// Rule D7: what a sample source says instead of its type's verification status.
+    public static let sampleStatus = "Sample data: not tested against any server"
+    /// True for the built-in sample sources; their ids start with "uitest-".
+    public static func isSample(_ sourceID: String) -> Bool { sourceID.hasPrefix("uitest-") }
     /// A fixed date so the screenshots are the same on every run (the "added" order and the dates in file details).
     public static let referenceDate = Date(timeIntervalSince1970: 1_767_225_600) // 2026-01-01 00:00 UTC
 

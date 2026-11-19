@@ -202,10 +202,21 @@ public extension UDSourceDefinition {
     /// The friendly type name ("SMB"), or the stored text when this version does not know the kind.
     var kindTitle: String { sourceKind.map { SourceCatalog.info(for: $0).title } ?? kind }
 
-    /// The verification label for this source's type, exactly as the setup screen shows it.
-    var verificationLabel: String? { sourceKind.map { SourceCatalog.statusLine($0) } }
+    /// The verification label for this source's type, exactly as the setup screen shows it. A built-in sample source (UI-test
+    /// fixtures) was never connected to anything, so it says so instead of its type's status (#15 3.4, rule D7).
+    var verificationLabel: String? {
+        #if DEBUG
+        if UITestFixtures.isSample(id) { return UITestFixtures.sampleStatus }
+        #endif
+        return sourceKind.map { SourceCatalog.statusLine($0) }
+    }
 
-    var caveat: String? { sourceKind.flatMap { SourceCatalog.caveat($0) } }
+    var caveat: String? {
+        #if DEBUG
+        if UITestFixtures.isSample(id) { return nil }
+        #endif
+        return sourceKind.flatMap { SourceCatalog.caveat($0) }
+    }
 
     var optionValues: [String: String] { SourceOptions.parse(options) }
 

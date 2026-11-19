@@ -138,6 +138,11 @@ final class SourceWiringTests: XCTestCase {
         XCTAssertTrue(ftp.caveat?.contains("FTPS") == true, "plain FTP was tested; FTPS was not, and the screen says so")
         let unknown = UDSourceDefinition(id: "3", kind: "somethingnew", name: "?")
         XCTAssertNil(unknown.verificationLabel)
+        // #15 3.4, rule D7: the sample sources never claim a real-server test, though their kinds (WebDAV, Jellyfin) were.
+        for sample in [UITestFixtures.definition, UITestFixtures.serverDefinition] {
+            XCTAssertEqual(sample.verificationLabel, "Sample data: not tested against any server")
+            XCTAssertNil(sample.caveat)
+        }
         XCTAssertEqual(unknown.kindTitle, "somethingnew")
     }
 
