@@ -59,11 +59,23 @@ final class ScreenshotTests: XCTestCase {
             note(name + "-APP-NOT-IN-FRONT", "The app was not in the foreground (state \(state)), so no screenshot was taken.")
             return
         }
-        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        let screenshot = XCUIScreen.main.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+        // #15 item 1.6: every capture must show something new. The CI run for 8bb0f0c saved 58 and 61 "scrolled" three
+        // times each, pixel for pixel the same as the page before: Down moved nothing. Same pixels = a failed step.
+        let png = screenshot.pngRepresentation
+        if let previous = lastShot, previous.png == png {
+            XCTFail("\(name): the screen did not change since \(previous.name) (identical pixels).")
+            note(name + "-UNCHANGED", "Identical, pixel for pixel, to \(previous.name): the step before it did not change the screen.")
+        }
+        lastShot = (name, png)
     }
+
+    /// The last capture, for the changed-screen check in `shot`.
+    private var lastShot: (name: String, png: Data)?
 
     private func note(_ name: String, _ text: String) {
         let attachment = XCTAttachment(string: text)
@@ -340,6 +352,9 @@ final class ScreenshotTests: XCTestCase {
         app = launch("-UITestFixtures", open: "Sample Show 1")
         if waitForScreen("screen.series", in: app, timeout: 60), waitFor("Season 1", in: app, timeout: 20) {
             settle(); shot("55-show-page"); hierarchy("55-show-page", of: app)
+            // #15 item 1.6: the scrolled states of the show page (each must differ from the one before).
+            for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); shot("55-show-page-scrolled-\(step)") }
+            for _ in 0..<2 { XCUIRemote.shared.press(.up) }; sleep(1)
             // Seasons are sections of the show page (there is no separate season page); move down to season 2.
             if focus(control("S2", in: app), in: app) || focus(control("Season 2", in: app), in: app) { settle(); shot("56-show-season-2-episode-row") }
             else { notReached("56-show-season-2-episode-row", "Could not move the focus to a season 2 episode row.") }
@@ -366,12 +381,71 @@ final class ScreenshotTests: XCTestCase {
         } else { notReached("60-movie-detail-two-versions", "The detail page did not open.") }
         app.terminate()
 
+        detailActionShots()
+
         // Pressing Play on a sample file shows the playback error screen (sample files have no video).
         app = launch("-UITestFixtures", open: "Sample Movie 5")
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 5", in: app), open("Play", in: app, name: "62-playback-error") {
             sleep(5); shot("62-playback-error")
         }
         app.terminate()
+    }
+
+    /// The movie page's actions (#15 item 1.6), numbers 44 to 49 (free in the main set). Each from a fresh launch, so one
+    /// action's result (watched, favourite) cannot change what the next one shows.
+    /// Sample Movie 1: started 40 % (so Start Over shows), one subtitle file (so Extras shows), not watched, not a favourite.
+    /// Sample Movie 2: two versions.
+    func detailActionShots() {
+        func openMovie(_ title: String, _ name: String) -> XCUIApplication? {
+            let app = launch("-UITestFixtures", open: title)
+            guard waitForScreen("screen.item", in: app, timeout: 60), waitFor(title, in: app) else {
+                notReached(name, "The page of \(title) did not open."); app.terminate(); return nil
+            }
+            settle()
+            return app
+        }
+
+        // 44: the More menu open; 45: after Mark as Watched, More again (it must now offer Mark as Unwatched);
+        // 46: after Add to Favorites, More again (it must now offer Remove from Favorites).
+        if let app = openMovie("Sample Movie 1", "44-movie-more-menu") {
+            if open("More", in: app, name: "44-movie-more-menu"), waitFor("Mark as Watched", in: app, timeout: 5) {
+                sleep(1); shot("44-movie-more-menu")
+                if open("Mark as Watched", in: app, name: "45-movie-mark-watched-result") {
+                    sleep(2)
+                    if open("More", in: app, name: "45-movie-mark-watched-result"), waitFor("Mark as Unwatched", in: app, timeout: 5) {
+                        sleep(1); shot("45-movie-mark-watched-result")
+                    } else { notReached("45-movie-mark-watched-result", "After Mark as Watched, More did not offer “Mark as Unwatched”.") }
+                    if open("Add to Favorites", in: app, name: "46-movie-add-favorite-result") {
+                        sleep(2)
+                        if open("More", in: app, name: "46-movie-add-favorite-result"), waitFor("Remove from Favorites", in: app, timeout: 5) {
+                            sleep(1); shot("46-movie-add-favorite-result")
+                        } else { notReached("46-movie-add-favorite-result", "After Add to Favorites, More did not offer “Remove from Favorites”.") }
+                    }
+                }
+            }
+            app.terminate()
+        }
+
+        // 47: the Versions menu open (two versions).
+        if let app = openMovie("Sample Movie 2", "47-movie-versions-menu") {
+            if open("Versions", in: app, name: "47-movie-versions-menu") { sleep(1); shot("47-movie-versions-menu") }
+            app.terminate()
+        }
+
+        // 48: the Extras menu open.
+        if let app = openMovie("Sample Movie 1", "48-movie-extras") {
+            if open("Extras", in: app, name: "48-movie-extras") { sleep(1); shot("48-movie-extras") }
+            app.terminate()
+        }
+
+        // 49: Start Over focused, then what selecting it shows (sample files have no video: the playback error).
+        if let app = openMovie("Sample Movie 1", "49-movie-start-over") {
+            if focus(control("Start Over", in: app), in: app) {
+                sleep(1); shot("49-movie-start-over")
+                XCUIRemote.shared.press(.select); sleep(5); shot("49-movie-start-over-result")
+            } else { notReached("49-movie-start-over", "No “Start Over” button could be focused (focus on \(focusedLabel(in: app))).") }
+            app.terminate()
+        }
     }
 
     func test05_FilesSearchDiscover() {
