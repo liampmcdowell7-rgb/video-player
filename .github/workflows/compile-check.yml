@@ -671,7 +671,8 @@ jobs:
             -resultBundlePath "$OUT/Screenshots.xcresult" \
             -parallel-testing-enabled NO \
             -only-testing:VideoPlayerUITests/ScreenshotTests/test04_LibraryScreens \
-            -only-testing:VideoPlayerUITests/ScreenshotTests/test05_FilesSearchDiscover
+            -only-testing:VideoPlayerUITests/ScreenshotTests/test05_FilesSearchDiscover \
+            -only-testing:VideoPlayerUITests/ScreenshotTests/test13_MovieSynopsisAndCast
 
       - name: Summarise errors (file, line, message)
         if: always()

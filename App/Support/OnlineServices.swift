@@ -105,7 +105,13 @@ final class OnlineServices {
     }
 
     /// Synopsis and cast of a movie page from the cached online details (#15 6.2). Nil without a key.
-    func details(key: String) async -> TitleDetails? { await resolver.details(key: key) }
+    func details(key: String) async -> TitleDetails? {
+        #if DEBUG
+        // #21 D: the screenshot job's fake synopsis and cast (no key, no network). Not compiled into Release.
+        if UITestMode.current == .fixtures { return await UITestFixtureDetails.details(key: key, store: store) }
+        #endif
+        return await resolver.details(key: key)
+    }
 
     /// Bytes of one picture for the Top Shelf folder (a cached file, or a download of the matched poster). Nil when there is none.
     func artworkBytes(key: String) async -> Data? {

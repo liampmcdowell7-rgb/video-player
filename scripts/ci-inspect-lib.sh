@@ -10,7 +10,8 @@
 # Texts that exist only in the debug-only UI-test code and sample library (UITestLaunch.swift, UITestFixtures.swift,
 # App/Support/UITestMode.swift, App/Support/AppDependencies.swift uiTest(), all inside #if DEBUG). None may appear in a
 # Release binary. #15 3.6 added "UI-test mode" (the iCloud-off reason) and the sample sources' "not tested" status.
-VP_RELEASE_FORBIDDEN_RE='Sample Movie|Sample Show|Sample Library|Sample Clip|Sample Unsorted|Sample Server|uitest-sample-library|uitest-sample-server|sample\.invalid|-UITestEmpty|-UITestFixtures|-UITestTab|-UITestOpen|-UITestTextSize|-UITestBoldText|UITestFixtures|UITestLaunch|UITestMode|UI-test mode|Sample data: not tested'
+# #21 D added the fake synopsis and cast of the sample movies (UITestFixtureDetails.swift, also #if DEBUG).
+VP_RELEASE_FORBIDDEN_RE='Sample Movie|Sample Show|Sample Library|Sample Clip|Sample Unsorted|Sample Server|uitest-sample-library|uitest-sample-server|sample\.invalid|-UITestEmpty|-UITestFixtures|-UITestTab|-UITestOpen|-UITestTextSize|-UITestBoldText|UITestFixtures|UITestLaunch|UITestMode|UI-test mode|Sample data: not tested|Sample synopsis|Sample Actor|Sample Role|UITestFixtureDetails'
 
 # vp_symbols_defined NM_OUTPUT_FILE PREFIX: 0 when `nm -m` output lists at least one DEFINED external symbol starting
 # with PREFIX (for example _nfs_ or _dovi_), 1 otherwise. "(undefined)" lines (imports) do not count.

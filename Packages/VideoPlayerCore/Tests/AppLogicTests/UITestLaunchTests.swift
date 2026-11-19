@@ -61,6 +61,7 @@ final class UITestLaunchTests: XCTestCase {
         let guarded = [
             package.appendingPathComponent("Sources/AppLogic/UITestFixtures.swift"),
             package.appendingPathComponent("Sources/AppLogic/UITestLaunch.swift"),
+            package.appendingPathComponent("Sources/AppLogic/UITestFixtureDetails.swift"),
             repo.appendingPathComponent("App/Support/UITestMode.swift"),
         ]
         for url in guarded {
@@ -176,6 +177,23 @@ final class UITestLaunchTests: XCTestCase {
         XCTAssertEqual(Set(continuing.map(\.title)).isSuperset(of: ["Sample Movie 1", "Sample Movie 4"]), true, "\(continuing.map(\.title))")
         XCTAssertTrue(continuing.contains { $0.kind == .episode }, "\(continuing.map(\.title))")
         XCTAssertTrue(movies.contains { $0.watch.favorite })
+
+        // #21 D: the fake synopsis and cast, found by the page's artwork key like the online path.
+        let withDetails = await UITestFixtureDetails.details(key: "item-\(one.id)", store: store)
+        let oneDetails = try XCTUnwrap(withDetails)
+        XCTAssertEqual(oneDetails.overview?.filter { $0 == "." }.count, 3, "three sentences")
+        XCTAssertFalse(oneDetails.cast.isEmpty)
+        XCTAssertEqual(UITestFixtureDetails.details(forTitle: "Sample Movie 2")?.cast.count, TitleDetails.castLimit)
+        XCTAssertGreaterThan(UITestFixtureDetails.details(forTitle: "Sample Movie 4")?.overview?.count ?? 0, 1000, "the very long synopsis")
+        XCTAssertNil(UITestFixtureDetails.details(forTitle: "Sample Movie 6"), "the page with neither")
+        let episodeKey = await UITestFixtureDetails.details(key: "item-\(try XCTUnwrap(episodes.first).id)", store: store)
+        XCTAssertNil(episodeKey, "movies only, like the online path")
+        for title in movies.map(\.title) {
+            let d = UITestFixtureDetails.details(forTitle: title)
+            XCTAssertTrue(d.map { ($0.overview ?? UITestFixtureDetails.marker).hasPrefix(UITestFixtureDetails.marker) } ?? true,
+                          "every fake text carries the marker the Release check looks for")
+            XCTAssertTrue(d?.cast.allSatisfy { $0.name.hasPrefix("Sample Actor") } ?? true)
+        }
     }
 
     func testTheSampleSourceRefusesToReadAVideo() async throws {

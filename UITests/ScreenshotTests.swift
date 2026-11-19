@@ -448,6 +448,25 @@ final class ScreenshotTests: XCTestCase {
         }
     }
 
+    /// #21 D: the movie page with a synopsis and cast from the debug-only fake details (`UITestFixtureDetails`, no network).
+    /// 57/58 (Sample Movie 1, short synopsis and cast) and 60/61 (Sample Movie 2, a full cast shelf) already show them; this
+    /// adds the very long synopsis with its whole-text page (77) and the page with neither (78). Job 4b.
+    func test13_MovieSynopsisAndCast() {
+        var app = launch("-UITestFixtures", open: "Sample Movie 4")
+        if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 4", in: app), waitFor("Sample synopsis", in: app, timeout: 10) {
+            settle(); shot("77-movie-long-synopsis")
+            if open("Sample synopsis", in: app, name: "77-movie-long-synopsis-page") { settle(); shot("77-movie-long-synopsis-page"); back() }
+            for _ in 0..<4 { XCUIRemote.shared.press(.down) }; sleep(1); shot("77-movie-long-synopsis-cast")
+        } else { hierarchy("77-movie-long-synopsis", of: app); notReached("77-movie-long-synopsis", "The page or its fake synopsis did not appear.") }
+        app.terminate()
+
+        app = launch("-UITestFixtures", open: "Sample Movie 6")
+        if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 6", in: app) {
+            settle(); shot("78-movie-no-synopsis-or-cast")
+        } else { notReached("78-movie-no-synopsis-or-cast", "The page did not open.") }
+        app.terminate()
+    }
+
     func test05_FilesSearchDiscover() {
         var app = launch("-UITestFixtures", tab: "files")
         if waitForScreen("screen.files", in: app), waitFor("Sample Library", in: app, timeout: 60) {
