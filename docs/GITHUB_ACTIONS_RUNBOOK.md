@@ -350,6 +350,11 @@ summary.
    `transparency` and `motion` (each with its own `index.md`) hold the same five screens with Increase Contrast, Reduce
    Transparency or Reduce Motion turned on in the simulator; `settings-applied.txt` says which of these were really
    applied (OPEN_QUESTIONS R170).
+   Each of the two screenshot zips has a `CONTENTS.txt` at the top: every file in it, and which set it should be. The job
+   checks this before uploading (`scripts/ci-artifact-contents.sh`, #15 item 1.2): `screenshots` must hold only 01–79
+   at the top with `index.md`, and `accessibility-screenshots` only 80 and above in its setting folders. A wrong set
+   turns the step "List and check what the … artifact holds" red, with one `ARTIFACT PROBLEM:` line per file. Unzip each
+   zip into its OWN folder: zips unzipped into one folder overwrite each other's `index.md`.
 5. Send back, in this order of importance:
    - `compile-check-results\errors.txt` and `device-build-results\errors.txt` (even if empty);
    - `device-build-results\embedded-frameworks.txt`, `static-libraries.txt` and `release-strings.txt`;

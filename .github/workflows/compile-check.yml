@@ -520,7 +520,14 @@ jobs:
       - name: Export the screenshots in viewing order (01-..., 02-...) with index.md
         if: always()
         timeout-minutes: 4
-        run: bash scripts/ci-export-screenshots.sh "$OUT/Screenshots.xcresult" screenshots
+        run: bash scripts/ci-export-screenshots.sh "$OUT/Screenshots.xcresult" "$GITHUB_WORKSPACE/screenshots"
+
+      # #15 item 1.2: the artifact "screenshots" must hold the MAIN set (01-79 at the top, index.md), never the accessibility
+      # set. Writes screenshots/CONTENTS.txt and fails with "ARTIFACT PROBLEM: ..." otherwise; the upload runs either way.
+      - name: List and check what the screenshots artifact holds (main set, 01-79)
+        if: always()
+        timeout-minutes: 2
+        run: bash scripts/ci-artifact-contents.sh "$GITHUB_WORKSPACE/screenshots" main 2>&1 | tee "$OUT/artifact-contents.txt"; exit "${PIPESTATUS[0]}"
 
       - name: Stage times
         if: always()
@@ -531,7 +538,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: screenshots
-          path: screenshots/
+          path: ${{ github.workspace }}/screenshots/
           if-no-files-found: warn
           retention-days: 14
 
@@ -634,10 +641,17 @@ jobs:
           status=1
           for word in text contrast transparency motion; do
             [ -d "$OUT/A11y-$word.xcresult" ] || { echo "no result bundle for $word"; continue; }
-            bash scripts/ci-export-screenshots.sh "$OUT/A11y-$word.xcresult" "accessibility-screenshots/$word" && status=0
+            bash scripts/ci-export-screenshots.sh "$OUT/A11y-$word.xcresult" "$GITHUB_WORKSPACE/accessibility-screenshots/$word" && status=0
           done
-          [ -f "$OUT/a11y-settings.txt" ] && cp "$OUT/a11y-settings.txt" accessibility-screenshots/settings-applied.txt
+          [ -f "$OUT/a11y-settings.txt" ] && cp "$OUT/a11y-settings.txt" "$GITHUB_WORKSPACE/accessibility-screenshots/settings-applied.txt"
           exit $status
+
+      # #15 item 1.2: the artifact "accessibility-screenshots" holds only 80 and above, in text/ (80-89) and the setting
+      # folders. Writes accessibility-screenshots/CONTENTS.txt and fails with "ARTIFACT PROBLEM: ..." otherwise.
+      - name: List and check what the accessibility artifact holds (80 and above)
+        if: always()
+        timeout-minutes: 2
+        run: bash scripts/ci-artifact-contents.sh "$GITHUB_WORKSPACE/accessibility-screenshots" accessibility 2>&1 | tee "$OUT/artifact-contents.txt"; exit "${PIPESTATUS[0]}"
 
       - name: Stage times
         if: always()
@@ -648,7 +662,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: accessibility-screenshots
-          path: accessibility-screenshots/
+          path: ${{ github.workspace }}/accessibility-screenshots/
           if-no-files-found: warn
           retention-days: 14
 

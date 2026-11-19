@@ -67,6 +67,11 @@ if bash "$HERE/scripts/test-ci-ambiguous-types.sh" >"$LOG/ambiguous-types-tests.
 SUMMARY="$SUMMARY
 ambiguous-types self-test ($CAT): $(tail -1 "$LOG/ambiguous-types-tests.log")"
 
+# 0b5. The screenshot artifact contents check (main set 01-79, accessibility set 80 and above) on fake folders (#15 item 1.2).
+if bash "$HERE/scripts/test-ci-artifact-contents.sh" >"$LOG/artifact-contents-tests.log" 2>&1; then CAC=ok; else CAC=bad; fi
+SUMMARY="$SUMMARY
+artifact-contents self-test ($CAC): $(tail -1 "$LOG/artifact-contents-tests.log")"
+
 # 0c. Syntax check of the app and extension sources (swiftc -parse). SYNTAX ONLY: it cannot see missing imports, wrong
 # labels or unknown names, because the Apple frameworks do not exist here. A pass is never "it compiles".
 if bash "$HERE/scripts/parse-app.sh" >"$LOG/parse-app.log" 2>&1; then PA=ok; else PA=bad; fi
