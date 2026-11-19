@@ -14,6 +14,55 @@
 # #21 E added the generated player clip (App/Support/UITestClip.swift, #if DEBUG) and the sample subtitle lines.
 VP_RELEASE_FORBIDDEN_RE='Sample Movie|Sample Show|Sample Library|Sample Clip|Sample Unsorted|Sample Server|uitest-sample-library|uitest-sample-server|sample\.invalid|-UITestEmpty|-UITestFixtures|-UITestTab|-UITestOpen|-UITestTextSize|-UITestBoldText|UITestFixtures|UITestLaunch|UITestMode|UI-test mode|Sample data: not tested|Sample synopsis|Sample Actor|Sample Role|UITestFixtureDetails|UITestClip|uitest-sample-clip|Sample subtitle line'
 
+# Process-spawning C functions (#23 C). An `nm -um` line of an imported one ends in the name, e.g.
+# "                 (undefined) external _posix_spawnp (from libSystem)".
+VP_SPAWN_RE='_(posix_spawnp?|fork|vfork|execv[pe]?|execl[pe]?|system)'
+
+# The report files the device inspection writes, and the checks each one holds. When the build failed, or the app
+# binary is missing, every one of them says NOT CHECKED (#23 C) and none says "ok" or "(none)".
+VP_INSPECT_REPORTS='embedded-frameworks.txt macho-report.txt static-libraries.txt release-strings.txt process-spawning.txt app-nm.txt'
+VP_INSPECT_CHECKS='embedded frameworks|slices (architectures)|platform tags|linked libraries|libnfs and libdovi linked in|Release has no sample data|process-spawning symbols'
+
+# vp_inspect_not_checked OUTDIR REASON [FIRST_ERROR]: writes "NOT CHECKED: REASON" for every check into every report file
+# and prints the same lines. Used when the build failed or produced no app binary.
+vp_inspect_not_checked() {
+  local out="$1" reason="$2" first="${3:-}" r c
+  mkdir -p "$out"
+  for r in $VP_INSPECT_REPORTS; do
+    {
+      echo "NOT CHECKED: $reason"
+      [ -n "$first" ] && echo "first error: $first"
+      local IFS='|'
+      for c in $VP_INSPECT_CHECKS; do echo "NOT CHECKED: $c ($reason)"; done
+    } > "$out/$r"
+  done
+  cat "$out/embedded-frameworks.txt"
+}
+
+# vp_app_binaries APP: the Mach-O executables to search, one path per line: the app binary, each extension's executable,
+# each embedded framework's binary and any loose dylib. Names only, no `file` call, so it runs in the self-test.
+vp_app_binaries() {
+  local app="$1" x n
+  echo "$app/$(basename "$app" .app)"
+  for x in "$app"/PlugIns/*.appex; do
+    [ -d "$x" ] || continue
+    n="$(basename "$x" .appex)"; [ -f "$x/$n" ] && echo "$x/$n"
+  done
+  for x in "$app"/Frameworks/*.framework; do
+    [ -d "$x" ] || continue
+    n="$(basename "$x" .framework)"; [ -f "$x/$n" ] && echo "$x/$n"
+  done
+  find "$app" -type f -name '*.dylib' 2>/dev/null | sort
+}
+
+# vp_spawn_imports NM_UNDEFINED_FILE: prints the process-spawning names a binary imports (one per line, sorted, unique);
+# nothing when it imports none. Reads `nm -um` output saved to a file.
+vp_spawn_imports() {
+  local file="$1"
+  [ -f "$file" ] || return 0
+  grep -oE "external ${VP_SPAWN_RE}( |\$)" "$file" | sed -E 's/^external //; s/ $//' | sort -u
+}
+
 # vp_symbols_defined NM_OUTPUT_FILE PREFIX: 0 when `nm -m` output lists at least one DEFINED external symbol starting
 # with PREFIX (for example _nfs_ or _dovi_), 1 otherwise. "(undefined)" lines (imports) do not count.
 vp_symbols_defined() {

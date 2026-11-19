@@ -269,6 +269,7 @@ jobs:
           bash scripts/ci-prepare.sh
 
       - name: Build for tvOS devices (arm64, Release, no code signing)
+        id: build
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Build for tvOS devices (arm64, Release, no code signing)"
           set -euo pipefail
@@ -302,6 +303,9 @@ jobs:
 
       - name: Inspect the device app (embedded frameworks, slices, platform tags, linked libraries, Release has no sample data)
         if: always()
+        env:
+          # #23 C: the inspection prints NOT CHECKED for every check unless this is "success".
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Inspect the device app (embedded frameworks, slices, platform tags, linked libraries, Release has no sample data)"
           bash scripts/ci-inspect-device-app.sh

@@ -9,19 +9,35 @@
 #   release-strings.txt       proof that the debug-only UI-test code is compiled out of Release: no launch-argument text
 #                             (-UITestEmpty, -UITestFixtures, -UITestTab, -UITestOpen) and no sample-library text (incl. the Needs Review fixtures "Sample Clip" and "Sample Unsorted ...", addendum #18 E)
 #   app-nm.txt                `nm -m` of the app binary, saved once; the symbol checks read this file (ci-inspect-lib.sh)
+#   process-spawning.txt      #23 C: whether the app binary, the extension or a framework imports posix_spawn(p), fork,
+#                             system or exec*, and which static library references it (libdovi: Rust std, OPEN_QUESTIONS R196)
+# #23 C: when the build failed (BUILD_OUTCOME is not "success") or the app binary is missing, every report says
+# "NOT CHECKED: ..." for every check and the script exits 1; it never prints "ok" or "(none)" on a failed build.
+# VP_PRODUCTS overrides the products folder (used by scripts/test-ci-inspect.sh only).
 set -uo pipefail
 : "${OUT:?}"
 . "$(dirname "${BASH_SOURCE[0]}")/ci-inspect-lib.sh"
 mkdir -p "$OUT"
-PROD="build/DerivedData/Build/Products/Release-appletvos"
+PROD="${VP_PRODUCTS:-build/DerivedData/Build/Products/Release-appletvos}"
 APP="$PROD/VideoPlayer.app"
+BIN="$APP/VideoPlayer"
 P=Packages/VideoPlayerCore
 problems=0
 problem() { echo "PROBLEM: $*"; problems=$((problems + 1)); }
 
-if [ ! -d "$APP" ]; then
-  echo "No $APP (the device build did not produce an app). Products folder:" | tee "$OUT/embedded-frameworks.txt"
-  ls -la "$PROD" 2>&1 | tee -a "$OUT/embedded-frameworks.txt"
+# #23 C: the first CI compile ran this inspection on the leftovers of a FAILED build and printed "ok" and "(none)" lines
+# (app-nm.txt was empty; the app binary had never been linked). Nothing below runs unless the build step succeeded AND
+# produced the app binary.
+first_error="$(grep -m 1 -E ': error: ' "$OUT/build.log" 2>/dev/null || true)"
+if [ "${BUILD_OUTCOME:-unknown}" != "success" ]; then
+  vp_inspect_not_checked "$OUT" "the build failed (build step outcome: ${BUILD_OUTCOME:-unknown})" "$first_error"
+  echo "Problems found: NOT CHECKED, the build failed" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
+  exit 1
+fi
+if [ ! -f "$BIN" ]; then
+  vp_inspect_not_checked "$OUT" "the app binary $BIN is missing although the build reported success" "$first_error"
+  { echo; echo "Products folder:"; ls -la "$PROD" "$APP" 2>&1; } | tee -a "$OUT/embedded-frameworks.txt"
+  echo "Problems found: NOT CHECKED, the app binary is missing" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
   exit 1
 fi
 
@@ -71,7 +87,6 @@ grep -nE '(are|architecture): .*x86_64' "$OUT/macho-report.txt" && problem "an x
 echo "Mach-O files inspected: $(grep -c '^== ' "$OUT/macho-report.txt")"
 
 # Static libraries linked into the app binary.
-BIN="$APP/VideoPlayer"
 # Saved to a file first: the checks below read the file, never `nm | grep -q` (a SIGPIPE false alarm under pipefail).
 nm -m "$BIN" > "$OUT/app-nm.txt" 2>"$OUT/app-nm.stderr" || echo "nm -m failed on $BIN (see app-nm.stderr)"
 {
@@ -97,19 +112,59 @@ if vp_symbols_defined "$OUT/app-nm.txt" _dovi_; then echo "ok      libdovi symbo
 
 # The UI-test modes and the sample library are #if DEBUG only (OPEN_QUESTIONS R160): a Release binary must not contain
 # their texts (list: VP_RELEASE_FORBIDDEN_RE in ci-inspect-lib.sh). `strings` output is saved per file, then searched.
+# #23 C: the files searched are the app binary, the Top Shelf extension's binary and every framework binary
+# (vp_app_binaries), plus any other executable file in the bundle; all are listed in the report.
+vp_app_binaries "$APP" > "$OUT/binaries.tmp"
+find "$APP" -type f -perm -u+x | sort >> "$OUT/binaries.tmp"
+sort -u "$OUT/binaries.tmp" -o "$OUT/binaries.tmp"
 hits=0
 {
   echo "Debug-only UI-test texts found in the Release app binary, extension and frameworks (expected: none):"
   echo "searched for: $VP_RELEASE_FORBIDDEN_RE"
+  echo "files searched ($(wc -l < "$OUT/binaries.tmp")):"
+  sed "s#^$APP/#  #" "$OUT/binaries.tmp"
+  echo "findings:"
 } > "$OUT/release-strings.txt"
 while read -r f; do
+  [ -f "$f" ] || { echo "  NOT SEARCHED (missing): ${f#$APP/}" >> "$OUT/release-strings.txt"; hits=1; continue; }
   strings -a "$f" > "$OUT/strings.tmp" 2>/dev/null || true
   if ! vp_forbidden_strings "$OUT/strings.tmp" >> "$OUT/release-strings.txt"; then hits=1; echo "  in ${f#$APP/}" >> "$OUT/release-strings.txt"; fi
-done < <(find "$APP" -type f -perm -u+x)
+done < "$OUT/binaries.tmp"
 rm -f "$OUT/strings.tmp"
 [ "$hits" -eq 0 ] && echo "(none)" >> "$OUT/release-strings.txt"
 cat "$OUT/release-strings.txt"
 [ "$hits" -eq 0 ] || problem "the Release build contains debug-only UI-test texts (release-strings.txt)"
+
+# #23 C: process-spawning functions. libdovi.a (Rust std) references _posix_spawnp; whether the linker pulls that code
+# into the app depends on what the app calls. Reported, not a PROBLEM, until OPEN_QUESTIONS R196 is decided.
+{
+  echo "Process-spawning imports (${VP_SPAWN_RE}) of each binary searched (nm -um):"
+  spawn_any=0
+  while read -r f; do
+    [ -f "$f" ] || continue
+    case "$(file -b "$f")" in *Mach-O*) ;; *) continue ;; esac
+    nm -um "$f" > "$OUT/nm-u.tmp" 2>/dev/null || echo "  nm -um failed on ${f#$APP/}"
+    imp="$(vp_spawn_imports "$OUT/nm-u.tmp" | tr '\n' ' ')"
+    if [ -n "$imp" ]; then echo "  ${f#$APP/}: imports $imp"; spawn_any=1; else echo "  ${f#$APP/}: imports none of them"; fi
+  done < "$OUT/binaries.tmp"
+  rm -f "$OUT/nm-u.tmp"
+  echo
+  echo "Static libraries that reference them (nm -u on the tvOS device slices):"
+  for lib in "$P/Frameworks/DolbyVisionRPULib.xcframework/tvos-arm64_arm64e/libdovi.a" "$P/Frameworks/Libnfs.xcframework/tvos-arm64/libnfs.a"; do
+    nm -u "$lib" > "$OUT/nm-u.tmp" 2>/dev/null || true
+    refs="$(grep -oE "${VP_SPAWN_RE}\$" "$OUT/nm-u.tmp" | sort -u | tr '\n' ' ')"
+    echo "  ${lib#$P/Frameworks/}: ${refs:-references none of them}"
+  done
+  rm -f "$OUT/nm-u.tmp"
+  echo
+  if [ "$spawn_any" -eq 1 ]; then
+    echo "RESULT: a binary above imports a process-spawning function (tvOS SDK headers mark them unavailable on tvOS: unverified, from memory); see OPEN_QUESTIONS R196 (options, not decided)."
+  else
+    echo "RESULT: no binary imports a process-spawning function (libdovi's reference was not linked in)."
+  fi
+} > "$OUT/process-spawning.txt"
+cat "$OUT/process-spawning.txt"
+rm -f "$OUT/binaries.tmp"
 
 echo "Problems found: $problems" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
 [ "$problems" -eq 0 ]
