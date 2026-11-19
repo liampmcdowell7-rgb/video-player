@@ -9,6 +9,7 @@ Write a result next to each item: **Pass**, **Fail** (what you saw), or **Not te
 - V-02 After the first build, the build log has no asset-catalog warnings about the icon or Top Shelf image (ask the parent; Codemagic log search "App Icon").
 - V-03 The Home Screen icon: layered, moves and sways when focused, no text, nothing cropped. Compare with the Settings icon.
 - V-04 Static Top Shelf image shows when the app sits in the top row and is focused; it does not look clickable.
+- V-TS1 (was CI screenshot 79; a UI test of this app cannot open the system Home Screen, #15 item 1.3) Put the app in the top row, watch something for a minute, go back to the Home Screen and focus the app: the Top Shelf shows the Continue Watching row (docs/TOP_SHELF.md), titles not cut off, and selecting one opens that title in the app. Take a photo.
 
 ## Tab bar and navigation
 - V-05 The tab bar looks like the standard system tab bar (as in Settings): translucent, only the selected tab solid, selected tab has a shadow when focused. Six tabs (Home, Movies, Shows, Files, Search, Settings; no Discover tab, R167 (c)) all fit with no fade at either edge; record where Search sits.

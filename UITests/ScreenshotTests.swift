@@ -89,12 +89,47 @@ final class ScreenshotTests: XCTestCase {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch.waitForExistence(timeout: timeout)
     }
 
-    /// The focusable element (button or cell) whose label contains `text`.
+    /// The focusable element (button or cell) labelled `text`, never a tab-bar button (#15 item 1.3).
+    /// Order: a label exactly `text`, then a label starting with `text` and a separator (", " or " "), then any label
+    /// containing it. Before this, "Movies" matched the Movies TAB before the Movies folder row (so 72 showed the Movies tab
+    /// and 73 was not reached), and "FTP" matched the SFTP row first (14 and 15 identical).
     func control(_ text: String, in app: XCUIApplication) -> XCUIElement {
-        let predicate = NSPredicate(format: "label CONTAINS %@", text)
-        let button = app.buttons.matching(predicate).firstMatch
-        if button.exists { return button }
-        return app.cells.matching(predicate).firstMatch
+        let tabBar = app.tabBars.firstMatch
+        let tabFrame = tabBar.exists ? tabBar.frame : .null
+        let predicates = [NSPredicate(format: "label == %@", text),
+                          NSPredicate(format: "label BEGINSWITH %@ OR label BEGINSWITH %@", text + ",", text + " "),
+                          NSPredicate(format: "label CONTAINS %@", text)]
+        for predicate in predicates {
+            for query in [app.buttons.matching(predicate), app.cells.matching(predicate)] {
+                for element in query.allElementsBoundByIndex.prefix(12) where element.exists {
+                    if !tabFrame.isNull, tabFrame.contains(CGPoint(x: element.frame.midX, y: element.frame.midY)) { continue }
+                    return element
+                }
+            }
+        }
+        // Nothing yet (a lazy list may not have built the row): a query that `focus` can wait on while moving down.
+        return app.cells.matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
+    }
+
+    /// The label of the element that has the focus now ("none" when nothing has it), for NOT-REACHED reasons.
+    func focusedLabel(in app: XCUIApplication) -> String {
+        let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        return focused.exists ? "“\(focused.label)”" : "none"
+    }
+
+    /// Presses Down until the focus stops moving (three presses in a row with the same focused frame) or `maxPresses`.
+    /// True when the focus stopped, i.e. the end of the list was reached.
+    func moveFocusToEnd(in app: XCUIApplication, maxPresses: Int = 40) -> Bool {
+        var last: CGRect?
+        var unmoved = 0
+        for _ in 0..<maxPresses {
+            XCUIRemote.shared.press(.down); usleep(400_000)
+            let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+            let frame = focused.exists ? focused.frame : .null
+            if frame == last { unmoved += 1; if unmoved >= 3 { return true } } else { unmoved = 0 }
+            last = frame
+        }
+        return false
     }
 
     /// Moves the focus with the remote's arrows until `target` has it. Direction comes from where the target is relative to
@@ -150,8 +185,8 @@ final class ScreenshotTests: XCTestCase {
             notReached(name, "No button or row labelled “\(text)” was found on the screen before it.")
             return false
         }
-        guard focus(target, in: app) else {
-            notReached(name, "The focus could not be moved to “\(text)” with the remote's arrows.")
+        guard focus(target, in: app, maxPresses: 40) else {
+            notReached(name, "The focus could not be moved to “\(text)” with the remote's arrows (focus stayed on \(focusedLabel(in: app))).")
             return false
         }
         XCUIRemote.shared.press(.select)
@@ -223,10 +258,24 @@ final class ScreenshotTests: XCTestCase {
             shot(name)
             back()
         }
-        // The types that cannot be set up yet, with their reasons (bottom of the list).
-        if focus(control("Cancel", in: app), in: app) { settle(); shot("20-add-source-not-available") } else { notReached("20-add-source-not-available", "Could not move down to the end of the list.") }
-        // Network search last: it may ask for local-network permission, which a test cannot answer reliably.
-        if open("Search Your Network", in: app, name: "21-search-your-network") { sleep(4); shot("21-search-your-network") }
+        app.terminate()
+
+        // 20: the types that cannot be set up yet, with their reasons, at the bottom of the list (#15 item 1.3). A fresh launch,
+        // so nothing left open by the forms above can stop it; then Down until the focus stops (the Cancel row is last, the
+        // "Not Available Yet" rows above it are not focusable).
+        let end = launch("-UITestEmpty")
+        if waitForScreen("screen.home", in: end), waitFor("Add a Source", in: end), open("Add a Source", in: end, name: "20-add-source-not-available"),
+           waitFor("Type an Address", in: end) {
+            if moveFocusToEnd(in: end), waitFor("Not Available Yet", in: end, timeout: 5) { settle(); shot("20-add-source-not-available") }
+            else { notReached("20-add-source-not-available", "Moving down did not reach “Not Available Yet” (focus on \(focusedLabel(in: end))).") }
+            // Network search last: it may ask for local-network permission, which a test cannot answer reliably.
+            end.terminate()
+        }
+        let network = launch("-UITestEmpty")
+        if waitForScreen("screen.home", in: network), waitFor("Add a Source", in: network), open("Add a Source", in: network, name: "21-search-your-network"),
+           waitFor("Type an Address", in: network), open("Search Your Network", in: network, name: "21-search-your-network") {
+            sleep(4); shot("21-search-your-network")
+        }
     }
 
     // MARK: Settings (with the sample library, so Sources and Library show content)
@@ -249,7 +298,14 @@ final class ScreenshotTests: XCTestCase {
             }
             back()
         }
-        guard open("About", in: app, name: "40-about") else { return }
+        app.terminate()
+
+        // 40: About, from a fresh launch on the Settings tab (#15 item 1.3): About is the LAST row, and after seven pages
+        // and backs the focus could be anywhere. Down until the focus stops, then open the row labelled exactly "About".
+        let about = launch("-UITestFixtures", tab: "settings")
+        guard waitForScreen("screen.settings", in: about), waitFor("Playback", in: about) else { return notReached("40-about", "Settings did not open for About.") }
+        _ = moveFocusToEnd(in: about)
+        guard open("About", in: about, name: "40-about") else { return }
         settle()
         shot("40-about")
         // Text rows are not focusable; moving down to the licence link scrolls the page past Data Sources and Trademarks.
@@ -257,7 +313,7 @@ final class ScreenshotTests: XCTestCase {
             XCUIRemote.shared.press(.down); sleep(1)
             shot("41-about-scrolled-\(step)")
         }
-        if open("Full Licence Texts", in: app, name: "42-licence-texts") {
+        if open("Full Licence Texts", in: about, name: "42-licence-texts") {
             settle(); shot("42-licence-texts")
             for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); shot("43-licence-texts-scrolled-\(step)") }
         }
@@ -294,7 +350,12 @@ final class ScreenshotTests: XCTestCase {
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 1", in: app) {
             settle(); shot("57-movie-detail"); hierarchy("57-movie-detail", of: app)
             for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); shot("58-movie-detail-scrolled-\(step)") }
-            if open("Fix Match", in: app, name: "59-fix-match") { settle(); shot("59-fix-match"); back() }
+            // Fix Match is in the More menu (ItemDetailContentView.moreMenu), not a button on the page: the old test looked for
+            // it on the page and never found it (#15 item 1.3). Up to the action row first: the focus is below it after 58.
+            for _ in 0..<6 { XCUIRemote.shared.press(.up) }; sleep(1)
+            if open("More", in: app, name: "59-fix-match"), waitFor("Fix Match", in: app, timeout: 5), open("Fix Match", in: app, name: "59-fix-match") {
+                settle(); shot("59-fix-match"); back()
+            }
         } else { hierarchy("57-movie-detail", of: app); notReached("57-movie-detail", "The movie detail page did not open.") }
         app.terminate()
 
@@ -354,10 +415,9 @@ final class ScreenshotTests: XCTestCase {
             notReached("76-search-results", "No on-screen keyboard appeared (search field found: \(field != nil)).")
         }
         app.terminate()
-
-        notReached("77-discover-no-key", "Discover is now part of the Search tab (OPEN_QUESTIONS R167 (c)); its no-key state is screen 75.")
-        notReached("78-discover-results", "Discover results need an online lookup key and the network; UI-test mode makes no network calls.")
-        notReached("79-top-shelf", "The Top Shelf is part of the Home Screen, not the app; a UI test of this app cannot open it.")
+        // 77 and 78 (the old Discover tab) are gone: Discover is part of Search (screen 75, OPEN_QUESTIONS R167 (c)). 79 (Top
+        // Shelf) is part of the system Home Screen, not this app, so a UI test cannot open it: it is checked on a device
+        // (docs/DEVICE_TEST_CHECKLIST_VISUAL.md, V-TS1). #15 item 1.3.
     }
 
     // MARK: Accessibility settings (rule 17, docs/DESIGN_REFERENCES.md)
