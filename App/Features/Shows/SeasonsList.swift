@@ -1,8 +1,9 @@
 import SwiftUI
 import AppLogic
 
-/// The show page (#15 5.1, 5.2): backdrop, the title (or its title logo, #15 Part 9), Play and More as buttons (as on the
-/// movie page), then one shelf of 16:9 episode cards per season.
+/// The show page (#15 5.1, 5.2): backdrop, the title (or its title logo, #15 Part 9), the synopsis, Play and More as buttons,
+/// the cast (#22 B: synopsis and cast as on the movie page, nothing when there are no details), then one shelf of 16:9
+/// episode cards per season.
 ///
 /// 5.1: only the show-wide mark that changes something is offered, inside More; the "X of Y watched" summary is secondary
 /// text under each season's name (R180). 5.2 (OPEN_QUESTIONS R189, PROVISIONAL): every season is its own shelf, so no
@@ -14,13 +15,25 @@ struct SeasonsList: View {
     let seriesID: Int64
     let model: ScreenModel<SeasonsViewModel>
     var onPlay: (Int64) -> Void
+    @Environment(AppServices.self) private var services
+    /// #22 B (OPEN_QUESTIONS R193): the show's synopsis and cast, from the same details lookup as the movie page. Nil (no
+    /// key, no match, or both empty) draws nothing: no empty band (rule L6).
+    @State private var details: TitleDetails?
     @FocusState private var playFocused: Bool
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading) {
                 TitleHeader(title: content.seriesTitle, artworkKey: "series-\(seriesID)")
+                // As on the movie page: the synopsis above the buttons (three lines, the whole text one press away).
+                if let overview = details?.overview {
+                    SynopsisLink(title: content.seriesTitle, text: overview)
+                }
                 actions
+                // The cast right after the buttons, as on the movie page, so the page reads the same way; the seasons follow.
+                if let cast = details?.cast, !cast.isEmpty {
+                    CastShelf(cast: cast)
+                }
                 ForEach(content.seasons) { season in
                     VStack(alignment: .leading) {
                         Text(season.title)
@@ -45,6 +58,9 @@ struct SeasonsList: View {
         .defaultFocus($playFocused, true)
         // #15 5.2: the show's fan art (or its matched online backdrop) behind the page, as on the movie page.
         .background { BackdropView(artworkKey: "series-\(seriesID)") }
+        .task(id: "series-\(seriesID)|\(services.online.keyRevision)") {
+            details = await services.online.details(key: "series-\(seriesID)")
+        }
         .pushedScreen(content.seriesTitle)
     }
 

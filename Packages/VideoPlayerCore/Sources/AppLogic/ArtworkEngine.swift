@@ -62,6 +62,8 @@ public protocol OnlineArtworkProviding: Sendable {
     func backdropURL(path: String) async -> URL?
     /// Synopsis and cast of the title a movie is already matched to (no new matching), or nil (#15 6.2).
     func details(forItem item: LibraryItem) async -> TitleDetails?
+    /// Synopsis and cast of a series by its online id, or nil (#22 B, show page).
+    func details(forSeriesID tmdbID: Int) async -> TitleDetails?
 }
 
 public extension OnlineArtworkProviding {
@@ -70,6 +72,7 @@ public extension OnlineArtworkProviding {
     func logoURL(path: String) async -> URL? { nil }
     func backdropURL(path: String) async -> URL? { nil }
     func details(forItem item: LibraryItem) async -> TitleDetails? { nil }
+    func details(forSeriesID tmdbID: Int) async -> TitleDetails? { nil }
 }
 
 /// One title-logo picture to try, in order (#15 9.2). The app decodes it and checks it with `TitleLogoRules.check`; the
@@ -259,12 +262,23 @@ public actor ArtworkEngine {
         return .none
     }
 
-    /// Synopsis and cast for a movie page, from the online details of the matched title. Nil without a key, without a match,
-    /// or for anything that is not a movie.
+    /// Synopsis and cast for a movie page ("item-N") or a show page ("series-N", #22 B), from the online details of the matched
+    /// title. Nil without a key, without a match, for an episode page, or when both are empty (the page then shows no band).
     public func details(key text: String) async -> TitleDetails? {
-        guard let online, case .item(let id)? = ArtworkKey(text), let item = try? await store.item(id: id), item.kind == .movie else { return nil }
-        guard let details = await online.details(forItem: item), !details.isEmpty else { return nil }
-        return details
+        guard let online else { return nil }
+        let found: TitleDetails?
+        switch ArtworkKey(text) {
+        case .item(let id)?:
+            guard let item = try? await store.item(id: id), item.kind == .movie else { return nil }
+            found = await online.details(forItem: item)
+        case .series(let seriesID)?:
+            guard let tmdbID = try? await seriesOnlineID(seriesID) else { return nil }
+            found = await online.details(forSeriesID: tmdbID)
+        default:
+            return nil
+        }
+        guard let found, !found.isEmpty else { return nil }
+        return found
     }
 
     private func onlineLogos(_ set: ImageSet, _ online: any OnlineArtworkProviding, _ language: String?) async -> [LogoCandidate] {

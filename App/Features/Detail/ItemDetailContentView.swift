@@ -32,7 +32,7 @@ struct ItemDetailContentView: View {
                         .foregroundStyle(.secondary)
                 }
                 if let overview = details?.overview {
-                    synopsis(overview)
+                    SynopsisLink(title: content.title, text: overview)
                 }
                 // #15 D3: how much is left, as text, instead of a full-width bar. Fixed in code, verify in next screenshots.
                 if let timeLeft = content.timeLeft {
@@ -53,20 +53,6 @@ struct ItemDetailContentView: View {
             details = content.kind == .movie ? await services.online.details(key: content.artworkKey) : nil
         }
         .pushedScreen(content.title)
-    }
-
-    /// Three lines of the synopsis; selecting it opens the whole text.
-    private func synopsis(_ text: String) -> some View {
-        NavigationLink {
-            LongTextPage(title: content.title, text: text)
-        } label: {
-            Text(text)
-                .font(.callout)
-                .lineLimit(3)
-                .multilineTextAlignment(.leading)
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint("Shows the whole synopsis")
     }
 
     private var actions: some View {
@@ -106,9 +92,30 @@ struct ItemDetailContentView: View {
     }
 }
 
+/// Three lines of the synopsis; selecting it opens the whole text (rule L5: the complete text one press away, so nothing is
+/// cut off for good). Shared by the movie page and the show page (#22 B).
+struct SynopsisLink: View {
+    let title: String
+    let text: String
+
+    var body: some View {
+        NavigationLink {
+            LongTextPage(title: title, text: text)
+        } label: {
+            Text(text)
+                .font(.callout)
+                .lineLimit(3)
+                .multilineTextAlignment(.leading)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Shows the whole synopsis")
+    }
+}
+
 /// The cast, in billing order, as a horizontal shelf of name and role (#15 6.2). Each entry takes focus so the remote can
-/// move along the shelf; there is no person page, so selecting does nothing (OPEN_QUESTIONS R182).
-private struct CastShelf: View {
+/// move along the shelf; there is no person page, so selecting does nothing (OPEN_QUESTIONS R182). Shared by the movie page
+/// and the show page (#22 B).
+struct CastShelf: View {
     let cast: [TitleDetails.CastMember]
 
     var body: some View {

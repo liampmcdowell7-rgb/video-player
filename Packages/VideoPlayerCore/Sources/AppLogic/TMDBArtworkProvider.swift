@@ -70,6 +70,13 @@ public struct TMDBArtworkProvider: OnlineArtworkProviding {
         return TitleDetails(overview: movie.overview, people: movie.credits.cast)
     }
 
+    /// #22 B: the same for a show page, from the cached series details (`append_to_response=credits`, already requested for
+    /// the show's poster and pictures).
+    public func details(forSeriesID tmdbID: Int) async -> TitleDetails? {
+        guard let series = try? await client.series(id: tmdbID) else { return nil }
+        return TitleDetails(overview: series.overview, people: series.credits.cast)
+    }
+
     private func poster(kind: TitleKind, id: Int) async -> URL? {
         let path: String?
         switch kind {

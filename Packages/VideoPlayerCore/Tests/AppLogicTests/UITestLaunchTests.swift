@@ -190,7 +190,15 @@ final class UITestLaunchTests: XCTestCase {
         XCTAssertGreaterThan(UITestFixtureDetails.details(forTitle: "Sample Movie 4")?.overview?.count ?? 0, 1000, "the very long synopsis")
         XCTAssertNil(UITestFixtureDetails.details(forTitle: "Sample Movie 6"), "the page with neither")
         let episodeKey = await UITestFixtureDetails.details(key: "item-\(try XCTUnwrap(episodes.first).id)", store: store)
-        XCTAssertNil(episodeKey, "movies only, like the online path")
+        XCTAssertNil(episodeKey, "an episode page has none, like the online path")
+        // #22 B: the show page, by its "series-N" key. Sample Show 1 has the very long synopsis and a cast; Sample Show 2 none.
+        let showOne = try XCTUnwrap(episodes.first { $0.seriesTitle == "Sample Show 1" }?.seriesID)
+        let showTwo = try XCTUnwrap(episodes.first { $0.seriesTitle == "Sample Show 2" }?.seriesID)
+        let showOneDetails = await UITestFixtureDetails.details(key: "series-\(showOne)", store: store)
+        XCTAssertGreaterThan(showOneDetails?.overview?.count ?? 0, 1000, "the very long synopsis on the show page")
+        XCTAssertFalse(showOneDetails?.cast.isEmpty ?? true)
+        let showTwoDetails = await UITestFixtureDetails.details(key: "series-\(showTwo)", store: store)
+        XCTAssertNil(showTwoDetails, "the show page with neither")
         for title in movies.map(\.title) {
             let d = UITestFixtureDetails.details(forTitle: title)
             XCTAssertTrue(d.map { ($0.overview ?? UITestFixtureDetails.marker).hasPrefix(UITestFixtureDetails.marker) } ?? true,

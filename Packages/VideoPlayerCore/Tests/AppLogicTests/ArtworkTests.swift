@@ -109,6 +109,9 @@ private final class FakeOnline: OnlineArtworkProviding, @unchecked Sendable {
     var details: TitleDetails?
     func backdropURL(path: String) async -> URL? { URL(string: "https://images.example.invalid/w1280" + path) }
     func details(forItem item: LibraryItem) async -> TitleDetails? { details }
+    var seriesDetails: TitleDetails?
+    private(set) var seriesDetailCalls: [Int] = []
+    func details(forSeriesID tmdbID: Int) async -> TitleDetails? { lock.withLock { seriesDetailCalls.append(tmdbID) }; return seriesDetails }
 }
 
 final class ArtworkEngineTests: XCTestCase {
@@ -350,6 +353,29 @@ final class ArtworkEngineTests: XCTestCase {
         r.online.details = TitleDetails(overview: nil, cast: [])
         let empty = await r.engine().details(key: "item-\(id)")
         XCTAssertNil(empty)
+    }
+
+    /// #22 B: the show page asks with "series-N"; the online id is the one most of the show's episodes carry. Without a
+    /// match, without a key, or with nothing in the details, there is nothing (the page draws no band).
+    func testDetailsForAShowPageUseTheShowsOnlineID() async throws {
+        let r = try await rig([("/TV/Show One (2010)/Season 1/Show One - S01E01 - A.mkv", 1_000),
+                               ("/TV/Show One (2010)/Season 1/Show One - S01E02 - B.mkv", 1_000)])
+        let episodes = try await r.lib.episodes(ofSeriesTitle: "Show One")
+        let seriesKey = "series-\(try XCTUnwrap(episodes.first?.seriesID))"
+        r.online.seriesDetails = TitleDetails(overview: "A show synopsis.", cast: [.init(id: 1, name: "Sample Actor", role: nil)])
+        let unmatched = await r.engine().details(key: seriesKey)
+        XCTAssertNil(unmatched, "no episode is matched yet: no online id to ask with")
+        XCTAssertEqual(r.online.seriesDetailCalls, [])
+        for e in episodes { try await r.lib.store.setMetadata(itemID: e.id, ItemMetadata(tmdbID: 4_242)) }
+        let found = await r.engine().details(key: seriesKey)
+        XCTAssertEqual(found?.overview, "A show synopsis.")
+        XCTAssertEqual(found?.cast.map(\.name), ["Sample Actor"])
+        XCTAssertEqual(r.online.seriesDetailCalls, [4_242])
+        let off = await r.engine(withOnline: false).details(key: seriesKey)
+        XCTAssertNil(off, "no key: nothing")
+        r.online.seriesDetails = TitleDetails(overview: "  ", people: [])
+        let blank = await r.engine().details(key: seriesKey)
+        XCTAssertNil(blank, "a blank synopsis and no cast: no band")
     }
 
     func testKeysParse() {

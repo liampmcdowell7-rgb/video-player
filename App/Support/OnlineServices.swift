@@ -104,7 +104,8 @@ final class OnlineServices {
         await resolver.backdrop(key: key, userLanguage: Locale.preferredLanguages.first)
     }
 
-    /// Synopsis and cast of a movie page from the cached online details (#15 6.2). Nil without a key.
+    /// Synopsis and cast of a movie page ("item-N", #15 6.2) or a show page ("series-N", #22 B) from the cached online details.
+    /// Nil without a key.
     func details(key: String) async -> TitleDetails? {
         #if DEBUG
         // #21 D: the screenshot job's fake synopsis and cast (no key, no network). Not compiled into Release.

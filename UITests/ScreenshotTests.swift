@@ -488,6 +488,7 @@ final class ScreenshotTests: XCTestCase {
     /// #21 D: the movie page with a synopsis and cast from the debug-only fake details (`UITestFixtureDetails`, no network).
     /// 57/58 (Sample Movie 1, short synopsis and cast) and 60/61 (Sample Movie 2, a full cast shelf) already show them; this
     /// adds the very long synopsis with its whole-text page (77) and the page with neither (78). Job 4b.
+    /// #22 B: the same two cases on the show page (77-show-..., Sample Show 1; 78-show-..., Sample Show 2).
     func test13_MovieSynopsisAndCast() {
         var app = launch("-UITestFixtures", open: "Sample Movie 4")
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 4", in: app), waitFor("Sample synopsis", in: app, timeout: 10) {
@@ -501,6 +502,23 @@ final class ScreenshotTests: XCTestCase {
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 6", in: app) {
             settle(); shot("78-movie-no-synopsis-or-cast")
         } else { notReached("78-movie-no-synopsis-or-cast", "The page did not open.") }
+        app.terminate()
+
+        // #22 B: the show page gets the same synopsis and cast. Sample Show 1 has the very long synopsis and a cast; Sample
+        // Show 2 has neither, so its page must show no empty band. The test keeps its name (the workflow selects it by name).
+        app = launch("-UITestFixtures", open: "Sample Show 1")
+        if waitForScreen("screen.series", in: app, timeout: 60), waitFor("Season 1", in: app, timeout: 20), waitFor("Sample synopsis", in: app, timeout: 10) {
+            settle(); shot("77-show-long-synopsis")
+            if open("Sample synopsis", in: app, name: "77-show-long-synopsis-page") { settle(); shot("77-show-long-synopsis-page"); back() }
+            // Play has the focus; one press down reaches the cast shelf below the buttons.
+            XCUIRemote.shared.press(.down); sleep(1); shot("77-show-long-synopsis-cast")
+        } else { hierarchy("77-show-long-synopsis", of: app); notReached("77-show-long-synopsis", "The show page or its fake synopsis did not appear.") }
+        app.terminate()
+
+        app = launch("-UITestFixtures", open: "Sample Show 2")
+        if waitForScreen("screen.series", in: app, timeout: 60), waitFor("Season 1", in: app, timeout: 20) {
+            settle(); shot("78-show-no-synopsis-or-cast")
+        } else { notReached("78-show-no-synopsis-or-cast", "The show page did not open.") }
         app.terminate()
     }
 
