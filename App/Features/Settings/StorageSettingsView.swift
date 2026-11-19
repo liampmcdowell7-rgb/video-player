@@ -13,8 +13,12 @@ struct StorageSettingsView: View {
                                         passwordsNeeded: services.passwordsNeeded, cloudUnavailable: services.cloudUnavailable)
         SettingsPane(title: "Storage and iCloud", summary: SettingsTexts.storageSummary,
                      status: [status.accountLine, status.passwordsLine, status.passwordsNeededLine ?? "", status.libraryLine ?? ""]) {
-            Section("iCloud") {
+            // #23 A: SwiftUI has no Section("title") { } footer: { } form; the title goes in a header closure (plain Text,
+            // the one system header style, rule L4), as on the other Settings pages.
+            Section {
                 Button("Sync Now") { services.sync.syncNow() }
+            } header: {
+                Text("iCloud")
             } footer: {
                 Text(services.sync.line)
             }
