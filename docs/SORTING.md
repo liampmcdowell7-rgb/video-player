@@ -193,7 +193,7 @@ and a rebuilt index. Sort Automatically writes a tombstone. Scans read the choic
 
 Jellyfin and Emby items already arrive with their `Type`; it is now decoded and carried on each file
 (`SourceEntry.serverItemType`: "Movie" or "Episode"; "Video" and anything else mean nothing). The request is unchanged.
-Source setting (Jellyfin and Emby only): **Sort by Filename Instead of Server Library Types**, default off, PROVISIONAL
+Source setting (Jellyfin and Emby only): **Sort by Filename**, default off, PROVISIONAL
 (R171), kept in the source options as `sortByFilename=1`.
 
 ### Tests (Linux, WSL)

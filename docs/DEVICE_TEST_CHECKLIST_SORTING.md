@@ -30,13 +30,13 @@ Nothing here has been seen on a device. Each line says what to do and what passe
 - SO11. A Jellyfin or Emby source with a movie library that holds a file named like an episode (`Sample Show S01E04.mkv`).
   Pass: it is in Shows and How This Was Sorted says "File Name, Not the Server" and "Sorted by filename, not by the server."
   A file named `Sample Clip.mkv` in that movie library is in Movies with "Server Library Type".
-- SO12. On that source: Settings > Sources > the source > Sort by Filename Instead of Server Library Types, on. Pass: after
+- SO12. On that source: Settings > Sources > the source > Sort by Filename, on. Pass: after
   the scan `Sample Clip.mkv` moves to Needs Review; turning it off brings it back to Movies.
 - SO13. Console (Mac, connected Apple TV), category "Sorting", debug messages on. Pass: one line per file:
   "sorted movie by moviePattern: <private> (...)"; the path is not shown in clear.
 - SO14. Discover. Pass: nothing in Discover changes; Discover titles never appear in Needs Review.
 - SO15 (addendum #18 G). Your own flat mixed folder (movies and episodes side by side, no Movies/TV split) on the real
-  Jellyfin source. Step 1: Settings > Sources > the source > Sort by Filename Instead of Server Library Types, off; Scan
+  Jellyfin source. Step 1: Settings > Sources > the source > Sort by Filename, off; Scan
   Now. Write down every file in Settings > Library > Needs Review (the file name and the note under it). Step 2: turn the
   setting on; Scan Now; write the list down again. Pass: every file is in exactly one of Movies, Shows or Needs Review in
   both steps, nothing is lost, and the report names which files were in Needs Review in each step and which ones moved

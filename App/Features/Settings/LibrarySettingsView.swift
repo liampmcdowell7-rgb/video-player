@@ -13,7 +13,7 @@ struct LibrarySettingsView: View {
     var body: some View {
         SettingsPane(title: "Library", summary: SettingsTexts.librarySummary) {
             Section {
-                Toggle("Scan Sources When the App Opens", isOn: $scanOnLaunch)
+                SettingToggle("Scan Sources When the App Opens", isOn: $scanOnLaunch)
                 Button {
                     Task { await services.scanAll() }
                 } label: {
@@ -24,7 +24,7 @@ struct LibrarySettingsView: View {
             }
             // #15 3.2 and 9.4: title logos on the movie and show pages (on by default).
             Section {
-                Toggle("Show Title Logos", isOn: $showTitleLogos)
+                SettingToggle("Show Title Logos", isOn: $showTitleLogos)
             } footer: {
                 Text(SettingsTexts.titleLogosFooter)
             }
@@ -33,14 +33,14 @@ struct LibrarySettingsView: View {
                 NavigationLink {
                     NeedsReviewView().screenIdentifier("screen.needsReview")
                 } label: {
-                    LabeledContent("Needs Review", value: reviewCount.map(String.init) ?? "")
+                    ValueRow("Needs Review", value: reviewCount.map(String.init) ?? "")
                 }
             }
             if let counts {
                 Section("In Your Library") {
-                    LabeledContent("Titles", value: String(counts.items))
-                    LabeledContent("Shows", value: String(counts.series))
-                    LabeledContent("Files", value: String(counts.files))
+                    ValueRow("Titles", value: String(counts.items))
+                    ValueRow("Shows", value: String(counts.series))
+                    ValueRow("Files", value: String(counts.files))
                 }
             }
         }

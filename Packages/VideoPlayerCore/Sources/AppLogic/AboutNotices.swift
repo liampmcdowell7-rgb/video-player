@@ -63,7 +63,7 @@ public struct BundledLicenseText: Equatable, Sendable, Identifiable {
 /// The full licence texts are bundled in App/Licenses (OPEN_QUESTIONS R149) and shown by "Full Licence Texts".
 public enum LicenseNotices {
     public static let heading = "Open-Source Licences"
-    public static let intro = "This app includes the following open-source software, each under its own licence. The full licence texts are in Full Licence Texts below."
+    public static let intro = "This app includes the following open-source software, each under its own licence. The full licence texts are in Full Licence Texts, on the About page."
 
     /// The public repository that holds this app's source, the build scripts and the patches. It is the address the
     /// runbook creates (docs/GITHUB_ACTIONS_RUNBOOK.md); it does not exist until the first push.

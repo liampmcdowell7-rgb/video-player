@@ -12,9 +12,9 @@ struct HomeScreenSettingsView: View {
     var body: some View {
         SettingsPane(title: "Home Screen", summary: SettingsTexts.homeSummary) {
             Section("Rows") {
-                Toggle("Continue Watching", isOn: $showContinue)
-                Toggle("Next Up", isOn: $showNextUp)
-                Toggle("Recently Added", isOn: $showRecent)
+                SettingToggle("Continue Watching", isOn: $showContinue)
+                SettingToggle("Next Up", isOn: $showNextUp)
+                SettingToggle("Recently Added", isOn: $showRecent)
             }
             Section {
                 Picker("Keep Titles in Continue Watching", selection: $days) {
@@ -26,7 +26,7 @@ struct HomeScreenSettingsView: View {
                 Text(SettingsTexts.continueFooter)
             }
             Section {
-                Toggle("Show Discover", isOn: $showDiscover)
+                SettingToggle("Show Discover", isOn: $showDiscover)
             } header: {
                 Text("Discover")
             } footer: {

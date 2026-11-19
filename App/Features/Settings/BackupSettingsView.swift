@@ -28,23 +28,23 @@ struct BackupSettingsView: View {
         SettingsPane(title: "Backup", summary: BackupStatusText.summary,
                      status: [statusLine(backup) ?? "", backup.skippedLine ?? ""]) {
             Section {
-                Toggle("Library Data", isOn: $backup.settings.library)
-                Toggle("Artwork", isOn: $backup.settings.artwork)
-                LabeledContent("Artwork in iCloud", value: BackupStatusText.size(backup.usage[.artwork] ?? 0))
+                SettingToggle("Library Data", isOn: $backup.settings.library)
+                SettingToggle("Artwork", isOn: $backup.settings.artwork)
+                ValueRow("Artwork in iCloud", value: BackupStatusText.size(backup.usage[.artwork] ?? 0))
                 if backup.settings.artwork {
-                    Toggle("Only Artwork for Items in Your Library", isOn: $backup.settings.artworkLibraryOnly)
+                    SettingToggle("Only Artwork for Items in Your Library", isOn: $backup.settings.artworkLibraryOnly)
                 }
-                LabeledContent("Settings and Watch State", value: "Kept by iCloud Sync")
+                ValueRow("Settings and Watch State", value: "iCloud Sync")
                 LearnMoreLink(title: BackupStatusText.learnMoreTitle, text: BackupStatusText.learnMore)
             } header: {
                 Text("What Is Backed Up")
             } footer: {
-                Text(BackupStatusText.whatShort)
+                Text(BackupStatusText.whatShort + " " + BackupStatusText.settingsNote)
             }
 
             Section("iCloud") {
-                LabeledContent("Size in iCloud", value: BackupStatusText.size(backup.totalSize))
-                LabeledContent("Last Backup", value: backup.lastSuccess.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "Never")
+                ValueRow("Size in iCloud", value: BackupStatusText.size(backup.totalSize))
+                ValueRow("Last Backup", value: backup.lastSuccess.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "Never")
                 Button("Back Up Now") { backup.backUpNow() }
                     .disabled(backup.isWorking || backup.unavailableReason != nil || !(backup.settings.library || backup.settings.artwork))
                 Button("Restore from iCloud", role: .destructive) { confirmRestore = true }

@@ -13,20 +13,20 @@ struct PlaybackSettingsView: View {
     var body: some View {
         SettingsPane(title: "Playback", summary: SettingsTexts.playbackSummary) {
             Section {
-                Toggle("Play Next Episode Automatically", isOn: $autoPlayNext)
-                Toggle("Show Skip Buttons", isOn: $skipButtons)
+                SettingToggle("Play Next Episode Automatically", isOn: $autoPlayNext)
+                SettingToggle("Show Skip Buttons", isOn: $skipButtons)
                 LearnMoreLink(title: SettingsTexts.skipLearnMoreTitle, text: SettingsTexts.skipFull)
             } footer: {
                 Text(SettingsTexts.skipShort)
             }
             Section {
-                Toggle("Remember Audio and Subtitle Choice for Each Show", isOn: $rememberTracks)
-                Toggle("Show Playback Stats in the Player", isOn: $statsButton)
+                SettingToggle("Remember Audio and Subtitle Choice for Each Show", isOn: $rememberTracks)
+                SettingToggle("Show Playback Stats in the Player", isOn: $statsButton)
             } footer: {
                 Text(SettingsTexts.statsFooter)
             }
             Section {
-                Toggle("Play the Dolby Digital Core of Dolby TrueHD", isOn: $trueHDCore)
+                SettingToggle("Play the Dolby Digital Core of Dolby TrueHD", isOn: $trueHDCore)
                 LearnMoreLink(title: SettingsTexts.trueHDLearnMoreTitle, text: SettingsTexts.trueHDFull)
             } footer: {
                 Text(SettingsTexts.trueHDShort)

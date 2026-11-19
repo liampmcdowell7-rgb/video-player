@@ -37,6 +37,16 @@ public enum SortTexts {
     }
 
     public static let reviewFooter = "These files could not be sorted into Movies or Shows. They are not shown anywhere else until you move them."
+    /// #25 B9: when every file in Needs Review has the same reason, it is said once (in the footer) instead of on every row.
+    public static func sharedReason(_ notes: [String]) -> String? {
+        guard let first = notes.first, notes.count > 1, notes.allSatisfy({ $0 == first }) else { return nil }
+        return first
+    }
+    /// The Needs Review footer, with a shared reason (when there is one) said first, as a sentence.
+    public static func reviewFooter(sharedReason: String?) -> String {
+        guard let reason = sharedReason?.trimmingCharacters(in: .whitespaces), !reason.isEmpty else { return reviewFooter }
+        return (reason.hasSuffix(".") ? reason : reason + ".") + " " + reviewFooter
+    }
 
     // Short texts for the sorting screens (addendum #18 B; #15 S1: each fits one line at default size, footers stay short).
 
@@ -67,12 +77,13 @@ public enum SortTexts {
 
 // MARK: Source setting
 
-/// "Sort by filename instead of server library types" (PROVISIONAL, default off, OPEN_QUESTIONS): only for sources whose
+/// "Sort by Filename" (#25 B11; was "Sort by filename instead of server library types"; PROVISIONAL, default off, OPEN_QUESTIONS): only for sources whose
 /// server has its own library types (Jellyfin, Emby). Kept in the source definition's options, so it syncs.
 public enum SortSourceOption {
     public static let key = "sortByFilename"
-    public static let title = "Sort by Filename Instead of Server Library Types"
-    public static let footer = "When on, the file name decides Movies or Shows even where the server's own library says otherwise."
+    /// #25 B11: short enough for one line; what it does (instead of the server's library types) is in `footer`.
+    public static let title = "Sort by Filename"
+    public static let footer = "When on, the file name decides Movies or Shows instead of the server's library types, even where the server says otherwise."
 
     public static func applies(toKind kind: String) -> Bool { kind == SourceKind.jellyfin.rawValue || kind == SourceKind.emby.rawValue }
 

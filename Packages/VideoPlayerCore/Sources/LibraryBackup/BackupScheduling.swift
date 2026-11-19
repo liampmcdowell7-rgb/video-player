@@ -68,6 +68,8 @@ public enum BackupStatusText {
     // above, unchanged) is on its "Learn More" page.
     public static let summary = "A copy in your own iCloud of what the app built from your videos. Your videos are never uploaded."
     public static let whatShort = "The library and pictures. Never your videos, passwords, sign-in tokens or API keys."
+    /// #25 B3: the row "Settings and Watch State" shows the short value "iCloud Sync"; the longer wording is here, in the footer.
+    public static let settingsNote = "Settings and watch state are kept by the app's iCloud sync, not by this backup."
     public static let learnMoreTitle = "About Backup"
     public static var learnMore: String {
         [intro, storageNote, "Library Data: " + libraryDetail, "Artwork: " + artworkDetail,

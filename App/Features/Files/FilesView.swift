@@ -15,7 +15,8 @@ struct FilesView: View {
                     EmptyStateView(empty: HomeViewModel.noSourcesForFiles, action: { showSetup = true })
                 } else {
                     // #15 7.1: the rows in a bounded column (L1, L2); 7.3: the protocol under each name (R187).
-                    PaneColumns(summary: FilesText.rootSummary) {
+                    // #25 B9: the page has its own title, as every other Files page.
+                    PaneColumns(title: "Files", summary: FilesText.rootSummary) {
                         List(sources, id: \.id) { source in
                             NavigationLink(value: Route.folder(sourceID: source.id, sourceName: source.name, path: "/")) {
                                 RowLabel(source.name, systemImage: "externaldrive", detail: FilesText.sourceDetail(source.kind))

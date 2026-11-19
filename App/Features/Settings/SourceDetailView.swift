@@ -34,16 +34,16 @@ struct SourceDetailView: View {
         SettingsPane(title: current.name, summary: SourceDetailText.summary,
                      status: [current.verificationLabel ?? "", current.caveat ?? ""]) {
             Section {
-                LabeledContent("Name", value: current.name)
-                LabeledContent("Type", value: current.kindTitle)
-                if !current.host.isEmpty { LabeledContent("Server", value: current.host) }
-                if !current.username.isEmpty { LabeledContent("User Name", value: current.username) }
-                LabeledContent("Password", value: passwordStatus)
+                ValueRow("Name", value: current.name)
+                ValueRow("Type", value: current.kindTitle)
+                if !current.host.isEmpty { ValueRow("Server", value: current.host) }
+                if !current.username.isEmpty { ValueRow("User Name", value: current.username) }
+                ValueRow("Password", value: passwordStatus)
             }
             if SortSourceOption.applies(toKind: current.kind) {
                 // docs/SORTING.md; PROVISIONAL setting, OPEN_QUESTIONS.
                 Section {
-                    Toggle(SortSourceOption.title, isOn: Binding(
+                    SettingToggle(SortSourceOption.title, isOn: Binding(
                         get: { SortSourceOption.preferFilename(current) },
                         set: { on in Task { await services.setSortByFilename(on, for: current) } }
                     ))

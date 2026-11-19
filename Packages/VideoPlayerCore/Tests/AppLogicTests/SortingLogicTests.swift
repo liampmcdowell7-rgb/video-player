@@ -270,4 +270,15 @@ final class SortingLogicTests: XCTestCase {
         }
         XCTAssertFalse(SortTexts.scanningDetail(foldersDone: 1, total: 2).contains("left"), "no time-left claim")
     }
+
+    /// #25 B9: the same reason on every row is said once; different reasons stay on their rows.
+    func testASharedReviewReasonIsSaidOnce() {
+        XCTAssertEqual(SortTexts.sharedReason(["No episode pattern", "No episode pattern"]), "No episode pattern")
+        XCTAssertNil(SortTexts.sharedReason(["No episode pattern", "Two shows match"]))
+        XCTAssertNil(SortTexts.sharedReason(["Only one file"]), "one row keeps its own reason")
+        XCTAssertNil(SortTexts.sharedReason([]))
+        XCTAssertEqual(SortTexts.reviewFooter(sharedReason: "No episode pattern"), "No episode pattern. " + SortTexts.reviewFooter)
+        XCTAssertEqual(SortTexts.reviewFooter(sharedReason: ""), SortTexts.reviewFooter)
+        XCTAssertEqual(SortTexts.reviewFooter(sharedReason: nil), SortTexts.reviewFooter)
+    }
 }

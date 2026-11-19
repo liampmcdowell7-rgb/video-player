@@ -9,68 +9,63 @@ struct AboutView: View {
 
     var body: some View {
         // #15 3.8: bounded column with the title on the left (L1, L6).
+        // #25 B9: the long legal texts (source offer and links, trademark lines, the licence notices) are on Learn More pages,
+        // one press away, nothing removed; the page keeps the version, the data note, and the TMDB logo with the notice TMDB
+        // requires next to it. Fixed in code, verify in the next 40, 41, 42, 43.
         SettingsPane(title: "About", summary: SettingsTexts.aboutSummary) {
             Section {
-                LabeledContent("Version", value: AppInfo.version).readableRow()
+                ValueRow("Version", value: AppInfo.version).readableRow()
             }
             Section("Your Data") {
                 Text(AboutText.dataNote).readableRow()
             }
             Section("Open Source") {
                 Text("This app is open source and free. It plays videos you own from servers you set up.").readableRow()
-                Text(LicenseNotices.sourceOffer).readableRow()
-                ForEach(LicenseNotices.sourceLinks) { link in
-                    VStack(alignment: .leading) {
-                        Text(link.library)
-                        Text(link.upstream)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .readableRow()
-                }
-                Text(LicenseNotices.repositoryLine).readableRow()
+                LearnMoreLink(title: "Source Code", text: sourceText)
             }
             Section(Attribution.aboutHeading) {
                 Text(Attribution.aboutNote).readableRow()
                 // The one logo in the app (user decision, OPEN_QUESTIONS R148): TMDB's logo exactly as TMDB publishes it
                 // (docs/NAMES.md section 4), next to the notice TMDB requires. Not recoloured: the original colours are kept.
+                // #25 B9: the logo sits at the row's leading edge, with the system spacing above the notice.
                 VStack(alignment: .leading) {
                     Image("TMDBAttributionLogo")
                         .resizable()
                         .scaledToFit()
-                        .frame(height: tmdbLogoHeight) // design-lint:allow the TMDB logo's own image height inside a scrolling list, not a fixed-height card (rule L7)
+                        .frame(height: tmdbLogoHeight, alignment: .leading) // design-lint:allow the TMDB logo's own image height inside a scrolling list, not a fixed-height card (rule L7)
                         .accessibilityLabel("TMDB")
                     Text(Attribution.catalogueNotice)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .readableRow()
                 Text(Attribution.whereToWatchNotice).readableRow()
             }
             // Trademark acknowledgements and the "not affiliated" sentence (docs/NAMES.md section 3). Text only; the
             // TMDB logo above is the only logo anywhere in the app.
-            Section(TrademarkNotices.heading) {
-                ForEach(TrademarkNotices.lines, id: \.self) { line in
-                    Text(line).readableRow()
-                }
-            }
             Section(LicenseNotices.heading) {
-                Text(LicenseNotices.intro).readableRow()
-                NavigationLink("Full Licence Texts") {
+                NavigationLink {
                     LicenseTextsView()
+                } label: {
+                    SlotLabel("Full Licence Texts", systemImage: "doc.text")
                 }
-                ForEach(LicenseNotices.all) { notice in
-                    VStack(alignment: .leading) {
-                        Text(notice.name)
-                        Text("\(notice.license) · \(notice.use)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(notice.copyright)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    .readableRow()
-                }
+                .accessibilityIdentifier(ControlID.fullLicenceTexts)
+                LearnMoreLink(title: "Licence Notices", text: noticesText)
+                LearnMoreLink(title: TrademarkNotices.heading, text: TrademarkNotices.lines.joined(separator: "\n\n"))
             }
         }
+        // #25 B9: the system scroll-edge effect where the page scrolls under the tab bar (tvOS 26 and later).
+        .scrollEdgeEffectStyle(.soft, for: .top)
+    }
+
+    private var sourceText: String {
+        ([LicenseNotices.sourceOffer]
+         + LicenseNotices.sourceLinks.map { $0.library + "\n" + $0.upstream }
+         + [LicenseNotices.repositoryLine]).joined(separator: "\n\n")
+    }
+
+    private var noticesText: String {
+        ([LicenseNotices.intro]
+         + LicenseNotices.all.map { "\($0.name)\n\($0.license) · \($0.use)\n\($0.copyright)" }).joined(separator: "\n\n")
     }
 }
 

@@ -229,7 +229,7 @@ final class AppServices {
         Task { await rescanAfterSortChange() }
     }
 
-    /// Saves the source's "Sort by Filename Instead of Server Library Types" setting and sorts again.
+    /// Saves the source's "Sort by Filename" setting and sorts again.
     func setSortByFilename(_ on: Bool, for definition: UDSourceDefinition) async {
         try? await definitionSaver.saveDefinition(SortSourceOption.setting(on, on: definition))
         libraryRevision += 1

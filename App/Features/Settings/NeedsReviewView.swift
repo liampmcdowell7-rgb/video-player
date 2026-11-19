@@ -36,19 +36,23 @@ struct NeedsReviewView: View {
                     Text(error.message)
                 }
             case .loaded(let entries):
+                // #25 B9: a reason shared by every row is said once, in the footer; different reasons stay on their rows.
+                let shared = SortTexts.sharedReason(entries.map(\.note))
                 Section {
                     ForEach(entries) { entry in
                         Button { chosen = entry } label: {
                             VStack(alignment: .leading) {
                                 Text(entry.fileName)
-                                Text(entry.note)
-                                    .font(.callout)
-                                    .foregroundStyle(.secondary)
+                                if shared == nil {
+                                    Text(entry.note)
+                                        .font(.callout)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
                     }
                 } footer: {
-                    Text(SortTexts.reviewFooter)
+                    Text(SortTexts.reviewFooter(sharedReason: shared))
                 }
             }
         }
@@ -84,8 +88,25 @@ struct NeedsReviewButton: View {
     var body: some View {
         if count > 0 {
             NavigationLink(value: Route.needsReview) {
-                Label(SortTexts.reviewButton(count), systemImage: "questionmark.circle")
+                ActionLabel(SortTexts.reviewButton(count), systemImage: "questionmark.circle")
             }
+            .accessibilityIdentifier(ControlID.needsReview)
+        }
+    }
+}
+
+/// #25 B2: Needs Review as an item of the toolbar's More menu (a menu cannot hold a NavigationLink): it opens the same page
+/// on the tab in use through the app's open request.
+struct NeedsReviewMenuItem: View {
+    let count: Int
+    @Environment(AppServices.self) private var services
+
+    var body: some View {
+        if count > 0 {
+            Button(SortTexts.reviewButton(count), systemImage: "questionmark.circle") {
+                services.openRequest = .needsReview
+            }
+            .accessibilityIdentifier(ControlID.needsReview)
         }
     }
 }
