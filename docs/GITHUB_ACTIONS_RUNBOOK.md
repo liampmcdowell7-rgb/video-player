@@ -297,8 +297,8 @@ tick or cross, and its own download. One red job does not stop the others. Each 
 | Build app + Top Shelf (Simulator) | The app and Top Shelf compile for the tvOS Simulator (arm64) | `compile-check-results` | `errors.txt`, `errors-other.txt`, `build.log` |
 | Build app + Top Shelf (Apple TV device, Release, unsigned) | The same compile for a real Apple TV, and the device slices of the codec frameworks, libnfs and the Dolby Vision RPU library link | `device-build-results` | `errors.txt`, `build.log`, `embedded-frameworks.txt`, `macho-report.txt`, `static-libraries.txt`, `release-strings.txt` |
 | Package tests (tvOS Simulator) | The package unit tests build and pass on tvOS (tests that need a server, iCloud or a tool are skipped, not failed) | `simulator-test-results` | `test-report.md` (passed / skipped / failed per test target, then the failures), `test.log` |
-| Screenshots, part 1 (setup, Settings, sorting; tvOS Simulator, UI tests) | The UI tests 01, 02, 03 and 10 ran and took pictures | `screenshots` and `screenshots-logs` | `01-….png`, `02-….png` … in viewing order and `index.md` (the list, plus every screen that could not be reached and why) |
-| Screenshots, part 2 (library and detail pages; tvOS Simulator, UI tests) | The UI tests 04 and 05 ran and took pictures | `screenshots-library` and `screenshots-library-logs` | the same kind of folder: Home, Movies, Shows, the movie and show pages, Files, Search, Discover (44–62, 70–76), with its own `index.md` |
+| Screenshots, part 1 (setup, Settings, sorting; tvOS Simulator, UI tests) | The UI tests 01, 02, 03, 10 and 12 (the player clip, 22–27) ran and took pictures | `screenshots` and `screenshots-logs` | `01-….png`, `02-….png` … in viewing order and `index.md` (the list, plus every screen that could not be reached and why) |
+| Screenshots, part 2 (library and detail pages; tvOS Simulator, UI tests) | The UI tests 04, 05, 13 and 14 ran and took pictures | `screenshots-library` and `screenshots-library-logs` | the same kind of folder: Home, Movies, Shows, the movie and show pages, Files, Search, Discover (44–62, 70–76), the synopsis and cast pages (77, 78), the Shows row and the card menu (07, 08), with its own `index.md` |
 | Accessibility screenshots (tvOS Simulator, UI tests) | Eleven screens were drawn with Larger Text and Bold Text (the app's imitation of those settings) and at the default size, and each Larger Text and Bold Text picture differs from its default one outside the tab bar (OPEN_QUESTIONS R170, #17 A) | `accessibility-screenshots` and `accessibility-screenshots-logs` | folder `text` with its `index.md`: 80–84 and 90–95 Larger Text, 85–89 and 96–101 Bold Text, 102–112 the same screens at the default size; `a11y-compare.txt` (the comparison) |
 | Accessibility screenshots, simulator settings (tvOS Simulator, UI tests) | Five screens were drawn with each of three settings turned on in the simulator (OPEN_QUESTIONS R170) | `accessibility-settings-screenshots` and `accessibility-settings-screenshots-logs` | folders `contrast`, `transparency`, `motion` (113–117 each), each with its own `index.md`, plus `settings-applied.txt` |
 
@@ -369,7 +369,7 @@ loops: 3 + 4 + 8 + 17 + 7). 643 s / 39 = **16.5 s per screenshot**, app launches
 |---|---|---|---|
 | Last run (5ea8e96) | 39 | 10:43 (measured) | 18:54 |
 | Now (tests 01-05 and 10: more screens, scroll captures, the sorting screens and their Larger Text copies) | 68 | 18:42 | 26:53 |
-| With #21 C-G (player clip 6, synopsis and cast 4, Shows toolbar and card menu 4, verify list 2) | about 84 | about 23:06 | about 31:17 |
+| With #21 C-G (player clip 6, synopsis and cast 4, Shows toolbar and card menu 6; the verify list adds none, it is a section of index.md) | about 84 | about 23:06 | about 31:17 |
 
 One job would be stopped by the time budget after about 50 screenshots, so it is **split now** (job 4 and job 4b), each
 with its own runner, prepare, boot and build:
@@ -377,7 +377,7 @@ with its own runner, prepare, boot and build:
 | Job | Tests | Screenshots | UI tests (projected) | First stage to end of tests (projected) |
 |---|---|---|---|---|
 | 4: Screenshots, part 1 | 01, 02, 03, 10, and 12, the player clip (#21 E) | 3 + 4 + 8 + 20 + 6 = 41 | 11:17 | 19:28 |
-| 4b: Screenshots, part 2 | 04, 05, 13, with the synopsis and cast screens (#21 D), the Shows toolbar and card menu (#21 F) | 26 + 7 + 4 + 4 + 2 = 43 | 11:50 | 20:01 |
+| 4b: Screenshots, part 2 | 04, 05, 13 and 14, with the synopsis and cast screens (#21 D), the Shows toolbar and card menu (#21 F) | 26 + 7 + 4 + 6 = 43 | 11:50 | 20:01 |
 
 Both stay under the 22-minute deadline with about 2 minutes to spare; the projection is an estimate from one run and is
 checked by the next run's Stage times. Cost: one more macOS job per run, about 20 minutes (prepare, boot and build are
@@ -393,7 +393,9 @@ them in compile-check.yml.
    `accessibility-settings-screenshots-logs` (the four `-logs` ones only matter if their job is red).
 3. Make a new folder `Downloads\run-3` and unzip each zip into its own subfolder there. Do not unzip into the project folder.
 4. Open `screenshots\index.md` (any text editor) and look at the pictures in number order, then
-   `screenshots-library\index.md` (the numbers continue across both: part 2 holds 44–62 and 70–76). Then open
+   `screenshots-library\index.md` (the numbers continue across both: part 2 holds 07, 08, 44–62 and 70–78). At the end
+   of each `index.md`, "Fixed in code, verify in these screenshots" (#21 G) lists each change still to be checked by eye,
+   what to look for, and the pictures that show it (or NOT REACHED). Then open
    `accessibility-screenshots`: `text` holds the Larger Text pictures (80–84, 90–95), the Bold Text pictures (85–89,
    96–101) and the same eleven screens at the default size (102–112), so each can be compared with its default one;
    `a11y-compare.txt` says for each whether it differs from the default outside the tab bar (#17 A). Then open

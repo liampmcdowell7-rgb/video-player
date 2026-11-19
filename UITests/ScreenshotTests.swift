@@ -450,38 +450,38 @@ final class ScreenshotTests: XCTestCase {
 
     /// #21 E: the player, with the debug-only generated clip that stands in for Sample Show 1 S01E01 in fixture mode
     /// (App `UITestClip`: 40 s of coloured frames, two silent audio tracks and two subtitle tracks, English and French; an
-    /// intro marker at 2 to 20 s from the sample's .segments.json). Numbers 11 to 16. Job 4. HDR, Dolby Vision and Atmos
+    /// intro marker at 2 to 20 s from the sample's .segments.json). Numbers 22 to 27 (11 to 19 are the Add a Source forms). Job 4. HDR, Dolby Vision and Atmos
     /// cannot be shown this way and stay on the device checklist. Every step records "not reached" instead of failing.
     func test12_PlayerWithSampleClip() {
         let app = launch("-UITestFixtures", open: "Sample Show 1")
         guard waitForScreen("screen.series", in: app, timeout: 60), waitFor("Season 1", in: app, timeout: 20) else {
-            notReached("11-player-skip-intro", "The show page did not open."); app.terminate(); return
+            notReached("22-player-skip-intro", "The show page did not open."); app.terminate(); return
         }
-        guard open("A quiet beginning", in: app, name: "11-player-skip-intro"), waitForScreen("screen.item", in: app, timeout: 20) else {
-            notReached("11-player-skip-intro", "The S01E01 page did not open."); app.terminate(); return
+        guard open("A quiet beginning", in: app, name: "22-player-skip-intro"), waitForScreen("screen.item", in: app, timeout: 20) else {
+            notReached("22-player-skip-intro", "The S01E01 page did not open."); app.terminate(); return
         }
         settle()
         // S01E01 is watched in the sample library, so its button says "Play Again" ("Play" matches it).
-        guard open("Play", in: app, name: "11-player-skip-intro") else { app.terminate(); return }
+        guard open("Play", in: app, name: "22-player-skip-intro") else { app.terminate(); return }
         // The clip is written on first use (a few seconds), then plays; Skip Intro shows from 2 s to 20 s.
-        if waitFor("Skip Intro", in: app, timeout: 30) { sleep(1); shot("11-player-skip-intro") }
-        else { shot("11-player-skip-intro-missing"); notReached("11-player-skip-intro", "No “Skip Intro” within 30 s of Play.") }
+        if waitFor("Skip Intro", in: app, timeout: 30) { sleep(1); shot("22-player-skip-intro") }
+        else { shot("22-player-skip-intro-missing"); notReached("22-player-skip-intro", "No “Skip Intro” within 30 s of Play.") }
 
         // The transport bar and controls: one press of Play/Pause pauses and shows them.
-        XCUIRemote.shared.press(.playPause); sleep(2); shot("12-player-controls")
+        XCUIRemote.shared.press(.playPause); sleep(2); shot("23-player-controls")
         // The info panel: down from the transport bar.
-        XCUIRemote.shared.press(.down); sleep(2); shot("13-player-info-panel")
+        XCUIRemote.shared.press(.down); sleep(2); shot("24-player-info-panel")
         XCUIRemote.shared.press(.up); sleep(1)
         // The audio and subtitle menus of the system player (two tracks each, English and French).
-        for (number, label) in [("14-player-audio-menu", "Audio"), ("15-player-subtitles-menu", "Subtitles")] {
+        for (number, label) in [("25-player-audio-menu", "Audio"), ("26-player-subtitles-menu", "Subtitles")] {
             if open(label, in: app, name: number) { sleep(1); shot(number); XCUIRemote.shared.press(.menu); sleep(1) }
             else { shot(number + "-missing") }
         }
 
         // Next Episode: play on to the end of the clip; the Up Next card names Sample Show 1 S01E02 ("The long way round").
         XCUIRemote.shared.press(.playPause)
-        if waitFor("The long way round", in: app, timeout: 60) { sleep(1); shot("16-player-next-episode") }
-        else { shot("16-player-next-episode-missing"); notReached("16-player-next-episode", "No Up Next card for S01E02 by the end of the clip.") }
+        if waitFor("The long way round", in: app, timeout: 60) { sleep(1); shot("27-player-next-episode") }
+        else { shot("27-player-next-episode-missing"); notReached("27-player-next-episode", "No Up Next card for S01E02 by the end of the clip.") }
         app.terminate()
     }
 
@@ -504,27 +504,27 @@ final class ScreenshotTests: XCTestCase {
         app.terminate()
     }
 
-    /// #21 F: the Shows row with Sort, Filter and Saved Views like Movies (35 to 38), and the card long-press menu with
-    /// Go to Movie / Go to Show (and Remove from Continue Watching when the focused card is in that row) and where it leads (39).
+    /// #21 F: the Shows row with Sort, Filter and Saved Views like Movies (07; 35 to 38 are Settings pages), and the card long-press menu with
+    /// Go to Movie / Go to Show (and Remove from Continue Watching when the focused card is in that row) and where it leads (08).
     /// Job 4b.
     func test14_ShowsToolbarAndCardMenu() {
         var app = launch("-UITestFixtures", tab: "shows")
         if waitForScreen("screen.shows", in: app), waitFor("Sample", in: app, timeout: 60) {
-            settle(); shot("35-shows-toolbar")
-            for (label, name) in [("Sort", "36-shows-sort-menu"), ("Filter", "37-shows-filter-menu"), ("Saved Views", "38-shows-saved-views-menu")] {
+            settle(); shot("07-shows-toolbar")
+            for (label, name) in [("Sort", "07-shows-toolbar-sort-menu"), ("Filter", "07-shows-toolbar-filter-menu"), ("Saved Views", "07-shows-toolbar-saved-views-menu")] {
                 if open(label, in: app, name: name) { sleep(1); shot(name); back() }
             }
-        } else { notReached("35-shows-toolbar", "No sample show appeared.") }
+        } else { notReached("07-shows-toolbar", "No sample show appeared.") }
         app.terminate()
 
         app = launch("-UITestFixtures", tab: "home")
         if waitForScreen("screen.home", in: app), waitFor("Sample", in: app, timeout: 60) {
             settle()
             XCUIRemote.shared.press(.select, forDuration: 1.5)
-            sleep(1); shot("39-card-long-press-go-to")
+            sleep(1); shot("08-card-long-press-go-to")
             let label = waitFor("Go to Show", in: app, timeout: 3) ? "Go to Show" : "Go to Movie"
-            if open(label, in: app, name: "39-card-go-to-result") { settle(); shot("39-card-go-to-result") }
-        } else { notReached("39-card-long-press-go-to", "No sample title appeared on Home within 60 s.") }
+            if open(label, in: app, name: "08-card-go-to-result") { settle(); shot("08-card-go-to-result") }
+        } else { notReached("08-card-long-press-go-to", "No sample title appeared on Home within 60 s.") }
         app.terminate()
     }
 

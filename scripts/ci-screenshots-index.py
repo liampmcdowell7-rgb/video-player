@@ -16,6 +16,33 @@ import re
 import shutil
 import sys
 
+# #21 G: changes marked "fixed in code, verify in next screenshots". Each is (what changed, what to look for, the screenshot
+# name prefixes that show it). index.md lists every item whose screenshots are in this folder (or were not reached), with
+# links, so the review goes item by item. Items whose screenshots belong to another job's folder are left out there.
+VERIFY = [
+    ("The movie page's hero picture is dimmed instead of a dark band behind the text (OPEN_QUESTIONS R182)",
+     "the text over the picture is readable and there is no separate dark band", ["57-movie-detail", "60-movie-detail-two-versions"]),
+    ("Play has the focus when the movie page opens",
+     "Play is the focused (raised, highlighted) button on arrival", ["57-movie-detail"]),
+    ("The episode shelves on the show page",
+     "each season's episodes in one row with stills, the season 2 row reachable", ["55-show-page", "56-show-season-2-episode-row", "59-fix-match"]),
+    ("The new Needs Review button",
+     "the button sits in the row above the grid and opens the Needs Review list", ["63-movies-needs-review-button", "64-needs-review"]),
+    ("The Settings two-pane layout",
+     "the list on one side and the selected page's content on the other", ["30-settings", "31-settings", "32-settings", "33-settings",
+                                                                           "35-settings", "36-settings", "37-settings", "38-settings"]),
+    ("The Add a Source sheet and forms",
+     "the type list, then each form with its fields and buttons fully on screen", ["10-add-source-types", "11-form", "12-form", "13-form",
+                                                                                   "14-form", "15-form", "16-form", "17-form", "18-form",
+                                                                                   "19-form", "20-add-source-not-available"]),
+    ("The playback error is a system alert over the page",
+     "a centred alert with Try Again (when offered) and Done, the page still behind it", ["62-playback-error"]),
+    ("Shows has the Movies row: Sort, Filter, Saved Views, Jump to Letter, count (#21 F)",
+     "the same buttons in the same order as on Movies (53), and each menu opens", ["07-shows-toolbar"]),
+    ("The card long-press menu: Go to Movie / Go to Show and Remove from Continue Watching (#21 F)",
+     "Go to ... is first; Remove from Continue Watching shows on a card in that row; Go to opens the page", ["52-card-long-press-menu", "08-card"]),
+]
+
 NAME = re.compile(r"^(\d{2,3})-([A-Za-z0-9][A-Za-z0-9-]*?)(-NOT-REACHED)?(?:_\d+)?(?:_[0-9A-Fa-f-]{8,})?(?:\.[A-Za-z0-9]+)?$")
 
 
@@ -28,6 +55,24 @@ def entries(node):
     elif isinstance(node, list):
         for v in node:
             yield from entries(v)
+
+
+def verify_lines(shots, missing, order):
+    """One line per VERIFY item that has a screenshot (or a not-reached note) in this folder."""
+    out = []
+    for what, look, prefixes in VERIFY:
+        def hit(key):
+            return any(key == p or key.startswith(p + "-") for p in prefixes)
+        found = sorted((k for k in shots if hit(k)), key=order)
+        lost = sorted((k for k in missing if hit(k)), key=order)
+        if not found and not lost:
+            continue
+        links = ", ".join("[%s](%s)" % (k, shots[k]) for k in found) or "no screenshot"
+        line = "- %s. Look for: %s. See %s." % (what, look, links)
+        if lost:
+            line += " NOT REACHED: %s." % ", ".join(lost)
+        out.append(line)
+    return out
 
 
 def main():
@@ -84,6 +129,9 @@ def main():
         if key in missing:
             lines.append("- %s: NOT REACHED. %s" % (key, missing[key]))
     lines += ["", "Screenshots: %d. Screens not reached: %d." % (len(shots), len(missing))]
+    verify = verify_lines(shots, missing, order)
+    if verify:
+        lines += ["", "## Fixed in code, verify in these screenshots", ""] + verify
     if unnamed:
         lines += ["", "Attachments without a numbered name (text ones copied to other-attachments/, pictures not copied):"] + ["- " + u for u in unnamed]
     with open(os.path.join(out, "index.md"), "w", encoding="utf-8") as fh:
