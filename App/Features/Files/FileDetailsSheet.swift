@@ -19,7 +19,7 @@ struct FileDetailsSheet: View {
                 LabeledContent("Location", value: row.id)
                 Button("Done") { dismiss() }
             }
-            .navigationTitle("File Details")
+            .navigationTitle("File Details") // design-lint:allow sheet root: the title is the sheet's own heading, not a pushed page (rule D1 is for pushed pages)
         }
     }
 }

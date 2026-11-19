@@ -66,7 +66,7 @@ struct BackupSettingsView: View {
                     .disabled(backup.isWorking || backup.unavailableReason != nil)
             }
         }
-        .navigationTitle("Backup")
+        .pushedScreen("Backup")
         .confirmationDialog("Restore from iCloud?", isPresented: $confirmRestore, titleVisibility: .visible) {
             Button("Restore", role: .destructive) {
                 backup.restoreNow(afterLibrary: { await services.reapplyUserData() })

@@ -28,7 +28,7 @@ struct DiscoveryView: View {
                 }
             }
         }
-        .navigationTitle("Your Network")
+        .pushedScreen("Your Network")
         .onAppear { browser.start() }
         .onDisappear { browser.stop() }
     }

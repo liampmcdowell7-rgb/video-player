@@ -33,7 +33,7 @@ struct SourceFormView: View {
                 connectRow
             }
         }
-        .navigationTitle(info.title)
+        .pushedScreen(info.title)
         .onChange(of: phase) { _, newPhase in
             if case .saved = newPhase {
                 services.sourceAdded()

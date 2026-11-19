@@ -188,7 +188,7 @@ Current catalog (`App/Assets.xcassets/App Icon & Top Shelf Image.brandassets`): 
 
 ## 10. Lint (`scripts/design-lint.sh`)
 
-Pure bash/grep/POSIX awk (runs with mawk), no Swift. Default scope: every `.swift` and `.xcstrings` file and every asset-catalog image set under `App/` and `TopShelf/` with all rules, plus the package modules whose strings reach the screen (`Packages/VideoPlayerCore/Sources/AppLogic`, `PlaybackStatus`, `SourceLinks`, `UserData`) with the three names rules only. `--names-only` applies the names rules to the paths after it; `DESIGN_LINT_NAMES=<file>` reads another allowlist (the tests use `scripts/design-lint-fixtures/names-fixture.md`). Run: `bash scripts/design-lint.sh`. Tests: `bash scripts/test-design-lint.sh` (fixtures in `scripts/design-lint-fixtures/<rule>/`; 141 checks passed in WSL on 2026-11-17).
+Pure bash/grep/POSIX awk (runs with mawk), no Swift. Default scope: every `.swift` and `.xcstrings` file and every asset-catalog image set under `App/` and `TopShelf/` with all rules, plus the package modules whose strings reach the screen (`Packages/VideoPlayerCore/Sources/AppLogic`, `PlaybackStatus`, `SourceLinks`, `UserData`) with the three names rules only. `--names-only` applies the names rules to the paths after it; `DESIGN_LINT_NAMES=<file>` reads another allowlist (the tests use `scripts/design-lint-fixtures/names-fixture.md`). Run: `bash scripts/design-lint.sh`. Tests: `bash scripts/test-design-lint.sh` (fixtures in `scripts/design-lint-fixtures/<rule>/`; 200 checks passed in WSL on 2026-11-18).
 
 | Rule | Catches | Why / standard rule |
 |---|---|---|
@@ -205,6 +205,14 @@ Pure bash/grep/POSIX awk (runs with mawk), no Swift. Default scope: every `.swif
 | `pointless-availability` | `#available` / `@available` for tvOS versions at or below the project target | release-note item |
 | `motion` | `withAnimation`, `.animation(`, `.transition(`, ... in a file that never mentions `accessibilityReduceMotion` | rule 4: Reduce Motion |
 | `allow-without-reason` | `design-lint:allow` with no text after it | exceptions must carry a reason |
+| `upper-case` | `textCase(.uppercase)` | #15 L4: one system section-header style, no manual upper case (#16 item 1.11) |
+| `row-background` | in a file under `Settings/` or `Sources/`, or any file with a `Form`: `.listRowBackground(`, `.background(` with a shape, fill or colour, `.clipShape(RoundedRectangle/Capsule)`, `.cornerRadius(` | #15 L2, L3: system List / Form rows only, no pills |
+| `fixed-card` | in a file with a `ScrollView`, `List` or `Form`: `.frame(` with `height:` / `maxHeight:` (not `.infinity`), `.presentationDetents(` | #15 L7: no fixed-height card that clips scrolling content |
+| `short-line` | `.lineLimit(1)` with no `.minimumScaleFactor` within three lines | rule S1: short texts scale to fit (App/Shared/FittingLine.swift), never "…" |
+| `pushed-title` | a `.navigationTitle(` in a file that neither hides the navigation bar nor uses `.pushedScreen(` / `.tabRootScreen(` | #15 D1: no dim centred duplicate title on pushed pages |
+| `fixture-claim` | "Tested against a real server" or `.realServer` in a file whose name contains "Fixture" (every scope, also the package modules) | #15 D7: sample data never claims a real-server test |
+
+**Rules that cannot be checked in the code** (#16 item 1.11), and how each is verified instead: L1 (rows in a bounded column) and L5 (footers of one or two lines) depend on rendered size: CI screenshots, docs/A11Y_SHOTS.md, device checklist V-08. L9 (each honesty line once per screen) depends on what the three screens show together: screenshots 10 to 19 and 34. L10 (icon and label not touching) and D2 (one button height) are pixel measurements: screenshots, and the shared `Label` / button-row components. D4 and D5 (progress inside the artwork, aligned columns): screenshots 50 to 56. The changed-screen check in UITests/ScreenshotTests.swift catches a "scrolled" capture that did not scroll.
 
 **Exceptions.** `design-lint:allow <reason>` in a comment on the same line or alone on the line above. The reason is required. Every exception in App/ is listed here with its reason (`bash scripts/design-lint.sh --list-allows` prints them):
 
@@ -216,6 +224,10 @@ Pure bash/grep/POSIX awk (runs with mawk), no Swift. Default scope: every `.swif
 | App/Features/Player/StatsOverlayView.swift:26 | material | content over video: a translucent standard material, never glass (D-DS9) |
 | App/Features/Discover/DiscoverView.swift (2 lines) | HIG Layout | the same 40 pt spacing and six columns as a Home shelf, for the Discover shelves (section 4) |
 | App/Features/Settings/LicenseTextsView.swift:34 | focus | a long licence text has no controls, so the scroll view itself takes focus for the Siri Remote to scroll it (`focusable()`, the standard focus API, section 5 item 6) |
+| App/Features/Detail/ItemDetailContentView.swift:22, App/Shared/FittingLine.swift:23 and :76 | rule S1 | the system text style shrinks to fit, never below Apple's 23 pt minimum (R165) |
+| App/Shared/FittingLine.swift:33 | short-line | hidden measurement of a candidate's natural width, never drawn or spoken; S1 is applied to the visible line |
+| App/Features/Settings/AboutView.swift:39 | fixed-card | the TMDB logo's own image height inside the scrolling list, not a card |
+| App/Features/Files/FileDetailsSheet.swift:22, FixMatch/FixMatchView.swift:44, Movies/SaveViewSheet.swift:27, Sources/SourceKindListView.swift:33 | pushed-title | sheet roots: the title is the sheet's own heading, not a pushed page (D1 is about pushed pages) |
 
 App/Support/Attribution.swift no longer needs exceptions: TMDB and JustWatch are allowlisted, and the TMDB notice is exempt from `claim-wording` because it says "not endorsed". No package module carries an exception.
 
@@ -225,7 +237,7 @@ App/Support/Attribution.swift no longer needs exceptions: TMDB and JustWatch are
 |---|---|---|---|---|
 | `TMDBAttributionLogo` | `App/Assets.xcassets/TMDBAttributionLogo.imageset/TMDBAttributionLogo.svg`, sha256 `9665a76b1ae401a510ec1e0ca40ddcb3b0cfe45f1d51b77a308fea0845885648`, byte for byte as downloaded | Settings > About > Data Sources, next to the TMDB notice (`App/Features/Settings/AboutView.swift`) | https://www.themoviedb.org/about/logos-attribution, "Primary long (blue)" | TMDB API terms section 3: less prominent than the marks that identify the app, no implied endorsement (the required notice sits next to it); not recoloured or altered; caption height, scaled with Dynamic Type. No size or placement rule is published beyond that (docs/NAMES.md section 4) |
 
-As of 2026-11-17 (after the TMDB logo and licence screen): `design-lint: clean, 9 allowed by design-lint:allow, 158 file(s) checked` (`--list-allows` prints the exact lines).
+As of 2026-11-18 (after #16 item 1.11): `design-lint: clean, 18 allowed by design-lint:allow, 183 file(s) checked` (`--list-allows` prints the exact lines).
 
 **The `unknown-name` heuristic, exactly** (same text as the lint header). Per string: interpolations `\(...)` (one nesting level), escapes, URLs, absolute paths, file and host names (a dot followed by a lowercase letter), format specifiers, locale identifiers (`en_US`, `en_US_POSIX`) and date-format fields (a word made only of runs of one pattern letter: `EEE`, `MMM`, `yyyy`, `HH:mm:ss`) are blanked. Then every allowlist and generic entry is blanked (longest first, case-sensitive, whole words). A string that is one word in identifier shape (starts lowercase, camel case, or contains `_` `.` `/`) is skipped unless it is a KNOWN name. What remains is reported when it is (a) a KNOWN third-party name (a fixed list in the lint; it holds no media-player applications), (b) camel shape, (c) letters mixed with digits, (d) all capitals of two or more characters, (e) inside a sentence (at least three lowercase-initial words, at least 40% of the words) a capitalised word that is not first and does not follow `. ! ? : > ( "` or a dash, or (f) a capitalised word followed by a format-like token (a layout such as 7.1, a number, or "Profile").
 

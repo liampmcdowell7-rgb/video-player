@@ -20,6 +20,6 @@ struct AccessibilitySettingsView: View {
                 Text("Text size, Bold Text, Reduce Motion, Reduce Transparency, Increase Contrast, VoiceOver and captions are set in the device’s own Accessibility settings. This app follows them and has no separate copies.")
             }
         }
-        .navigationTitle("Accessibility")
+        .pushedScreen("Accessibility")
     }
 }

@@ -92,7 +92,7 @@ struct SourceDetailView: View {
                 Button("Remove Source", role: .destructive) { confirmRemove = true }
             }
         }
-        .navigationTitle(current.name)
+        .pushedScreen(current.name)
         .confirmationDialog(issue?.acceptTitle ?? "", isPresented: $confirmTrust, titleVisibility: .visible, presenting: issue) { issue in
             Button(issue.acceptTitle, role: .destructive) { Task { await services.trustNewFingerprint(issue) } }
             Button("Cancel", role: .cancel) {}

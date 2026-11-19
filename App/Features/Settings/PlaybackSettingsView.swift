@@ -28,6 +28,6 @@ struct PlaybackSettingsView: View {
                 Text("Off: Dolby TrueHD is decoded in full, losslessly, in its own channel layout up to 7.1 (Atmos plays as its 7.1 bed). On: tracks that carry a Dolby Digital core play that 5.1 core instead, which is lossy. Applies to the next title you play.")
             }
         }
-        .navigationTitle("Playback")
+        .pushedScreen("Playback")
     }
 }

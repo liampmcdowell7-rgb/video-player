@@ -30,7 +30,7 @@ struct FittingLine: View {
                     ForEach(candidates, id: \.self) { candidate in
                         Text(candidate)
                             .font(style.font)
-                            .lineLimit(1)
+                            .lineLimit(1) // design-lint:allow hidden measurement of the natural width, never drawn or spoken (rule S1 is applied to the visible line above)
                             .fixedSize()
                             .onGeometryChange(for: Double.self) { $0.size.width } action: { widths[candidate] = $0 }
                     }

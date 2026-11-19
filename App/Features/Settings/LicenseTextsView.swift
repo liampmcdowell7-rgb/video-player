@@ -9,7 +9,7 @@ struct LicenseTextsView: View {
                 LicenseTextView(item: item)
             }
         }
-        .navigationTitle("Full Licence Texts")
+        .pushedScreen("Full Licence Texts")
     }
 }
 
@@ -33,6 +33,6 @@ struct LicenseTextView: View {
         }
         // design-lint:allow a long licence text has no controls, so the scroll view itself takes focus for the Siri Remote to scroll it
         .focusable()
-        .navigationTitle(item.title)
+        .pushedScreen(item.title)
     }
 }

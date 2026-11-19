@@ -35,6 +35,12 @@
 #   pointless-availability availability checks that the deployment target (project.yml) already guarantees
 #   motion                 animation or transition with no Reduce Motion handling in the same file
 #   allow-without-reason   design-lint:allow with no reason text
+#   upper-case             manual upper case for headers: textCase(.uppercase) (rule L4: one system header style)
+#   row-background         custom row or pill backgrounds in Settings, source and form screens (rule L2: system styles)
+#   fixed-card             a fixed height (or sheet detents) on a screen with scrolling content (rule L7)
+#   short-line             .lineLimit(1) with no .minimumScaleFactor within 3 lines (rule S1: fit by scaling, never "...")
+#   pushed-title           a .navigationTitle with the navigation bar left visible (rule D1: no dim duplicate title)
+#   fixture-claim          "Tested against a real server" or .realServer in sample or fixture data (rule D7)
 #
 # The names rule (unknown-name), exactly. It reads UI strings only (string literals in .swift files, keys and values in
 # .xcstrings files), never comments or code identifiers. Per string: interpolations \(...), escapes, URLs, paths and
@@ -395,6 +401,11 @@ for e in "${FILES[@]}"; do
     sed -n "${ln}p" "$nf" | grep -qE 'design-lint:allow[[:space:]]+[^[:space:]]' || { echo "$f:$ln: [allow-without-reason] design-lint:allow needs a reason after it"; VIOLATIONS=$((VIOLATIONS + 1)); }
   done < <(grep -n 'design-lint:allow' "$nf" | cut -d: -f1)
 
+  # fixture-claim (#16 item 1.11, rule D7): sample and fixture data never claim a real-server test. Every scope.
+  case "$(basename "$f")" in
+    *[Ff]ixture*) scan "$f" "$nf" "$nf" fixture-claim 'Tested against a real server|\.realServer([^A-Za-z0-9_]|$)' 'sample or fixture data must not claim a real-server test: use the honest "not tested" status (rule D7)' ;;
+  esac
+
   if [ "$full" = 0 ]; then names_rule "$f" "$nf" "$sf"; continue; fi
   scan "$f" "$nf" "$cf" color-literal '(Color|UIColor|CGColor)\((red|white|hue|hex|\.sRGB|\.displayP3|\.extendedSRGB|\.sRGBLinear|\.genericGray)|#colorLiteral|0x[0-9A-Fa-f]{6,8}([^0-9A-Za-z_]|$)|Color\.(white|black)([^A-Za-z0-9_]|$)|[(,: ]\.(white|black)([^A-Za-z0-9_]|$)' 'colour literal or fixed white/black: use a semantic colour (.primary, .secondary, Color.accentColor, system colours)'
   scan "$f" "$nf" "$nf" color-literal '"#[0-9A-Fa-f]{3,8}"' 'hex colour string: use a semantic colour'
@@ -408,6 +419,21 @@ for e in "${FILES[@]}"; do
   while IFS= read -r ln; do [ -n "$ln" ] && report "$f" "$nf" "$ln" brand-logo 'image asset named after a logo, badge, brand or a listed company/product: no logos or brand-coloured badges, text names only'; done < <(logo_image_names "$nf" "$f")
   names_rule "$f" "$nf" "$sf"
   while IFS= read -r ln; do [ -n "$ln" ] && report "$f" "$nf" "$ln" pointless-availability "availability check already guaranteed by the deployment target tvOS $TARGET (project.yml): remove it"; done < <(pointless_availability "$cf")
+  # #16 item 1.11: the layout rules of #15 that can be checked in the code.
+  scan "$f" "$nf" "$cf" upper-case 'textCase\(\.uppercase\)' 'manual upper case: section headers keep the one system style (rule L4)'
+  if printf '%s' "$f" | grep -qE '/(Settings|Sources)/' || grep -qE '(^|[^A-Za-z0-9_])Form[[:space:]]*(\{|\()' "$cf"; then
+    scan "$f" "$nf" "$cf" row-background '\.listRowBackground\(|\.background\([^)]*(RoundedRectangle|Capsule|Circle|\.fill|Color|\.quaternary|\.tertiary|\.secondary)|\.clipShape\((RoundedRectangle|Capsule)|\.cornerRadius\(' 'custom row or pill background in a Settings or form screen: system List / Form row styles only (rule L2)'
+  fi
+  if grep -qE '(^|[^A-Za-z0-9_])(ScrollView|List|Form)[[:space:]]*(\{|\()' "$cf"; then
+    while IFS= read -r ln; do [ -n "$ln" ] && report "$f" "$nf" "$ln" fixed-card 'fixed height on a screen with scrolling content: let it size to its content or scroll (rule L7)'; done \
+      < <(grep -nE '\.frame\([^)]*(height|maxHeight):|\.presentationDetents\(' "$cf" | grep -v 'infinity' | cut -d: -f1)
+  fi
+  while IFS= read -r ln; do [ -n "$ln" ] && report "$f" "$nf" "$ln" short-line '.lineLimit(1) without .minimumScaleFactor: short texts scale to fit, never end in "..." (rule S1; App/Shared/FittingLine.swift)'; done < <(
+    awk '{ l[NR] = $0 } END { for (i = 1; i <= NR; i++) if (l[i] ~ /\.lineLimit\(1\)/) { ok = 0; for (j = i - 3; j <= i + 3; j++) if (j >= 1 && j <= NR && l[j] ~ /minimumScaleFactor/) ok = 1; if (!ok) print i } }' "$cf")
+  if grep -q '\.navigationTitle(' "$cf" && ! grep -qE 'toolbarVisibility\(\.hidden, for: \.navigationBar\)|\.(pushedScreen|tabRootScreen)\(' "$cf"; then
+    scan "$f" "$nf" "$cf" pushed-title '\.navigationTitle\(' 'navigation title with the bar left visible: use .pushedScreen(title) so no dim duplicate title is drawn (rule D1)'
+  fi
+
   if ! grep -q 'accessibilityReduceMotion' "$cf"; then
     scan "$f" "$nf" "$cf" motion 'withAnimation|\.animation\(|\.transition\(|\.contentTransition\(|\.symbolEffect\(|\.phaseAnimator\(|\.keyframeAnimator\(' 'animation with no @Environment(\.accessibilityReduceMotion) in this file: honour Reduce Motion'
   fi

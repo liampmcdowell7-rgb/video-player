@@ -15,6 +15,5 @@ struct SettingsView: View {
             NavigationLink("Accessibility", destination: AccessibilitySettingsView())
             NavigationLink("About", destination: AboutView())
         }
-        .navigationTitle("Settings")
     }
 }

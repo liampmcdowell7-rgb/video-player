@@ -37,6 +37,6 @@ struct SeasonsList: View {
                 }
             }
         }
-        .navigationTitle(content.seriesTitle)
+        .pushedScreen(content.seriesTitle)
     }
 }

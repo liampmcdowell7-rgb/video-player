@@ -27,7 +27,6 @@ struct MoviesView: View {
                 LoadingView()
             }
         }
-        .navigationTitle("Movies")
         .task(id: services.libraryRevision) { await reload() }
         .sheet(isPresented: $showSetup) { SourceSetupFlow() }
         .sheet(isPresented: $showSaveView) {

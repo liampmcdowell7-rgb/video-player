@@ -22,7 +22,6 @@ struct ShowsView: View {
                 LoadingView()
             }
         }
-        .navigationTitle("Shows")
         .task(id: services.libraryRevision) { await reload() }
         .sheet(isPresented: $showSetup) { SourceSetupFlow() }
     }

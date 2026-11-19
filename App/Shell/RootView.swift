@@ -106,6 +106,20 @@ extension View {
             .screenHeader(title)
     }
 
+    /// A pushed page (#15 rule D1, PROVISIONAL like R166): the navigation bar is hidden, so tvOS draws no dim centred
+    /// duplicate of the title above the content (evidence: "Sample Movie 1" at y=248 over the real title at y=345, 57; on the
+    /// show page it floated over the list, 56; "Sample Library", 71). The title stays the screen's name for the system and
+    /// its VoiceOver header; Menu still goes back one level (the bar has no back button on tvOS). design-lint rule
+    /// pushed-title requires this (or tabRootScreen) wherever a page sets a navigation title.
+    func pushedScreen(_ title: String) -> some View {
+        navigationTitle(title)
+            .toolbarVisibility(.hidden, for: .navigationBar)
+            // One container first (as tabRootScreen does through screenIdentifier), so the header label names the
+            // screen and is not applied to each child element.
+            .accessibilityElement(children: .contain)
+            .screenHeader(title)
+    }
+
     /// The screen's name, spoken as a header when VoiceOver enters the screen (the container keeps its children).
     func screenHeader(_ title: String) -> some View {
         accessibilityLabel(title).accessibilityAddTraits(.isHeader)

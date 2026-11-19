@@ -27,7 +27,7 @@ struct FilesFolderView: View {
                 LoadingView()
             }
         }
-        .navigationTitle(path == "/" ? sourceName : (path as NSString).lastPathComponent)
+        .pushedScreen(path == "/" ? sourceName : (path as NSString).lastPathComponent)
         .task { await reload() }
         .sheet(item: $selected) { row in FileDetailsSheet(row: row) }
     }

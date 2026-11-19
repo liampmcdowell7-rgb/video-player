@@ -24,7 +24,7 @@ struct SaveViewSheet: View {
                     Button("Cancel", role: .cancel) { dismiss() }
                 }
             }
-            .navigationTitle("Save View")
+            .navigationTitle("Save View") // design-lint:allow sheet root: the title is the sheet's own heading, not a pushed page (rule D1 is for pushed pages)
         }
     }
 }

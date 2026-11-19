@@ -24,7 +24,6 @@ struct FilesView: View {
                 LoadingView()
             }
         }
-        .navigationTitle("Files")
         .task(id: services.libraryRevision) { sources = (try? await services.store.sources()) ?? [] }
         .sheet(isPresented: $showSetup) { SourceSetupFlow() }
     }

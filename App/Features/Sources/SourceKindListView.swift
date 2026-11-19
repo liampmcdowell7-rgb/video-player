@@ -30,6 +30,6 @@ struct SourceKindListView: View {
                 Button("Cancel", role: .cancel, action: onCancel)
             }
         }
-        .navigationTitle("Add a Source")
+        .navigationTitle("Add a Source") // design-lint:allow sheet root: the title is the sheet's own heading, not a pushed page (rule D1 is for pushed pages)
     }
 }

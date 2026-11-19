@@ -30,7 +30,7 @@ struct StorageSettingsView: View {
                 }
             }
         }
-        .navigationTitle("Storage and iCloud")
+        .pushedScreen("Storage and iCloud")
         .task(id: services.libraryRevision) {
             counts = try? await services.store.counts()
             await services.refreshCloudStatus()

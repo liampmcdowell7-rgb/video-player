@@ -35,7 +35,7 @@ struct OnlineLookupSettingsView: View {
                 Text(Attribution.whereToWatchNotice)
             }
         }
-        .navigationTitle(OnlineLookupText.settingsTitle)
+        .pushedScreen(OnlineLookupText.settingsTitle)
         .onChange(of: region) {
             let clean = OnlineLookupPrefs.normalizedRegion(region)
             if region.count == 2 && clean != region { region = clean }

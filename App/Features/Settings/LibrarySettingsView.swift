@@ -34,7 +34,7 @@ struct LibrarySettingsView: View {
                 }
             }
         }
-        .navigationTitle("Library")
+        .pushedScreen("Library")
         .task(id: services.libraryRevision) {
             counts = try? await services.store.counts()
             reviewCount = try? await services.store.needsReviewCount()

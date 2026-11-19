@@ -35,7 +35,7 @@ struct ItemDetailContentView: View {
                 actions
             }
         }
-        .navigationTitle(content.title)
+        .pushedScreen(content.title)
     }
 
     private var actions: some View {

@@ -36,7 +36,7 @@ struct AboutView: View {
                     Image("TMDBAttributionLogo")
                         .resizable()
                         .scaledToFit()
-                        .frame(height: tmdbLogoHeight)
+                        .frame(height: tmdbLogoHeight) // design-lint:allow the TMDB logo's own image height inside a scrolling list, not a fixed-height card (rule L7)
                         .accessibilityLabel("TMDB")
                     Text(Attribution.catalogueNotice)
                 }
@@ -67,6 +67,6 @@ struct AboutView: View {
                 }
             }
         }
-        .navigationTitle("About")
+        .pushedScreen("About")
     }
 }

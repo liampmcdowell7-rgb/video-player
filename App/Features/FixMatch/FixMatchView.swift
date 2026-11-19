@@ -41,7 +41,7 @@ struct FixMatchView: View {
                 }
                 Button("Cancel", role: .cancel) { dismiss() }
             }
-            .navigationTitle("Fix Match")
+            .navigationTitle("Fix Match") // design-lint:allow sheet root: the title is the sheet's own heading, not a pushed page (rule D1 is for pushed pages)
         }
         .onAppear {
             if text.isEmpty { text = currentTitle }

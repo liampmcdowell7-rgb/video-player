@@ -45,7 +45,7 @@ struct SourcesSettingsView: View {
                 }
             }
         }
-        .navigationTitle("Sources")
+        .pushedScreen("Sources")
         .task(id: services.libraryRevision) { definitions = services.definitions }
         .sheet(isPresented: $showSetup) { SourceSetupFlow() }
     }
