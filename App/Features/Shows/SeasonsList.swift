@@ -30,10 +30,8 @@ struct SeasonsList: View {
                     SynopsisLink(title: content.seriesTitle, text: overview)
                 }
                 actions
-                // The cast right after the buttons, as on the movie page, so the page reads the same way; the seasons follow.
-                if let cast = details?.cast, !cast.isEmpty {
-                    CastShelf(cast: cast)
-                }
+                // #25 B7 (OPEN_QUESTIONS R193, the alternative now taken, still PROVISIONAL): the episode shelves right after
+                // Play, the cast after the last season.
                 ForEach(content.seasons) { season in
                     VStack(alignment: .leading) {
                         Text(season.title)
@@ -53,9 +51,15 @@ struct SeasonsList: View {
                         .scrollClipDisabled()
                     }
                 }
+                if let cast = details?.cast, !cast.isEmpty {
+                    CastShelf(cast: cast)
+                }
             }
         }
         .defaultFocus($playFocused, true)
+        // #25 B10: as on the movie page, Play takes the focus once the page is on screen (a page pushed at launch kept the
+        // tab bar's focus).
+        .task(id: seriesID) { playFocused = true }
         // #15 5.2: the show's fan art (or its matched online backdrop) behind the page, as on the movie page.
         .background { BackdropView(artworkKey: "series-\(seriesID)") }
         .task(id: "series-\(seriesID)|\(services.online.keyRevision)") {
@@ -65,11 +69,12 @@ struct SeasonsList: View {
     }
 
     private var actions: some View {
-        HStack {
+        ActionRow {
             if let resume = content.resumeEpisodeID {
-                Button { onPlay(resume) } label: { SlotLabel(content.playTitle, systemImage: "play.fill") }
+                Button { onPlay(resume) } label: { ActionLabel(content.playTitle, systemImage: "play.fill") }
                     .buttonStyle(.borderedProminent)
                     .focused($playFocused)
+                    .accessibilityIdentifier(ControlID.play)
             }
             if content.canMarkWatched || content.canMarkUnwatched {
                 Menu {
@@ -84,8 +89,10 @@ struct SeasonsList: View {
                         }
                     }
                 } label: {
-                    SlotLabel("More", systemImage: "ellipsis")
+                    ActionLabel("More", systemImage: "ellipsis")
                 }
+                .accessibilityLabel("More")
+                .accessibilityIdentifier(ControlID.more)
             }
         }
     }
@@ -116,8 +123,9 @@ private struct EpisodeCard: View {
                 }
             }
             VStack(alignment: .leading) {
-                // Rule S1: "S1 E3 · Title" on one line; the code goes first when it does not fit.
-                FittingLine(line: ShortLine([.init(episode.code, priority: 2), .init(episode.title, priority: 1)]), style: .caption)
+                // #25 B7: always "S2 E1 · Title" (the title is "Episode 1" when the file names none, never the code again).
+                // One line under rule S1: scaled to fit, never cut (FittingText; R199 for a title that is very long).
+                FittingText(episode.code + " · " + episode.title, style: .caption)
                 HStack {
                     if let runtime = episode.runtimeText {
                         FittingText(runtime, style: .caption2)

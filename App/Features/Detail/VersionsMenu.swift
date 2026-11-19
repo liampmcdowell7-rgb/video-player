@@ -14,9 +14,11 @@ struct VersionsMenu: View {
                 }
             }
         } label: {
-            // #15 D2: the same symbol slot, and so the same height, as the other detail buttons.
-            SlotLabel("Versions", systemImage: "square.stack")
+            // #25 B5: the system label, the same height as the other detail buttons (ActionRow). Symbol: docs/SYMBOLS.md.
+            ActionLabel("Versions", systemImage: "square.stack")
         }
+        .accessibilityLabel("Versions")
+        .accessibilityIdentifier(ControlID.versions)
     }
 
     private var selection: Binding<Int64> {

@@ -19,10 +19,10 @@ final class MediaInfoTests: XCTestCase {
         XCTAssertEqual(value(r, "Resolution"), "3840 × 2160 (4K)")
         XCTAssertEqual(value(r, "HDR"), "Dolby Vision Profile 8 / HDR10")
         XCTAssertEqual(value(r, "Video"), "HEVC")
-        XCTAssertEqual(value(r, "Frame Rate"), MediaInfo.notKnown, "not read from the header yet; never guessed")
+        XCTAssertEqual(value(r, "Frame Rate"), MediaInfo.notChecked, "not read from the header yet; never guessed (#25 B6)")
         XCTAssertEqual(value(r, "Bitrate"), "57.6 Mbit/s")
         XCTAssertEqual(value(r, "Audio"), "Dolby TrueHD with Dolby Atmos 7.1")
-        XCTAssertEqual(value(r, "Subtitles"), "In the file: not known; files: Sample Movie (2020).en.srt")
+        XCTAssertEqual(value(r, "Subtitles"), "In the file: not checked yet; files: Sample Movie (2020).en.srt")
         XCTAssertEqual(value(r, "Container"), "MKV")
         XCTAssertEqual(value(r, "Source"), "Sample Server")
         XCTAssertEqual(value(r, "Path"), "/Movies/Sample Movie (2020)/Sample Movie (2020).mkv")
@@ -30,11 +30,20 @@ final class MediaInfoTests: XCTestCase {
 
     func testAFileWithNothingKnownSaysSoInsteadOfGuessing() {
         let r = rows(nil, size: nil)
-        for label in ["Resolution", "HDR", "Video", "Bitrate", "Audio", "Container", "File Size", "Source"] {
+        for label in ["Resolution", "HDR", "Video", "Bitrate", "Container", "File Size", "Source"] {
             XCTAssertEqual(value(r, label), MediaInfo.notKnown, label)
         }
-        XCTAssertEqual(value(r, "Frame Rate"), MediaInfo.notKnown)
-        XCTAssertEqual(value(r, "Subtitles"), "In the file: not known; no subtitle files next to the video")
+        // #25 B6: what only the header can answer says "Not checked yet" until the header is read.
+        XCTAssertEqual(value(r, "Audio"), MediaInfo.notChecked)
+        XCTAssertEqual(value(r, "Frame Rate"), MediaInfo.notChecked)
+        XCTAssertEqual(value(r, "Subtitles"), "In the file: not checked yet; no subtitle files next to the video")
+    }
+
+    func testAReadHeaderWithoutAFrameRateSaysNotKnown() {
+        let none = FileTrackDetails(frameRate: nil, audio: [], subtitles: [])
+        let r = MediaInfo.rows(technical: nil, size: nil, path: "/a.mkv", subtitleNames: [], sourceName: nil, tracks: none)
+        XCTAssertEqual(value(r, "Frame Rate"), MediaInfo.notKnown, "read, and the file does not say")
+        XCTAssertEqual(value(r, "Audio"), MediaInfo.notKnown)
     }
 
     // #21 C: what the file's header says, once read.
@@ -80,8 +89,8 @@ final class MediaInfoTests: XCTestCase {
         let tracks = readTracks
         var vm = ItemDetailViewModel(store: rig.store, itemID: id, trackReader: { _ in await reads.add(); return tracks })
         await vm.load()
-        XCTAssertEqual(vm.state.content.flatMap { c in c.mediaInfo.first { $0.label == "Frame Rate" }?.value }, MediaInfo.notKnown,
-                       "\"Not known\" until the header is read")
+        XCTAssertEqual(vm.state.content.flatMap { c in c.mediaInfo.first { $0.label == "Frame Rate" }?.value }, MediaInfo.notChecked,
+                       "\"Not checked yet\" until the header is read")
         await vm.loadTrackDetails()
         XCTAssertEqual(vm.state.content.flatMap { c in c.mediaInfo.first { $0.label == "Frame Rate" }?.value }, "23.976 fps")
         XCTAssertEqual(vm.state.content?.mediaInfo.filter { $0.label.hasPrefix("Audio") }.count, 3)
@@ -95,13 +104,13 @@ final class MediaInfoTests: XCTestCase {
         XCTAssertEqual(count, 1, "read once per file")
     }
 
-    func testAFailedReadLeavesNotKnown() async throws {
+    func testAFailedReadLeavesNotCheckedYet() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()
         var vm = ItemDetailViewModel(store: rig.store, itemID: try await rig.movieID("Hexfall"), trackReader: { _ in nil })
         await vm.load()
         await vm.loadTrackDetails()
-        XCTAssertEqual(vm.state.content.flatMap { c in c.mediaInfo.first { $0.label == "Frame Rate" }?.value }, MediaInfo.notKnown)
+        XCTAssertEqual(vm.state.content.flatMap { c in c.mediaInfo.first { $0.label == "Frame Rate" }?.value }, MediaInfo.notChecked)
     }
 
     func testTheProbeMapsAHeaderAndOnlyReadsMatroska() {
@@ -130,6 +139,7 @@ final class MediaInfoTests: XCTestCase {
         XCTAssertEqual(d.cast.count, TitleDetails.castLimit)
         XCTAssertEqual(d.cast.first?.name, "Sample Actor 19")
         XCTAssertNil(d.cast.first?.role, "a blank role is dropped")
+        XCTAssertNil(d.cast.first?.photo, "#25 B7: no photo is requested online")
         XCTAssertFalse(d.isEmpty)
     }
 

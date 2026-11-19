@@ -6,7 +6,7 @@ import AppLogic
 extension AppServices {
     /// Reads one file's header for the detail page's Media Info (#21 C, OPEN_QUESTIONS R192): opens the file's source the
     /// same way the player's chapter reading does (`SegmentService`) and hands it to `MediaTrackProbe`. Nil when the source
-    /// is gone, the container is not read or the read fails; the rows then keep saying "Not known".
+    /// is gone, the container is not read or the read fails; the rows then keep saying "Not checked yet" (#25 B6).
     var trackDetailsReader: @Sendable (StoredFile) async -> FileTrackDetails? {
         { [self] file in
             guard MediaTrackProbe.canRead(file) else { return nil }

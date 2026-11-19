@@ -48,6 +48,10 @@ struct ItemDetailContentView: View {
             }
         }
         .defaultFocus($playFocused, true)
+        // #25 B10: the run on 1fe5d50 (78) opened the page with the TAB BAR focused: a page pushed at launch
+        // (`-UITestOpen`, a Top Shelf link) gets the focus the tab bar had, and `defaultFocus` alone only picks where the
+        // focus lands when it moves INTO the page. Asking for Play once the page is on screen moves it there.
+        .task(id: content.itemID) { playFocused = true }
         .background { BackdropView(artworkKey: content.artworkKey) }
         .task(id: "\(content.artworkKey)|\(services.online.keyRevision)") {
             details = content.kind == .movie ? await services.online.details(key: content.artworkKey) : nil
@@ -56,14 +60,17 @@ struct ItemDetailContentView: View {
     }
 
     private var actions: some View {
-        // #15 D2: every button in the row uses `SlotLabel`, so the symbol slot, and with it the button height, is the same.
-        HStack {
-            Button { onPlay(false) } label: { SlotLabel(content.playTitle, systemImage: "play.fill") }
+        // #25 B5: every button in the row uses the system `Label` (`ActionLabel`), one height for the row (`ActionRow`), and
+        // each button as wide as its content.
+        ActionRow {
+            Button { onPlay(false) } label: { ActionLabel(content.playTitle, systemImage: "play.fill") }
                 .buttonStyle(.borderedProminent)
                 .focused($playFocused)
+                .accessibilityIdentifier(ControlID.play)
             if content.canStartOver {
-                Button { onPlay(true) } label: { SlotLabel("Start Over", systemImage: "arrow.counterclockwise") }
+                Button { onPlay(true) } label: { ActionLabel("Start Over", systemImage: "arrow.counterclockwise") }
                     .buttonStyle(.bordered)
+                    .accessibilityIdentifier(ControlID.startOver)
             }
             if content.versions.count > 1 {
                 VersionsMenu(versions: content.versions, model: model)
@@ -87,8 +94,11 @@ struct ItemDetailContentView: View {
             // docs/SORTING.md: which rule put this title in Movies or Shows, with Move and Sort Automatically.
             Button("How This Was Sorted", systemImage: "arrow.up.arrow.down", action: onSortInfo)
         } label: {
-            SlotLabel("More", systemImage: "ellipsis")
+            ActionLabel("More", systemImage: "ellipsis")
         }
+        // #25 A2: the Menu is a Button with no label of its own (57-movie-detail-HIERARCHY.txt); name it once, here.
+        .accessibilityLabel("More")
+        .accessibilityIdentifier(ControlID.more)
     }
 }
 
@@ -112,11 +122,16 @@ struct SynopsisLink: View {
     }
 }
 
-/// The cast, in billing order, as a horizontal shelf of name and role (#15 6.2). Each entry takes focus so the remote can
-/// move along the shelf; there is no person page, so selecting does nothing (OPEN_QUESTIONS R182). Shared by the movie page
-/// and the show page (#22 B).
+/// The cast, in billing order, as a horizontal shelf of photo, name and role (#15 6.2). Each entry takes focus so the remote
+/// can move along the shelf; there is no person page, so selecting does nothing (OPEN_QUESTIONS R182). Shared by the movie
+/// page and the show page (#22 B).
+///
+/// #25 B7 (OPEN_QUESTIONS R201): every entry has the same circle on top: the person's photo when there is one (today only the
+/// generated test photos of the sample library; online photos are not requested), otherwise the system person symbol.
 struct CastShelf: View {
     let cast: [TitleDetails.CastMember]
+    /// The photo circle, scaled with the text size.
+    @ScaledMetric(relativeTo: .callout) private var photoSize: CGFloat = 120
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -126,12 +141,12 @@ struct CastShelf: View {
             ScrollView(.horizontal) {
                 LazyHStack(alignment: .top) {
                     ForEach(cast) { person in
-                        VStack(alignment: .leading) {
+                        VStack {
+                            CastPhoto(url: person.photo)
+                                .frame(width: photoSize, height: photoSize) // design-lint:allow #25 B7: one text-scaled circle for every cast photo or placeholder, so the shelf entries line up (not a fixed card)
                             FittingText(person.name, style: .callout)
-                            if let role = person.role {
-                                FittingText(role, style: .caption)
-                                    .foregroundStyle(.secondary)
-                            }
+                            FittingText(person.role ?? " ", style: .caption)
+                                .foregroundStyle(.secondary)
                         }
                         .padding()
                         // design-lint:allow a cast entry has no action (no person page), but it must take focus so the remote can move along the shelf
@@ -145,8 +160,43 @@ struct CastShelf: View {
     }
 }
 
-/// "Media Info" (#15 6.2): every row shown, never collapsed. The block takes focus as one piece so the remote scrolls the
-/// page down to it.
+/// #25 B7: a cast photo in a circle, or the system person symbol in the same circle while there is none (or it fails to load).
+private struct CastPhoto: View {
+    let url: URL?
+
+    var body: some View {
+        Group {
+            if let url {
+                AsyncImage(url: url) { phase in
+                    if case .success(let image) = phase {
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } else {
+                        placeholder
+                    }
+                }
+            } else {
+                placeholder
+            }
+        }
+        .clipShape(Circle())
+        .accessibilityHidden(true)
+    }
+
+    private var placeholder: some View {
+        Image(systemName: "person.crop.circle.fill")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .foregroundStyle(.secondary)
+    }
+}
+
+/// "Media Info" (#15 6.2): every row shown, never collapsed, most important first (MediaInfo.rows). The block takes focus
+/// as one piece so the remote scrolls the page down to it.
+///
+/// #25 B6: the run on 1fe5d50 (57, 58, 61) drew `LabeledContent`, which puts the value at the far right of the page, too far
+/// from its label to follow. Now a two-column `Grid`: the value starts right after the longest label, and a system
+/// `Divider` separates the rows, like the separators of a system list. A long value (the path, the subtitles) wraps inside
+/// its column; labels stay on one line (rule S1).
 private struct MediaInfoSection: View {
     let rows: [MediaInfoRow]
 
@@ -155,9 +205,19 @@ private struct MediaInfoSection: View {
             Text("Media Info")
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
-            ForEach(rows) { row in
-                LabeledContent(row.label, value: row.value)
-                    .font(.callout)
+            Grid(alignment: .leadingFirstTextBaseline) {
+                ForEach(rows) { row in
+                    GridRow {
+                        FittingText(row.label, style: .callout)
+                            .foregroundStyle(.secondary)
+                        Text(row.value)
+                            .font(.callout)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    if row.id != rows.last?.id {
+                        Divider()
+                    }
+                }
             }
         }
         // design-lint:allow the section has no controls, so it takes focus as one block for the remote to scroll to it

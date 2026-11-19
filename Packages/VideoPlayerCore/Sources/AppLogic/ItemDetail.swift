@@ -82,7 +82,7 @@ public struct ItemDetailViewModel: Sendable {
     }
 
     /// Reads the preferred file's header when nothing is cached yet (#21 C), keeps it in the index and rebuilds the page.
-    /// Called after `load()`; a failed or slow read leaves the rows at "Not known".
+    /// Called after `load()`; a failed or slow read leaves the rows at "Not checked yet" (#25 B6).
     public mutating func loadTrackDetails() async {
         guard let file = preferredFile, let reader = trackReader, case .loaded(let content) = state else { return }
         let alreadyRead = (try? await store.trackDetails(fileID: file.id)) ?? nil

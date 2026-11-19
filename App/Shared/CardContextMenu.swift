@@ -17,6 +17,9 @@ struct CardContextMenu: ViewModifier {
                     Button(title, systemImage: card.kind == .movie ? "film" : "tv") {
                         services.openRequest = card.seriesID.map { Route.series($0) } ?? .item(card.id)
                     }
+                    // #25 A2: found by identifier in the tests (67); a context menu item may not carry it on every system
+                    // version, so the tests fall back to the label "Go to Movie".
+                    .accessibilityIdentifier(ControlID.goToTitle)
                 }
                 Button(card.isWatched ? "Mark as Unwatched" : "Mark as Watched", systemImage: card.isWatched ? "eye.slash" : "eye") {
                     Task { await services.setWatched(card.id, !card.isWatched) }

@@ -9,7 +9,7 @@ import MetadataLocal
 /// result is kept in the library index (`LibraryStore.setTrackDetails`), so each file is read once.
 ///
 /// Matroska and WebM only in this version. Other containers (MP4, MOV, TS) are not read, and their rows keep saying
-/// "Not known"; reading them would need the system player's asset loading, which the package cannot use (no AVFoundation
+/// "Not checked yet" (#25 B6); reading them would need the system player's asset loading, which the package cannot use (no AVFoundation
 /// on Linux, where it is tested).
 public enum MediaTrackProbe {
     /// Longest wait for the header (a slow server must not hold the page).

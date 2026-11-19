@@ -604,7 +604,9 @@ public struct SeasonsViewModel: Sendable {
         let order = grouped.keys.sorted { a, b in (a == 0) != (b == 0) ? b == 0 : a < b }
         let sections = order.map { season -> SeasonSection in
             let rows = (grouped[season] ?? []).sorted { ($0.episode ?? 0, $0.id) < ($1.episode ?? 0, $1.id) }.map { item in
-                EpisodeRow(id: item.id, title: item.title.isEmpty ? "Episode \(item.episode ?? 0)" : item.title,
+                // #25 B7: a title that is only the code again ("S01E01") or the show's name is no title: "Episode 1" instead,
+                // so the card never reads "S1 E1 · S01E01".
+                EpisodeRow(id: item.id, title: CardBuilder.episodeTitleIsReal(item) ? item.title : "Episode \(item.episode ?? 0)",
                            code: DisplayText.episodeCode(season: item.season, episode: item.episode, episodeEnd: item.episodeEnd) ?? "",
                            runtimeText: (item.runtime ?? item.watch.duration).map(DisplayText.runtime),
                            progress: CardBuilder.progressFraction(item), isWatched: item.watch.watched, artworkKey: "item-\(item.id)")

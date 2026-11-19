@@ -14,10 +14,14 @@ public struct MediaInfoRow: Equatable, Sendable, Identifiable {
 /// first (resolution, HDR, video codec, frame rate, bitrate, each audio track, subtitles, container, size, source, path),
 /// always fully shown. The library index gives the first part (file-name tags and the scan); the frame rate, every audio
 /// track and the subtitles inside the file come from the file's header, read when the page opens (`MediaTrackProbe`,
-/// OPEN_QUESTIONS R192). Until then, and for containers that are not read, those rows say "Not known"; nothing is guessed.
+/// OPEN_QUESTIONS R192). Until then, and for containers that are not read, those rows say "Not checked yet" (#25 B6: one
+/// wording everywhere for "the file has not been probed"); a fact the probe or the scan read and found missing says "Not
+/// known". Nothing is guessed.
 public enum MediaInfo {
-    /// The value of a row there is no answer for (yet).
+    /// The value of a row the file's facts have no answer for.
     public static let notKnown = "Not known"
+    /// #25 B6: the value of a row that only the file's header can answer, while the header has not been read (OPEN_QUESTIONS R198).
+    public static let notChecked = "Not checked yet"
 
     public static func rows(file: StoredFile, sidecars: [StoredFile], sourceName: String?, tracks: FileTrackDetails? = nil) -> [MediaInfoRow] {
         rows(technical: file.technical, size: file.size, path: file.path,
@@ -34,7 +38,7 @@ public enum MediaInfo {
         let hdr = t.flatMap { FormatNames.hdr($0.hdrFormats, dolbyVisionProfile: $0.dolbyVisionProfile) }
         add("HDR", hdr ?? ((t?.height != nil || t?.videoCodec != nil) ? "None (SDR)" : nil))
         add("Video", t?.videoCodec.map(FormatNames.videoCodec))
-        add("Frame Rate", tracks?.frameRate.flatMap(frameRate))
+        rows.append(MediaInfoRow(label: "Frame Rate", value: tracks == nil ? notChecked : (tracks?.frameRate.flatMap(frameRate) ?? notKnown)))
         add("Bitrate", t?.bitrate.flatMap(bitrate))
         // Every audio track when the header was read ("Audio 1", "Audio 2", ...); before that the index's one line.
         if let audio = tracks?.audio, !audio.isEmpty {
@@ -42,7 +46,8 @@ public enum MediaInfo {
                 rows.append(MediaInfoRow(label: audio.count == 1 ? "Audio" : "Audio \(i + 1)", value: audioLine(track)))
             }
         } else {
-            add("Audio", t.flatMap { FormatNames.audio(codec: $0.audioCodec, channels: $0.audioChannels, atmos: $0.hasAtmos) })
+            let line = t.flatMap { FormatNames.audio(codec: $0.audioCodec, channels: $0.audioChannels, atmos: $0.hasAtmos) }
+            rows.append(MediaInfoRow(label: "Audio", value: line ?? (tracks == nil ? notChecked : notKnown)))
         }
         add("Subtitles", subtitlesLine(embedded: tracks?.subtitles, files: subtitleNames))
         add("Container", t?.container.map(containerName))
@@ -73,7 +78,7 @@ public enum MediaInfo {
     }
 
     /// Embedded tracks ("In the file: English (PGS), French (SRT, forced)") and the files next to the video. When the header
-    /// was not read, the embedded part says "not known".
+    /// was not read, the embedded part says "not checked yet" (#25 B6).
     public static func subtitlesLine(embedded: [FileTrackDetails.Subtitle]?, files: [String]) -> String {
         let inFile: String
         if let embedded {
@@ -85,7 +90,7 @@ public enum MediaInfo {
                 return "\(lang) (\(notes.joined(separator: ", ")))"
             }.joined(separator: ", ")
         } else {
-            inFile = "in the file: not known"
+            inFile = "in the file: not checked yet"
         }
         let names = files.sorted()
         let side = names.isEmpty ? "no subtitle files next to the video" : "files: " + names.joined(separator: ", ")
@@ -136,6 +141,10 @@ public struct TitleDetails: Equatable, Sendable {
         public var id: Int
         public var name: String
         public var role: String?
+        /// #25 B7 (OPEN_QUESTIONS R201): a photo to show in the cast shelf. Only the sample library's generated test photos
+        /// fill it today; the online lookup leaves it empty (no photo is requested), and the shelf shows the system person
+        /// symbol instead.
+        public var photo: URL? = nil
     }
     public var overview: String?
     public var cast: [CastMember]
