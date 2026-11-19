@@ -18,6 +18,14 @@ import AppLogic
 ///
 /// The subtitle tracks are best effort: if the writer refuses them, the clip is written again without them and the
 /// subtitle-menu screenshot will show that (unproven until the next run).
+///
+/// #23 D, kept on purpose: the first CI compile reported 12 AVAssetWriter deprecations here (`add`, `startWriting`,
+/// `startSession`, `requestMediaDataWhenReady`, `isReadyForMoreMediaData`, `append`, `markAsFinished`, …; the CI log has the
+/// exact list). The replacement (`AVAssetWriter.inputReceiver(for:)`, tvOS 26+, returning an
+/// `AVAssetWriterInput.SampleBufferReceiver` whose `append` waits until the input is ready; the writer's `start()` is
+/// unverified, from memory) would mean rewriting this file around an API that has never been compiled here, for code that
+/// exists only in Debug builds and only feeds the screenshot job. Deprecations are warnings, not errors; the move is left
+/// for after the app has compiled and the clip has been seen working once.
 enum UITestClip {
     static let seconds = 40
     static let fileName = "uitest-sample-clip.mov"

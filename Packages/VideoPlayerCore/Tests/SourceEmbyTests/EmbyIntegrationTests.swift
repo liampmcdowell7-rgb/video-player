@@ -194,16 +194,17 @@ final class TokenTamperingTransport: HTTPTransport, @unchecked Sendable {
     func breakTokenOnNextRequest() { lock.lock(); breakNext = true; lock.unlock() }
 
     func send(_ request: HTTPRequest) async throws -> HTTPResponse {
+        // #23 D: withLock, not lock()/unlock(): NSLock.lock() is unavailable from async contexts (a warning in Swift 5 mode).
         var sent = request
-        lock.lock()
-        if request.url.path.hasSuffix("/Users/AuthenticateByName") { loginCount += 1 }
-        else if breakNext {
-            breakNext = false
-            if sent.headers["X-Emby-Token"] != nil { sent.headers["X-Emby-Token"] = "00000000000000000000000000000000" }
+        lock.withLock {
+            if request.url.path.hasSuffix("/Users/AuthenticateByName") { loginCount += 1 }
+            else if breakNext {
+                breakNext = false
+                if sent.headers["X-Emby-Token"] != nil { sent.headers["X-Emby-Token"] = "00000000000000000000000000000000" }
+            }
         }
-        lock.unlock()
         let response = try await inner.send(sent)
-        lock.lock(); seen.append(response.statusCode); lock.unlock()
+        lock.withLock { seen.append(response.statusCode) }
         return response
     }
 }

@@ -191,9 +191,11 @@ final class LoopbackServerTests: XCTestCase {
         final class Flags: @unchecked Sendable { let lock = NSLock(); var started = false; var cancelled = false }
         let flags = Flags()
         _ = try server.start { _ in
-            flags.lock.lock(); flags.started = true; flags.lock.unlock()
+            // #23 D: withLock in this async handler (NSLock.lock() is unavailable from async contexts).
+            flags.lock.withLock { flags.started = true }
             while !Task.isCancelled { do { try await Task.sleep(nanoseconds: 10_000_000) } catch { break } }
-            flags.lock.lock(); flags.cancelled = Task.isCancelled; flags.lock.unlock()
+            let isCancelled = Task.isCancelled
+            flags.lock.withLock { flags.cancelled = isCancelled }
             throw RemuxError.cancelled
         }
         defer { server.stop() }

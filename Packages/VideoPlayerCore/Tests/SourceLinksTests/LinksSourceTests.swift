@@ -10,7 +10,8 @@ final class LinksMockTransport: HTTPTransport, @unchecked Sendable {
     init(_ handler: @escaping @Sendable (HTTPRequest) throws -> HTTPResponse) { self.handler = handler }
     var requests: [HTTPRequest] { lock.lock(); defer { lock.unlock() }; return log }
     func send(_ request: HTTPRequest) async throws -> HTTPResponse {
-        lock.lock(); log.append(request); lock.unlock()
+        // #23 D: withLock, not lock()/unlock(): NSLock.lock() is unavailable from async contexts (a warning in Swift 5 mode).
+        lock.withLock { log.append(request) }
         return try handler(request)
     }
 }
