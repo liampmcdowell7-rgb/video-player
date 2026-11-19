@@ -21,6 +21,7 @@ for a in "$@"; do
   prev="$a"
 done
 mkdir -p "$bundle"
+echo "$*" >> "$S/xb-args"
 what="$(awk -v t="$test" '$1 == t {print $2}' "$S/behaviour")"
 folder="$TEST_RUNNER_SCREENSHOT_DIR/$test"
 [ "$what" = simdata ] && folder="$S/devices/UDID-1/data/Containers/Data/Application/ABC/tmp/vp-screenshots/$test"
@@ -83,6 +84,12 @@ PATH="$S/bin:$PATH" OUT="$S/out" SIM_UDID=UDID-1 CI_UI_XCODEBUILD=fake-xcodebuil
 PATH="$S/bin:$PATH" OUT="$S/out" CI_SIM_DEVICES="$S/devices" CI_UI_EXPORT=0 bash "$here/ci-ui-tests.sh" --collect "$S/dest" $T1 $T2 $T3 >> "$S/stdout" 2>&1; rc=$?
 check "step killed mid-test: --collect copies the cut-off test's picture (exit 0)" "[ $rc -eq 0 ] && [ -f '$S/dest/10-add-source-types.png' ] && [ -f '$S/dest/02-home-empty.png' ]"
 check "step killed mid-test: index.md says cut off, and not started for the next test" "grep -qF \"| $T2 | cut off (the step's time limit) |\" '$S/dest/index.md' && grep -qF '| $T3 | not started (the step ended first) |' '$S/dest/index.md' && grep -qF '| $T1 | passed |' '$S/dest/index.md'"
+
+# The one simulator retry moved to another simulator (ci-sim.sh wrote SIM_UDID=UDID-2 to $GITHUB_ENV): the next test uses it.
+setup; printf '%s ok\n%s ok\n' $T1 $T2 > "$S/behaviour"; printf 'SIM_UDID=UDID-1\nSIM_UDID=UDID-2\n' > "$S/env"
+PATH="$S/bin:$PATH" OUT="$S/out" SIM_UDID=UDID-1 GITHUB_ENV="$S/env" CI_UI_XCODEBUILD=fake-xcodebuild CI_SIM_DEVICES="$S/devices" \
+  CI_UI_EXPORT=0 bash "$here/ci-ui-tests.sh" "$S/dest" $T1 $T2 > "$S/stdout" 2>&1
+check "simulator changed by the retry: the later tests use the new id" "grep -q 'Simulator changed by the retry: UDID-1 -> UDID-2' '$S/stdout' && sed -n 1p '$S/xb-args' | grep -q 'id=UDID-1' && sed -n 2p '$S/xb-args' | grep -q 'id=UDID-2'"
 
 # The host folder could not be written: the pictures are found in the simulator's data folder.
 setup; printf '%s simdata\n' $T5 > "$S/behaviour"; run $T5; rc=$?

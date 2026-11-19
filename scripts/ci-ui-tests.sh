@@ -125,6 +125,12 @@ for t in "$@"; do
     -only-testing:"VideoPlayerUITests/ScreenshotTests/$t"
   rc=$?
   secs=$(( $(date +%s) - start ))
+  # After the one simulator retry ci-sim.sh may use another simulator (next runtime); it writes the new id to
+  # $GITHUB_ENV, which only later STEPS read. The tests after this one must use it too.
+  if [ -n "${GITHUB_ENV:-}" ] && [ -f "$GITHUB_ENV" ]; then
+    u="$(grep '^SIM_UDID=' "$GITHUB_ENV" | tail -n 1 | cut -d= -f2-)"
+    if [ -n "$u" ] && [ "$u" != "$SIM_UDID" ]; then echo "Simulator changed by the retry: $SIM_UDID -> $u"; SIM_UDID="$u"; fi
+  fi
   if [ -e "$out/time-budget-stopped" ]; then result="stopped by the time budget"; stopped="$t"
   elif [ "$rc" -eq 124 ] && tail -n 3 "$out/test.log" | grep -q 'TIME BUDGET: not started'; then
     result="not started (time budget)"; stopped="$t"
