@@ -25,7 +25,8 @@ Rows marked **NOT CHECKED** are listed so nothing is hidden; they are the first 
 | `AVPlayerViewController.contextualActions` | Player/SkipButtonPresenter | `var contextualActions: [UIAction] { get set }`; tvOS 15.0+. Shown only when the transport bar is not visible; set to `[]` to dismiss | https://developer.apple.com/documentation/avkit/avplayerviewcontroller/contextualactions |
 | `AVContentProposal.automaticAcceptanceInterval` | Player/ProposalPresenter | `var automaticAcceptanceInterval: TimeInterval { get set }`; tvOS 10.0+. Setting it to `.nan` **disables** automatic acceptance (the default is automatic) | https://developer.apple.com/documentation/avkit/avcontentproposal/automaticacceptanceinterval |
 | `AVPlayerItemAccessLogEvent.indicatedAverageBitrate` | Player/PlaybackProbe | `var indicatedAverageBitrate: Double { get }`; tvOS 10.0+; **negative when unknown** (the code must treat a negative value as unknown) | https://developer.apple.com/documentation/avfoundation/avplayeritemaccesslogevent/indicatedaveragebitrate |
-| `AVPlayer.availableHDRModes` | Player/PlaybackProbe | `nonisolated class var availableHDRModes: AVPlayer.HDRMode { get }`; tvOS 11.2+; **deprecated** ("use eligibleForHDRPlayback instead") | https://developer.apple.com/documentation/avfoundation/avplayer/availablehdrmodes |
+| `AVPlayer.eligibleForHDRPlayback` (replaced `availableHDRModes`, #23 D) | Player/PlaybackProbe | `nonisolated class var eligibleForHDRPlayback: Bool { get }`; tvOS 13.4+ | https://developer.apple.com/documentation/avfoundation/avplayer/eligibleforhdrplayback |
+| `AVPlayerItem.fetchAccessLog(completionHandler:)` (replaced `accessLog()`, #23 D) | Player/PlaybackProbe | `nonisolated func fetchAccessLog(completionHandler: @escaping @Sendable (sending AVPlayerItemAccessLog?) -> Void)`; tvOS 27.0+ | https://developer.apple.com/documentation/avfoundation/avplayeritem/fetchaccesslog(completionhandler:) |
 | `AVPlayer.eligibleForHDRPlayback` | (replacement, not used) | `nonisolated class var eligibleForHDRPlayback: Bool { get }`; tvOS 13.4+. A single Bool: cannot say which HDR formats exist | https://developer.apple.com/documentation/avfoundation/avplayer/eligibleforhdrplayback |
 | `TVTopShelfSectionedContent` | TopShelf/TopShelfProvider | `class TVTopShelfSectionedContent`; `init(sections:)`; tvOS 13.0+ | https://developer.apple.com/documentation/tvservices/tvtopshelfsectionedcontent |
 | `TVTopShelfSectionedItem` | TopShelf/TopShelfProvider | `class TVTopShelfSectionedItem` (inherits `TVTopShelfItem`); `imageShape`, `playbackProgress` (0.0 to 1.0), inherited `setImageURL(_:for:)`, `playAction`, `displayAction`; tvOS 13.0+ | https://developer.apple.com/documentation/tvservices/tvtopshelfsectioneditem |
@@ -35,8 +36,9 @@ Rows marked **NOT CHECKED** are listed so nothing is hidden; they are the first 
 - **F-1 (open).** `NavigationLink(_:value:)` and `alert(_:isPresented:presenting:...)` pages show the `LocalizedStringResource` overloads (which for
   `NavigationLink` need a `Codable` value). The app passes plain `String` titles, which should select the `StringProtocol` overloads. Those two
   neighbour pages were not fetched, so this stays an open compile-check item. If it fails: make `Route` `Codable`, or use `NavigationLink(value:) { Text(...) }`.
-- **F-2 (changed in code).** `AVPlayer.availableHDRModes` is deprecated. Kept on purpose (the only call that says WHICH formats the TV supports; the
-  replacement is one Bool). Expect a deprecation warning, not an error. PROVISIONAL; alternative recorded in the code comment and in OPEN_QUESTIONS.md.
+- **F-2 (changed in code, #23 D).** `AVPlayer.availableHDRModes` (deprecated since tvOS 26) is replaced by `eligibleForHDRPlayback`, as
+  the first CI compile's warning asked. That is one Bool: `false` gives an SDR display (empty set); `true` gives "modes not reported"
+  (nil), so the stats status no longer says WHICH of HDR10, HLG and Dolby Vision the TV supports. The file's HDR format is unchanged.
 - **F-3 (open).** `UIHostingControllerSizingOptions.intrinsicContentSize` was not on the fetched page. If the compile check rejects it, drop the line:
   the stats overlay then uses a fixed frame.
 - **F-4 (code must match).** `indicatedAverageBitrate` is negative when unknown. Checked in the code in the second read (see docs/OPEN_QUESTIONS.md).

@@ -212,7 +212,8 @@ final class AppServices {
                                            log.debug("sorted \(outcome.rawValue, privacy: .public) by \(signal.rawValue, privacy: .public): \(path, privacy: .private) (\(note, privacy: .public))")
                                        })
             // Runs off the main thread (the store is an actor); only the progress numbers come back to the screen.
-            _ = try? await syncer.sync(progress: { p in Task { @MainActor [weak self] in self?.scanProgress = p } })
+            // #23 D: weak at the outer closure too, so the progress closure itself never holds AppServices strongly.
+            _ = try? await syncer.sync(progress: { [weak self] p in Task { @MainActor [weak self] in self?.scanProgress = p } })
         }
     }
 
@@ -339,8 +340,11 @@ final class AppServices {
             libraryRevision += 1
         }
         backup.appLaunched()
+        // #23 D: the start-up closure is @Sendable; it captures this constant, not the `var` above (which Swift reports as
+        // "reference to captured var 'health' in concurrently-executing code").
+        let startupHealth = health
         await sync.start(startupSync: {
-            if let report = try? await bootstrap.run(health: health, ledgerWasLost: lost, target: target) { return report }
+            if let report = try? await bootstrap.run(health: startupHealth, ledgerWasLost: lost, target: target) { return report }
             var failed = UDSyncReport()
             failed.status = .failed("The start-up sync did not finish.")
             return failed

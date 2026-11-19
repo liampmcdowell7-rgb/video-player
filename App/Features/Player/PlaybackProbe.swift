@@ -21,6 +21,10 @@ final class PlaybackProbe {
     /// Set when the converting player is in use: what the file holds is then known exactly from the engine, not guessed from tracks.
     private let remux: RemuxPlayback?
     private var selectedAudioTrack: Int?
+    /// #23 D: the newest access-log numbers (observed bitrate, indicated average bitrate, dropped frames), fetched without
+    /// blocking (`fetchAccessLog(completionHandler:)`, tvOS 27; the synchronous `accessLog()` is deprecated). Each snapshot
+    /// shows the values of the previous fetch and starts the next one, so they lag by one refresh of the overlay.
+    private var lastAccess: (observed: Double, indicatedAverage: Double, dropped: Int)?
 
     init(item: AVPlayerItem, remux: RemuxPlayback? = nil) {
         self.item = item
@@ -115,16 +119,27 @@ final class PlaybackProbe {
             s.decodePath = .remux
             s.container = known.container
         }
-        if let event = item.accessLog()?.events.last {
-            if event.observedBitrate > 0 { s.liveBitrate = event.observedBitrate }
-            if event.indicatedAverageBitrate > 0 { s.averageBitrate = event.indicatedAverageBitrate }
-            if event.numberOfDroppedVideoFrames >= 0 { s.droppedFrames = event.numberOfDroppedVideoFrames }
+        if let access = lastAccess {
+            if access.observed > 0 { s.liveBitrate = access.observed }
+            if access.indicatedAverage > 0 { s.averageBitrate = access.indicatedAverage }
+            if access.dropped >= 0 { s.droppedFrames = access.dropped }
         }
+        fetchAccessLog()
         if let range = item.loadedTimeRanges.first?.timeRangeValue {
             let ahead = (range.start + range.duration).seconds - player.currentTime().seconds
             if ahead.isFinite, ahead >= 0 { s.bufferSeconds = ahead }
         }
         return s
+    }
+
+    /// Starts a non-blocking read of the access log; the numbers (plain values, Sendable) come back on the main actor.
+    private func fetchAccessLog() {
+        item.fetchAccessLog { [weak self] log in
+            guard let event = log?.events.last else { return }
+            let values = (observed: event.observedBitrate, indicatedAverage: event.indicatedAverageBitrate,
+                          dropped: event.numberOfDroppedVideoFrames)
+            Task { @MainActor [weak self] in self?.lastAccess = values }
+        }
     }
 
     /// The honest audio and video lines. Only built when the file's audio and picture format are both known.
@@ -150,14 +165,12 @@ final class PlaybackProbe {
     }
 
     private static func currentDisplay() -> DisplayState {
-        var modes: DisplayHDRModes = []
-        // PROVISIONAL: availableHDRModes is marked deprecated (developer.apple.com/documentation/avfoundation/avplayer/availablehdrmodes,
-        // "use eligibleForHDRPlayback"), but that replacement is a single Bool and cannot say WHICH modes exist, which the stats
-        // overlay needs. Kept: it compiles with a deprecation warning only. Alternative: eligibleForHDRPlayback with no per-mode detail.
-        let available = AVPlayer.availableHDRModes
-        if available.contains(.hlg) { modes.insert(.hlg) }
-        if available.contains(.hdr10) { modes.insert(.hdr10) }
-        if available.contains(.dolbyVision) { modes.insert(.dolbyVision) }
+        // #23 D: AVPlayer.availableHDRModes is deprecated since tvOS 26 ("use eligibleForHDRPlayback";
+        // developer.apple.com/documentation/avfoundation/avplayer/eligibleforhdrplayback, tvOS 13.4+). The replacement is one
+        // Bool: false means the display cannot show HDR (an empty set, "SDR display"); true says HDR works but not WHICH modes
+        // (HDR10, HLG, Dolby Vision), so the set is nil, "not reported", and the status says the display's modes are unknown
+        // instead of guessing. The file's own HDR format (stats row, Media Info) is read from the file and is unchanged.
+        let modes: DisplayHDRModes? = AVPlayer.eligibleForHDRPlayback ? nil : []
         // No API says whether HDR10+ metadata is sent; it depends on the hardware model (DeviceVideoCapabilities).
         return DisplayState(availableHDR: modes, activeMode: nil, matchDynamicRange: .unknown,
                             sendsHDR10Plus: DeviceVideoCapabilities.sendsHDR10Plus(modelIdentifier: hardwareModel))

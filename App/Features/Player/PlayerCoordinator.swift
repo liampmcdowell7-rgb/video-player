@@ -13,8 +13,12 @@ import PlaybackStatus
 ///
 /// Two ways in: a file the system player opens itself (`resolved.remux == nil`), or a converted playback where `resolved.url` is the
 /// loopback address of `resolved.remux` (docs/PLAYBACK_WIRING.md).
+///
+/// #23 D: AVPlayerViewControllerDelegate is not main-actor isolated, but AVKit calls it on the main thread. The conformance is
+/// `@preconcurrency` (SE-0423): the methods stay main-actor isolated and Swift checks at run time that a call arrives on the
+/// main actor, instead of the compile-time warning "conformance crosses into main actor-isolated code".
 @MainActor
-final class PlayerCoordinator: NSObject, AVPlayerViewControllerDelegate {
+final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerDelegate {
     private let resolved: ResolvedPlayback
     private let itemID: Int64
     private let services: AppServices
