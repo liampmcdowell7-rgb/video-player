@@ -68,6 +68,56 @@ provisioning profile runs on a real Apple TV (a development build first, then Te
 What the simulator build DOES prove (when green): the app compiles, links and launches without crashing when none of
 these is available, and every screen it can reach looks as the screenshots show.
 
+### Linux test counts: which command gave which number (addendum #18 A, 2026-11-18)
+
+Two different numbers were reported because they came from two different commands:
+
+| Number | Command | What it covers |
+|---|---|---|
+| 1,810 passed, 121 skipped, 0 failed | `scripts/test-all.sh` (unit stage: `swift test` over the whole VideoPlayerCore package, counted per target by `scripts/test-counts.sh`) | Every test target. Earlier run; its log was overwritten, so only the totals remain |
+| 879 passed, 24 skipped | `vp-filter.sh` (a helper outside the repo that runs `swift test --filter` on a copy of the package) over 8 targets | Only the targets the per-file sorting change touched. Not a full run |
+| **1,848 passed, 121 skipped, 0 failed** | `scripts/test-all.sh`, rerun for #18 A | Every test target, per target below |
+
+| Target | Passed | Skipped | Failed |
+|---|---|---|---|
+| AppLogic | 336 | 0 | 0 |
+| DolbyVisionRPU | 7 | 8 | 0 |
+| LibraryBackup | 20 | 0 | 0 |
+| LibraryIndex | 100 | 2 | 0 |
+| MetadataLocal | 123 | 1 | 0 |
+| MetadataOnline | 227 | 0 | 0 |
+| PlaybackLogic | 163 | 0 | 0 |
+| PlaybackStatus | 32 | 0 | 0 |
+| RemuxEngine | 179 | 0 | 0 |
+| SourceEmby | 27 | 11 | 0 |
+| SourceFTP | 47 | 14 | 0 |
+| SourceJellyfin | 27 | 11 | 0 |
+| SourceLinks | 36 | 8 | 0 |
+| SourceNFS | 34 | 13 | 0 |
+| SourceOneDrive | 36 | 0 | 0 |
+| SourceRangeProxy | 7 | 0 | 0 |
+| SourceSFTPCitadel | 19 | 23 | 0 |
+| SourceSFTP | 22 | 0 | 0 |
+| SourceSMB | 20 | 11 | 0 |
+| SourceUPnP | 32 | 9 | 0 |
+| SourceWebDAV | 32 | 10 | 0 |
+| Subtitles | 180 | 0 | 0 |
+| UserData | 106 | 0 | 0 |
+| VideoPlayerCore | 36 | 0 | 0 |
+| **Total** | **1,848** | **121** | **0** |
+
+Same run, other stages: live servers rclone 188, sftp 64, jellyfin 38, emby 38, smb 31, nfs 47, dovi 17, audio 38;
+design-lint self-tests 147, App syntax parse 102 files, ci-inspect self-test 18, test-counts self-test 13.
+
+- 1,848 − 1,810 = 38 new tests, the same 121 skipped: no test disappeared.
+- The skips are the server, iCloud and tool tests that need something the Linux machine lacks (as before).
+- `FixMatchTests` exists in both AppLogic and MetadataOnline. `test-counts.sh` maps by class name, so the 5 tests of
+  one of them are counted under the other target; the two per-target numbers are off by those 5, the total is right.
+  This is why AppLogic shows 336 here and 334 in the earlier report.
+- Added after that run (later #18 commits, including 755de7f and ed59e32): LibraryIndex, AppLogic and LibraryBackup together went
+  from 456 passed / 2 skipped to 473 passed / 2 skipped (`vp-filter.sh 'LibraryIndexTests|AppLogicTests|LibraryBackupTests'`).
+  The full run was not repeated, so about 1,865 passed is expected but **not run**.
+
 ## 1. What the first TestFlight build would NOT have that you asked for (gaps first)
 
 | # | You asked for | Status | What exists / what is missing | Where |
