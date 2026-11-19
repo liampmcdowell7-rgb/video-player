@@ -69,19 +69,30 @@ private struct ShowsControls: View {
 
     var body: some View {
         VStack(alignment: .leading) {
+            // #25 B2: the same one-line row as Movies, with the same More menu when it does not fit.
             GridToolbar(count: model.screen.countText) {
                 SortMenu(model: model)
                 FilterMenu(model: model)
+            } secondary: {
                 SavedViewsMenu(model: model, onSave: onSave)
                 NeedsReviewButton(count: reviewCount)
-                if !targets.isEmpty {
-                    AlphabetJumpMenu(letters: targets.map { AlphabetJumpEntry(letter: $0.letter, count: $0.count) }) { letter in
-                        if let target = targets.first(where: { $0.letter == letter }) { onJump(target) }
-                    }
-                }
+                jumpMenu
+            } collapsed: {
+                SavedViewsMenu(model: model, onSave: onSave)
+                NeedsReviewMenuItem(count: reviewCount)
+                jumpMenu
             }
             if !model.screen.chips.isEmpty {
                 FilterChipsRow(model: model)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var jumpMenu: some View {
+        if !targets.isEmpty {
+            AlphabetJumpMenu(letters: targets.map { AlphabetJumpEntry(letter: $0.letter, count: $0.count) }) { letter in
+                if let target = targets.first(where: { $0.letter == letter }) { onJump(target) }
             }
         }
     }

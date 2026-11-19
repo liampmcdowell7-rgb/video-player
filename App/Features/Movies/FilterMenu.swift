@@ -7,7 +7,7 @@ struct FilterMenu<Screen: QueryGridScreen>: View {
     let model: ScreenModel<Screen>
 
     var body: some View {
-        Menu("Filter", systemImage: "line.3.horizontal.decrease.circle") {
+        Menu {
             // The groups (Watched, Resolution, Dynamic Range, Sound) live in AppLogic (`FilterGroup.library`), shared with Shows.
             ForEach(model.screen.filterGroups) { group in
                 Section(group.title) {
@@ -21,7 +21,11 @@ struct FilterMenu<Screen: QueryGridScreen>: View {
                     Task { await model.run { await $0.clearFilters() } }
                 }
             }
+        } label: {
+            ActionLabel("Filter", systemImage: "line.3.horizontal.decrease.circle")
         }
+        .accessibilityLabel("Filter")
+        .accessibilityIdentifier(ControlID.filter)
     }
 
     private func binding(for option: FilterOption) -> Binding<Bool> {

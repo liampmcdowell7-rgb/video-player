@@ -12,19 +12,30 @@ struct GridControls: View {
     var body: some View {
         VStack(alignment: .leading) {
             // #15 4.5: the same row as on Shows (`GridToolbar`), so both grids start at the same height.
+            // #25 B2: one line; when it does not fit, Saved Views, Needs Review and Jump to Letter go into one More menu.
             GridToolbar(count: model.screen.countText) {
                 SortMenu(model: model)
                 FilterMenu(model: model)
+            } secondary: {
                 SavedViewsMenu(model: model, onSave: onSave)
                 NeedsReviewButton(count: reviewCount)
-                if case .loaded(let grid) = model.screen.state, !grid.alphabet.isEmpty {
-                    AlphabetJumpMenu(letters: grid.alphabet.map { AlphabetJumpEntry(letter: $0.letter, count: $0.count) }) { letter in
-                        Task { await model.run { await $0.jump(to: letter) } }
-                    }
-                }
+                jumpMenu
+            } collapsed: {
+                SavedViewsMenu(model: model, onSave: onSave)
+                NeedsReviewMenuItem(count: reviewCount)
+                jumpMenu
             }
             if !model.screen.chips.isEmpty {
                 FilterChipsRow(model: model)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var jumpMenu: some View {
+        if case .loaded(let grid) = model.screen.state, !grid.alphabet.isEmpty {
+            AlphabetJumpMenu(letters: grid.alphabet.map { AlphabetJumpEntry(letter: $0.letter, count: $0.count) }) { letter in
+                Task { await model.run { await $0.jump(to: letter) } }
             }
         }
     }

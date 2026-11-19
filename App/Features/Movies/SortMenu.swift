@@ -6,7 +6,7 @@ struct SortMenu<Screen: QueryGridScreen>: View {
     let model: ScreenModel<Screen>
 
     var body: some View {
-        Menu("Sort", systemImage: "arrow.up.arrow.down") {
+        Menu {
             Picker("Sort By", selection: key) {
                 ForEach(model.screen.sortChoices) { choice in
                     Text(choice.title).tag(choice.key)
@@ -16,7 +16,13 @@ struct SortMenu<Screen: QueryGridScreen>: View {
                 let current = model.screen.query.sort.key
                 Task { await model.run { await $0.chooseSort(current) } }
             }
+        } label: {
+            // #25 B2: the system label, one height with the other controls of the row (GridToolbar).
+            ActionLabel("Sort", systemImage: "arrow.up.arrow.down")
         }
+        // #25 A2: named once on the control; VoiceOver hears "Sort".
+        .accessibilityLabel("Sort")
+        .accessibilityIdentifier(ControlID.sort)
     }
 
     private var key: Binding<ItemSortKey> {

@@ -7,7 +7,7 @@ struct SavedViewsMenu<Screen: QueryGridScreen>: View {
     var onSave: () -> Void
 
     var body: some View {
-        Menu("Saved Views", systemImage: "bookmark") {
+        Menu {
             ForEach(model.screen.savedViews) { view in
                 Button(view.name) {
                     Task { await model.run { await $0.apply(view) } }
@@ -26,6 +26,10 @@ struct SavedViewsMenu<Screen: QueryGridScreen>: View {
                     }
                 }
             }
+        } label: {
+            ActionLabel("Saved Views", systemImage: "bookmark")
         }
+        .accessibilityLabel("Saved Views")
+        .accessibilityIdentifier(ControlID.savedViews)
     }
 }

@@ -15,7 +15,7 @@ struct AlphabetJumpMenu: View {
     let onPick: (String) -> Void
 
     var body: some View {
-        Menu("Jump to Letter", systemImage: "textformat.abc") {
+        Menu {
             ForEach(letters) { entry in
                 Button {
                     onPick(entry.letter)
@@ -23,6 +23,10 @@ struct AlphabetJumpMenu: View {
                     Text("\(entry.letter) (\(entry.count))")
                 }
             }
+        } label: {
+            ActionLabel("Jump to Letter", systemImage: "textformat.abc")
         }
+        .accessibilityLabel("Jump to Letter")
+        .accessibilityIdentifier(ControlID.jumpToLetter)
     }
 }
