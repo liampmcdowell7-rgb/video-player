@@ -63,6 +63,11 @@ bash "$HERE/scripts/test-core-tests.sh" >"$LOG/test-core-tests.log" 2>&1; TCR=$?
 case "$TCR" in 0) TCC=ok ;; 3) TCC=skipped ;; *) TCC=bad ;; esac
 SUMMARY="$SUMMARY
 test-core exit-code tests ($TCC): $(tail -1 "$LOG/test-core-tests.log")"
+
+# 0b2c. The Claude Code hook that blocks forbidden commands, on a dry list of blocked and allowed commands (#28 item 3).
+if bash "$HERE/scripts/test-claude-hooks.sh" >"$LOG/claude-hooks-tests.log" 2>&1; then CHT=ok; else CHT=bad; fi
+SUMMARY="$SUMMARY
+claude hook tests ($CHT): $(tail -1 "$LOG/claude-hooks-tests.log")"
 # 0b3. The device-build inspection checks on fake nm/strings output (scripts/ci-inspect-lib.sh; fourth CI run false alarm).
 if bash "$HERE/scripts/test-ci-inspect.sh" >"$LOG/ci-inspect-tests.log" 2>&1; then CIT=ok; else CIT=bad; fi
 SUMMARY="$SUMMARY

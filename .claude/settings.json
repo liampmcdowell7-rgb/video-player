@@ -1,0 +1,65 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git push)",
+      "Bash(git push *)",
+      "Bash(gh workflow run)",
+      "Bash(gh workflow run *)",
+      "Bash(gh run)",
+      "Bash(gh run *)",
+      "Bash(codemagic *)",
+      "Bash(wsl --shutdown)",
+      "Bash(wsl --shutdown *)",
+      "Bash(wsl.exe --shutdown)",
+      "Bash(wsl.exe --shutdown *)",
+      "Bash(git add -A)",
+      "Bash(git add -A *)",
+      "Bash(git add --all)",
+      "Bash(git add --all *)",
+      "Bash(git add .)",
+      "Bash(git add Packages/VideoPlayerCore/Package.resolved)",
+      "PowerShell(git push)",
+      "PowerShell(git push *)",
+      "PowerShell(gh workflow run)",
+      "PowerShell(gh workflow run *)",
+      "PowerShell(gh run)",
+      "PowerShell(gh run *)",
+      "PowerShell(codemagic *)",
+      "PowerShell(wsl --shutdown)",
+      "PowerShell(wsl --shutdown *)",
+      "PowerShell(wsl.exe --shutdown)",
+      "PowerShell(wsl.exe --shutdown *)",
+      "PowerShell(git add -A)",
+      "PowerShell(git add -A *)",
+      "PowerShell(git add .)",
+      "WebFetch(domain:codemagic.io)",
+      "WebFetch(domain:api.codemagic.io)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/block-forbidden.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/after-edit.sh\"",
+            "timeout": 180
+          }
+        ]
+      }
+    ]
+  }
+}
