@@ -26,7 +26,7 @@ struct ItemDetailContentView: View {
                         .foregroundStyle(.secondary)
                 }
                 if !content.badges.isEmpty {
-                    FittingLine(line: ShortLine(ordered: content.badges), style: .callout)
+                    FittingLine(line: CardBuilder.badgeLine(content.badges), style: .callout)
                         .foregroundStyle(.secondary)
                 }
                 if let progress = content.progress {

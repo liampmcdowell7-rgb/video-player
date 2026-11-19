@@ -22,11 +22,16 @@ struct PosterCard: View {
             ProgressView(value: card.progress ?? 0)
                 .opacity(card.progress == nil ? 0 : 1)
                 .accessibilityHidden(card.progress == nil)
-            FittingText(card.title, style: .caption)
-            FittingLine(line: card.subtitleLine, style: .caption2)
-                .foregroundStyle(.secondary)
-            FittingLine(line: card.badgeLine, style: .caption2)
-                .foregroundStyle(.secondary)
+            // #17 C: the text keeps a side padding, so it never touches the card's edge (Larger Text screenshot 80: titles
+            // ended 2-3 px from it). The system's default padding; FittingLine measures the width inside it.
+            VStack(alignment: .leading) {
+                FittingText(card.title, style: .caption)
+                FittingLine(line: card.subtitleLine, style: .caption2)
+                    .foregroundStyle(.secondary)
+                FittingLine(line: card.badgeLine, style: .caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal)
         }
     }
 }

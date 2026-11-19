@@ -73,22 +73,34 @@ final class CardTextTests: XCTestCase {
         }
     }
 
-    func testContinueWatchingLeavesOutTheTimeLeftFirstForEpisodes() async throws {
+    /// #17 C: the episode title is dropped first; the episode number and the time left stay longest ("S2 E1 · 31 min left"
+    /// was cut to "S2 E1" in the Larger Text screenshot 80).
+    func testContinueWatchingKeepsTheEpisodeNumberAndTimeLeftLongest() async throws {
         var e = try await episode(title: "Return")
         e.watch.position = 600
         e.watch.duration = 3_000
         let card = CardBuilder.card(e, style: .continueWatching)
-        XCTAssertEqual(card.subtitleLine.candidates, ["S2 E1 · Return · 40 min left", "S2 E1 · Return", "S2 E1"])
+        XCTAssertEqual(card.subtitleLine.candidates, ["S2 E1 · Return · 40 min left", "S2 E1 · 40 min left", "S2 E1"])
+        XCTAssertEqual(card.subtitleLine.full, "S2 E1 · Return · 40 min left", "display order is unchanged")
     }
 
-    func testBadgesKeepTheRealNamesAndDropTheLastFirst() async throws {
+    /// #17 C drop order of the badge line, lowest priority first: audio (Dolby Atmos), then HDR, then resolution.
+    func testBadgesDropAudioThenHDRThenResolution() async throws {
         var e = try await episode(title: "Return")
         e.maxResolution = .uhd4k
         e.hdrFormats = [.dolbyVision]
         e.hasAtmos = true
         let card = CardBuilder.card(e)
         XCTAssertEqual(card.badges, ["4K", "Dolby Vision", "Dolby Atmos"])
-        XCTAssertEqual(card.badgeLine.candidates.first, "4K · Dolby Vision · Dolby Atmos")
-        XCTAssertEqual(card.badgeLine.candidates.last, "4K")
+        XCTAssertEqual(card.badgeLine.candidates, ["4K · Dolby Vision · Dolby Atmos", "4K · Dolby Vision", "4K"])
+    }
+
+    /// The order comes from what each badge is, not from where it stands in the list.
+    func testBadgeDropOrderDoesNotDependOnListPosition() {
+        XCTAssertEqual(CardBuilder.badgeLine(["Dolby Atmos", "HDR10", "4K"]).candidates,
+                       ["Dolby Atmos · HDR10 · 4K", "HDR10 · 4K", "4K"])
+        XCTAssertEqual(CardBuilder.badgeLine(["HDR10+", "Dolby Atmos"]).candidates, ["HDR10+ · Dolby Atmos", "HDR10+"])
+        XCTAssertEqual(CardBuilder.badgeLine(["HLG"]).candidates, ["HLG"])
+        XCTAssertTrue(CardBuilder.badgeLine([]).isEmpty)
     }
 }

@@ -102,6 +102,14 @@ public enum UITestFixtures {
             Video(path: "/Movies/Sample Movie 6 (2017)/Sample Movie 6 (2017) 2160p.mkv", size: 18_900_000_000,
                   technical: tech(2160, "hevc", [.hlg], audio: "ac3", channels: 6, duration: 6300, bitrate: 24_000_000)),
         ], watch: .none, hue: 0.45, subtitles: false),
+        // #17 C: a title far longer than a card is wide, so the Larger Text screenshots show how a card title scales and
+        // keeps its side padding (rule S1, never cut). Synthetic, like the others.
+        Title(folder: "/Movies/Sample Movie 7 With A Much Longer Title Than Any Card Is Wide (2023)", videos: [
+            Video(path: "/Movies/Sample Movie 7 With A Much Longer Title Than Any Card Is Wide (2023)/Sample Movie 7 With A Much Longer Title Than Any Card Is Wide (2023) 2160p.mkv",
+                  size: 23_700_000_000,
+                  technical: tech(2160, "hevc", [.dolbyVision, .hdr10], dv: 8, audio: "truehd", channels: 8, atmos: true,
+                                  duration: 7020, bitrate: 27_000_000)),
+        ], watch: .progress(0.2), hue: 0.25, subtitles: false),
     ]
 
     /// (show folder, seasons with episode counts, hue). Show 1: season 1 watched, season 2 episode 1 half-way.

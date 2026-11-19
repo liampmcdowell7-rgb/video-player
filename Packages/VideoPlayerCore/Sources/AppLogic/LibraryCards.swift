@@ -21,7 +21,7 @@ public struct ItemCard: Equatable, Sendable, Identifiable {
     public var artworkKey: String
     /// The second line as prioritised segments (rule S1): `subtitle` is its full text.
     public var subtitleLine = ShortLine([])
-    /// The badges as one line; the last badge is left out first when even the scaled line does not fit (rule S1).
+    /// The badges as one line (rule S1): Dolby Atmos is left out first, then the HDR format, then 4K (#17 C).
     public var badgeLine = ShortLine([])
 }
 
@@ -45,20 +45,21 @@ public enum CardBuilder {
         var title = item.title
         switch item.kind {
         case .movie:
-            if style == .standard, let year = item.year, year > 0 { parts.append(.init(String(year), priority: 2)) }
+            if style == .standard, let year = item.year, year > 0 { parts.append(.init(String(year), priority: Priority.year)) }
         case .episode:
             // An episode card is titled with its show; the second line says which episode (screenshot review item 3b:
             // the card showed "S02E01" over "Sample Show 1 · S2 E1 · …"). "S2 E1 · Pilot", or "S2 E1" without a real title.
             let episodeTitle = episodeTitleIsReal(item) ? item.title : nil
             if let series = item.seriesTitle, !series.isEmpty { title = series } else if episodeTitle == nil, let code { title = code }
-            if let code, title != code { parts.append(.init(code, priority: 3)) }
-            if let episodeTitle, episodeTitle != title { parts.append(.init(episodeTitle, priority: 2)) }
+            // #17 C drop order: the episode title goes first; the episode number and the time left are dropped last.
+            if let code, title != code { parts.append(.init(code, priority: Priority.episodeCode)) }
+            if let episodeTitle, episodeTitle != title { parts.append(.init(episodeTitle, priority: Priority.episodeTitle)) }
         }
         let progress = progressFraction(item)
         if style == .continueWatching, let progress, let duration = item.watch.duration ?? item.runtime, duration > 0 {
-            // Movies: the time left is the whole second line. Episodes: it goes first when the line is too long (the
-            // progress bar under the poster shows the same thing).
-            parts.append(.init(DisplayText.remaining(duration * (1 - progress)), priority: item.kind == .movie ? 3 : 1))
+            // Movies: the time left is the whole second line. Episodes: kept with the episode number (#17 C: the Larger
+            // Text screenshot showed "S2 E1 · 31 min left" cut to "S2 E1").
+            parts.append(.init(DisplayText.remaining(duration * (1 - progress)), priority: Priority.timeLeft))
         }
         let subtitleLine = ShortLine(parts)
         let badgeList = badges(item)
@@ -66,7 +67,32 @@ public enum CardBuilder {
             id: item.id, kind: item.kind, title: title.isEmpty ? "Untitled" : title,
             subtitle: subtitleLine.isEmpty ? nil : subtitleLine.full,
             progress: style == .nextUp ? nil : progress, isWatched: item.watch.watched, isFavorite: item.watch.favorite,
-            badges: badgeList, artworkKey: "item-\(item.id)", subtitleLine: subtitleLine, badgeLine: ShortLine(ordered: badgeList))
+            badges: badgeList, artworkKey: "item-\(item.id)", subtitleLine: subtitleLine, badgeLine: badgeLine(badgeList))
+    }
+
+    /// How long each part of a card's lines is kept when the line does not fit (rule S1; #17 C). Higher is kept longer.
+    public enum Priority {
+        /// Second line: the episode title is dropped first; the year, the episode number and the time left stay.
+        public static let episodeTitle = 1
+        public static let year = 2
+        public static let timeLeft = 3
+        public static let episodeCode = 4
+        /// Badge line, lowest first: the audio format (Dolby Atmos), then the HDR format, then the resolution.
+        public static let audioBadge = 1
+        public static let hdrBadge = 2
+        public static let resolutionBadge = 3
+    }
+
+    /// The badges as one line with the #17 C drop order: Dolby Atmos first, then the HDR format, then 4K. Unknown texts
+    /// count as audio (dropped first). Used by the cards and the detail page.
+    public static func badgeLine(_ badges: [String]) -> ShortLine {
+        ShortLine(badges.map { text -> ShortLine.Segment in
+            switch text {
+            case "4K": return .init(text, priority: Priority.resolutionBadge)
+            case "Dolby Vision", "HDR10+", "HDR10", "HLG": return .init(text, priority: Priority.hdrBadge)
+            default: return .init(text, priority: Priority.audioBadge)
+            }
+        })
     }
 
     /// False when an episode has no title of its own: empty, the same as its show, or only an episode code taken from the

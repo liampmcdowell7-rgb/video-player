@@ -13,10 +13,14 @@ struct SeriesCard: View {
             .buttonStyle(.card)
             .accessibilityLabel(series.title)
             .accessibilityValue(detail.full)
-            FittingText(series.title, style: .caption)
-            // "3 seasons · 4 unwatched": the unwatched count goes first when the line is too long.
-            FittingLine(line: detail, style: .caption2)
-                .foregroundStyle(.secondary)
+            // The same side padding as PosterCard (#17 C): the text never touches the card's edge.
+            VStack(alignment: .leading) {
+                FittingText(series.title, style: .caption)
+                // "3 seasons · 4 unwatched": the unwatched count goes first when the line is too long.
+                FittingLine(line: detail, style: .caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal)
         }
     }
 

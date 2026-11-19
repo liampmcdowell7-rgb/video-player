@@ -78,7 +78,8 @@ final class UITestLaunchTests: XCTestCase {
 
     func testTheSampleLibraryUsesOnlyGenericNames() {
         let allowed = try! NSRegularExpression(pattern:
-            #"^(Movies|Shows|Season \d+|poster\.png|fanart\.png|Sample (Movie|Show) \d+( \(\d{4}\))?( - S\d\dE\d\d)?( - )?( ?(2160p|1080p|720p))?(\.en)?\.(mkv|mp4|srt|sup))$|^Sample (Movie|Show) \d+( \(\d{4}\))?$|^Unsorted$|^Sample (Clip|Unsorted [A-Za-z0-9 -]+)\.(mkv|mp4|m4v)$"#)
+            // "( [A-Za-z]+)*": plain words after the number, for the long-title fixture (#17 C).
+            #"^(Movies|Shows|Season \d+|poster\.png|fanart\.png|Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?( - S\d\dE\d\d)?( - )?( ?(2160p|1080p|720p))?(\.en)?\.(mkv|mp4|srt|sup))$|^Sample (Movie|Show) \d+( [A-Za-z]+)*( \(\d{4}\))?$|^Unsorted$|^Sample (Clip|Unsorted [A-Za-z0-9 -]+)\.(mkv|mp4|m4v)$"#)
         for path in UITestFixtures.files().keys {
             for part in path.split(separator: "/") {
                 let s = String(part)
@@ -128,7 +129,9 @@ final class UITestLaunchTests: XCTestCase {
         let items = try await UITestFixtures.allItems(store)
         let movies = items.filter { $0.kind == .movie }
         let episodes = items.filter { $0.kind == .episode }
-        XCTAssertEqual(movies.count, 6, "\(movies.map(\.title))")
+        XCTAssertEqual(movies.count, 7, "\(movies.map(\.title))")
+        // #17 C: the long-title fixture is scanned with its whole title (rule S1 decides how it is shown, never the data).
+        XCTAssertTrue(movies.contains { $0.title == "Sample Movie 7 With A Much Longer Title Than Any Card Is Wide" }, "\(movies.map(\.title))")
         XCTAssertEqual(episodes.count, 10, "\(episodes.map(\.title))")
         XCTAssertTrue(items.allSatisfy { $0.title.hasPrefix("Sample") || ($0.seriesTitle ?? "").hasPrefix("Sample") }, "\(items.map(\.title))")
 
