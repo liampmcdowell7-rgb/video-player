@@ -164,13 +164,11 @@ final class AppServices {
             isScanning = true
             await scanSources()
             // Signal d (docs/SORTING.md): with the user's own key, Needs Review files are checked online once per launch;
-            // anything it moves is filed by one more scan.
-            if let lookup = online.sortLookup, let entries = try? await sqlite.needsReview(limit: NeedsReviewViewModel.limit), !entries.isEmpty {
-                let resolver = OnlineSortResolver(lookup: lookup, writer: ledger)
-                let saved = await resolver.run(entries, skipping: onlineSortTried)
-                onlineSortTried.formUnion(entries.prefix(OnlineSortResolver.perRun).map(OnlineSortResolver.key))
-                if !saved.isEmpty { await scanSources() }
-            }
+            // anything it moves is filed by one more scan. Without a TMDB key `sortLookup` is nil and nothing is sent
+            // (OnlineSortPass, tested in SortingLogicTests).
+            let pass = await OnlineSortPass.run(store: sqlite, lookup: online.sortLookup, writer: ledger, tried: onlineSortTried)
+            onlineSortTried.formUnion(pass.checked)
+            if !pass.saved.isEmpty { await scanSources() }
             isScanning = false
             scanProgress = nil
             libraryRevision += 1

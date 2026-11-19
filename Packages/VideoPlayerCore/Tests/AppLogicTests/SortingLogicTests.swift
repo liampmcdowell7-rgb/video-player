@@ -194,6 +194,58 @@ final class SortingLogicTests: XCTestCase {
         XCTAssertEqual(ledger.sortOverrides().map(\.signal), ["onlineLookup"])
     }
 
+    /// Counts every request a TMDB client would send.
+    private final class CountingTransport: HTTPTransport, @unchecked Sendable {
+        private let lock = NSLock()
+        private var _count = 0
+        var count: Int { lock.withLock { _count } }
+        func send(_ request: HTTPRequest) async throws -> HTTPResponse {
+            lock.withLock { _count += 1 }
+            return HTTPResponse(statusCode: 404)
+        }
+    }
+
+    /// Addendum #18 E: with no TMDB key (none, empty or blank) the online check builds no lookup and sends not one request,
+    /// although a file waits in Needs Review. The same pass with a key does send, so the count can see requests.
+    func testWithoutAKeyTheOnlineCheckSendsNothing() async throws {
+        let r = try await rig()
+        let transport = CountingTransport()
+        let make: (String) -> any SortLookup = { key in
+            MatchEngine(provider: TMDBClient(credentials: OnlineKeyStore.tmdbCredentials(key), transport: transport))
+        }
+        let waiting = try await r.store.needsReview(limit: 10)
+        XCTAssertEqual(waiting.map(\.fileName), ["Sample Clip.mkv"])
+        for missing in [nil, "", "  \n"] as [String?] {
+            let lookup = OnlineSortPass.lookup(tmdbKey: missing, make: make)
+            XCTAssertNil(lookup)
+            let result = await OnlineSortPass.run(store: r.store, lookup: lookup, writer: r.ledger, tried: [])
+            XCTAssertTrue(result.saved.isEmpty)
+            XCTAssertTrue(result.checked.isEmpty)
+        }
+        XCTAssertEqual(transport.count, 0, "no key: zero requests")
+        XCTAssertTrue(r.ledger.sortOverrides().isEmpty)
+
+        let withKey = OnlineSortPass.lookup(tmdbKey: "fixture-key", make: make)
+        let sent = await OnlineSortPass.run(store: r.store, lookup: withKey, writer: r.ledger, tried: [])
+        XCTAssertEqual(sent.checked.count, 1)
+        XCTAssertGreaterThan(transport.count, 0, "with a key the same pass does send")
+        // Checked files are not sent again in the same launch.
+        let before = transport.count
+        let again = await OnlineSortPass.run(store: r.store, lookup: withKey, writer: r.ledger, tried: sent.checked)
+        XCTAssertTrue(again.checked.isEmpty)
+        XCTAssertEqual(transport.count, before)
+    }
+
+    func testWhatIsSentNamesTheNeedsReviewCheckPlainly() {
+        let text = OnlineLookupText.whatIsSent
+        XCTAssertTrue(text.hasPrefix("Nothing is sent to any online service until you enter a key"))
+        for needle in ["the title and year it read from the file and folder names", "at most 40 such files each time the app opens",
+                       "Needs Review"] {
+            XCTAssertTrue(text.contains(needle), needle)
+        }
+        XCTAssertEqual(OnlineSortResolver.perRun, 40, "the text says 40")
+    }
+
     // MARK: Texts
 
     func testEverySignalHasAName() {

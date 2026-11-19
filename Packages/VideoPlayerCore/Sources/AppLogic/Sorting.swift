@@ -335,3 +335,28 @@ public struct OnlineSortResolver: Sendable {
         return result
     }
 }
+
+// MARK: The once-per-launch online check (signal d)
+
+/// What `AppServices.scanAll` runs after a scan: the Needs Review files checked online, at most `OnlineSortResolver.perRun`
+/// per launch. Without a TMDB key there is no lookup, so the pass returns before it reads anything and nothing is sent
+/// (addendum #18 E; `SortingLogicTests.testWithoutAKeyTheOnlineCheckSendsNothing` counts the requests).
+public enum OnlineSortPass {
+    /// The lookup to use, or nil when no TMDB key is entered (an empty or blank key counts as none).
+    public static func lookup(tmdbKey: String?, make: (String) -> any SortLookup) -> (any SortLookup)? {
+        guard let key = tmdbKey?.trimmingCharacters(in: .whitespacesAndNewlines), !key.isEmpty else { return nil }
+        return make(key)
+    }
+
+    /// Checks the Needs Review files not yet tried in this launch. Returns what it saved and the files it checked (to skip
+    /// them until the next launch).
+    public static func run(store: any LibraryStore, lookup: (any SortLookup)?, writer: any SortOverrideWriting,
+                           tried: Set<String>) async -> (saved: [UDSortOverrideValue], checked: Set<String>) {
+        guard let lookup, let entries = try? await store.needsReview(limit: NeedsReviewViewModel.limit), !entries.isEmpty else {
+            return ([], [])
+        }
+        let fresh = entries.filter { !tried.contains(OnlineSortResolver.key($0)) }
+        let saved = await OnlineSortResolver(lookup: lookup, writer: writer).run(fresh)
+        return (saved, Set(fresh.prefix(OnlineSortResolver.perRun).map(OnlineSortResolver.key)))
+    }
+}
