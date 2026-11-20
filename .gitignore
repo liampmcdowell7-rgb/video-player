@@ -29,3 +29,7 @@ xcuserdata/
 /testmedia/
 *.pyc
 __pycache__/
+
+# Claude Code: personal settings and notes stay on this machine (#28; scripts/pre-push-check.sh fails if they are tracked)
+.claude/settings.local.json
+CLAUDE.local.md

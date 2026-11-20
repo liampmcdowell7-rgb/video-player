@@ -84,6 +84,43 @@ else
   echo "Workflows: manual trigger only, no secrets, standard runners only."
 fi
 
+# --- Claude Code files (#28 item 8) ---
+# CLAUDE.md, everything under .claude/ (settings, hooks, skills, agents) and the hook self-test are public. They must hold
+# no secrets, no personal details and no machine paths, and the personal files must never be tracked. The names checked
+# for are read at run time (git user name and e-mail, the login name), so this script itself names nobody.
+echo
+echo "== Claude Code files =="
+CBAD=0
+for f in .claude/settings.local.json CLAUDE.local.md; do
+  if git ls-files --error-unmatch -- "$f" >/dev/null 2>&1; then echo "!! $f is tracked; it is personal. Run: git rm --cached $f"; CBAD=1; fi
+  if [ -e "$f" ] && ! git check-ignore -q -- "$f"; then echo "!! $f exists and is not gitignored."; CBAD=1; fi
+done
+CF="$(printf '%s\n' "$LIST" | grep -E '^(CLAUDE\.md|\.claude/|scripts/test-claude-hooks\.sh$)' || true)"
+if [ -n "$CF" ]; then
+  CHITS="$(printf '%s\n' "$CF" | tr '\n' '\0' | xargs -0 grep -nEI \
+    '(BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_|sk-[A-Za-z0-9_-]{20,}|xox[abprs]-|AIza[0-9A-Za-z_-]{30}|eyJ[A-Za-z0-9_-]{10,}\.eyJ|(key|token|secret|password) *[:=] *["'"'"'][A-Za-z0-9/+_-]{12,})' 2>/dev/null || true)"
+  # Machine paths: a Windows user folder, a macOS or Linux home folder, a WSL view of a Windows user folder.
+  CHITS2="$(printf '%s\n' "$CF" | tr '\n' '\0' | xargs -0 grep -nEI \
+    '([A-Za-z]:[\\/]+Users[\\/]+[A-Za-z0-9]|/Users/[A-Za-z0-9]|/home/[a-z0-9]|/mnt/[a-z]/Users/|AppData[\\/])' 2>/dev/null || true)"
+  # E-mail addresses other than the two the commit rules use.
+  CHITS3="$(printf '%s\n' "$CF" | tr '\n' '\0' | xargs -0 grep -noEI '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' 2>/dev/null \
+    | grep -viE ':(dev@localhost\.invalid|noreply@anthropic\.com)$' || true)"
+  # The person's own names, read from this machine.
+  CHITS4=""
+  for who in "$(git config user.name 2>/dev/null)" "$(git config user.email 2>/dev/null)" "${USER:-}" "${USERNAME:-}"; do
+    [ "${#who}" -ge 3 ] || continue
+    case "$who" in "Video Player Dev"|dev@localhost.invalid|root|runner) continue ;; esac
+    H="$(printf '%s\n' "$CF" | tr '\n' '\0' | xargs -0 grep -nIiwF -- "$who" 2>/dev/null || true)"
+    [ -n "$H" ] && CHITS4="$CHITS4$(printf '%s\n' "$H" | sed 's/:.*//' | sort -u | sed 's/$/: contains a name or e-mail of the person on this machine/')"$'\n'
+  done
+  if [ -n "$CHITS$CHITS2$CHITS3$CHITS4" ]; then
+    printf '%s\n%s\n%s\n%s\n' "$CHITS" "$CHITS2" "$CHITS3" "$CHITS4" | sed '/^$/d'
+    echo "!! Secret, machine path or personal detail in the Claude Code files above."; CBAD=1
+  fi
+fi
+if [ "$CBAD" -ne 0 ]; then echo "!! Claude Code file problem found above. Do NOT push."; exit 1; fi
+echo "Claude Code files: $(printf '%s\n' "$CF" | sed '/^$/d' | wc -l | tr -d ' ') scanned; no secrets, machine paths or personal details; settings.local.json and CLAUDE.local.md not tracked."
+
 # --- Test class names used in two test targets (addendum #19 B) ---
 # XCTest on Linux reports results by class name only, so scripts/test-counts.sh would credit both classes to one target.
 echo
