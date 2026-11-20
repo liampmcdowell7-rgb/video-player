@@ -188,6 +188,21 @@ final class LibraryScreenTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(grid.state.content).alphabet.count, 0, "letters only for title sorts")
     }
 
+    /// #32 B: each key names its two directions in its own words; every key on Movies and Shows has two different words.
+    func testSortDirectionWordsFollowTheKey() {
+        XCTAssertEqual(SortChoice.directionTitle(for: .title, ascending: true), "A to Z")
+        XCTAssertEqual(SortChoice.directionTitle(for: .title, ascending: false), "Z to A")
+        XCTAssertEqual(SortChoice.directionTitle(for: .added, ascending: false), "Newest First")
+        XCTAssertEqual(SortChoice.directionTitle(for: .year, ascending: true), "Oldest First")
+        XCTAssertEqual(SortChoice.directionTitle(for: .runtime, ascending: false), "Longest First")
+        XCTAssertEqual(SortChoice.directionTitle(for: .rating, ascending: false), "Highest First")
+        for choice in SortChoice.all + SortChoice.shows {
+            let words = SortChoice.directionTitles(for: choice.key)
+            XCTAssertNotEqual(words.ascending, words.descending, choice.title)
+            XCTAssertFalse(words.ascending.contains("Largest") || words.descending.contains("Largest"), choice.title)
+        }
+    }
+
     func testSavedViewsRoundTripThroughTheIndex() async throws {
         let rig = try LibraryRig.make()
         try await rig.fill()

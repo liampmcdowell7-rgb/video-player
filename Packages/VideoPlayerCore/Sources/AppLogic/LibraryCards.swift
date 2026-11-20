@@ -298,6 +298,25 @@ public struct SortChoice: Equatable, Sendable, Identifiable {
     /// Interpretation (PROVISIONAL): Title sorts A to Z, every other key starts with the largest or newest first.
     public static func defaultSort(for key: ItemSortKey) -> ItemSort { ItemSort(key: key, ascending: key == .title) }
 
+    /// #32 B (OPEN_QUESTIONS R234, PROVISIONAL): the two directions of a sort key in words that fit the key, ascending first:
+    /// "A to Z" / "Z to A" for Title, "Oldest First" / "Newest First" for dates and years, "Lowest First" / "Highest First"
+    /// for Rating, "Shortest First" / "Longest First" for Runtime. Before, every key said "Show Largest First" or "Show
+    /// Smallest First", which reads wrongly for a title or a date.
+    public static func directionTitles(for key: ItemSortKey) -> (ascending: String, descending: String) {
+        switch key {
+        case .title: return ("A to Z", "Z to A")
+        case .year, .added, .lastPlayed: return ("Oldest First", "Newest First")
+        case .rating: return ("Lowest First", "Highest First")
+        case .runtime: return ("Shortest First", "Longest First")
+        }
+    }
+
+    /// The words for one direction of `key`.
+    public static func directionTitle(for key: ItemSortKey, ascending: Bool) -> String {
+        let titles = directionTitles(for: key)
+        return ascending ? titles.ascending : titles.descending
+    }
+
     public static func title(of sort: ItemSort) -> String {
         let name = all.first { $0.key == sort.key }?.title ?? sort.key.rawValue
         return "\(name), \(sort.ascending ? "ascending" : "descending")"
