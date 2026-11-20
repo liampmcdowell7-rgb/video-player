@@ -146,7 +146,7 @@ private struct EpisodeCard: View {
         VStack(alignment: .leading) {
             // #25 B7: always "S2 E1 · Title" (the title is "Episode 1" when the file names none, never the code again).
             // One line under rule S1: scaled to the floor, then the system marquee (FittingText, R229).
-            FittingText(episode.code + " · " + episode.title, style: .caption)
+            FittingText(episode.code + " · " + episode.title, style: .caption, fadesAtRest: true)
             HStack {
                 if let runtime = episode.runtimeText {
                     FittingText(runtime, style: .caption2)

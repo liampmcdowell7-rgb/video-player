@@ -70,12 +70,18 @@ extension TVTextStyle {
 struct FittingText: View {
     let text: String
     var style: TVTextStyle = .body
+    /// #33 E (R229 option (c), PROVISIONAL): below the floor, fade the clipped line at rest and run the marquee on focus.
+    var fadesAtRest: Bool = false
     @State private var natural: Double = 0
     @State private var available: Double = 0
+    /// Whether the nearest focusable ancestor (the row or lockup button) has focus.
+    // design-lint:allow read only, to lift the rest fade while the system marquee runs; focus visuals stay the system's (#33 E, R229 (c))
+    @Environment(\.isFocused) private var isFocused: Bool
 
-    init(_ text: String, style: TVTextStyle = .body) {
+    init(_ text: String, style: TVTextStyle = .body, fadesAtRest: Bool = false) {
         self.text = text
         self.style = style
+        self.fadesAtRest = fadesAtRest
     }
 
     var body: some View {
@@ -104,7 +110,10 @@ struct FittingText: View {
     /// long (R229).
     @ViewBuilder
     private func line(tooLong: Bool, readable: Double) -> some View {
-        if tooLong {
+        if tooLong && fadesAtRest {
+            MarqueeText(text: text, fadesAtRest: true)
+                .mask { RestFade(active: !isFocused) }
+        } else if tooLong {
             MarqueeText(text: text)
         } else {
             Text(text)
@@ -124,5 +133,21 @@ struct FittingText: View {
     /// True when the text does not fit its width even at the readable floor (R229).
     static func isTooLong(natural: Double, available: Double, readable: Double) -> Bool {
         natural > 0 && available > 0 && available < natural * readable
+    }
+}
+
+/// #33 E (OPEN_QUESTIONS R229, option (c), PROVISIONAL): the mask of a clipped line at rest: opaque, then a fade over the
+/// trailing tenth, so the cut reads as "more follows" instead of "…" (rule S1). Fully opaque while focused, where the system
+/// marquee scrolls the line. A mask uses only the alpha of its colours (system `.primary`, `.clear`), so no colour is drawn.
+private struct RestFade: View {
+    let active: Bool
+
+    var body: some View {
+        if active {
+            LinearGradient(stops: [.init(color: .primary, location: 0), .init(color: .primary, location: 0.9), .init(color: .clear, location: 1)],
+                           startPoint: .leading, endPoint: .trailing)
+        } else {
+            Rectangle()
+        }
     }
 }

@@ -14,6 +14,12 @@ import UIKit
 struct MarqueeText: UIViewRepresentable {
     let text: String
     var secondary: Bool = false
+    /// #33 E (OPEN_QUESTIONS R229, option (c), PROVISIONAL): at rest the line is CLIPPED, never cut with "…" (rule S1), and
+    /// `FittingText` lays a fade over its trailing edge; the system marquee still scrolls it on focus ("ignores the label's
+    /// line-break mode" while it runs). Its ideal width is then 0, never the text's natural width: picture 55 showed the S2 E3
+    /// card at 378 x 566 beside 410 x 615 cards, the long caption's natural width having entered the lockup's ideal size.
+    /// Only the spots that ask for it (the Files list row, the Continue Watching caption, the episode caption).
+    var fadesAtRest: Bool = false
 
     func makeUIView(context: Context) -> UILabel {
         let label = UILabel()
@@ -27,13 +33,14 @@ struct MarqueeText: UIViewRepresentable {
         label.text = text
         label.font = Self.floorFont(size: context.environment.dynamicTypeSize, bold: context.environment.legibilityWeight == .bold)
         label.textColor = secondary ? UIColor.secondaryLabel : UIColor.label
+        if fadesAtRest { label.lineBreakMode = .byClipping }
         label.accessibilityLabel = text
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize? {
         let font: UIFont = Self.floorFont(size: context.environment.dynamicTypeSize, bold: context.environment.legibilityWeight == .bold)
         let natural: CGFloat = uiView.intrinsicContentSize.width
-        let width: CGFloat = proposal.width ?? natural
+        let width: CGFloat = proposal.width ?? (fadesAtRest ? 0 : natural)
         return CGSize(width: width, height: ceil(font.lineHeight))
     }
 

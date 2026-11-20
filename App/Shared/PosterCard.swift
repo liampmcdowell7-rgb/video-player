@@ -32,7 +32,8 @@ struct PosterCard: View {
             // #17 C: the text keeps a side padding, so it never touches the card's edge (Larger Text screenshot 80: titles
             // ended 2-3 px from it). The system's default padding; FittingLine measures the width inside it.
             VStack(alignment: .leading) {
-                FittingText(card.title, style: .caption)
+                // #33 E: the Continue Watching caption (wide cards) fades at rest when too long (R229 (c)); other cards unchanged.
+                FittingText(card.title, style: .caption, fadesAtRest: wide)
                 FittingLine(line: card.subtitleLine, style: .caption2)
                     .foregroundStyle(.secondary)
                 FittingLine(line: card.badgeLine, style: .caption2)

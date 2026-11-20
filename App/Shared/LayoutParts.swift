@@ -21,11 +21,15 @@ struct SlotLabel: View {
     var detail: String? = nil
     @ScaledMetric(relativeTo: .body) private var slot: CGFloat = SymbolSlot.body
 
-    init(_ title: String, systemImage: String, style: TVTextStyle = .body, detail: String? = nil) {
+    /// #33 E: the Files list row asks for the fade at rest and the marquee on focus (R229 (c)); other rows do not.
+    var fadesAtRest: Bool = false
+
+    init(_ title: String, systemImage: String, style: TVTextStyle = .body, detail: String? = nil, fadesAtRest: Bool = false) {
         self.title = title
         self.systemImage = systemImage
         self.style = style
         self.detail = detail
+        self.fadesAtRest = fadesAtRest
     }
 
     var body: some View {
@@ -35,9 +39,9 @@ struct SlotLabel: View {
                 .frame(width: slot, height: slot)
                 .accessibilityHidden(true)
             VStack(alignment: .leading) {
-                FittingText(title, style: style)
+                FittingText(title, style: style, fadesAtRest: fadesAtRest)
                 if let detail {
-                    FittingText(detail, style: .caption)
+                    FittingText(detail, style: .caption, fadesAtRest: fadesAtRest)
                         .foregroundStyle(.secondary)
                 }
             }
