@@ -398,8 +398,12 @@ final class ScreenChecksTests: XCTestCase {
         let wideText: String = String(wideBranch)
         let linkStart: String.Index = try XCTUnwrap(wideText.range(of: "NavigationLink(")?.lowerBound, "no NavigationLink in the wide branch")
         let label: Substring = try XCTUnwrap(Self.braceBody(of: wideText, after: linkStart), "the NavigationLink label")
-        XCTAssertTrue(label.contains("FittingText(card.title, style: .caption, fadesAtRest: true)"),
+        // #36 7 (R259): the title (`CardCaption`, one caption line high), the second lines and the highlight on the artwork,
+        // all inside the label.
+        XCTAssertTrue(label.contains("CardCaption(text: card.title)"),
                       "the Continue Watching title is not inside the button's label:\n\(label)")
+        XCTAssertTrue(label.contains("secondLines"), "the Continue Watching second lines are not inside the button's label:\n\(label)")
+        XCTAssertTrue(label.contains(".hoverEffect(.highlight)"), "no highlight on the Continue Watching artwork:\n\(label)")
         XCTAssertTrue(wideText.contains(".buttonStyle(.borderless)"), "the wide card is not Apple's borderless lockup")
 
         // The check itself: the old layout (title after the button) fails it.
@@ -407,6 +411,31 @@ final class ScreenChecksTests: XCTestCase {
         let oldBranch: String = String(try XCTUnwrap(Self.braceBody(of: old, after: old.startIndex)))
         let oldLabel: Substring = try XCTUnwrap(Self.braceBody(of: oldBranch, after: try XCTUnwrap(oldBranch.range(of: "NavigationLink(")?.lowerBound)))
         XCTAssertFalse(oldLabel.contains("FittingText(card.title"), "the brace matcher must see the old title outside the label")
+    }
+
+    /// #36 7 (R259): the episode card's artwork sets the card's width inside the button's label (Apple's media catalog
+    /// sample), carries the highlight, and the caption is `CardCaption`. The layout of #34 (the frame only on the button,
+    /// which gave S2 E3 378 x 566 beside 410 x 615 in picture 55) fails the same check.
+    func testTheEpisodeCardsArtworkSetsItsSizeInsideTheLabel() throws {
+        guard let source = try appSource("App/Features/Shows/SeasonsList.swift") else { return }
+        func labelOfEpisodeCard(_ text: String) throws -> String {
+            let card: String.Index = try XCTUnwrap(text.range(of: "struct EpisodeCard")?.lowerBound, "no EpisodeCard")
+            let link: String.Index = try XCTUnwrap(text[card...].range(of: "NavigationLink(")?.lowerBound, "no NavigationLink")
+            return String(try XCTUnwrap(Self.braceBody(of: text, after: link), "the label"))
+        }
+        let label: String = try labelOfEpisodeCard(source)
+        XCTAssertTrue(label.contains(".containerRelativeFrame(.horizontal, count: 4, spacing: 40)"), "the artwork does not set the width:\n\(label)")
+        XCTAssertTrue(label.contains(".hoverEffect(.highlight)"), "no highlight on the episode artwork:\n\(label)")
+        XCTAssertTrue(source.contains("CardCaption(text: episode.code"), "the episode title is not a CardCaption")
+
+        let old: String = """
+        private struct EpisodeCard: View { var body: some View { NavigationLink(value: x) { VStack { ArtworkView(key: k).overlay { p }
+        captions } } .buttonStyle(.borderless) } }
+        // in the shelf: EpisodeCard(episode: e).containerRelativeFrame(.horizontal, count: 4, spacing: 40)
+        """
+        let oldLabel: String = try labelOfEpisodeCard(old)
+        XCTAssertFalse(oldLabel.contains(".containerRelativeFrame("), "the #34 card must fail: its frame was outside the label")
+        XCTAssertFalse(oldLabel.contains(".hoverEffect(.highlight)"))
     }
 
     /// #34 3: the full toolbar row at Larger Text, from the run's notes. #36 6: every symbol control as wide as the widest

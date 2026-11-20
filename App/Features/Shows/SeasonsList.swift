@@ -123,6 +123,16 @@ private struct EpisodeCard: View {
                                 .padding()
                         }
                     }
+                    // #36 7 (OPEN_QUESTIONS R259): the artwork is the source of the card's size, as in Apple's tvOS media catalog
+                    // sample ("attach the modifier to the Image instance within the button's label closure to make the image the
+                    // source of the frame calculations"). Picture 55: S2 E3 (the long title) came out 378 x 566 beside
+                    // 410 x 615 cards: its artwork was 378 wide (410 less the caption's two 16 pt side paddings) while its
+                    // caption still took 378 + 32; the frame on the button alone "positions this view within an invisible
+                    // frame" (Apple) and does not force the label to fill it.
+                    // design-lint:allow HIG Layout, four columns of the grid width for 16:9 episode cards (R189, R259)
+                    .containerRelativeFrame(.horizontal, count: 4, spacing: 40)
+                    // design-lint:allow #36 7 (R259): Apple's tvOS media catalog sample attaches the borderless lockup's highlight by hand to a custom artwork view; the system effect, not our own
+                    .hoverEffect(.highlight)
                 captions
             }
         }
@@ -148,7 +158,8 @@ private struct EpisodeCard: View {
         VStack(alignment: .leading) {
             // #25 B7: always "S2 E1 · Title" (the title is "Episode 1" when the file names none, never the code again).
             // One line under rule S1: scaled to the floor, then the system marquee (FittingText, R229).
-            FittingText(episode.code + " · " + episode.title, style: .caption, fadesAtRest: true)
+            // #36 7 (R259): one caption line's height whether text or marquee.
+            CardCaption(text: episode.code + " · " + episode.title)
             HStack {
                 if let runtime = episode.runtimeText {
                     FittingText(runtime, style: .caption2)
