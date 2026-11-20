@@ -534,6 +534,28 @@ final class ScreenChecksTests: XCTestCase {
         XCTAssertFalse(oldLabel.contains(".hoverEffect(.highlight)"))
     }
 
+    /// #36 group 4 (R264): the lockup caption shrinks to the floor, then wraps (never the marquee, never the hidden spacer
+    /// line of R259); both rows of lockup cards reserve one caption height; the artwork's height is fixed in both cards.
+    /// Structure only: the pictures 50, 52, 55 and 56 of the next run show the result.
+    func testLockupCaptionsWrapInsteadOfBeingCutAndEveryRowReservesOneHeight() throws {
+        guard let poster = try appSource("App/Shared/PosterCard.swift"),
+              let seasons = try appSource("App/Features/Shows/SeasonsList.swift"),
+              let row = try appSource("App/Shared/CardRow.swift") else { return }
+        let start: String.Index = try XCTUnwrap(poster.range(of: "struct CardCaption: View {")?.lowerBound, "no CardCaption")
+        let caption: String = String(try XCTUnwrap(Self.braceBody(of: poster, after: start), "the CardCaption body"))
+        XCTAssertFalse(caption.contains("fadesAtRest"), "CardCaption still uses the marquee:\n\(caption)")
+        XCTAssertFalse(caption.contains("MarqueeText"), "CardCaption still uses the marquee:\n\(caption)")
+        XCTAssertFalse(caption.contains("Text(verbatim: \" \")"), "the hidden spacer line is still there:\n\(caption)")
+        XCTAssertTrue(caption.contains(".minimumScaleFactor(readable)"), "the caption does not shrink to the floor first")
+        XCTAssertTrue(caption.contains("TVTextStyle.caption2.font"), "the wrapped caption is not at the floor size (Caption 2)")
+        XCTAssertTrue(caption.contains(".frame(minHeight: reserved"), "the caption does not take the row's reserved height")
+        XCTAssertTrue(caption.contains(".preference(key: CaptionHeightKey.self"), "the caption does not report its height")
+        XCTAssertTrue(seasons.contains(".equalCaptionRow()"), "the season rows do not reserve one caption height")
+        XCTAssertTrue(row.contains(".equalCaptionRow()"), "the Home rows do not reserve one caption height")
+        XCTAssertEqual(seasons.components(separatedBy: ".fixedSize(horizontal: false, vertical: true)").count - 1, 1, "the episode still's height is not fixed")
+        XCTAssertTrue(poster.contains(".fixedSize(horizontal: false, vertical: true)"), "the Continue Watching artwork's height is not fixed")
+    }
+
     /// #34 3: the full toolbar row at Larger Text, from the run's notes. #36 6: every symbol control as wide as the widest
     /// (the row the app now lays out). The count's width is not in the notes: its glyphs
     /// were measured on the pictures (07-movies-toolbar-larger-text: x 1666 to 1836, 171 pt; shows 1677 to 1835, 159 pt;

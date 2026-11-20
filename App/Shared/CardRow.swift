@@ -25,6 +25,9 @@ struct CardRow: View {
                         }
                     }
                 }
+                // #36 group 4 (R264): every card of the row the same caption height (the lockup captions of Continue
+                // Watching; portrait cards have no CardCaption and are unaffected).
+                .equalCaptionRow()
             }
             .scrollClipDisabled()
         }

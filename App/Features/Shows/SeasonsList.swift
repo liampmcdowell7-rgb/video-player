@@ -52,6 +52,8 @@ struct SeasonsList: View {
                                         .containerRelativeFrame(.horizontal, count: 4, spacing: 40)
                                 }
                             }
+                            // #36 group 4 (R264): every episode card of the season the same caption height.
+                            .equalCaptionRow()
                         }
                         .scrollClipDisabled()
                     }
@@ -105,10 +107,11 @@ struct SeasonsList: View {
 
 /// One episode as a 16:9 lockup: the still and the text under it are ONE system button (`.borderless`, the tvOS lockup
 /// style of Apple's "Creating a tvOS media catalog app in SwiftUI"), so the text belongs to the focused item.
-/// #30 Part 2 (R229): a caption too long even at the readable floor is drawn whole by the system marquee, which scrolls
-/// while a containing view has focus; with the text inside the button, the focused lockup is that container. Before, the
-/// still was a `.card` button and the text sat outside it. Fixed in code, verify in next screenshots (55, 56,
-/// 56-show-long-episode-caption and -later): the lift of the still and whether the marquee runs are unverified.
+/// #30 Part 2: the text is inside the button, so it belongs to the focused lockup (before, the still was a `.card` button and
+/// the text sat outside it). #36 group 1 d: the earlier claim that the system marquee then scrolls a long caption is
+/// withdrawn (third run of 20 Nov: 56 and 56-later identical, the caption cut mid-word). #36 group 4 (R264): the caption
+/// shrinks to the 23 pt floor, then wraps, never cut (`CardCaption`); every card of a season row reserves the same caption
+/// height (`equalCaptionRow`), and the still keeps its 16:9 height (`fixedSize`). The lift of the still is unverified.
 private struct EpisodeCard: View {
     let episode: EpisodeRow
     let model: ScreenModel<SeasonsViewModel>
@@ -131,6 +134,10 @@ private struct EpisodeCard: View {
                     // frame" (Apple) and does not force the label to fill it.
                     // design-lint:allow HIG Layout, four columns of the grid width for 16:9 episode cards (R189, R259)
                     .containerRelativeFrame(.horizontal, count: 4, spacing: 40)
+                    // #36 group 4 (R264): the still keeps its 16:9 height. Picture 55 of the third run of 20 Nov: S2 E3 (the
+                    // long title) 410 x 225 beside 410 x 231, both "43 min" lines at y 1447: the flexible 16:9 frame gave up
+                    // 6 pt to its taller marquee caption (probable cause; where the 6 pt came from exactly is not proven).
+                    .fixedSize(horizontal: false, vertical: true)
                     // design-lint:allow #36 7 (R259): Apple's tvOS media catalog sample attaches the borderless lockup's highlight by hand to a custom artwork view; the system effect, not our own
                     .hoverEffect(.highlight)
                 captions
@@ -157,8 +164,7 @@ private struct EpisodeCard: View {
     private var captions: some View {
         VStack(alignment: .leading) {
             // #25 B7: always "S2 E1 · Title" (the title is "Episode 1" when the file names none, never the code again).
-            // One line under rule S1: scaled to the floor, then the system marquee (FittingText, R229).
-            // #36 7 (R259): one caption line's height whether text or marquee.
+            // #36 group 4 (R264): shrinks to the floor, then wraps, never cut; the row's tallest caption height.
             CardCaption(text: episode.code + " · " + episode.title)
             HStack {
                 if let runtime = episode.runtimeText {

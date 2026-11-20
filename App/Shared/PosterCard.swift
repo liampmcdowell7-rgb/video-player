@@ -8,23 +8,19 @@ import AppLogic
 /// out, empty ones hidden (the progress is inside the artwork, #15 D4), so equal cards are exactly equal in size and their posters line up. Short texts
 /// follow rule S1 (`FittingLine`): one line, scaled to the readable minimum, never cut with "…".
 ///
-/// #34 5a (OPEN_QUESTIONS R229, PROVISIONAL): the Continue Watching card (`wide`) puts its title INSIDE the button, so the
-/// system marquee can run. `UILabel.enablesMarqueeWhenAncestorFocused` scrolls "when any ancestor in its view hierarchy has
-/// focus" (Apple, UILabel), and `isFocused` reads the "nearest focusable ancestor": with the title beside the button (as on
-/// every other card) neither ever happened, so the #33 E marquee could not start. The wide card uses Apple's tvOS content
-/// lockup ("Creating a tvOS media catalog app in SwiftUI": `.borderless`, image and title in the label, the title moves out
-/// of the way as the image scales up), exactly as the episode card (`EpisodeCard`, SeasonsList.swift, #30). Whether the
-/// system finds the artwork as the "first image" for its lift is unverified (ArtworkView is a custom view). Portrait cards are unchanged.
+/// #34 5a (OPEN_QUESTIONS R229, PROVISIONAL): the Continue Watching card (`wide`) puts its title and second lines INSIDE the
+/// button, Apple's tvOS content lockup ("Creating a tvOS media catalog app in SwiftUI": `.borderless`, image and title in the
+/// label, the title moves out of the way as the image scales up), exactly as the episode card (`EpisodeCard`,
+/// SeasonsList.swift, #30), so the whole lockup is the focused item. Portrait cards are unchanged.
+/// #36 group 1 d: the earlier claim that the system then SCROLLS a long title (the marquee) is withdrawn: the third run of
+/// 20 Nov showed 50 and 50-later identical with the title cut mid-word.
 ///
-/// #36 7 (OPEN_QUESTIONS R259, PROVISIONAL): picture 50 showed the focused Continue Watching card without a lift (note
-/// 50-home-continue-watching-caption-FOCUS: focused, frame 80, 244, 560 x 315, the unscaled 16:9 size). Apple's sample: "the
-/// button style locates the first `Image` within the button's label and attaches a highlight hover effect to it"; for a
-/// custom view, "you can manually attach it" with `hoverEffect(.highlight)`. ArtworkView's first Image is the picture (or the
-/// placeholder symbol) INSIDE its clipped frame, so the lift, if drawn, was clipped. The highlight is now on the artwork.
-/// The second lines are inside the button too (the episode card's lockup), so every line of the card moves with the focused
-/// lockup and the lines of every card start at one height with one spacing (picture 50: card 1, focused and with the long
-/// title, at 597, 634, 665; cards 2 and 3 at 583, 615, 646). The title line keeps one height whether it is text or marquee
-/// (`CardCaption`).
+/// #36 7 (OPEN_QUESTIONS R259, PROVISIONAL): Apple's sample: "the button style locates the first `Image` within the button's
+/// label and attaches a highlight hover effect to it"; for a custom view, "you can manually attach it" with
+/// `hoverEffect(.highlight)`, so the highlight is on the artwork. Whether the system lifts the custom artwork is unverified.
+/// #36 group 4 (OPEN_QUESTIONS R264, PROVISIONAL): the title is a `CardCaption` (shrinks to the 23 pt floor, then wraps,
+/// never cut) and every card of a row reserves the same caption height (`equalCaptionRow`, CardRow); the artwork's height is
+/// fixed (`fixedSize`), so a caption can never take height from it.
 struct PosterCard: View {
     let card: ItemCard
     /// #15 4.1: a 16:9 card for Continue Watching (OPEN_QUESTIONS R185); portrait everywhere else.
@@ -36,10 +32,12 @@ struct PosterCard: View {
                 NavigationLink(value: Route.item(card.id)) {
                     VStack(alignment: .leading) {
                         artwork
+                            // #36 group 4: the artwork keeps its 16:9 height whatever the caption needs (R264).
+                            .fixedSize(horizontal: false, vertical: true)
                             // design-lint:allow #36 7 (R259): Apple's tvOS media catalog sample attaches the borderless lockup's highlight by hand to a custom artwork view; the system effect, not our own
                             .hoverEffect(.highlight)
-                        // #33 E: fades at rest when too long (R229 (c)); #34 5a: inside the focused button, so it scrolls.
-                        // #36 7: the second lines inside the button as well (R259).
+                        // #36 7: the title and the second lines inside the button (R259); #36 group 4: the title shrinks
+                        // to the floor, then wraps, never cut (CardCaption, R264).
                         VStack(alignment: .leading) {
                             CardCaption(text: card.title)
                             secondLines
@@ -90,23 +88,96 @@ struct PosterCard: View {
     }
 }
 
-/// #36 7 (OPEN_QUESTIONS R259, PROVISIONAL): the title line of a lockup card (Continue Watching, episode): one line, faded
-/// at rest when too long, the system marquee on focus (`FittingText`, R229 (c)), and ALWAYS the height of one caption line.
-/// The marquee label is one Caption 2 line high at the floor (28 pt in picture 55) where the text is a Caption line (30 pt),
-/// so the lines under it moved; a hidden caption line under it keeps the height. Width: the line takes the card's width and
-/// never more (the long title's own width never reaches the card).
+/// #36 group 4 (OPEN_QUESTIONS R264, PROVISIONAL; replaces the one-line marquee caption of R259): the title of a lockup
+/// card (Continue Watching, episode) is never cut. It is ONE line in the Caption style while it fits when shrunk no lower
+/// than the 23 pt floor (`minimumScaleFactor`, rule S1, as `FittingText`); a longer title is drawn at the floor size
+/// (Caption 2, 23 pt) and wraps onto a second line, and onto more if it needs them, so no word is ever clipped. Apple,
+/// `minimumScaleFactor(_:)`: "Sets the minimum amount that text in this view scales down to fit in the available space."
+/// The third run of 20 Nov showed why the marquee had to go: 50 and 56 were cut mid-word ("… that i") and did not move.
+/// Height: the caption reports its own height (`CaptionHeightKey`) and every card of the row takes the tallest one
+/// (`reservedCaptionHeight`, set by `equalCaptionRow`), so the cards of a row stay exactly equal; the hidden one-line
+/// "spacer" text of R259 is gone. The width is the column's (`maxWidth: .infinity`) and never depends on the height, so no
+/// measure feeds back into the next layout (#31, R231). The natural one-line width is measured off screen as in
+/// `FittingText` (hidden, never drawn or spoken).
 struct CardCaption: View {
     let text: String
+    @State private var natural: Double = 0
+    @State private var available: Double = 0
+    @State private var ownHeight: CGFloat = 0
+    @Environment(\.reservedCaptionHeight) private var reserved: CGFloat
 
     var body: some View {
-        ZStack(alignment: .leading) {
-            // One caption line's height, never drawn or spoken.
-            Text(verbatim: " ")
+        let readable: Double = ShortLine.minimumScale(forPointSize: TVTextStyle.caption.pointSize)
+        let wraps: Bool = FittingText.isTooLong(natural: natural, available: available, readable: readable)
+        caption(wraps: wraps, readable: readable)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { (height: CGFloat) in
+                if abs(height - ownHeight) >= 0.5 { ownHeight = height }
+            }
+            .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { (width: Double) in
+                if abs(width - available) >= 0.5 { available = width }
+            }
+            .preference(key: CaptionHeightKey.self, value: ownHeight)
+            .frame(minHeight: reserved, alignment: .topLeading)
+            .background(alignment: .leading) {
+                // The natural one-line width in the Caption style, measured off screen (hidden: not drawn, not spoken).
+                Text(text)
+                    .font(TVTextStyle.caption.font)
+                    .lineLimit(1) // design-lint:allow hidden measurement of the natural width, never drawn or spoken (rule S1 is applied to the visible text)
+                    .fixedSize()
+                    .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { natural = $0 }
+                    .hidden()
+            }
+    }
+
+    @ViewBuilder
+    private func caption(wraps: Bool, readable: Double) -> some View {
+        if wraps {
+            // At the floor (Caption 2 is 23 pt on tvOS, Apple's minimum), as many lines as the title needs.
+            Text(text)
+                .font(TVTextStyle.caption2.font)
+        } else {
+            Text(text)
                 .font(TVTextStyle.caption.font)
-                .hidden()
-                .accessibilityHidden(true)
-            FittingText(text, style: .caption, fadesAtRest: true)
+                .lineLimit(1)
+                // design-lint:allow rule S1 (OPEN_QUESTIONS R165, R229, R264): the caption shrinks to fit, never below the readable floor
+                .minimumScaleFactor(readable)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// #36 group 4 (R264): the tallest caption height reported in a row of lockup cards.
+struct CaptionHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+extension EnvironmentValues {
+    /// #36 group 4 (R264): the caption height every card of the row reserves (0 outside an `equalCaptionRow`).
+    @Entry var reservedCaptionHeight: CGFloat = 0
+}
+
+/// #36 group 4 (R264): a row of lockup cards whose captions all take the tallest caption's height. Only the cards the lazy
+/// row has laid out report; a taller caption scrolled into view raises the row once (unverified on a device).
+struct EqualCaptionRow: ViewModifier {
+    @State private var height: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.reservedCaptionHeight, height)
+            .onPreferenceChange(CaptionHeightKey.self) { (tallest: CGFloat) in
+                if abs(tallest - height) >= 0.5 { height = tallest }
+            }
+    }
+}
+
+extension View {
+    /// #36 group 4 (R264): see `EqualCaptionRow`.
+    func equalCaptionRow() -> some View {
+        modifier(EqualCaptionRow())
     }
 }
