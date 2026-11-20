@@ -83,10 +83,18 @@ extension View {
     /// Save View, Fix Match, How This Was Sorted, the Move choice): a full-screen cover, so no tab bar is on top and nothing
     /// shows behind it, with the UI-test text-size and Bold Text overrides applied inside (a presented view is outside the
     /// tab content that carries them, App/Shell/RootView.swift). scripts/design-lint.sh rule `form-sheet` fails on `.sheet(`.
+    ///
+    /// #33 A: the run of 20 Nov showed every cover SEE-THROUGH (10 to 19, 21, 59, 66, 67, 74): the cover was above the tab
+    /// bar and full width (notes 10-add-source-types-HIERARCHY, 11-form-webdav-PRESENTATION), but drew no background, so the
+    /// page and the tab bar showed through. `TaskCoverChrome` gives every cover, here in one place:
+    /// - an opaque system background over the whole presentation: `presentationBackground(_:)` with the `background` style
+    ///   ("Automatically fills the entire presentation"; tvOS 16.4+);
+    /// - the modal accessibility trait (`AccessibilityTraits.isModal`: "sibling accessibility elements that are not modal are
+    ///   ignored"), and it hides the app's tabs from accessibility while it is open (`CoverPresence`, RootView).
     func taskCover<Content: View>(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Content) -> some View {
         fullScreenCover(isPresented: isPresented) {
             content()
-                .uiTestAccessibilityOverrides()
+                .modifier(TaskCoverChrome())
         }
     }
 
@@ -94,9 +102,39 @@ extension View {
     func taskCover<Item: Identifiable, Content: View>(item: Binding<Item?>, @ViewBuilder content: @escaping (Item) -> Content) -> some View {
         fullScreenCover(item: item) { (value: Item) in
             content(value)
-                .uiTestAccessibilityOverrides()
+                .modifier(TaskCoverChrome())
         }
     }
+}
+
+/// #33 A and B (2): what every task cover gets (`taskCover`). The background is the system's `background` shape style, not a
+/// colour of ours (system colours only, docs/DESIGN_SYSTEM.md).
+struct TaskCoverChrome: ViewModifier {
+    @Environment(CoverPresence.self) private var presence: CoverPresence?
+
+    func body(content: Content) -> some View {
+        content
+            .uiTestAccessibilityOverrides()
+            .accessibilityElement(children: .contain)
+            .accessibilityAddTraits(.isModal)
+            .presentationBackground(.background)
+            .onAppear { presence?.opened() }
+            .onDisappear { presence?.closed() }
+    }
+}
+
+/// #33 B (2): how many task covers are open. RootView hides its tabs (and with them the page under a cover) from
+/// accessibility while one is, so VoiceOver and the UI tests see only the cover: HIG Modality, a modal view "prevents
+/// interaction with the parent view".
+@MainActor @Observable
+final class CoverPresence {
+    private(set) var openCovers: Int = 0
+
+    var isCovered: Bool { openCovers > 0 }
+
+    func opened() { openCovers += 1 }
+
+    func closed() { openCovers = max(0, openCovers - 1) }
 }
 
 /// The title (one line, rule S1) and the one sentence of a `TaskPage`, in the system section-header position. The sentence

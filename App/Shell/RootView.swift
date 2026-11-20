@@ -23,6 +23,8 @@ struct RootView: View {
     @State private var showsPath: [Route] = []
     @State private var filesPath: [Route] = []
     @State private var searchPath: [Route] = []
+    /// #33 B (2): open task covers (`taskCover`, App/Shared/SettingsPane.swift).
+    @State private var coverPresence: CoverPresence = CoverPresence()
 
     var body: some View {
         @Bindable var services = services
@@ -52,6 +54,11 @@ struct RootView: View {
                     .uiTestAccessibilityOverrides()
             }
         }
+        // #33 B (2): while a task cover is open, the tabs and the page under it are hidden from VoiceOver (HIG Modality: a
+        // modal view "prevents interaction with the parent view"). The cover is presented in its own window subtree, so it
+        // stays (notes 10-add-source-types-HIERARCHY, 74-file-details-HIERARCHY of the run of 20 Nov).
+        .accessibilityHidden(coverPresence.isCovered)
+        .environment(coverPresence)
         .overlay(alignment: .bottom) {
             // The automatic restore after a cleanup or on a new Apple TV (docs/BACKUP.md). Standard progress view, no custom style.
             if services.backup.isAutoRestoring {
