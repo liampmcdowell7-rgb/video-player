@@ -375,13 +375,11 @@ final class ScreenshotTests: XCTestCase {
         return true
     }
 
-    /// #25 B2: a toolbar control of Movies or Shows. When the row does not fit (Larger Text) the toolbar folds Saved Views,
-    /// Needs Review and Jump to Letter into its More menu (ControlID.moreControls); then More is opened first.
+    /// #25 B2: a toolbar control of Movies or Shows. #34 3: no longer through the More menu: the full row fits at both sizes
+    /// (GridToolbarLayout, OPEN_QUESTIONS R233), so a control that is not on the line is a failure of `checkToolbarGroups`
+    /// and a NOT-REACHED note here, never a detour through More.
     func openToolbarControl(_ text: String, id: String, in app: XCUIApplication, name: String) -> Bool {
-        if control(id: id, label: text, in: app).waitForExistence(timeout: 5) { return open(text, id: id, in: app, name: name) }
-        guard open("More", id: ControlID.moreControls, in: app, name: name) else { return false }
-        sleep(1)
-        return open(text, id: id, in: app, name: name)
+        open(text, id: id, in: app, name: name)
     }
 
     /// The tab bar from the accessibility tree (OPEN_QUESTIONS R167 (c)): six tabs Home, Movies, Shows, Files, Search,

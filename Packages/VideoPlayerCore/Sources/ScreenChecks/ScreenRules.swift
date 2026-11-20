@@ -132,6 +132,24 @@ public enum ScreenRules {
         return CheckResult(passed: passed, lines: lines)
     }
 
+    /// #34 3: the width the full toolbar row needs, from the controls' frames in order (first group, then second group),
+    /// the explicit gaps of `GridToolbarLayout` and the count's width, against the width between the side margins.
+    public static func toolbarRowWidth(first: [AXRect], second: [AXRect], count: Double, inGroup: Double, groupGap: Double,
+                                       countGap: Double, window: Double = 1920, margin: Double = 80) -> CheckResult {
+        let controls: Double = (first + second).reduce(0) { (sum: Double, rect: AXRect) -> Double in sum + rect.width }
+        let innerGaps: Double = Double(max(0, first.count - 1) + max(0, second.count - 1)) * inGroup
+        let needed: Double = controls + innerGaps + groupGap + countGap + count
+        let available: Double = window - 2 * margin
+        let fits: Bool = needed <= available
+        let ratio: Double = groupGap / max(1, inGroup)
+        var verdict: String = "ROW FITS"
+        if !fits { verdict = "ROW DOES NOT FIT" }
+        return CheckResult(passed: fits && ratio >= 2, lines: [
+            "controls \(Int(controls)) + gaps inside groups \(Int(innerGaps)) + between groups \(Int(groupGap)) + before the count \(Int(countGap)) + count \(Int(count)) = \(Int(needed)) of \(Int(available)) between the \(Int(margin)) pt margins (slack \(Int(available - needed)))",
+            "ratio between groups / inside a group: " + String(format: "%.2f", ratio),
+            verdict])
+    }
+
     // MARK: C: menus (test16)
 
     /// #33 C: the items of an open menu: the Cells, MenuItems, Buttons and Switches that were not on screen before the menu
@@ -173,7 +191,10 @@ public enum ScreenRules {
     public static func toolbarGroups(first: [(String, AXRect)], second: [(String, AXRect)], ratio: Double = 2) -> CheckResult {
         var lines: [String] = (first + second).map { "\($0.0)\t\($0.1)" }
         var problems: [String] = []
-        let inner: [Double] = zip(first, first.dropFirst()).map { $1.1.x - $0.1.maxX }
+        // #34 1: typed closure (the #29 pattern).
+        let inner: [Double] = zip(first, first.dropFirst()).map { (pair: ((String, AXRect), (String, AXRect))) -> Double in
+            pair.1.1.x - pair.0.1.maxX
+        }
         if first.count < 2 { problems.append("fewer than two view controls found") }
         if let low = inner.min(), let high = inner.max(), high - low > 2 {
             problems.append("gaps inside the view controls differ: \(inner.map { Int($0) })")
@@ -183,7 +204,12 @@ public enum ScreenRules {
             lines.append("gap inside group \(Int(gap)), gap between groups \(Int(between)) (ratio \(String(format: "%.2f", gap > 0 ? between / gap : 0)), must be at least \(String(format: "%.1f", ratio)))")
             if between < gap * ratio { problems.append("the gap between the groups (\(Int(between))) is not at least \(String(format: "%.1f", ratio)) times the gap inside a group (\(Int(gap)))") }
         } else {
+            // #34 3: test16 no longer accepts a row folded into More: every control must be on the line at both sizes.
             lines.append("second group not on the line (collapsed into More, or no Needs Review and no letters)")
+            problems.append("the second group is not on the line (the row folded into More)")
+        }
+        if first.contains(where: { (item: (String, AXRect)) -> Bool in item.0 == "More" }) {
+            problems.append("the More menu is on the line: the row did not fit")
         }
         lines.append(problems.isEmpty ? "TOOLBAR GROUPS OK" : "TOOLBAR GROUPS PROBLEM: " + problems.joined(separator: "; "))
         return CheckResult(passed: problems.isEmpty, lines: lines)

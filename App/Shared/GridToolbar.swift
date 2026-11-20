@@ -32,15 +32,15 @@ struct GridToolbar<ViewControls: View, SavedViews: View, Tools: View, Collapsed:
             row {
                 // #33 G: one explicit gap between the groups (`GridToolbarLayout.groupGap`).
                 HStack(spacing: GridToolbarLayout.groupGap) {
-                    ActionRow {
+                    ActionRow(spacing: GridToolbarLayout.inGroup) {
                         viewControls
                         savedViews
                     }
-                    ActionRow { tools }
+                    ActionRow(spacing: GridToolbarLayout.inGroup) { tools }
                 }
             }
             row {
-                ActionRow {
+                ActionRow(spacing: GridToolbarLayout.inGroup) {
                     viewControls
                     Menu {
                         collapsed
@@ -58,9 +58,12 @@ struct GridToolbar<ViewControls: View, SavedViews: View, Tools: View, Collapsed:
     }
 
     private func row<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        HStack {
+        // #34 3: explicit spacing, so the width the row needs is known (OPEN_QUESTIONS R233): no system spacing here, the
+        // count stays at least `countGap` from the controls.
+        // design-lint:allow #34 3 (R233): no system spacing in this row, so its width is computable from GridToolbarLayout; the gap before the count is the spacer's countGap
+        HStack(spacing: 0) {
             content()
-            Spacer(minLength: 0)
+            Spacer(minLength: GridToolbarLayout.countGap)
             if let count {
                 FittingText(count)
                     .foregroundStyle(.secondary)
@@ -90,12 +93,19 @@ struct ToolbarSymbol: View {
     }
 }
 
-/// #33 G (OPEN_QUESTIONS R233, PROVISIONAL): the gap between the toolbar's two groups. 140 pt is our choice, not an Apple
-/// number (the HIG Toolbars page gives no gap): at least twice the 60 pt the system puts between the controls of one group
-/// (`ActionRow`, measured at the default size and at Larger Text in the run of 20 Nov) plus 20 pt so the ratio (2.33) stays
-/// above 2 if that spacing grows by a few points. UI test `checkToolbarGroups` (07-*-GROUPS notes) fails below 2 times.
+/// #33 G / #34 3 (OPEN_QUESTIONS R233, PROVISIONAL): the toolbar's spacings, our numbers (the HIG Toolbars page gives none).
+/// #33 set 140 pt between the groups against the system's 60 pt inside a group. #34 computed the Larger Text row from the
+/// run's notes (07-*-larger-text-GROUPS: controls 125 + 114 + 107 and 476 + 448 pt; the count "7 movies" 171 pt of glyphs,
+/// measured on the picture): 1,270 pt of controls + 3 × 60 + 140 + 179 for the count = 1,769 of the 1,760 pt between the
+/// 80 pt margins, before the system's space before the count (unknown, 0 to 60 pt), so the Movies row would fold into More.
+/// With 60 inside a group a 120 pt gap fits only if that space is under 12 pt, which no Apple page gives. Now 48 inside a group,
+/// 100 between (ratio 2.08 at every size, the spacings are fixed points) and 40 before the count: 1,733 of 1,760 pt at
+/// Larger Text (Movies), 1,344 at the default size. Proven on the notes by ScreenChecksTests
+/// (`testTheToolbarRowFitsAtLargerTextWithTheseGaps`), which reads these constants from this file.
 enum GridToolbarLayout {
-    static let groupGap: CGFloat = 140
+    static let inGroup: CGFloat = 48
+    static let groupGap: CGFloat = 100
+    static let countGap: CGFloat = 40
     /// #33 I (R239): at least 60 pt between the toolbar and the first card row, the owner's number in #33 (not Apple's).
     static let belowToolbar: CGFloat = 60
 }

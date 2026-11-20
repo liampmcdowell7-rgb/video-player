@@ -249,7 +249,7 @@ final class ScreenChecksTests: XCTestCase {
         let run: CheckResult = ScreenRules.toolbarGroups(first: first, second: [("Needs Review", AXRect(x: 564, y: 158, width: 336, height: 66))])
         XCTAssertFalse(run.passed, run.text)
         XCTAssertTrue(run.text.contains("gap inside group 60, gap between groups 76"), run.text)
-        // #33 G: GridToolbarLayout.groupGap = 140 pt between the groups, 2.33 times the 60 pt gap inside a group.
+        // #33 G: 140 pt between the groups, 2.33 times the 60 pt gap inside a group (replaced in #34 by 100 and 48, below).
         let fixed: CheckResult = ScreenRules.toolbarGroups(first: first, second: [("Needs Review", AXRect(x: 488 + 140, y: 158, width: 336, height: 66))])
         XCTAssertTrue(fixed.passed, fixed.text)
         // Larger Text of the run: 60 inside, 76 between; fails the same way.
@@ -258,6 +258,86 @@ final class ScreenChecksTests: XCTestCase {
                                           ("Saved Views", AXRect(x: 439, y: 157, width: 107, height: 87))]
         XCTAssertFalse(ScreenRules.toolbarGroups(first: larger, second: [("Needs Review", AXRect(x: 622, y: 158, width: 476, height: 85))]).passed)
         XCTAssertTrue(ScreenRules.toolbarGroups(first: larger, second: [("Needs Review", AXRect(x: 546 + 140, y: 158, width: 476, height: 85))]).passed)
+    }
+
+    /// The frames of one 07-*-GROUPS note of the run, in note order ("Label<TAB>(x, y, width, height)").
+    func groupsNote(_ name: String) throws -> [(String, AXRect)] {
+        let url: URL = try XCTUnwrap(Bundle.module.url(forResource: name, withExtension: "txt", subdirectory: "Fixtures"))
+        let text: String = try String(contentsOf: url, encoding: .utf8)
+        return text.split(separator: "\n").compactMap { (line: Substring) -> (String, AXRect)? in
+            let parts: [Substring] = line.split(separator: "\t")
+            guard parts.count == 2, parts[1].hasPrefix("(") else { return nil }
+            let numbers: [Double] = parts[1].dropFirst().dropLast().split(separator: ",").compactMap { (n: Substring) -> Double? in
+                Double(n.trimmingCharacters(in: .whitespaces))
+            }
+            guard numbers.count == 4 else { return nil }
+            return (String(parts[0]), AXRect(x: numbers[0], y: numbers[1], width: numbers[2], height: numbers[3]))
+        }
+    }
+
+    /// A `static let name: CGFloat = N` of App/Shared/GridToolbar.swift, so this test follows the app's numbers.
+    func toolbarConstant(_ name: String) throws -> Double {
+        // As AttributionNoticeTests: VP_PROJECT_ROOT (scripts/test-core.sh copies only the package), else up from this file.
+        var candidates: [URL] = []
+        if let root = ProcessInfo.processInfo.environment["VP_PROJECT_ROOT"], !root.isEmpty {
+            candidates.append(URL(fileURLWithPath: root).appendingPathComponent("App/Shared/GridToolbar.swift"))
+        }
+        let up: URL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        candidates.append(up.appendingPathComponent("App/Shared/GridToolbar.swift"))
+        guard let found = candidates.first(where: { (url: URL) -> Bool in FileManager.default.fileExists(atPath: url.path) }) else {
+            #if os(Linux)
+            XCTFail("App/Shared/GridToolbar.swift not found (tried \(candidates.map(\.path))). Set VP_PROJECT_ROOT.")
+            return 0
+            #else
+            throw XCTSkip("App/Shared/GridToolbar.swift is not readable from this test host (tried \(candidates.map(\.path))).")
+            #endif
+        }
+        let source: String = try String(contentsOf: found, encoding: .utf8)
+        let marker: String = "static let \(name): CGFloat = "
+        let line: Substring = try XCTUnwrap(source.split(separator: "\n").first { (l: Substring) -> Bool in l.contains(marker) }, name)
+        let value: Substring = try XCTUnwrap(line.components(separatedBy: marker).last.map { Substring($0) }, name)
+        return try XCTUnwrap(Double(value.trimmingCharacters(in: .whitespaces)), name)
+    }
+
+    /// #34 3: the full toolbar row at Larger Text, from the run's notes. The count's width is not in the notes: its glyphs
+    /// were measured on the pictures (07-movies-toolbar-larger-text: x 1666 to 1836, 171 pt; shows 1677 to 1835, 159 pt;
+    /// default size 1726 to 1837 and 1735 to 1837), plus 8 pt for the text's side bearings.
+    func testTheToolbarRowFitsAtLargerTextWithTheseGaps() throws {
+        let inGroup: Double = try toolbarConstant("inGroup")
+        let groupGap: Double = try toolbarConstant("groupGap")
+        let countGap: Double = try toolbarConstant("countGap")
+        let cases: [(String, Double)] = [("07-movies-toolbar-larger-text-GROUPS", 171 + 8), ("07-shows-toolbar-larger-text-GROUPS", 159 + 8),
+                                         ("07-movies-toolbar-GROUPS", 112 + 8), ("07-shows-toolbar-GROUPS", 103 + 8)]
+        for (note, count) in cases {
+            let frames: [AXRect] = try groupsNote(note).map { (item: (String, AXRect)) -> AXRect in item.1 }
+            XCTAssertEqual(frames.count, 5, note)
+            let first: [AXRect] = Array(frames.prefix(3))
+            let second: [AXRect] = Array(frames.suffix(2))
+            // #33's numbers (60 inside, 140 between) plus the system's space before the count, which is not known: between
+            // 0 and the 60 pt the run shows between Jump to Letter and the count. Movies does not fit even at 0.
+            let old: CheckResult = ScreenRules.toolbarRowWidth(first: first, second: second, count: count, inGroup: 60, groupGap: 140, countGap: 0)
+            let new: CheckResult = ScreenRules.toolbarRowWidth(first: first, second: second, count: count, inGroup: inGroup, groupGap: groupGap, countGap: countGap)
+            print("TOOLBAR \(note) #33: \(old.lines[0]) | #34: \(new.lines[0]) \(new.lines[1])")
+            if note == "07-movies-toolbar-larger-text-GROUPS" { XCTAssertFalse(old.passed, "\(note): \(old.text)") }
+            XCTAssertTrue(new.passed, "\(note): \(new.text)")
+            // With 60 inside a group, a 120 pt gap (twice 60) fits at Larger Text only if the system's space before the count
+            // is under 12 pt (Movies: 1,749 + that space of 1,760); unproven, so the row's spacings are now explicit.
+            if note.contains("larger-text") {
+                let twice: CheckResult = ScreenRules.toolbarRowWidth(first: first, second: second, count: count, inGroup: 60, groupGap: 120, countGap: 12)
+                if note.contains("movies") { XCTAssertFalse(twice.passed, "\(note): \(twice.text)") }
+            }
+        }
+        XCTAssertGreaterThanOrEqual(groupGap / inGroup, 2)
+    }
+
+    /// #34 3: test16 must not pass on a row folded into More.
+    func testAToolbarFoldedIntoMoreFailsTheGroupsCheck() {
+        let folded: CheckResult = ScreenRules.toolbarGroups(first: [("Sort", AXRect(x: 80, y: 157, width: 125, height: 87)),
+                                                                    ("Filter", AXRect(x: 253, y: 157, width: 114, height: 87)),
+                                                                    ("More", AXRect(x: 415, y: 157, width: 110, height: 87))], second: [])
+        XCTAssertFalse(folded.passed, folded.text)
+        XCTAssertTrue(folded.text.contains("folded into More"), folded.text)
     }
 
     // MARK: B (1): the cover pixels

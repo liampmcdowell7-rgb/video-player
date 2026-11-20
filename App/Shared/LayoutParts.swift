@@ -76,10 +76,12 @@ struct ActionLabel: View {
 
 /// #25 B5: a row of action buttons of one height (L10): each button hugs its content, the tallest sets the row's height.
 struct ActionRow<Content: View>: View {
+    /// #34 3: nil (the system spacing, every other row) or the library toolbar's `GridToolbarLayout.inGroup`.
+    var spacing: CGFloat? = nil
     @ViewBuilder var content: Content
 
     var body: some View {
-        HStack {
+        HStack(spacing: spacing) {
             content
         }
         .fixedSize(horizontal: false, vertical: true)

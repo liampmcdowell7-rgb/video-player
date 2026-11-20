@@ -1,0 +1,7 @@
+Sort	(80.0, 157.0, 102.0, 68.0)
+Filter	(242.0, 157.0, 96.0, 68.0)
+Saved Views	(398.0, 157.0, 90.0, 68.0)
+Needs Review	(564.0, 158.0, 336.0, 66.0)
+Jump to Letter	(960.0, 158.0, 317.0, 66.0)
+gap inside group 60, gap between groups 76
+TOOLBAR GROUPS PROBLEM: the gap between the groups (76) is not at least 1.5 times the gap inside a group (60)
