@@ -132,8 +132,15 @@ final class AppServices {
         self.online = OnlineServices(keys: keyStore, store: sqliteStore, reader: reader)
         // The backup refuses any file that holds one of these: every source password or token and every API key, read
         // from protected storage at the time of each backup and never written anywhere (docs/BACKUP.md "Secrets").
-        self.backup = BackupHost(store: sqliteStore, cloud: dependencies.backupCloud, matchFile: OnlineServices.matchFileURL, forbidden: { [ledger, secrets, keyStore] in
-            return ledger.sourceDefinitions().compactMap { secrets.secret(for: $0.id) } + keyStore.allValues()
+        self.backup = BackupHost(store: sqliteStore, cloud: dependencies.backupCloud, matchFile: OnlineServices.matchFileURL, forbidden: { @Sendable [ledger, secrets, keyStore] () -> [String] in
+            // #29: typed steps.
+            var values: [String] = []
+            for definition in ledger.sourceDefinitions() {
+                if let secret: String = secrets.secret(for: definition.id) { values.append(secret) }
+            }
+            let keys: [String] = keyStore.allValues()
+            values.append(contentsOf: keys)
+            return values
         })
         let engine = UserDataSyncEngine(ledger: ledger, cloud: self.cloud)
         self.syncEngine = engine

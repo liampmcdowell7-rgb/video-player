@@ -185,6 +185,6 @@ window".
   `App/Support/Attribution.swift`.
 - Clients: `MetadataOnline/IntroDBClient.swift`, `MetadataOnline/WikidataClient.swift`.
 - Use: `AppLogic/OnlineSegments.swift` (IMDb id chain, IntroDB → segments), `AppLogic/SegmentSourcing.swift` (online slot),
-  `AppLogic/DetailsLayers.swift` (layer order), `App/Support/OnlineServices.swift`, `App/Support/SegmentService.swift`.
+  `AppLogic/DetailsLayers.swift` (layer order), `AppLogic/OnlineComposition.swift` (the closures the app passes, typed, #29 R226), `App/Support/OnlineServices.swift`, `App/Support/SegmentService.swift`.
 - Tests: `MetadataOnlineTests/KeyFreeSourceTests.swift`, `AppLogicTests/AppWideKeyTests.swift`,
   `PlaybackLogicTests/SegmentTests.swift` (SEG-3), `PlaybackLogicTests/OnlineSkipSafeguardTests.swift` (SEG-15, SESS-8 to SESS-12), UI test `test03_Settings` and `test02_AddASource` (no key field).

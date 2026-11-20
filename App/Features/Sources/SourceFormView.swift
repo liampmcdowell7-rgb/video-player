@@ -13,6 +13,12 @@ struct SourceFormView: View {
     private var info: SourceKindInfo { SourceCatalog.info(for: draft.kind, oneDriveClientID: SourceConfiguration.oneDriveClientID) }
     private var problems: [FieldProblem] { attempted ? SourceDraftValidator.problems(draft) : [] }
     private var phase: SetupPhase { model?.screen.phase ?? .editing }
+    /// The Learn More text: the status line, then the caveat when there is one (#29: typed steps, no mixed-optional array).
+    private var aboutText: String {
+        let status: String = info.statusLine + "."
+        guard let caveat: String = info.caveat else { return status }
+        return status + " " + caveat
+    }
 
     @Environment(\.dismiss) private var dismiss
 
@@ -29,7 +35,7 @@ struct SourceFormView: View {
                 connectRow
                 Button("Cancel", role: .cancel) { dismiss() }
                     .accessibilityIdentifier(ControlID.sourceCancel)
-                LearnMoreLink(title: "About \(info.title)", text: [info.statusLine + ".", info.caveat].compactMap { $0 }.joined(separator: " "))
+                LearnMoreLink(title: "About \(info.title)", text: aboutText)
                     .accessibilityIdentifier(ControlID.learnMore)
             }
         }

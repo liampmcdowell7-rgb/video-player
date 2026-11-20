@@ -539,8 +539,13 @@ final class ScreenshotTests: XCTestCase {
         let fields = app.textFields.allElementsBoundByIndex + app.secureTextFields.allElementsBoundByIndex
         let labels = fields.map { [$0.label, $0.placeholderValue ?? "", $0.identifier].joined(separator: " | ") }
         let offending = labels.filter { $0.range(of: "key", options: .caseInsensitive) != nil || $0.range(of: "token", options: .caseInsensitive) != nil }
-        note(name + "-FIELDS", (labels.isEmpty ? ["(no text fields)"] : labels).joined(separator: "\n")
-             + "\n" + (offending.isEmpty ? "NO KEY FIELD OK" : "KEY FIELD FOUND: " + offending.joined(separator: "; ")))
+        // #29: typed steps instead of one expression with two ternaries and a `+` chain.
+        var listed: [String] = labels
+        if listed.isEmpty { listed = ["(no text fields)"] }
+        var verdict = "NO KEY FIELD OK"
+        if !offending.isEmpty { verdict = "KEY FIELD FOUND: \(offending.joined(separator: "; "))" }
+        let text: String = listed.joined(separator: "\n") + "\n" + verdict
+        note(name + "-FIELDS", text)
         XCTAssertTrue(offending.isEmpty, "\(name): a source form asks for a key: \(offending)")
     }
 

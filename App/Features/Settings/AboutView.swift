@@ -63,15 +63,24 @@ struct AboutView: View {
         .scrollEdgeEffectStyle(.soft, for: .top)
     }
 
+    // #29: built in typed steps (a long `+` chain of arrays and strings is hard on the type-checker).
     private var sourceText: String {
-        ([LicenseNotices.sourceOffer]
-         + LicenseNotices.sourceLinks.map { $0.library + "\n" + $0.upstream }
-         + [LicenseNotices.repositoryLine]).joined(separator: "\n\n")
+        var parts: [String] = [LicenseNotices.sourceOffer]
+        for link in LicenseNotices.sourceLinks {
+            let line: String = "\(link.library)\n\(link.upstream)"
+            parts.append(line)
+        }
+        parts.append(LicenseNotices.repositoryLine)
+        return parts.joined(separator: "\n\n")
     }
 
     private var noticesText: String {
-        ([LicenseNotices.intro]
-         + LicenseNotices.all.map { "\($0.name)\n\($0.license) · \($0.use)\n\($0.copyright)" }).joined(separator: "\n\n")
+        var parts: [String] = [LicenseNotices.intro]
+        for notice in LicenseNotices.all {
+            let block: String = "\(notice.name)\n\(notice.license) · \(notice.use)\n\(notice.copyright)"
+            parts.append(block)
+        }
+        return parts.joined(separator: "\n\n")
     }
 }
 
