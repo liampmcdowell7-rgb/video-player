@@ -46,7 +46,8 @@ echo "No secret patterns found."
 
 # --- GitHub Actions workflows (.github/workflows), added 2026-11-17 ---
 # They are part of the pattern scan above (they are not under Vendor/). On top of that every workflow must:
-#  - use no secrets at all (no `secrets.` expression, no GITHUB_TOKEN use, no `secrets: inherit`);
+#  - use no secrets at all (no `secrets.` expression, no GITHUB_TOKEN use, no `secrets: inherit`), except testflight.yml,
+#    which may read only its four named secrets (R248, below); the GitHub token stays refused there too;
 #  - be started by hand only (`workflow_dispatch`; no push, pull_request, schedule or other trigger);
 #  - run only on a STANDARD GitHub-hosted runner (larger runners, labels ending in -large / -xlarge, are billed even for
 #    public repositories); a self-hosted runner is refused too.
@@ -60,7 +61,21 @@ else
   while IFS= read -r w; do
     [ -f "$w" ] || continue
     echo "-- $w"
-    if grep -nEi '\$\{\{[^}]*(secrets|github\.token)|secrets: *inherit|GITHUB_TOKEN' "$w"; then
+    if [ "$w" = ".github/workflows/testflight.yml" ]; then
+      # OPEN_QUESTIONS R248 (PROVISIONAL): the ONE exception. This file may read exactly these four repository secrets, each
+      # only as the whole expression `${{ secrets.NAME }}`; never the GitHub token, `secrets: inherit` or any other secret.
+      if grep -nEi 'github\.token|secrets: *inherit|GITHUB_TOKEN|secrets\[' "$w"; then
+        echo "!! $w refers to the GitHub token or to secrets in a form other than \${{ secrets.NAME }} (lines above)."; WBAD=1
+      fi
+      OTHER="$(grep -nEi '\$\{\{[^}]*secrets' "$w" | grep -vE '\$\{\{ secrets\.(ASC_KEY_ID|ASC_ISSUER_ID|ASC_KEY_P8|APPLE_TEAM_ID) \}\}' || true)"
+      OTHER2="$(grep -oE '\$\{\{[^}]*secrets[^}]*\}\}' "$w" | grep -vxE '\$\{\{ secrets\.(ASC_KEY_ID|ASC_ISSUER_ID|ASC_KEY_P8|APPLE_TEAM_ID) \}\}' || true)"
+      if [ -n "$OTHER$OTHER2" ]; then
+        printf '%s\n%s\n' "$OTHER" "$OTHER2" | sed '/^$/d'
+        echo "!! $w uses a secret other than ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8, APPLE_TEAM_ID (above)."; WBAD=1
+      else
+        echo "   secrets: only ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8, APPLE_TEAM_ID (the TestFlight exception, R248)"
+      fi
+    elif grep -nEi '\$\{\{[^}]*(secrets|github\.token)|secrets: *inherit|GITHUB_TOKEN' "$w"; then
       echo "!! $w refers to secrets or the GitHub token (lines above)."; WBAD=1
     fi
     # Triggers: the `on:` block may only contain workflow_dispatch.
@@ -81,7 +96,7 @@ else
     done < <(grep -E '^[[:space:]]*runs-on:' "$w" | sed -E 's/^[[:space:]]*runs-on:[[:space:]]*//; s/[][" '"'"']//g' | tr ',' '\n')
   done <<< "$WF"
   if [ "$WBAD" -ne 0 ]; then echo "!! Workflow problem found above. Do NOT push."; exit 1; fi
-  echo "Workflows: manual trigger only, no secrets, standard runners only."
+  echo "Workflows: manual trigger only, no secrets (testflight.yml: its four named secrets only, R248), standard runners only."
 fi
 
 # --- Claude Code files (#28 item 8) ---

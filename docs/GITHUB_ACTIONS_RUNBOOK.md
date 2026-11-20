@@ -177,7 +177,7 @@ keep do appear:
 
    *Success looks like this:*
    - `No secret patterns found.`
-   - `Workflows: manual trigger only, no secrets, standard runners only.`
+   - `Workflows: manual trigger only, no secrets (testflight.yml: its four named secrets only, R248), standard runners only.`
    - `No file is over 50 MiB.`
    - No line starts with `!!`.
    - A line saying that some `Vendor/` files contain sample keys is expected: that is public third-party test text.
