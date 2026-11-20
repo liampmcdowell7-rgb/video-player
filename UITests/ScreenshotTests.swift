@@ -280,6 +280,43 @@ final class ScreenshotTests: XCTestCase {
         return focused.exists ? "“\(focused.label)”" : "none"
     }
 
+    /// #36 8 T4: what has the focus right now (label, identifier, frame) and whether its label contains `expected`. The
+    /// "-later" pictures of 50 and 56 in the run of 20 Nov were identical to the first ones, and nothing said whether the
+    /// card still had the focus while the test waited.
+    func focusLine(expected: String, in app: XCUIApplication) -> (ok: Bool, line: String) {
+        let focused: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        guard focused.exists else { return (false, "focused: none (expected “\(expected)”)") }
+        let ok: Bool = focused.label.contains(expected)
+        var verdict: String = "yes"
+        if !ok { verdict = "NO" }
+        return (ok, "focused “\(focused.label)” id “\(focused.identifier)” frame \(focused.frame); expected “\(expected)”: \(verdict)")
+    }
+
+    /// #36 8 T4: the first picture, then 3 s of focus and the "-later" picture, with the focus asserted before each wait and
+    /// written to "<name>-FOCUS" (before the first picture, before the wait, after the wait). No "-later" picture is taken
+    /// when the focus has left `expected`: the comparison would say nothing about the marquee.
+    func laterPictures(_ name: String, expected: String, step: String, in app: XCUIApplication, firstLine: String) {
+        var lines: [String] = [firstLine]
+        let before: (ok: Bool, line: String) = focusLine(expected: expected, in: app)
+        lines.append("before the first picture: " + before.line)
+        sleep(1); shot(name)
+        let waiting: (ok: Bool, line: String) = focusLine(expected: expected, in: app)
+        lines.append("before the 3 s wait: " + waiting.line)
+        guard before.ok, waiting.ok else {
+            lines.append("FOCUS PROBLEM: the focus is not on “\(expected)”; no -later picture")
+            note(name + "-FOCUS", lines.joined(separator: "\n"))
+            XCTFail("\(name): the focus is not on “\(expected)” before the wait (\(waiting.line))")
+            notReached(name + "-later", "The focus was not on “\(expected)” before the 3 s wait: \(waiting.line)")
+            return
+        }
+        sleep(3)
+        let after: (ok: Bool, line: String) = focusLine(expected: expected, in: app)
+        lines.append("after the 3 s wait: " + after.line)
+        lines.append(after.ok ? "FOCUS OK" : "FOCUS PROBLEM: the focus left “\(expected)” during the wait")
+        note(name + "-FOCUS", lines.joined(separator: "\n"))
+        shot(name + "-later", mustChangeAfter: step)
+    }
+
     /// Presses Down until the focus stops moving (three presses in a row with the same focused frame) or `maxPresses`.
     /// True when the focus stopped, i.e. the end of the list was reached.
     func moveFocusToEnd(in app: XCUIApplication, maxPresses: Int = 40) -> Bool {
@@ -323,7 +360,12 @@ final class ScreenshotTests: XCTestCase {
             let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
             guard focused.exists else { remote.press(.down); focusPath.append("\(press) Down: nothing focused"); continue }
             let f = focused.frame, t = target.frame
-            if f.contains(CGPoint(x: t.midX, y: t.midY)) || t.contains(CGPoint(x: f.midX, y: f.midY)) { return true }
+            // #36 8 T5: the same element (same non-empty label), or each frame holds the other's centre. Before, ONE centre
+            // inside the other frame was enough: a borderless episode lockup reports a 615 pt tall frame reaching far past
+            // its visible card (55-show-page-HIERARCHY), so the More button's centre fell inside the S1 E1 card's frame,
+            // the helper stopped on More, and test12 pressed Select on it (22-player-skip-intro-NOT-REACHED: the More menu
+            // open on the show page).
+            if ScreenRules.focusReached(focused: AXRect(f), focusedLabel: focused.label, target: AXRect(t), targetLabel: target.label) { return true }
             // #36 group 5: unmoved only when the label AND the frame stay the same (see `moveFocusToEnd`).
             let here: String = "“\(focused.label)” \(f)"
             if here == last { unmoved += 1; if unmoved >= 3 { return false } } else { unmoved = 0 }
@@ -396,6 +438,14 @@ final class ScreenshotTests: XCTestCase {
         if let id, target.identifier == id { checkExposedOnce(id, name: name, in: app) }
         guard focus(target, in: app, maxPresses: 40) else {
             notReached(name, "The focus could not be moved to the \(searched) with the remote's arrows (focus stayed on \(focusedLabel(in: app))).\n" + focusPathText() + "\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
+            return false
+        }
+        // #36 8 T5: Select only on the target (22-player-skip-intro pressed Select on More in the run of 20 Nov).
+        let focused: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        let onTarget: Bool = focused.exists && ScreenRules.focusReached(focused: AXRect(focused.frame), focusedLabel: focused.label,
+                                                                         target: AXRect(target.frame), targetLabel: target.label)
+        guard target.hasFocus || onTarget else {
+            notReached(name, "The focus is on \(focusedLabel(in: app)), not on the \(searched); Select not pressed.\n" + focusPathText())
             return false
         }
         XCUIRemote.shared.press(.select)
@@ -722,6 +772,9 @@ final class ScreenshotTests: XCTestCase {
         if !failures.isEmpty { coverVerdict = "COVER PROBLEM: " + failures.joined(separator: "; ") }
         lines.append(coverVerdict)
         note(name + "-COVER", lines.joined(separator: "\n"))
+        // #36 8 T2/T3: the tree of every cover, so the next run's notes give the frames of any overlap and the page's
+        // elements in the tree (the run of 20 Nov had no tree of 66, 94 or the Saved View cover).
+        hierarchy(name, of: app)
         for failure in failures { XCTFail("\(name): \(failure)") }
     }
 
@@ -764,10 +817,14 @@ final class ScreenshotTests: XCTestCase {
            focus(control("Sample Movie 7", in: app), in: app) {
             let focusedFrame: CGRect = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch.frame
             let isWide: Bool = focusedFrame.width > focusedFrame.height
-            note("50-home-continue-watching-caption-FOCUS", "focused \(focusedLabel(in: app)) frame \(focusedFrame) wide \(isWide)")
+            let firstLine: String = "focused \(focusedLabel(in: app)) frame \(focusedFrame) wide \(isWide)"
+            note("50-home-continue-watching-caption-FOCUS", firstLine)
             if isWide {
-                sleep(1); shot("50-home-continue-watching-caption")
-                sleep(3); shot("50-home-continue-watching-caption-later", mustChangeAfter: "3 s of focus on the Continue Watching card of Sample Movie 7 (the system marquee, #34 5a)")
+                // #36 8 T4: Sample Movie 7 is the long title (a short one fits and has nothing to scroll); the focus is
+                // asserted before the wait and written to the -FOCUS note.
+                laterPictures("50-home-continue-watching-caption", expected: "Sample Movie 7",
+                              step: "3 s of focus on the Continue Watching card of Sample Movie 7 (the system marquee, #34 5a)",
+                              in: app, firstLine: firstLine)
             } else {
                 notReached("50-home-continue-watching-caption", "The focused Sample Movie 7 card is not the wide Continue Watching card (frame \(focusedFrame)).")
             }
@@ -801,9 +858,11 @@ final class ScreenshotTests: XCTestCase {
             // #30 Part 2 (R229): S2 E3 has the caption too long even at the readable floor. Focused, the system marquee should
             // scroll it; the two pictures 3 s apart show whether it moves (default text size).
             if focus(control("S2 E3", in: app), in: app) || focus(control("S2 E3, A very long episode title that is wider than any episode card on the show page", in: app), in: app) {
-                sleep(1); shot("56-show-long-episode-caption")
                 // #33 L: the marquee was meant to move the caption; identical pictures fail (unverified that it runs).
-                sleep(3); shot("56-show-long-episode-caption-later", mustChangeAfter: "3 s of focus on S2 E3 (the system marquee)")
+                // #36 8 T4: S2 E3 is the long title; the focus is asserted before the wait and written to the -FOCUS note.
+                laterPictures("56-show-long-episode-caption", expected: "S2 E3",
+                              step: "3 s of focus on S2 E3 (the system marquee)", in: app,
+                              firstLine: "focused \(focusedLabel(in: app)) after moving to S2 E3")
             } else {
                 notReached("56-show-long-episode-caption", "Could not move the focus to S2 E3 (focus on \(focusedLabel(in: app))).")
             }
@@ -921,8 +980,12 @@ final class ScreenshotTests: XCTestCase {
             notReached("22-player-skip-intro", "The show page did not open."); app.terminate(); return
         }
         checkResponsive("test12-show-page-responsive", text: "Season 1", in: app)
-        guard open("A quiet beginning", in: app, name: "22-player-skip-intro"), waitForScreen("screen.item", in: app, timeout: 20) else {
-            notReached("22-player-skip-intro", "The S01E01 page did not open."); app.terminate(); return
+        // #36 8 T5: the S1 E1 card by its full spoken label (the button's label is "S1 E1, A quiet beginning"), so no other
+        // control can match; the focus is checked on that card before Select, and the path goes into the note.
+        let episodeLabel: String = "S1 E1, A quiet beginning"
+        guard open(episodeLabel, in: app, name: "22-player-skip-intro"), waitForScreen("screen.item", in: app, timeout: 20) else {
+            notReached("22-player-skip-intro", "The S01E01 page did not open (focus on \(focusedLabel(in: app))).\n" + focusPathText())
+            app.terminate(); return
         }
         settle()
         // S01E01 is watched in the sample library, so its button says "Play Again" ("Play" matches it).

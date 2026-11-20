@@ -143,10 +143,19 @@ public struct AccessibilityDump: Sendable {
 
     /// The element's own label, or (tvOS menu items, list rows) the label of its first StaticText descendant: in the run of
     /// 20 Nov a menu item was a Cell with NO label, found only by "cells containing label == …" (#33 C).
+    /// #36 8 T1: the tree of an open menu (note 07-movies-toolbar-sort-menu-HIERARCHY of the second run of 20 Nov) has no
+    /// StaticText in a menu Cell either: the item's name is on an `Other` six levels down ("Other, …, label: 'Year'"), the
+    /// selected one beside an Image labelled 'selected'. A Cell with no StaticText now takes its first labelled descendant
+    /// that is not an Image.
     public func text(of index: Int) -> String {
         if !nodes[index].label.isEmpty { return nodes[index].label }
         for child in descendants(of: index) where nodes[child].type == "StaticText" && !nodes[child].label.isEmpty {
             return nodes[child].label
+        }
+        if nodes[index].type == "Cell" {
+            for child in descendants(of: index) where nodes[child].type != "Image" && !nodes[child].label.isEmpty {
+                return nodes[child].label
+            }
         }
         return ""
     }

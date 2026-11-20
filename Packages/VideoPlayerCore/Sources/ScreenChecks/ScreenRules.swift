@@ -76,7 +76,17 @@ public enum ScreenRules {
             dump.nodes[index].identifier.hasPrefix("screen.") && !inCover.contains(index)
         }.map { dump.nodes[$0].identifier }
         if visible.isEmpty { return CheckResult(passed: true, lines: ["no page screen in the tree behind the cover", "PAGE HIDDEN OK"]) }
-        return CheckResult(passed: false, lines: ["page screens still in the accessibility tree: \(visible.joined(separator: ", "))", "PAGE BEHIND THE COVER IS EXPOSED"])
+        // #36 8 T3: each exposed screen's element type and frame, for the report (the dump has no hidden flag: an element in
+        // it is exposed to accessibility).
+        let details: [String] = dump.nodes.indices.filter { (index: Int) -> Bool in
+            dump.nodes[index].identifier.hasPrefix("screen.") && !inCover.contains(index)
+        }.map { (index: Int) -> String in
+            let node: AXNode = dump.nodes[index]
+            var place: String = "no frame"
+            if let frame = node.frame { place = frame.description }
+            return node.identifier + ": " + node.type + " " + place
+        }
+        return CheckResult(passed: false, lines: ["page screens still in the accessibility tree: \(visible.joined(separator: ", "))"] + details + ["PAGE BEHIND THE COVER IS EXPOSED"])
     }
 
     /// #34 2: the cover itself is still in the accessibility tree while the page behind it is hidden. RootView hides the
@@ -122,14 +132,26 @@ public enum ScreenRules {
         for (i, a) in rows.enumerated() {
             for b in rows.dropFirst(i + 1) {
                 let overlap: AXRect = a.1.intersection(b.1)
-                let contained: Bool = overlap == a.1 || overlap == b.1
                 // A field inside its row is nesting, not overlap; two rows sharing more than 4 pt of height is overlap.
-                if !overlap.isEmpty, !contained, overlap.height > 4 { overlaps.append("“\(a.0)” and “\(b.0)”") }
+                // #36 8 T2: nesting allows `nestingSlack` on every side (a focused field's frame can reach a few points past its
+                // row's: notes 66-move-sheet-COVER and 07-*-saved-views-menu-COVER of the second run of 20 Nov reported
+                // “Year (Optional)” and “” and “Saved View” and “”, a row and its own unnamed field).
+                let nested: Bool = isNested(a.1, in: b.1) || isNested(b.1, in: a.1)
+                if !overlap.isEmpty, !nested, overlap.height > 4 { overlaps.append("“\(a.0)” \(a.1) and “\(b.0)” \(b.1)") }
             }
         }
         if !overlaps.isEmpty { passed = false; lines.append("rows overlap: " + overlaps.joined(separator: "; ")) }
         lines.append(passed ? "COVER LAYOUT OK" : "COVER LAYOUT PROBLEM")
         return CheckResult(passed: passed, lines: lines)
+    }
+
+    /// #36 8 T2: how far a nested frame may reach past its container on any side and still count as inside it.
+    public static let nestingSlack: Double = 6
+
+    /// #36 8 T2: `inner` lies inside `outer`, each edge at most `nestingSlack` outside it.
+    public static func isNested(_ inner: AXRect, in outer: AXRect) -> Bool {
+        inner.x >= outer.x - nestingSlack && inner.y >= outer.y - nestingSlack
+            && inner.maxX <= outer.maxX + nestingSlack && inner.maxY <= outer.maxY + nestingSlack
     }
 
     /// #34 3: the width the full toolbar row needs, from the controls' frames in order (first group, then second group),
@@ -253,6 +275,20 @@ public enum ScreenRules {
         let dx: Double = target.midX - focused.midX
         if abs(dy) > max(8, min(focused.height, target.height) / 2) { return dy > 0 ? .down : .up }
         return dx > 0 ? .right : .left
+    }
+
+    /// #36 8 T5: the focus is on the target when it is the same element (same non-empty label) or when EACH frame holds the
+    /// other's centre. The old rule (`oldFocusReached`, one centre inside the other frame) stopped on More on the show page:
+    /// 55-show-page-HIERARCHY has More at (344, 489, 171 x 66), centre (429.5, 522), inside the S1 E1 lockup's reported
+    /// frame (80, 521, 410 x 615); test12 then pressed Select on More (22-player-skip-intro-NOT-REACHED).
+    public static func focusReached(focused: AXRect, focusedLabel: String, target: AXRect, targetLabel: String) -> Bool {
+        if !targetLabel.isEmpty && focusedLabel == targetLabel { return true }
+        return focused.contains(x: target.midX, y: target.midY) && target.contains(x: focused.midX, y: focused.midY)
+    }
+
+    /// The rule of `focus(_:in:)` before #36: one centre inside the other frame.
+    public static func oldFocusReached(focused: AXRect, target: AXRect) -> Bool {
+        focused.contains(x: target.midX, y: target.midY) || target.contains(x: focused.midX, y: focused.midY)
     }
 
     /// The old rule of `focus(_:in:)` before #33, kept so the tests show where it went wrong.

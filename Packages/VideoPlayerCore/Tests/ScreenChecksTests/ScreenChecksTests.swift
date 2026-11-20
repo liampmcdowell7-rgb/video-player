@@ -15,6 +15,12 @@ final class ScreenChecksTests: XCTestCase {
         return AccessibilityDump(try String(contentsOf: url, encoding: .utf8))
     }
 
+    /// A fixture's text, as written by the UI tests.
+    func fixtureText(_ name: String) throws -> String {
+        let url: URL = try XCTUnwrap(Bundle.module.url(forResource: name, withExtension: "txt", subdirectory: "Fixtures"))
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
     func artifact(_ path: String) throws -> URL {
         guard let root = ProcessInfo.processInfo.environment["VP_RUN_ARTIFACTS"], !root.isEmpty else {
             throw XCTSkip("VP_RUN_ARTIFACTS is not set: the CI run's pictures are not on this machine")
@@ -144,6 +150,8 @@ final class ScreenChecksTests: XCTestCase {
         let details: CheckResult = ScreenRules.pageHiddenBehindCover(in: try fixture("74-file-details-HIERARCHY"))
         XCTAssertFalse(details.passed, details.text)
         XCTAssertTrue(details.text.contains("screen.folder"), details.text)
+        // #36 8 T3: the note names the element's type and frame (74-file-details-HIERARCHY line 20).
+        XCTAssertTrue(details.text.contains("screen.folder: StaticText"), details.text)
     }
 
     func testAPageHiddenBehindTheCoverPasses() {
@@ -180,7 +188,38 @@ final class ScreenChecksTests: XCTestCase {
         let result: CheckResult = ScreenRules.coverLayout(in: dump)
         XCTAssertFalse(result.passed)
         XCTAssertTrue(result.text.contains("TITLE ABOVE THE SAFE AREA"), result.text)
-        XCTAssertTrue(result.text.contains("rows overlap: “Title” and “Year”"), result.text)
+        XCTAssertTrue(result.text.contains("rows overlap: “Title”") && result.text.contains(" and “Year”"), result.text)
+    }
+
+    /// #36 8 T2: a field whose frame reaches up to 6 pt past its row on every side is nesting, not overlap (66 and the Saved
+    /// View cover in the second run of 20 Nov); 7 pt past, or two rows sharing 30 pt of height, is still overlap.
+    func testAFieldAFewPointsPastItsRowIsNotAnOverlapButTwoRowsAre() {
+        func cover(_ rows: String) -> AccessibilityDump {
+            AccessibilityDump("""
+             →Application, 0x1, pid: 1, label: 'Video Player'
+                Window (Main), 0x2, {{0.0, 0.0}, {1920.0, 1080.0}}
+                  Other, 0x3, {{0.0, 0.0}, {1920.0, 1080.0}}
+                  Other, 0x4, {{0.0, 0.0}, {1920.0, 1080.0}}
+                    StaticText, 0x5, {{80.0, 66.0}, {400.0, 69.0}}, label: 'Move to Shows'
+            \(rows)
+            """)
+        }
+        let nested: CheckResult = ScreenRules.coverLayout(in: cover("""
+                Cell, 0x6, {{80.0, 300.0}, {1760.0, 80.0}}, label: 'Year (Optional)'
+                TextField, 0x7, {{1000.0, 296.0}, {846.0, 88.0}}
+        """))
+        XCTAssertTrue(nested.passed, nested.text)
+        let past: CheckResult = ScreenRules.coverLayout(in: cover("""
+                Cell, 0x6, {{80.0, 300.0}, {1760.0, 80.0}}, label: 'Year (Optional)'
+                TextField, 0x7, {{1000.0, 293.0}, {846.0, 88.0}}
+        """))
+        XCTAssertFalse(past.passed, past.text)
+        let rows: CheckResult = ScreenRules.coverLayout(in: cover("""
+                Cell, 0x6, {{80.0, 300.0}, {1760.0, 80.0}}, label: 'Title'
+                Cell, 0x7, {{80.0, 350.0}, {1760.0, 80.0}}, label: 'Year'
+        """))
+        XCTAssertFalse(rows.passed, rows.text)
+        XCTAssertTrue(rows.text.contains("rows overlap: “Title”"), rows.text)
     }
 
     // MARK: C: the menu check (test16)
@@ -223,6 +262,35 @@ final class ScreenChecksTests: XCTestCase {
         XCTAssertEqual(items.map(\.0), ["Title", "Year", "Date Added"])
         let result: CheckResult = ScreenRules.menu(items: items, expected: ["Title", "Year", "Date Added"], windowMaxY: 1080)
         XCTAssertTrue(result.passed, result.text)
+    }
+
+    /// #36 8 T1: the run's own tree of the open Sort menu (fixture 07-movies-toolbar-sort-menu-HIERARCHY, second run of
+    /// 20 Nov, where the note said "MENU PROBLEM: 0 menu items found"): every item is a Cell whose name sits on an `Other`,
+    /// with no StaticText. The items are found now; with the names taken out of the tree the check still fails.
+    func testTheRunsOpenSortMenuTreeHasItsItemsOnOtherElements() throws {
+        let tree: String = try fixtureText("07-movies-toolbar-sort-menu-HIERARCHY")
+        let dump: AccessibilityDump = AccessibilityDump(tree)
+        // #33 C's rule (own label, else first StaticText) found no Cell in this tree.
+        let byStaticText: [Int] = dump.nodes.indices.filter { (i: Int) -> Bool in
+            dump.nodes[i].type == "Cell" && dump.descendants(of: i).contains { (c: Int) -> Bool in dump.nodes[c].type == "StaticText" && !dump.nodes[c].label.isEmpty }
+        }
+        XCTAssertEqual(byStaticText.count, 0)
+        // What was on screen before the menu opened: the page's buttons (the cards), as `controlLabels` reads them.
+        let before: Set<String> = Set(dump.nodes.filter { (n: AXNode) -> Bool in n.type == "Button" }.map { (n: AXNode) -> String in n.label })
+        let items: [(String, AXRect)] = ScreenRules.menuItems(in: dump, before: before, ignoringIdentifiers: ["control.sort"])
+        let cells: [String] = items.map { (item: (String, AXRect)) -> String in item.0 }
+        XCTAssertTrue(cells.contains("Title") && cells.contains("Year") && cells.contains("Rating") && cells.contains("Date Added"), "\(cells)")
+        XCTAssertFalse(cells.contains("selected"), "the checkmark Image is not an item: \(cells)")
+        let result: CheckResult = ScreenRules.menu(items: items, expected: ["Title", "Year", "Date Added"], windowMaxY: 1080)
+        XCTAssertTrue(result.passed, result.text)
+
+        // Wrong fixture: the same tree without the items' names (as the menu would be if its items were unnamed).
+        var stripped: String = tree
+        for name in ["Title", "Year", "Rating", "Date Added"] { stripped = stripped.replacingOccurrences(of: ", label: '\(name)'", with: "") }
+        let none: [(String, AXRect)] = ScreenRules.menuItems(in: AccessibilityDump(stripped), before: before, ignoringIdentifiers: ["control.sort"])
+        let failed: CheckResult = ScreenRules.menu(items: none, expected: ["Title", "Year", "Date Added"], windowMaxY: 1080)
+        XCTAssertFalse(failed.passed, failed.text)
+        XCTAssertTrue(failed.text.contains("no item “Title”"), failed.text)
     }
 
     func testTheOldRuleThatReadOnlyOwnLabelsFindsNoItemAndAMenuCutAtTheBottomFails() {
@@ -476,6 +544,20 @@ final class ScreenChecksTests: XCTestCase {
             }
         }
         XCTAssertGreaterThanOrEqual(groupGap / inGroup, 2)
+    }
+
+    /// #36 8 T5: the frames of 55-show-page-HIERARCHY (second run of 20 Nov). With the focus on More, the old rule said the
+    /// S1 E1 card was reached (More's centre lies inside the card's 615 pt frame) and test12 pressed Select on More; the new
+    /// rule does not. The card itself, a child the size of the card, and the same label still count.
+    func testTheFocusOnMoreIsNotTheEpisodeCardBelowIt() {
+        let more: AXRect = AXRect(x: 344, y: 489, width: 171, height: 66)
+        let card: AXRect = AXRect(x: 80, y: 521, width: 410, height: 615)
+        XCTAssertTrue(ScreenRules.oldFocusReached(focused: more, target: card), "the old rule must show the run's mistake")
+        XCTAssertFalse(ScreenRules.focusReached(focused: more, focusedLabel: "More", target: card, targetLabel: "S1 E1, A quiet beginning"))
+        XCTAssertTrue(ScreenRules.focusReached(focused: card, focusedLabel: "S1 E1, A quiet beginning", target: card, targetLabel: "S1 E1, A quiet beginning"))
+        XCTAssertTrue(ScreenRules.focusReached(focused: AXRect(x: 84, y: 525, width: 402, height: 607), focusedLabel: "",
+                                               target: card, targetLabel: ""))
+        XCTAssertTrue(ScreenRules.focusReached(focused: more, focusedLabel: "More", target: AXRect(x: 0, y: 0, width: 1, height: 1), targetLabel: "More"))
     }
 
     /// #34 3: test16 must not pass on a row folded into More.

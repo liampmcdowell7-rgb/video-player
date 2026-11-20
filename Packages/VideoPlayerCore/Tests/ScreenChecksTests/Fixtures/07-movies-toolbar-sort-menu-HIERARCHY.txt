@@ -1,0 +1,207 @@
+Attributes: Application, 0x108c25910, pid: 63028, label: 'Video Player'
+Element subtree:
+ →Application, 0x108c25910, pid: 63028, label: 'Video Player'
+    Window (Main), 0x108c250d0, {{0.0, 0.0}, {1920.0, 1080.0}}
+      Other, 0x108c23c30, {{0.0, 0.0}, {1920.0, 1080.0}}
+        Other, 0x108c24890, {{0.0, 0.0}, {1920.0, 1080.0}}
+          Other, 0x108c24cb0, {{0.0, 0.0}, {1920.0, 1080.0}}
+            Other, 0x108c254f0, {{0.0, 0.0}, {1920.0, 1080.0}}
+              Other, 0x108c25d30, {{0.0, 0.0}, {1920.0, 1080.0}}
+                Other, 0x108c1ca60, {{0.0, 0.0}, {1920.0, 1080.0}}
+                  Other, 0x108c24050, {{0.0, 0.0}, {1920.0, 1080.0}}
+                    Other, 0x108c24470, {{0.0, 0.0}, {1920.0, 1080.0}}
+                      Other, 0x108c2fd10, {{0.0, 0.0}, {1920.0, 1080.0}}
+                        Other, 0x108c2fe40, {{0.0, 0.0}, {1920.0, 1080.0}}
+                          Other, 0x108c2ff70, {{0.0, 0.0}, {1920.0, 1080.0}}
+                            Other, 0x108c300a0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                              Other, 0x108c301d0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                                Other, 0x108c30300, {{0.0, 0.0}, {1920.0, 1080.0}}
+                                  Other, 0x108c30430, {{0.0, 0.0}, {1920.0, 1080.0}}
+                                    StaticText, 0x108c30560, {{80.0, 157.0}, {1760.0, 923.0}}, identifier: 'screen.movies', label: 'Movies'
+                                      Button, 0x108c74ce0, {{80.0, 157.0}, {102.0, 68.0}}, identifier: 'control.sort', label: 'Sort', value: Title, A to Z
+                                        Other, 0x108c74e10, {{80.0, 157.0}, {102.0, 68.0}}
+                                          Other, 0x108c74f40, {{80.0, 157.0}, {102.0, 68.0}}
+                                            Other, 0x108c75070, {{80.0, 157.0}, {102.0, 68.0}}
+                                              Image, 0x108c751a0, {{80.0, 157.0}, {102.0, 68.0}}, identifier: 'arrow.up.arrow.down', label: 'Sort'
+                                      Button, 0x108c752d0, {{230.0, 157.0}, {96.0, 68.0}}, identifier: 'control.filter', label: 'Filter', value: Off
+                                        Other, 0x108c75400, {{230.0, 157.0}, {96.0, 68.0}}
+                                          Other, 0x108c75530, {{230.0, 157.0}, {96.0, 68.0}}
+                                            Other, 0x108c75660, {{230.0, 157.0}, {96.0, 68.0}}
+                                              Image, 0x108c75790, {{230.0, 157.0}, {96.0, 68.0}}, identifier: 'line.3.horizontal.decrease.circle', label: 'Filter'
+                                      Button, 0x108c758c0, {{374.0, 157.0}, {90.0, 68.0}}, identifier: 'control.savedViews', label: 'Save View'
+                                      Button, 0x108c759f0, {{564.0, 158.0}, {336.0, 66.0}}, identifier: 'control.needsReview', label: 'Needs Review (9)'
+                                        StaticText, 0x108c75dc0, {{564.0, 158.0}, {336.0, 66.0}}, label: 'Needs Review (9)'
+                                        Image, 0x108c75ef0, {{597.0, 176.0}, {30.0, 30.0}}, identifier: 'questionmark.circle', label: 'Question Mark In A Circle'
+                                      Button, 0x108c76020, {{948.0, 158.0}, {317.0, 66.0}}, identifier: 'control.jumpToLetter', label: 'Jump to Letter'
+                                        Other, 0x108c76150, {{948.0, 158.0}, {317.0, 66.0}}
+                                          Other, 0x108c76280, {{948.0, 158.0}, {317.0, 66.0}}
+                                            Other, 0x108c763b0, {{948.0, 158.0}, {317.0, 66.0}}
+                                              StaticText, 0x108c29890, {{948.0, 158.0}, {317.0, 66.0}}, label: 'Jump to Letter'
+                                              Image, 0x108c299c0, {{982.0, 179.0}, {50.0, 22.0}}, identifier: 'textformat.abc', label: 'Abc'
+                                      StaticText, 0x108c29af0, {{1725.0, 174.0}, {115.0, 35.0}}, identifier: 'control.gridCount', label: '7 movies'
+                                      ScrollView, 0x108c29c20, {{0.0, 309.0}, {1920.0, 771.0}}
+                                        Other, 0x108c29d50, {{0.0, 309.0}, {1840.0, 1281.0}}
+                                          Other, 0x108c29e80, {{80.0, 309.0}, {1760.0, 1281.0}}
+                                            Button, 0x108c29fb0, {{80.0, 309.0}, {320.0, 480.0}}, label: 'Sample Movie 1', value: 2021
+                                              Image, 0x108c2a0e0, {{80.0, 309.0}, {320.0, 480.0}}
+                                              ProgressIndicator, 0x108c2a210, {{80.0, 309.0}, {320.0, 480.0}}, value: 40%
+                                                ProgressIndicator, 0x108c2a340, {{96.0, 753.0}, {288.0, 30.0}}, value: 40%
+                                            Button, 0x108c2a470, {{440.0, 309.0}, {320.0, 480.0}}, label: 'Sample Movie 2', value: 2019
+                                              Image, 0x108c2a5a0, {{440.0, 309.0}, {320.0, 480.0}}
+                                            Button, 0x108c2a6d0, {{800.0, 309.0}, {320.0, 480.0}}, label: 'Sample Movie 3', value: 2018
+                                              Image, 0x108c2a800, {{800.0, 309.0}, {320.0, 480.0}}
+                                            Button, 0x108c2a930, {{1160.0, 309.0}, {320.0, 480.0}}, label: 'Sample Movie 4', value: 2022
+                                              Image, 0x108c2aa60, {{1160.0, 309.0}, {320.0, 480.0}}
+                                              ProgressIndicator, 0x108c2ab90, {{1160.0, 309.0}, {320.0, 480.0}}, value: 75%
+                                                ProgressIndicator, 0x108c2acc0, {{1176.0, 753.0}, {288.0, 30.0}}, value: 75%
+                                            Button, 0x108c2adf0, {{1520.0, 309.0}, {320.0, 480.0}}, label: 'Sample Movie 5', value: 2020
+                                              Image, 0x108c2af20, {{1520.0, 309.0}, {320.0, 480.0}}
+                                            StaticText, 0x108c2b050, {{96.0, 798.0}, {173.0, 30.0}}, label: 'Sample Movie 1'
+                                            StaticText, 0x108c2b180, {{456.0, 798.0}, {176.0, 30.0}}, label: 'Sample Movie 2'
+                                            StaticText, 0x108c2b2b0, {{816.0, 798.0}, {177.0, 30.0}}, label: 'Sample Movie 3'
+                                            StaticText, 0x108c2b3e0, {{1176.0, 798.0}, {178.0, 30.0}}, label: 'Sample Movie 4'
+                                            StaticText, 0x108c2b510, {{1536.0, 798.0}, {177.0, 30.0}}, label: 'Sample Movie 5'
+                                            StaticText, 0x108c2b640, {{96.0, 831.0}, {52.0, 28.0}}, label: '2021'
+                                            StaticText, 0x108c2b770, {{456.0, 831.0}, {53.0, 28.0}}, label: '2019'
+                                            StaticText, 0x108c2b8a0, {{816.0, 831.0}, {53.0, 28.0}}, label: '2018'
+                                            StaticText, 0x108c2b9d0, {{1176.0, 831.0}, {55.0, 28.0}}, label: '2022'
+                                            StaticText, 0x108c2bb00, {{1536.0, 831.0}, {56.0, 28.0}}, label: '2020'
+                                            StaticText, 0x108c2bc30, {{96.0, 862.0}, {172.0, 28.0}}, label: '4K · Dolby Vision · Dolby Atmos'
+                                            StaticText, 0x108c2bd60, {{456.0, 862.0}, {118.0, 28.0}}, label: '4K · HDR10'
+                                            StaticText, 0x108c2be90, {{816.0, 862.0}, {6.0, 28.0}}
+                                            StaticText, 0x108c2bfc0, {{1176.0, 862.0}, {278.0, 28.0}}, label: '4K · HDR10+ · Dolby Atmos'
+                                            StaticText, 0x108c2c0f0, {{1536.0, 862.0}, {6.0, 28.0}}
+                                            Button, 0x108c2c220, {{80.0, 990.0}, {320.0, 480.0}}, label: 'Sample Movie 6', value: 2017
+                                              Image, 0x108c67970, {{80.0, 990.0}, {320.0, 480.0}}
+                                            Button, 0x108c67aa0, {{440.0, 990.0}, {320.0, 480.0}}, label: 'Sample Movie 7 With A Much Longer Title Than Any Card Is Wide', value: 2023
+                                              Image, 0x108c67bd0, {{440.0, 990.0}, {320.0, 480.0}}
+                                              ProgressIndicator, 0x108c67d00, {{440.0, 990.0}, {320.0, 480.0}}, value: 20%
+                                                ProgressIndicator, 0x108c67e30, {{456.0, 1434.0}, {288.0, 30.0}}, value: 20%
+                                            StaticText, 0x108c67f60, {{96.0, 1479.0}, {178.0, 30.0}}, label: 'Sample Movie 6'
+                                            StaticText, 0x108c68090, {{456.0, 1494.0}, {288.0, 28.0}}, label: 'Sample Movie 7 With A Much Longer Title Than Any Card Is Wide'
+                                            StaticText, 0x108c681c0, {{96.0, 1512.0}, {52.0, 28.0}}, label: '2017'
+                                            StaticText, 0x108c682f0, {{456.0, 1531.0}, {56.0, 28.0}}, label: '2023'
+                                            StaticText, 0x108c68420, {{96.0, 1543.0}, {90.0, 28.0}}, label: '4K · HLG'
+                                            StaticText, 0x108c686a0, {{456.0, 1562.0}, {172.0, 28.0}}, label: '4K · Dolby Vision · Dolby Atmos'
+                                        Other, 0x108c689d0, {{0.0, 0.0}, {0.0, 0.0}}, label: '0 pages', value: 0%
+                                          Other, 0x108c68b00, {{1834.0, 312.0}, {3.0, 405.0}}
+                                        Other, 0x108c68c30, {{0.0, 0.0}, {0.0, 0.0}}, label: '0 pages', value: 0%
+                                          Other, 0x108c68d60, {{1834.0, 312.0}, {3.0, 405.0}}
+                Other, 0x108c68e90, {{0.0, 46.0}, {1920.0, 68.0}}
+                  TabBar, 0x108c68fc0, {{0.0, 46.0}, {1920.0, 68.0}}, label: 'Menu'
+                    Other, 0x108c690f0, {{80.0, 46.0}, {200.0, 68.0}}
+                      Other, 0x108c69220, {{80.0, 46.0}, {200.0, 68.0}}
+                    Other, 0x108c69350, {{280.0, 46.0}, {1360.0, 68.0}}
+                      Other, 0x108c69480, {{566.5, 54.5}, {198.0, 51.0}}
+                    Other, 0x108c695b0, {{367.5, 46.0}, {1185.0, 68.0}}
+                      ScrollView, 0x108c696e0, {{367.5, 46.0}, {1185.0, 68.0}}
+                        Button, 0x108c69810, {{406.5, 61.5}, {125.0, 37.0}}, identifier: 'house', label: 'Home'
+                          Image, 0x108c69940, {{406.5, 61.5}, {43.0, 37.0}}, identifier: 'house', label: 'home'
+                        Button, 0x108c69a70, {{596.5, 63.5}, {138.0, 33.0}}, identifier: 'film', label: 'Movies'
+                          Image, 0x108c69ba0, {{596.5, 63.5}, {42.0, 33.0}}, identifier: 'film', label: 'movie'
+                        Button, 0x108c69cd0, {{799.5, 62.0}, {135.0, 36.0}}, identifier: 'tv', label: 'Shows'
+                          Image, 0x108c69e00, {{799.5, 62.0}, {44.0, 36.0}}, identifier: 'tv', label: 'tv'
+                        Button, 0x108c69f30, {{999.5, 63.5}, {108.0, 33.0}}, identifier: 'folder', label: 'Files'
+                          Image, 0x108c6a060, {{999.5, 63.5}, {41.0, 33.0}}, identifier: 'folder', label: 'move'
+                        Button, 0x108c6a190, {{1172.5, 62.5}, {129.0, 35.0}}, identifier: 'magnifyingglass', label: 'Search'
+                          Image, 0x108c6a2c0, {{1172.5, 62.5}, {34.0, 35.0}}, identifier: 'magnifyingglass', label: 'Search'
+                        Button, 0x108c6a3f0, {{1366.5, 61.5}, {147.0, 37.0}}, identifier: 'gearshape', label: 'Settings'
+                          Image, 0x108c6a520, {{1366.5, 61.5}, {37.0, 37.0}}, identifier: 'gearshape', label: 'Gear shape'
+                    Other, 0x108c6a650, {{1640.0, 46.0}, {200.0, 68.0}}
+                      Other, 0x108c6a780, {{1640.0, 46.0}, {200.0, 68.0}}
+      Other, 0x108c6a8b0, {{0.0, 0.0}, {1920.0, 1080.0}}
+        Other, 0x108c6a9e0, {{-1920.0, -1080.0}, {5760.0, 3240.0}}
+        Other, 0x108c6ab10, {{0.0, 0.0}, {1920.0, 1080.0}}
+          Other, 0x108c6ac40, {{80.0, 238.0}, {450.0, 599.0}}
+            Other, 0x108c6ad70, {{80.0, 238.0}, {450.0, 599.0}}
+              Other, 0x108c6aea0, {{79.0, 237.0}, {452.0, 601.0}}
+              Other, 0x108c6afd0, {{80.0, 238.0}, {450.0, 599.0}}
+                Other, 0x108c6b100, {{80.0, 238.0}, {450.0, 599.0}}
+                CollectionView, 0x108c6b230, {{80.0, 223.0}, {450.0, 674.0}}
+                  Other, 0x108c6b360, {{80.0, 223.0}, {450.0, 674.0}}
+                    Other, 0x108c6b490, {{80.0, 238.0}, {450.0, 599.0}}
+                  Other, 0x108c6b5c0, {{80.0, 238.0}, {450.0, 21.0}}
+                  Cell, 0x108c6b6f0, {{97.0, 258.4}, {416.0, 67.3}}, Focused
+                    Other, 0x108c6b820, {{97.0, 258.4}, {416.0, 67.3}}
+                      Other, 0x108c6b950, {{101.0, 259.0}, {408.0, 66.0}}
+                        Other, 0x108c6ba80, {{97.0, 255.0}, {416.0, 74.0}}
+                        Other, 0x108c6bbb0, {{97.0, 255.0}, {416.0, 74.0}}
+                          Other, 0x108c6bce0, {{97.0, 255.0}, {416.0, 74.0}}
+                          Other, 0x108c6be10, {{97.0, 258.4}, {416.0, 67.3}}
+                            Other, 0x108c6bf40, {{97.0, 258.4}, {416.0, 67.3}}, label: 'Title', Selected
+                              Image, 0x108c6c070, {{117.4, 280.8}, {26.5, 24.5}}, identifier: 'checkmark', label: 'selected'
+                  Cell, 0x108c6c1a0, {{97.0, 324.4}, {416.0, 67.3}}
+                    Other, 0x108c6c2d0, {{97.0, 324.4}, {416.0, 67.3}}
+                      Other, 0x108c6c400, {{101.0, 325.0}, {408.0, 66.0}}
+                        Other, 0x108c6c530, {{101.0, 325.0}, {408.0, 66.0}}
+                        Other, 0x108c6c660, {{101.0, 325.0}, {408.0, 66.0}}
+                          Other, 0x108c6c790, {{101.0, 325.0}, {408.0, 66.0}}
+                          Other, 0x108c6c8c0, {{101.0, 325.0}, {408.0, 66.0}}
+                            Other, 0x108c6c9f0, {{101.0, 325.0}, {408.0, 66.0}}, label: 'Year'
+                  Cell, 0x108c6cb20, {{97.0, 390.4}, {416.0, 67.3}}
+                    Other, 0x108c6cc50, {{97.0, 390.4}, {416.0, 67.3}}
+                      Other, 0x108c6cd80, {{101.0, 391.0}, {408.0, 66.0}}
+                        Other, 0x108c6ceb0, {{101.0, 391.0}, {408.0, 66.0}}
+                        Other, 0x108c6cfe0, {{101.0, 391.0}, {408.0, 66.0}}
+                          Other, 0x108c6d110, {{101.0, 391.0}, {408.0, 66.0}}
+                          Other, 0x108c6d240, {{101.0, 391.0}, {408.0, 66.0}}
+                            Other, 0x108c6d370, {{101.0, 391.0}, {408.0, 66.0}}, label: 'Rating'
+                  Cell, 0x108c6d4a0, {{97.0, 456.4}, {416.0, 67.3}}
+                    Other, 0x108c6d5d0, {{97.0, 456.4}, {416.0, 67.3}}
+                      Other, 0x108c6d700, {{101.0, 457.0}, {408.0, 66.0}}
+                        Other, 0x108c6d830, {{101.0, 457.0}, {408.0, 66.0}}
+                        Other, 0x108c6d960, {{101.0, 457.0}, {408.0, 66.0}}
+                          Other, 0x108c6da90, {{101.0, 457.0}, {408.0, 66.0}}
+                          Other, 0x108c6dbc0, {{101.0, 457.0}, {408.0, 66.0}}
+                            Other, 0x108c6dcf0, {{101.0, 457.0}, {408.0, 66.0}}, label: 'Date Added'
+                  Cell, 0x108c6de20, {{97.0, 522.4}, {416.0, 67.3}}
+                    Other, 0x108c6df50, {{97.0, 522.4}, {416.0, 67.3}}
+                      Other, 0x108c6e080, {{101.0, 523.0}, {408.0, 66.0}}
+                        Other, 0x108c6e1b0, {{101.0, 523.0}, {408.0, 66.0}}
+                        Other, 0x108c6e2e0, {{101.0, 523.0}, {408.0, 66.0}}
+                          Other, 0x108c6e410, {{101.0, 523.0}, {408.0, 66.0}}
+                          Other, 0x108c6e540, {{101.0, 523.0}, {408.0, 66.0}}
+                            Other, 0x108c6e670, {{101.0, 523.0}, {408.0, 66.0}}, label: 'Last Played'
+                  Cell, 0x108c6e7a0, {{97.0, 588.4}, {416.0, 67.3}}
+                    Other, 0x108c6e8d0, {{97.0, 588.4}, {416.0, 67.3}}
+                      Other, 0x108c6ea00, {{101.0, 589.0}, {408.0, 66.0}}
+                        Other, 0x108c6eb30, {{101.0, 589.0}, {408.0, 66.0}}
+                        Other, 0x108c6ec60, {{101.0, 589.0}, {408.0, 66.0}}
+                          Other, 0x108c6ed90, {{101.0, 589.0}, {408.0, 66.0}}
+                          Other, 0x108c6eec0, {{101.0, 589.0}, {408.0, 66.0}}
+                            Other, 0x108c6eff0, {{101.0, 589.0}, {408.0, 66.0}}, label: 'Runtime'
+                  Other, 0x108c6f120, {{113.0, 669.0}, {384.0, 1.0}}
+                    Other, 0x108c6f250, {{113.0, 669.0}, {384.0, 1.0}}
+                  Cell, 0x108c6f380, {{97.0, 683.4}, {416.0, 67.3}}
+                    Other, 0x108c6f4b0, {{97.0, 683.4}, {416.0, 67.3}}
+                      Other, 0x108c6f5e0, {{101.0, 684.0}, {408.0, 66.0}}
+                        Other, 0x108c6f710, {{101.0, 684.0}, {408.0, 66.0}}
+                        Other, 0x108c6f840, {{101.0, 684.0}, {408.0, 66.0}}
+                          Other, 0x108c6f970, {{101.0, 684.0}, {408.0, 66.0}}
+                          Other, 0x108c6faa0, {{101.0, 684.0}, {408.0, 66.0}}
+                            Other, 0x108c6fbd0, {{101.0, 684.0}, {408.0, 66.0}}, label: 'A to Z', Selected
+                              Image, 0x108c6fd00, {{121.0, 706.0}, {26.0, 24.0}}, identifier: 'checkmark', label: 'selected'
+                  Cell, 0x108c6fe30, {{97.0, 749.4}, {416.0, 67.3}}
+                    Other, 0x108c6ff60, {{97.0, 749.4}, {416.0, 67.3}}
+                      Other, 0x108c70090, {{101.0, 750.0}, {408.0, 66.0}}
+                        Other, 0x108c701c0, {{101.0, 750.0}, {408.0, 66.0}}
+                        Other, 0x108c702f0, {{101.0, 750.0}, {408.0, 66.0}}
+                          Other, 0x108c70420, {{101.0, 750.0}, {408.0, 66.0}}
+                          Other, 0x108c70550, {{101.0, 750.0}, {408.0, 66.0}}
+                            Other, 0x108c70680, {{101.0, 750.0}, {408.0, 66.0}}, label: 'Z to A'
+                  Other, 0x108c707b0, {{80.0, 816.0}, {450.0, 21.0}}
+              Other, 0x108c708e0, {{80.0, 238.0}, {450.0, 599.0}}
+                Other, 0x108c70a10, {{80.0, 238.0}, {450.0, 599.0}}
+                  Other, 0x108c70b40, {{80.0, 238.0}, {450.0, 599.0}}
+                    Other, 0x108c70c70, {{80.0, 238.0}, {450.0, 599.0}}
+                      Other, 0x108c70da0, {{80.0, 238.0}, {450.0, 599.0}}
+                        Other, 0x108c70ed0, {{80.0, 238.0}, {450.0, 599.0}}
+                    Other, 0x108c71000, {{80.0, 238.0}, {450.0, 599.0}}
+                      Other, 0x108c71130, {{80.0, 238.0}, {450.0, 599.0}}
+Path to element:
+ →Application, 0x108c25910, pid: 63028, label: 'Video Player'
+Query chain:
+ →Find: Target Application 'com.liamp.videoplayer'
+  Output: {
+    Application, 0x108d1b550, pid: 63028, label: 'Video Player'
+  }

@@ -32,31 +32,43 @@ struct RootView: View {
             Tab("Home", systemImage: "house", value: AppTab.home) {
                 NavigationStack(path: $homePath) { HomeView().tabRootScreen("Home", identifier: "screen.home").routeDestinations() }
                     .uiTestAccessibilityOverrides()
+                    .accessibilityHidden(coverPresence.isCovered)
             }
             Tab("Movies", systemImage: "film", value: AppTab.movies) {
                 NavigationStack(path: $moviesPath) { MoviesView().tabRootScreen("Movies", identifier: "screen.movies").routeDestinations() }
                     .uiTestAccessibilityOverrides()
+                    .accessibilityHidden(coverPresence.isCovered)
             }
             Tab("Shows", systemImage: "tv", value: AppTab.shows) {
                 NavigationStack(path: $showsPath) { ShowsView().tabRootScreen("Shows", identifier: "screen.shows").routeDestinations() }
                     .uiTestAccessibilityOverrides()
+                    .accessibilityHidden(coverPresence.isCovered)
             }
             Tab("Files", systemImage: "folder", value: AppTab.files) {
                 NavigationStack(path: $filesPath) { FilesView().tabRootScreen("Files", identifier: "screen.files").routeDestinations() }
                     .uiTestAccessibilityOverrides()
+                    .accessibilityHidden(coverPresence.isCovered)
             }
             Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
                 NavigationStack(path: $searchPath) { SearchView().screenIdentifier("screen.search").screenHeader("Search").routeDestinations() }
                     .uiTestAccessibilityOverrides()
+                    .accessibilityHidden(coverPresence.isCovered)
             }
             Tab("Settings", systemImage: "gearshape", value: AppTab.settings) {
                 NavigationStack { SettingsView().tabRootScreen("Settings", identifier: "screen.settings") }
                     .uiTestAccessibilityOverrides()
+                    .accessibilityHidden(coverPresence.isCovered)
             }
         }
         // #33 B (2): while a task cover is open, the tabs and the page under it are hidden from VoiceOver (HIG Modality: a
         // modal view "prevents interaction with the parent view"). The cover is presented in its own window subtree, so it
         // stays (notes 10-add-source-types-HIERARCHY, 74-file-details-HIERARCHY of the run of 20 Nov).
+        // #36 8 T3: in the second run of 20 Nov the page was still in the tree under every cover (the -COVER notes: screen.home
+        // 13 times, screen.item, screen.movies, screen.shows, screen.needsReview, screen.folder; 74-file-details-HIERARCHY
+        // line 20: "StaticText, …, identifier: 'screen.folder'" in the page's subtree, the cover a separate top-level subtree
+        // with an Alert, line 113 to 116). This modifier on the TabView did not reach the hosted pages (whether because the
+        // tvOS TabView is a UIKit container is not on any page read), so every tab's NavigationStack is now hidden as well,
+        // above; the TabView keeps it for the tab bar.
         .accessibilityHidden(coverPresence.isCovered)
         .environment(coverPresence)
         .overlay(alignment: .bottom) {
