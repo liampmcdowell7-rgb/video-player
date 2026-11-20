@@ -233,6 +233,17 @@ prepare() {
   cat "$ready_file" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
 }
 
+# #34 4 (OPEN_QUESTIONS R242, PROVISIONAL mitigation, not a diagnosis): a clean simulator for the next test: shut down,
+# erase (apps, data and settings), boot and wait, as the job's own first boot. Prints the seconds it took. Exit 0 when the
+# simulator is booted again, 1 otherwise (the test after it then fails on its own; nothing is retried or waited for here).
+fresh() {
+  local udid="${SIM_UDID:?SIM_UDID is not set (run ci-sim.sh prepare first)}" start; start="$(date +%s)"
+  echo "+ xcrun simctl shutdown $udid"; xcrun simctl shutdown "$udid" 2>&1 || true
+  echo "+ xcrun simctl erase $udid"; xcrun simctl erase "$udid" 2>&1 || echo "(erase failed; booting anyway)"
+  if boot_and_wait "$udid"; then echo "FRESH SIMULATOR READY after $(( $(date +%s) - start )) s"; return 0; fi
+  echo "FRESH SIMULATOR NOT BOOTED after $(( $(date +%s) - start )) s"; return 1
+}
+
 run_test() {
   local log="$1"; shift
   [ "${1:-}" = "--" ] && shift
@@ -259,6 +270,7 @@ run_test() {
 
 case "${1:-}" in
   prepare) prepare ;;
+  fresh) fresh ;;
   test) shift; run_test "$@" ;;
-  *) echo "usage: ci-sim.sh prepare | ci-sim.sh test LOG -- xcodebuild ..." >&2; exit 2 ;;
+  *) echo "usage: ci-sim.sh prepare | ci-sim.sh fresh | ci-sim.sh test LOG -- xcodebuild ..." >&2; exit 2 ;;
 esac

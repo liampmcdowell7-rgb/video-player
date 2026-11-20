@@ -35,6 +35,10 @@
 # the reason there is none). The `sample` arguments (a pid or partial process name, a duration in seconds, -file) are from
 # memory of `man sample`, which could not be read here (no Mac); unverified until the next hang. The capture never changes
 # the job's result: every step of it ends in `|| true`. CI_SAMPLE (default: sample) is for scripts/test-ci-ui-tests.sh.
+# #34 4 (R242, PROVISIONAL mitigation, not a diagnosis; the hang capture above stays): CI_FRESH_SIM_BEFORE names tests
+# (space separated) that get a clean simulator first: `ci-sim.sh fresh` (shut down, erase, boot), inside the time budget.
+# Its output and seconds go to DEST/notes/fresh-simulator-<test>.txt. It never changes the job's result by itself.
+# CI_SIM_FRESH (default: bash scripts/ci-sim.sh fresh) is for scripts/test-ci-ui-tests.sh.
 # Exit status: 0 when every test passed, 1 otherwise (the export check and the uploads run anyway: if: always()).
 # --collect always exits 0.
 set -uo pipefail
@@ -149,6 +153,13 @@ for t in "$@"; do
     echo "$t${TAB}not started (time budget)${TAB}0${TAB}0" >> "$tsv"; continue
   fi
   echo "================ UI TEST $t ================"
+  case " ${CI_FRESH_SIM_BEFORE:-} " in
+    *" $t "*)
+      fstart="$(date +%s)"
+      if [ -n "${CI_SIM_FRESH:-}" ]; then $CI_SIM_FRESH; else bash "$here/ci-sim.sh" fresh; fi > "$dest/notes/fresh-simulator-$t.txt" 2>&1 || true
+      echo "clean simulator before $t: $(( $(date +%s) - fstart )) s (notes/fresh-simulator-$t.txt)" | tee -a "$dest/notes/fresh-simulator-$t.txt"
+      ;;
+  esac
   rm -rf "$out/screenshot-files/$t" "$out/xcresult/$t.xcresult"
   start="$(date +%s)"
   log_lines="$( (wc -l < "$out/test.log") 2>/dev/null | tr -d ' ')"; log_lines="${log_lines:-0}"

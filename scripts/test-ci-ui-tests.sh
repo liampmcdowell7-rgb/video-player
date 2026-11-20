@@ -113,6 +113,22 @@ setup; printf '%s busy
 ' $T2 > "$S/behaviour"; CI_SAMPLE=no-such-sample-tool run $T2; rc=$?
 check "hang capture without the sample tool: a note saying so, exit as the test (1)" "[ $rc -eq 1 ] && grep -q 'no no-such-sample-tool command' '$S/dest/notes/hang-sample-$T2.txt'"
 
+# #34 4 (R242): CI_FRESH_SIM_BEFORE gives the named test a clean simulator first (here a fake that logs the call), only
+# that test, before its xcodebuild call; the note says how long it took; a failing fresh step does not change the result.
+setup; printf '%s ok\n%s ok\n%s ok\n' $T1 $T2 $T3 > "$S/behaviour"
+cat > "$S/bin/fake-fresh" <<EOF
+#!/usr/bin/env bash
+echo "fresh call \$(grep -c 'running test' '$S/stdout' 2>/dev/null)" >> '$S/fresh-calls'
+echo "FRESH SIMULATOR READY after 0 s"
+EOF
+chmod +x "$S/bin/fake-fresh"
+CI_FRESH_SIM_BEFORE="$T2" CI_SIM_FRESH=fake-fresh run $T1 $T2 $T3; rc=$?
+check "clean simulator: called once, for the named test only, all tests still pass (exit 0)" "[ $rc -eq 0 ] && [ \$(wc -l < '$S/fresh-calls') -eq 1 ] && [ -f '$S/dest/notes/fresh-simulator-$T2.txt' ] && ! [ -e '$S/dest/notes/fresh-simulator-$T1.txt' ] && ! [ -e '$S/dest/notes/fresh-simulator-$T3.txt' ]"
+check "clean simulator: before the named test's xcodebuild call (after the first test's, before the second's)" "grep -qx 'fresh call 1' '$S/fresh-calls'"
+check "clean simulator: the note has the fresh step's output and its seconds" "grep -q 'FRESH SIMULATOR READY' '$S/dest/notes/fresh-simulator-$T2.txt' && grep -qE 'clean simulator before $T2: [0-9]+ s' '$S/dest/notes/fresh-simulator-$T2.txt'"
+setup; printf '%s ok\n' $T2 > "$S/behaviour"; CI_FRESH_SIM_BEFORE="$T2" CI_SIM_FRESH=false run $T2; rc=$?
+check "clean simulator: a failing fresh step does not change the result (the test still runs and passes)" "[ $rc -eq 0 ] && grep -qF '| $T2 | passed |' '$S/dest/index.md' && [ -f '$S/dest/notes/fresh-simulator-$T2.txt' ]"
+
 # The host folder could not be written: the pictures are found in the simulator's data folder.
 setup; printf '%s simdata\n' $T5 > "$S/behaviour"; run $T5; rc=$?
 check "simulator data folder: pictures found there and copied" "[ $rc -eq 0 ] && [ -f '$S/dest/70-files-sources.png' ] && grep -q 'simulator data folder' '$S/out/ui-tests-sources.txt'"
@@ -127,7 +143,7 @@ lit="$(grep -oE 'shot\("[0-9]{2,3}-[a-z0-9-]+"\)' "$here/../UITests/ScreenshotTe
 miss="$(while IFS= read -r n; do [ -n "$n" ] && ! cut -f2 "$here/screenshot-plan.tsv" | grep -qx "$n" && echo "$n"; done <<< "$lit")"
 S="$(mktemp -d)"; echo "not planned: $miss" > "$S/stdout"
 check "plan: every literal shot name in ScreenshotTests.swift is in screenshot-plan.tsv" "[ -z \"$miss\" ] && [ -n \"$lit\" ]"
-check "plan: 162 planned pictures (81 part 1, 48 part 2, 33 accessibility; #25 adds 10-add-source-learn-more, #26 the two key-set pictures, #30 two network-search and two long-caption pictures, #32 the toolbars and menus moved to part 2 with 16 more)" "[ \$(grep -vc '^#' '$here/screenshot-plan.tsv') -eq 162 ]"
+check "plan: 162 planned pictures (67 part 1, 62 part 2, 33 accessibility; #25 adds 10-add-source-learn-more, #26 the two key-set pictures, #30 two network-search and two long-caption pictures, #32 the toolbars and menus moved to part 2 with 16 more, #34 4 moved test12 and test13, 14 pictures, to part 2)" "[ \$(grep -vc '^#' '$here/screenshot-plan.tsv') -eq 162 ]"
 
 echo "ci-ui-tests self-test: passed $passed, failed $failed"
 [ "$failed" -eq 0 ]

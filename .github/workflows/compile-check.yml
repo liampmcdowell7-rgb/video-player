@@ -445,9 +445,9 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  # JOB 4. Screenshots, part 1 of 2: first launch, Add a Source, Settings, Files, Search, the player clip, the synopsis
-  # pages, the Shows toolbar, the sorting screens (UITests/ScreenshotTests.swift tests 01, 02, 03, 05, 12, 13, 14, 10, in
-  # that order: test10, the longest, last), on a tvOS Simulator, with the debug-only sample library (launch arguments -UITestEmpty /
+  # JOB 4. Screenshots, part 1 of 2: first launch, Add a Source, Settings, Files, Search, the Shows toolbar, the sorting
+  # screens (UITests/ScreenshotTests.swift tests 01, 02, 03, 05, 14, 10, in that order: test10, the longest, last; #34 4
+  # moved test12 and test13, the player clip and the synopsis pages, to part 2), on a tvOS Simulator, with the debug-only sample library (launch arguments -UITestEmpty /
   # -UITestFixtures, App/Support/UITestMode.swift; R160). Part 2 (test04: Home, Movies, Shows, the detail pages) is job 4b.
   # SPLIT (#24 B, docs/COVERAGE.md "UI-test jobs"): measured on fa00af8, test01 68 s, test02 36 s, test03 148 s, test05 39 s,
   # test10 312 s (test12, 13 and 14 were never reached: about 90 s each, an estimate), about 15 minutes in all, 80 planned
@@ -546,8 +546,6 @@ jobs:
             test02_AddASource \
             test03_Settings \
             test05_FilesSearchDiscover \
-            test12_PlayerWithSampleClip \
-            test13_MovieSynopsisAndCast \
             test14_ShowsToolbarAndCardMenu \
             test10_SortingScreens
 
@@ -562,8 +560,6 @@ jobs:
             test02_AddASource \
             test03_Settings \
             test05_FilesSearchDiscover \
-            test12_PlayerWithSampleClip \
-            test13_MovieSynopsisAndCast \
             test14_ShowsToolbarAndCardMenu \
             test10_SortingScreens
 
@@ -611,7 +607,7 @@ jobs:
           retention-days: 14
 
   # JOB 4b. Screenshots, part 2 of 2: Home, Movies, Shows, the movie and show pages (test04: 436 s on fa00af8; #32 adds test16, the Movies and Shows toolbars and menus, 20 pictures; 48
-  # planned pictures; #24 B). Built and checked exactly as job 4 (part 1), on its own runner with its own cap. Its artifact
+  # planned pictures; #24 B). #34 4: test12 and test13 (the player clip, the synopsis pages) run here first. Built and checked exactly as job 4 (part 1), on its own runner with its own cap. Its artifact
   # is "screenshots-library", in the same numbering (01-79, index.md).
   screenshots-library:
     name: Screenshots, part 2 (library and detail pages; tvOS Simulator, UI tests)
@@ -700,7 +696,14 @@ jobs:
         timeout-minutes: 35
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Run the UI tests, one call per test"
+          # #34 4 (OPEN_QUESTIONS R242, PROVISIONAL mitigation, not a diagnosis): test12 and test13 hung in part 1 of the
+          # run of 20 Nov, after tests 01 to 05 on a simulator booted about 15 minutes earlier; test15 passed on the same page
+          # here, first after this job's boot. They now run first in this job (test12 on the fresh boot) and test13 gets a
+          # clean simulator (shut down, erase, boot: 24 to 102 s in that run's boots) before it. The hang capture stays.
+          CI_FRESH_SIM_BEFORE="test13_MovieSynopsisAndCast" \
           bash scripts/ci-ui-tests.sh "$GITHUB_WORKSPACE/screenshots" \
+            test12_PlayerWithSampleClip \
+            test13_MovieSynopsisAndCast \
             test15_ShowPageResponsive \
             test04_LibraryScreens \
             test16_LibraryToolbars
@@ -712,6 +715,8 @@ jobs:
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Collect the pictures any cut-off test left"
           bash scripts/ci-ui-tests.sh --collect "$GITHUB_WORKSPACE/screenshots" \
+            test12_PlayerWithSampleClip \
+            test13_MovieSynopsisAndCast \
             test15_ShowPageResponsive \
             test04_LibraryScreens \
             test16_LibraryToolbars
