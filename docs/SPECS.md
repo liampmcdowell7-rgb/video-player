@@ -9,6 +9,7 @@
 | docs/SOURCES.md | Source contract, one section per source type, blocked list |
 | docs/HIG_AUDIT.md | Apple HIG audit of each screen |
 | docs/CODEMAGIC_SETUP.md | One-time setup steps |
+| docs/TESTFLIGHT.md | TestFlight from GitHub Actions: the owner's Apple and GitHub steps, in order (R244 to R252) |
 | docs/LIBRARY_INDEX.md | Library database, incremental sync, filters, measured timings |
 | docs/METADATA_LOCAL.md | NFO, sidecar images, embedded MKV tags and chapters |
 | docs/METADATA.md | TMDB and OMDb clients, matching order, Fix Match, cache, Your Library Only (the wording the user gave, copied here because this index is not the spec) |
