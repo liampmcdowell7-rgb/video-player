@@ -92,8 +92,12 @@ screenshot or a chat. They go only into GitHub's encrypted secrets (step 16).
     `yyyyMMddHHmm` (R246); exports and uploads to App Store Connect (R247); and deletes the key, also after a failure. The
     log shows only result and error lines, with names from signing certificates removed, and nothing is uploaded as an
     artifact (R249).
-19. **CODE** — `project.yml` already declares that the app uses no non-exempt encryption
-    (`ITSAppUsesNonExemptEncryption: false`), so TestFlight should not hold the build for an export-compliance question.
+19. **YOU (a declaration to Apple), not decided** — `project.yml` sets `ITSAppUsesNonExemptEncryption: false`, which
+    tells Apple the app uses no encryption or only exempt encryption, so App Store Connect asks no questions and does not
+    mark the build "Missing Compliance". The app carries its own SSH (Citadel, swift-nio-ssh, swift-crypto) for SFTP, which
+    Apple's pages put outside the operating system's own encryption; whether `false` is correct is **your** declaration
+    to Apple, not something code can settle. What each answer means: OPEN_QUESTIONS R261 (PROVISIONAL, with the
+    alternatives). Until you decide, the value stays as it is.
 20. **YOU (your computer)** — push the commits that contain this page and the workflow (only you push). GitHub lists a
     manual workflow on the Actions tab only once its file is on the repository's default branch *(unverified)*.
 21. **YOU (GitHub website)** — run it. Page: `https://github.com/<you>/<repository>/actions/workflows/testflight.yml`
