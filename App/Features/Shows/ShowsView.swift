@@ -70,11 +70,13 @@ private struct ShowsControls: View {
     var body: some View {
         VStack(alignment: .leading) {
             // #25 B2: the same one-line row as Movies, with the same More menu when it does not fit.
+            // #32 D (R233): Sort, Filter and Saved Views as one group of symbols, Needs Review and Jump to Letter as the second.
             GridToolbar(count: model.screen.countText) {
                 SortMenu(model: model)
                 FilterMenu(model: model)
-            } secondary: {
+            } savedViews: {
                 SavedViewsMenu(model: model, onSave: onSave)
+            } tools: {
                 NeedsReviewButton(count: reviewCount)
                 jumpMenu
             } collapsed: {

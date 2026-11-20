@@ -27,6 +27,8 @@ enum ControlID {
     static let searchYourNetwork = "control.searchYourNetwork"
     static let sourceCancel = "control.sourceCancel"
     static let learnMore = "control.learnMore"
+    /// #32 F: the item count at the trailing end of the Movies and Shows toolbar.
+    static let gridCount = "control.gridCount"
     /// #30 item 3: the found server's identifier row in its form (the discovered draft only).
     static let serverID = "control.serverID"
     /// #26: Settings > Online Lookup (the TMDB key row, its masked value, Free Data Sources) and About > Data Sources.

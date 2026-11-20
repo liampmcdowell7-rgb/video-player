@@ -13,11 +13,13 @@ struct GridControls: View {
         VStack(alignment: .leading) {
             // #15 4.5: the same row as on Shows (`GridToolbar`), so both grids start at the same height.
             // #25 B2: one line; when it does not fit, Saved Views, Needs Review and Jump to Letter go into one More menu.
+            // #32 D (R233): Sort, Filter and Saved Views as one group of symbols, Needs Review and Jump to Letter as the second.
             GridToolbar(count: model.screen.countText) {
                 SortMenu(model: model)
                 FilterMenu(model: model)
-            } secondary: {
+            } savedViews: {
                 SavedViewsMenu(model: model, onSave: onSave)
+            } tools: {
                 NeedsReviewButton(count: reviewCount)
                 jumpMenu
             } collapsed: {
