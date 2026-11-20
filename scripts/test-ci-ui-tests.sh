@@ -37,6 +37,8 @@ case "$what" in
      printf 'The row could not be focused.' > "$folder/$second-NOT-REACHED.txt"
      echo plist > "$bundle/Info.plist"; echo "** TEST FAILED **"; exit 65 ;;
   hang) printf 'PNG' > "$folder/$first.png"; exec sleep 30 ;;   # killed by the budget; the bundle has no Info.plist
+  busy) printf 'PNG' > "$folder/$first.png"; echo "Failed to get matching snapshot: main thread busy for 30.0s"; sleep 4
+     echo plist > "$bundle/Info.plist"; echo "** TEST FAILED **"; exit 65 ;;
   *) exit 0 ;;
 esac
 EOF
@@ -90,6 +92,26 @@ setup; printf '%s ok\n%s ok\n' $T1 $T2 > "$S/behaviour"; printf 'SIM_UDID=UDID-1
 PATH="$S/bin:$PATH" OUT="$S/out" SIM_UDID=UDID-1 GITHUB_ENV="$S/env" CI_UI_XCODEBUILD=fake-xcodebuild CI_SIM_DEVICES="$S/devices" \
   CI_UI_EXPORT=0 bash "$here/ci-ui-tests.sh" "$S/dest" $T1 $T2 > "$S/stdout" 2>&1
 check "simulator changed by the retry: the later tests use the new id" "grep -q 'Simulator changed by the retry: UDID-1 -> UDID-2' '$S/stdout' && sed -n 1p '$S/xb-args' | grep -q 'id=UDID-1' && sed -n 2p '$S/xb-args' | grep -q 'id=UDID-2'"
+
+# #33 F (1): a test that fails with "main thread busy": the watcher samples the app while the test still runs, the note
+# hang-sample-<test>.txt is kept, the job's result is the test's own (failed), and the next test runs and is not sampled.
+setup; printf '%s ok
+%s busy
+%s ok
+' $T1 $T2 $T3 > "$S/behaviour"
+cat > "$S/bin/fake-sample" <<'EOF'
+#!/usr/bin/env bash
+out=""; prev=""; for a in "$@"; do [ "$prev" = -file ] && out="$a"; prev="$a"; done
+echo "Call graph: fake main thread stack ($1 $2)" > "$out"
+EOF
+chmod +x "$S/bin/fake-sample"
+CI_SAMPLE=fake-sample CI_HANG_PROCESS=no-such-process-vp run $T1 $T2 $T3; rc=$?
+check "hang capture: hang-sample note with the sample's report, for the busy test only" "[ -f '$S/dest/notes/hang-sample-$T2.txt' ] && grep -q 'Call graph: fake main thread stack (no-such-process-vp 5)' '$S/dest/notes/hang-sample-$T2.txt' && ! [ -e '$S/dest/notes/hang-sample-$T1.txt' ] && ! [ -e '$S/dest/notes/hang-sample-$T3.txt' ]"
+check "hang capture: the result is the test's own (exit 1, failed 65), the next test still passed" "[ $rc -eq 1 ] && grep -qF '| $T2 | failed (exit 65) |' '$S/dest/index.md' && grep -qF '| $T3 | passed |' '$S/dest/index.md'"
+# No sample tool at all: the note says so and nothing else changes.
+setup; printf '%s busy
+' $T2 > "$S/behaviour"; CI_SAMPLE=no-such-sample-tool run $T2; rc=$?
+check "hang capture without the sample tool: a note saying so, exit as the test (1)" "[ $rc -eq 1 ] && grep -q 'no no-such-sample-tool command' '$S/dest/notes/hang-sample-$T2.txt'"
 
 # The host folder could not be written: the pictures are found in the simulator's data folder.
 setup; printf '%s simdata\n' $T5 > "$S/behaviour"; run $T5; rc=$?

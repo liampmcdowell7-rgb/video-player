@@ -28,6 +28,13 @@
 #   3. the result bundle, only when it is complete (Info.plist present): xcresulttool export attachments.
 # Notes (.txt: NOT-REACHED, UNCHANGED, TABBAR, HIERARCHY) go to DEST/notes/. Every picture's source is in
 # $OUT/ui-tests-sources.txt; the per-test results are in $OUT/ui-tests.tsv (ci-stage.sh --summary prints them).
+# #33 F (1): hang capture. While a test runs, a watcher reads the new lines of $OUT/test.log; at the first
+# "main thread busy" or "Timed out while evaluating UI query" (the two hang failures of the run of 20 Nov, test12 and
+# test13) it runs `sample <pid> 5 -file ...` on the app process (found with `pgrep -x`, name CI_HANG_PROCESS, default
+# VideoPlayer) WHILE the app is still hung, and keeps DEST/notes/hang-sample-<test>.txt (a header, then sample's report or
+# the reason there is none). The `sample` arguments (a pid or partial process name, a duration in seconds, -file) are from
+# memory of `man sample`, which could not be read here (no Mac); unverified until the next hang. The capture never changes
+# the job's result: every step of it ends in `|| true`. CI_SAMPLE (default: sample) is for scripts/test-ci-ui-tests.sh.
 # Exit status: 0 when every test passed, 1 otherwise (the export check and the uploads run anyway: if: always()).
 # --collect always exits 0.
 set -uo pipefail
@@ -93,6 +100,33 @@ collect() {
   echo $((n1 + n2 + n3))
 }
 
+# #33 F (1): one sample of the hung app into $2 (see the header). Never fails.
+hang_sample() {
+  local t="$1" file="$2" name="${CI_HANG_PROCESS:-VideoPlayer}" pid tool="${CI_SAMPLE:-sample}"
+  pid="$(pgrep -x "$name" 2>/dev/null | head -n 1)" || true
+  {
+    echo "HANG SAMPLE for $t at $(date -u +%Y-%m-%dT%H:%M:%SZ): the test log reported a busy main thread."
+    echo "process $name: ${pid:-not found by pgrep -x}"
+  } > "$file" 2>/dev/null || true
+  if ! command -v "$tool" > /dev/null 2>&1; then echo "no $tool command on this machine: no sample taken" >> "$file"; return 0; fi
+  "$tool" "${pid:-$name}" 5 -file "$file.report" > "$file.out" 2>&1 || echo "$tool exited non-zero" >> "$file"
+  { cat "$file.out"; echo "---- report ----"; cat "$file.report" 2>/dev/null || echo "(no report written)"; } >> "$file" 2>/dev/null || true
+  rm -f "$file.out" "$file.report" 2>/dev/null || true
+  echo "HANG SAMPLE written: $file"
+}
+
+# Watches the lines of $2 after line $3 until it is killed; samples once on the first hang line.
+hang_watch() {
+  local t="$1" log="$2" from="$3"
+  while :; do
+    if [ -f "$log" ] && tail -n +"$((from + 1))" "$log" 2>/dev/null | grep -qE 'main thread busy|Timed out while evaluating UI query'; then
+      hang_sample "$t" "$dest/notes/hang-sample-$t.txt" || true
+      return 0
+    fi
+    sleep 2
+  done
+}
+
 if [ -n "$collect_only" ]; then
   for t in "$@"; do
     n="$(collect "$t")"
@@ -117,6 +151,9 @@ for t in "$@"; do
   echo "================ UI TEST $t ================"
   rm -rf "$out/screenshot-files/$t" "$out/xcresult/$t.xcresult"
   start="$(date +%s)"
+  log_lines="$( (wc -l < "$out/test.log") 2>/dev/null | tr -d ' ')"; log_lines="${log_lines:-0}"
+  hang_watch "$t" "$out/test.log" "$log_lines" &
+  watcher=$!
   TEST_RUNNER_SCREENSHOT_DIR="$out/screenshot-files" bash "$here/ci-sim.sh" test "$out/test.log" -- "$xcb" test-without-building \
     -project VideoPlayer.xcodeproj -scheme VideoPlayerUITests -configuration Debug \
     -destination "platform=tvOS Simulator,id=${SIM_UDID:?SIM_UDID is not set}" \
@@ -124,6 +161,9 @@ for t in "$@"; do
     -resultBundlePath "$out/xcresult/$t.xcresult" -parallel-testing-enabled NO \
     -only-testing:"VideoPlayerUITests/ScreenshotTests/$t"
   rc=$?
+  # A sample in progress gets its 5 s to finish; then the watcher stops.
+  if tail -n +"$((log_lines + 1))" "$out/test.log" 2>/dev/null | grep -qE 'main thread busy|Timed out while evaluating UI query' &&      ! grep -q -- '---- report ----\|no .* command on this machine' "$dest/notes/hang-sample-$t.txt" 2>/dev/null; then sleep 8; fi
+  kill "$watcher" 2> /dev/null || true; wait "$watcher" 2> /dev/null || true
   secs=$(( $(date +%s) - start ))
   # After the one simulator retry ci-sim.sh may use another simulator (next runtime); it writes the new id to
   # $GITHUB_ENV, which only later STEPS read. The tests after this one must use it too.

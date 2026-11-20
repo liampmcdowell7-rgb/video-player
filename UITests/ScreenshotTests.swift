@@ -826,6 +826,7 @@ final class ScreenshotTests: XCTestCase {
         guard waitForScreen("screen.series", in: app, timeout: 60), waitFor("Season 1", in: app, timeout: 20) else {
             notReached("22-player-skip-intro", "The show page did not open."); app.terminate(); return
         }
+        checkResponsive("test12-show-page-responsive", text: "Season 1", in: app)
         guard open("A quiet beginning", in: app, name: "22-player-skip-intro"), waitForScreen("screen.item", in: app, timeout: 20) else {
             notReached("22-player-skip-intro", "The S01E01 page did not open."); app.terminate(); return
         }
@@ -883,6 +884,7 @@ final class ScreenshotTests: XCTestCase {
         // Show 2 has neither, so its page must show no empty band. The test keeps its name (the workflow selects it by name).
         app = launch("-UITestFixtures", open: "Sample Show 1")
         if waitForScreen("screen.series", in: app, timeout: 60), waitFor("Season 1", in: app, timeout: 20), waitFor("Sample synopsis", in: app, timeout: 10) {
+            checkResponsive("test13-show-page-responsive", text: "Season 1", in: app)
             settle(); shot("77-show-long-synopsis")
             if open("Sample synopsis", in: app, name: "77-show-long-synopsis-page") { settle(); shot("77-show-long-synopsis-page"); back() }
             // #25 B7: the cast is after the episode shelves now; Down until the focus stops reaches it (the last shelf).
@@ -895,6 +897,28 @@ final class ScreenshotTests: XCTestCase {
             settle(); shot("78-show-no-synopsis-or-cast")
         } else { notReached("78-show-no-synopsis-or-cast", "The show page did not open.") }
         app.terminate()
+    }
+
+    /// #33 F (2): the same measure as test15 inside test12 and test13, the two tests that hung in part 1 of the run of 20 Nov
+    /// (test12 "main thread busy" while waiting for screen.series, test13 "Timed out while evaluating UI query" on Sample Show
+    /// 1) while test15 and test04 passed on the same page in part 2. Three cheap queries (a StaticText by label), Down and Up
+    /// between them; each query over 5 s fails the test and the note "<name>" has the times. The cause is NOT known; this
+    /// only says where and how long, and the hang sample of scripts/ci-ui-tests.sh says what the main thread was doing.
+    func checkResponsive(_ name: String, text: String, in app: XCUIApplication) {
+        var lines: [String] = []
+        var worst: TimeInterval = 0
+        for move in [nil, XCUIRemote.Button.down, XCUIRemote.Button.up] as [XCUIRemote.Button?] {
+            if let move { XCUIRemote.shared.press(move) }
+            let start: Date = Date()
+            let found: Bool = app.staticTexts[text].exists
+            let took: TimeInterval = Date().timeIntervalSince(start)
+            worst = max(worst, took)
+            lines.append("query after \(move.map { String(describing: $0) } ?? "no press"): \(String(format: "%.2f", took)) s, “\(text)” found: \(found)")
+            sleep(1)
+        }
+        lines.append("worst \(String(format: "%.2f", worst)) s, limit 5 s: " + (worst > 5 ? "MAIN THREAD BUSY" : "RESPONSIVE OK"))
+        note(name, lines.joined(separator: "\n"))
+        XCTAssertLessThanOrEqual(worst, 5, "\(name): a query waited \(String(format: "%.1f", worst)) s for the app's main thread (limit 5 s).")
     }
 
     /// #31 (OPEN_QUESTIONS R231): the show page of Sample Show 1 must leave the main thread free. In the run of 20 Nov test04
