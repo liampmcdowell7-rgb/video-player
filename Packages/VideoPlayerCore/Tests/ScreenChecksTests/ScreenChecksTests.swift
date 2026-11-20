@@ -352,6 +352,36 @@ final class ScreenChecksTests: XCTestCase {
         XCTAssertEqual(ScreenRules.focusDirection(from: s2e1, to: s1e1), .up)
     }
 
+    /// #33 I: the run's pages had 10 pt between the button row and the next heading (55: Resume ends at 559, “Season 1” at
+    /// 569; 57: Resume ends at 554, “Cast” at 564). Both fail the 40 pt minimum; a page with 50 pt passes.
+    func testRunArtifactsTheButtonRowGapWas10PointsOnBothPages() throws {
+        for (path, heading) in [("screenshots-library/notes/55-show-page-HIERARCHY.txt", "Season 1"), ("screenshots-library/notes/57-movie-detail-HIERARCHY.txt", "Cast")] {
+            let dump = AccessibilityDump(try String(contentsOf: try artifact(path), encoding: .utf8))
+            let result = ScreenRules.gapBelow(in: dump, anchors: ["control.play", "control.more"], kinds: ["StaticText"], minimum: 40, what: "buttons to heading")
+            XCTAssertFalse(result.passed, result.text)
+            XCTAssertTrue(result.text.contains("“\(heading)”") && result.text.contains("gap 10 pt"), result.text)
+        }
+    }
+
+    func testAGapOfFiftyPointsPassesAndTheGridGapIsMeasuredToTheFirstCard() {
+        let page = AccessibilityDump("""
+         →Application, 0x1, pid: 1, label: 'Video Player'
+            Window (Main), 0x2, {{0.0, 0.0}, {1920.0, 1080.0}}
+              Button, 0x3, {{76.0, 485.0}, {212.0, 74.0}}, identifier: 'control.play', label: 'Resume'
+              StaticText, 0x4, {{80.0, 609.0}, {151.0, 46.0}}, label: 'Season 1'
+        """)
+        XCTAssertTrue(ScreenRules.gapBelow(in: page, anchors: ["control.play", "control.more"], kinds: ["StaticText"], minimum: 40, what: "x").passed)
+        let grid = AccessibilityDump("""
+         →Application, 0x1, pid: 1, label: 'Video Player'
+            Window (Main), 0x2, {{0.0, 0.0}, {1920.0, 1080.0}}
+              Button, 0x3, {{80.0, 157.0}, {102.0, 68.0}}, identifier: 'control.sort', label: 'Sort'
+              Button, 0x4, {{80.0, 250.0}, {320.0, 480.0}}, label: 'Sample Movie 1'
+        """)
+        let tight = ScreenRules.gapBelow(in: grid, anchors: ["control.sort"], kinds: ["Button", "Cell"], minimum: 60, what: "toolbar to cards")
+        XCTAssertFalse(tight.passed, tight.text)
+        XCTAssertTrue(tight.text.contains("gap 25 pt"), tight.text)
+    }
+
     func testEqualEpisodeCardsPassAndOneSmallerCardFails() {
         func dump(_ third: String) -> AccessibilityDump {
             AccessibilityDump("""

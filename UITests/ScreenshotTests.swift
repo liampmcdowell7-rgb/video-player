@@ -704,6 +704,7 @@ final class ScreenshotTests: XCTestCase {
             let cards: CheckResult = ScreenRules.equalEpisodeCards(in: AccessibilityDump(pageTree))
             note("55-show-page-CARDS", cards.text)
             XCTAssertTrue(cards.passed, "55-show-page: " + cards.verdict)
+            checkGap("55-show-page", tree: pageTree, anchors: [ControlID.play, ControlID.more], kinds: ["StaticText"], minimum: 40, what: "buttons to the first season heading")
             // #15 item 1.6: the scrolled states of the show page (each must differ from the one before).
             for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); shot("55-show-page-scrolled-\(step)", mustChangeAfter: step == 1 ? "Down on the show page" : nil) }
             for _ in 0..<2 { XCUIRemote.shared.press(.up) }; sleep(1)
@@ -724,7 +725,10 @@ final class ScreenshotTests: XCTestCase {
 
         app = launch("-UITestFixtures", open: "Sample Movie 1")
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 1", in: app) {
-            settle(); shot("57-movie-detail"); hierarchy("57-movie-detail", of: app)
+            settle(); shot("57-movie-detail")
+            let movieTree: String = app.debugDescription
+            note("57-movie-detail-HIERARCHY", movieTree)
+            checkGap("57-movie-detail", tree: movieTree, anchors: [ControlID.play, ControlID.more], kinds: ["StaticText"], minimum: 40, what: "buttons to the next heading")
             focusCheck("57-movie-detail", expected: ControlID.play, in: app)
             for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); shot("58-movie-detail-scrolled-\(step)", mustChangeAfter: step == 1 ? "Down on the movie page" : nil) }
             // Fix Match is in the More menu (ItemDetailContentView.moreMenu), not a button on the page: the old test looked for
@@ -980,6 +984,7 @@ final class ScreenshotTests: XCTestCase {
         }
         settle(); shot(prefix + suffix)
         checkToolbarGroups(prefix + suffix, in: app)
+        checkGap(prefix + suffix, tree: app.debugDescription, anchors: Array(Self.toolbarControlIDs), kinds: ["Button", "Cell"], minimum: 60, what: "toolbar to the first card row")
         // What is on screen with every menu closed: a menu's items are what appears on top of it.
         let closed: Set<String> = Set(controlLabels(in: app).map { $0.0 })
         if openToolbarControl("Sort", id: ControlID.sort, in: app, name: prefix + "-sort-menu" + suffix) {
@@ -1024,6 +1029,13 @@ final class ScreenshotTests: XCTestCase {
         let result: CheckResult = ScreenRules.toolbarGroups(first: frames(first), second: frames(second), ratio: 2)
         note(name + "-GROUPS", result.text)
         XCTAssertTrue(result.passed, "\(name): " + result.verdict)
+    }
+
+    /// #33 I (R239): a vertical gap (`ScreenRules.gapBelow`), written as "<name>-GAP"; fails below `minimum`.
+    func checkGap(_ name: String, tree: String, anchors: [String], kinds: Set<String>, minimum: Double, what: String) {
+        let result: CheckResult = ScreenRules.gapBelow(in: AccessibilityDump(tree), anchors: anchors, kinds: kinds, minimum: minimum, what: what)
+        note(name + "-GAP", result.text)
+        XCTAssertTrue(result.passed, "\(name): " + result.lines.joined(separator: " "))
     }
 
     /// #33 C: the toolbar's own controls, which are never menu items.

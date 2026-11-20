@@ -52,6 +52,9 @@ struct GridToolbar<ViewControls: View, SavedViews: View, Tools: View, Collapsed:
                 }
             }
         }
+        // #33 I (OPEN_QUESTIONS R239, PROVISIONAL): room between the toolbar and the first row of cards, so a focused card
+        // that grows does not reach the toolbar.
+        .padding(.bottom, GridToolbarLayout.belowToolbar)
     }
 
     private func row<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
@@ -93,4 +96,6 @@ struct ToolbarSymbol: View {
 /// above 2 if that spacing grows by a few points. UI test `checkToolbarGroups` (07-*-GROUPS notes) fails below 2 times.
 enum GridToolbarLayout {
     static let groupGap: CGFloat = 140
+    /// #33 I (R239): at least 60 pt between the toolbar and the first card row, the owner's number in #33 (not Apple's).
+    static let belowToolbar: CGFloat = 60
 }

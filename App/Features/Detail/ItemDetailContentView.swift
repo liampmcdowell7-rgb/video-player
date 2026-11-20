@@ -42,6 +42,8 @@ struct ItemDetailContentView: View {
                     StatusText(timeLeft)
                 }
                 actions
+                    // #33 I (OPEN_QUESTIONS R239, PROVISIONAL): room between the button row and the next heading.
+                    .padding(.bottom, DetailPageLayout.belowActions)
                 if let cast = details?.cast, !cast.isEmpty {
                     CastShelf(cast: cast)
                 }

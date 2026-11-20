@@ -131,3 +131,10 @@ struct LearnMoreLink: View {
         }
     }
 }
+
+/// #33 I (OPEN_QUESTIONS R239, PROVISIONAL): the movie and show pages. 40 pt extra below the button row, the owner's
+/// minimum in #33 (not an Apple number: the HIG Layout page names 100 pt only for the row spacing of a grid). The run of 20
+/// Nov measured 10 pt between the buttons and the next heading on both pages (notes 55-show-page and 57-movie-detail).
+enum DetailPageLayout {
+    static let belowActions: CGFloat = 40
+}

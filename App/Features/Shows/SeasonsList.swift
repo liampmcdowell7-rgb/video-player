@@ -33,6 +33,8 @@ struct SeasonsList: View {
                     StatusText(OnlineLookupText.detailsNeedKey)
                 }
                 actions
+                    // #33 I (OPEN_QUESTIONS R239, PROVISIONAL): room between the button row and the first season heading.
+                    .padding(.bottom, DetailPageLayout.belowActions)
                 // #25 B7 (OPEN_QUESTIONS R193, the alternative now taken, still PROVISIONAL): the episode shelves right after
                 // Play, the cast after the last season.
                 ForEach(content.seasons) { season in

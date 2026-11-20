@@ -196,6 +196,33 @@ public enum ScreenRules {
         return t.midX > f.midX ? .right : .left
     }
 
+    // MARK: I: spacing
+
+    /// #33 I: the vertical gap between the elements with identifiers `anchors` (their lowest edge) and the topmost element
+    /// of `kinds` that starts below them, outside the tab bar. Passes at `minimum` or more. The movie and show pages use
+    /// the button row (control.play, control.more) and the next StaticText (a heading); the grids use the toolbar's
+    /// controls and the first Button or Cell (a card).
+    public static func gapBelow(in dump: AccessibilityDump, anchors: [String], kinds: Set<String>, minimum: Double, what: String) -> CheckResult {
+        let anchorFrames: [AXRect] = anchors.flatMap { dump.indices(identifier: $0) }.compactMap { dump.nodes[$0].frame }.filter { !$0.isEmpty }
+        guard let bottom = anchorFrames.map(\.maxY).max() else {
+            return CheckResult(passed: false, lines: ["none of \(anchors) in the tree", "GAP NOT MEASURED"])
+        }
+        let below: [(Int, AXRect)] = dump.nodes.indices.compactMap { (index: Int) -> (Int, AXRect)? in
+            let node: AXNode = dump.nodes[index]
+            guard kinds.contains(node.type), !anchors.contains(node.identifier), !dump.isInTabBar(index),
+                  let frame = node.frame, !frame.isEmpty, frame.y >= bottom - 1 else { return nil }
+            return (index, frame)
+        }
+        guard let next = below.min(by: { $0.1.y < $1.1.y }) else {
+            return CheckResult(passed: false, lines: ["nothing below y \(Int(bottom))", "GAP NOT MEASURED"])
+        }
+        let gap: Double = next.1.y - bottom
+        let ok: Bool = gap >= minimum - 0.5
+        return CheckResult(passed: ok, lines: [
+            "\(what): last edge of \(anchors.joined(separator: ", ")) at y \(Int(bottom)), next \(dump.nodes[next.0].type) “\(dump.text(of: next.0))” at y \(Int(next.1.y)): gap \(Int(gap)) pt, minimum \(Int(minimum))",
+            ok ? "GAP OK" : "GAP TOO SMALL"])
+    }
+
     // MARK: E: equal episode cards
 
     /// #33 E: every episode card ("S2 E3, Title", a Button or Cell) has the same size, within 1 pt. Picture 55 of the run of
