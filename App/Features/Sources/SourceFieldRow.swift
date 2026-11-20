@@ -12,7 +12,9 @@ import AppLogic
 /// adjacent views may need to stack vertically"), so nothing is shrunk or cut. The problem texts are under the section
 /// (SourceFormView).
 /// #36 S-D (OPEN_QUESTIONS R256, PROVISIONAL): text and secure fields are `FieldRow`: one rounded shape (the row draws no
-/// background), no placeholder in the field, the former placeholder ("Living Room", "Optional") a hint under the label.
+/// background). #36 group 3 (R265, PROVISIONAL): for text and secure fields the label is now above the field at every text
+/// size, the field has the system bordered shape at rest, and the former placeholder ("Living Room", "Optional") is the
+/// field's prompt again (FieldRow); the paragraphs above still describe the picker rows.
 struct SourceFieldRow: View {
     let spec: SourceFieldSpec
     @Binding var text: String

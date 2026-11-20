@@ -213,22 +213,28 @@ struct TaskButtonRow<Content: View>: View {
     }
 }
 
-/// #36 S-D (OPEN_QUESTIONS R256, PROVISIONAL): one text or secure field as ONE rounded shape. The run of 20 Nov drew two:
-/// the Form row's own rounded background and, inside it, the field's rounded pill (11 to 19, 66, 36). The row now draws no
-/// background of its own, so the system field (automatic style, its own focus look kept) is the only shape.
-/// No placeholder inside the field: the system draws a focused field's placeholder in its own grey on the white pill, which
-/// we cannot restyle (94 and 66: #B7B7BC on #EAEAEA, 1.66:1). The example or "Optional" that was the placeholder is a hint
-/// line under the label instead, in `ReadableSecondary.style` (R240, 4.5:1 or more on the cover background), and the field
-/// is empty until something is typed. The spoken label is the title. Whether the tvOS keyboard screen then shows a
-/// heading is not on Apple's pages (R262, PROVISIONAL: kept until a run shows that screen).
-/// At the default text size the label is on the leading side and the field on the trailing side (`LabeledContent`), every
-/// field the same width (`TaskPageLayout.fieldFraction`); at an accessibility text size the label goes above (#30 E).
+/// #36 S-D (OPEN_QUESTIONS R256, PROVISIONAL): one text or secure field as ONE rounded shape; the row draws no background
+/// of its own.
+/// #36 group 3 (OPEN_QUESTIONS R265, PROVISIONAL): the field has the native field shape AT REST. The third run of 20 Nov
+/// (11 to 19, 94) drew no shape at all for a field without the focus (the automatic style draws its white pill only when
+/// focused), so the form read as a list of labels. Now, at every text size:
+/// - the label above the field (one line, rule S1), so the field can use the row's full width;
+/// - the field in the system `bordered` text field style (Apple, BorderedTextFieldStyle: "A text field style with a
+///   system-defined border", tvOS 27.0+) with the `roundedRectangle` border shape (`textInputBorderShape(_:)`, tvOS 27.0+);
+///   what fill the system gives that border on tvOS is not on the page read: "secondary fill" is UNVERIFIED until a run;
+/// - every field the same height, the tvOS default control size (`TaskButtonLayout.minimumHeight`, 66 pt);
+/// - the hint ("Living Room", "Optional", the address example) inside the field as its prompt (HIG Text fields: "Show a
+///   hint in a text field … placeholder text"; "it can also be useful to include a separate label"). The hint line under
+///   the label is gone. Risk kept in R265: the system draws the prompt in its own grey (R256 measured a focused
+///   placeholder at 1.66:1); that is the system's look, not restyled.
+/// R262 (the keyboard screen's heading): the field's TITLE stays empty and the spoken label stays the title, exactly as
+/// before; only the prompt is new. Whether tvOS shows the prompt as the keyboard screen's heading is not on Apple's pages:
+/// UNVERIFIED until the keyboard picture (11-form-webdav-keyboard-name) of the next run.
 struct FieldRow: View {
     let title: String
     var hint: String? = nil
     @Binding var text: String
     var isSecret: Bool = false
-    @Environment(\.dynamicTypeSize) private var typeSize
 
     init(_ title: String, hint: String? = nil, text: Binding<String>, isSecret: Bool = false) {
         self.title = title
@@ -238,45 +244,31 @@ struct FieldRow: View {
     }
 
     var body: some View {
-        Group {
-            if typeSize.isAccessibilitySize {
-                VStack(alignment: .leading) {
-                    label
-                    field
-                }
-            } else {
-                LabeledContent {
-                    field
-                        .containerRelativeFrame(.horizontal) { (length: CGFloat, _: Axis) -> CGFloat in
-                            length * TaskPageLayout.fieldFraction
-                        }
-                } label: {
-                    label
-                }
-            }
+        VStack(alignment: .leading) {
+            FittingText(title)
+            field
+                .textFieldStyle(.bordered)
+                .textInputBorderShape(.roundedRectangle)
+                .frame(maxWidth: .infinity, minHeight: TaskButtonLayout.minimumHeight)
         }
         // design-lint:allow #36 S-D (R256): the row around a system text field has no background of its own; the field's own shape is the only one
         .listRowBackground(Color.clear)
     }
 
-    private var label: some View {
-        VStack(alignment: .leading) {
-            FittingText(title)
-            if let hint, !hint.isEmpty {
-                FittingText(hint, style: .caption)
-                    .foregroundStyle(ReadableSecondary.style)
-            }
-        }
+    /// The hint as the field's prompt, when there is one.
+    private var prompt: Text? {
+        guard let hint, !hint.isEmpty else { return nil }
+        return Text(hint)
     }
 
-    /// The control itself: no title and no prompt, so nothing is drawn inside it until text is typed.
+    /// The control itself: an empty title (R262, unchanged), the hint as its prompt, the title as its spoken label.
     @ViewBuilder
     private var field: some View {
         if isSecret {
-            SecureField("", text: $text)
+            SecureField("", text: $text, prompt: prompt)
                 .accessibilityLabel(title)
         } else {
-            TextField("", text: $text)
+            TextField("", text: $text, prompt: prompt)
                 .autocorrectionDisabled()
                 .accessibilityLabel(title)
         }

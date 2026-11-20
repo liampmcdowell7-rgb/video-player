@@ -480,6 +480,31 @@ public enum ScreenRules {
         return CheckResult(passed: true, lines: ["the screen changed after \(step)", "SCREEN CHANGED OK"])
     }
 
+    // MARK: #36 group 3: a form inside the safe area
+
+    /// #36 group 3 (OPEN_QUESTIONS R265, PROVISIONAL): every named element (the fields, Connect and Cancel of a form) lies
+    /// inside the window less `inset` points at the top and the bottom (HIG Layout: the tvOS safe area is 60 pt at the top
+    /// and the bottom). 94-larger-text-source-form of the third run of 20 Nov: four fields with a hint line each pushed
+    /// Connect and Cancel below the bottom of the screen. A missing element fails too (it was not laid out on screen).
+    public static func insideSafeArea(_ elements: [(name: String, frame: AXRect?)], window: AXRect, inset: Double = 60) -> CheckResult {
+        let top: Double = window.y + inset
+        let bottom: Double = window.maxY - inset
+        var lines: [String] = ["safe area: y \(Int(top)) to \(Int(bottom))"]
+        var outside: [String] = []
+        for element in elements {
+            guard let frame = element.frame else {
+                lines.append("\u{201C}\(element.name)\u{201D}: not on screen")
+                outside.append("\u{201C}\(element.name)\u{201D} not on screen")
+                continue
+            }
+            let inside: Bool = frame.y >= top - 0.5 && frame.maxY <= bottom + 0.5
+            lines.append("\u{201C}\(element.name)\u{201D} \(frame): " + (inside ? "inside" : "OUTSIDE"))
+            if !inside { outside.append("\u{201C}\(element.name)\u{201D} \(frame)") }
+        }
+        lines.append(outside.isEmpty ? "INSIDE THE SAFE AREA OK" : "OUTSIDE THE SAFE AREA: " + outside.joined(separator: "; "))
+        return CheckResult(passed: outside.isEmpty, lines: lines)
+    }
+
     // MARK: #36 group 1 d / group 4: a card caption is whole, and stays still
 
     /// How close (in points) to the right edge of its column a caption's ink may come before it counts as cut off.

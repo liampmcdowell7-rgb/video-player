@@ -572,6 +572,7 @@ final class ScreenshotTests: XCTestCase {
             shot(name)
             checkNoKeyField(in: app, name: name)
             checkFullScreen(anchor: ControlID.sourceCancel, label: "Cancel", in: app, name: name)
+            if n == "11" { keyboardOfNameField(in: app) }
             back()
             _ = waitForScreen(ControlID.searchYourNetwork, in: app, timeout: 5)
         }
@@ -1497,11 +1498,55 @@ final class ScreenshotTests: XCTestCase {
             let name = String(format: "%02d", number) + "-\(variant)-\(key)"
             guard let app = reachAccessibilityScreen(key, name: name, extra: extra) else { continue }
             settle(); shot(name)
+            // #36 group 3 (R265): at Larger Text the WebDAV form opens with every field, Connect and Cancel inside the
+            // 60 pt safe area (94 of the third run of 20 Nov had Connect and Cancel below the screen).
+            if key == "source-form" && variant == "larger-text" { formSafeArea(name, in: app) }
             // #15 item 1.5: "Settings" was cut to "Sett" under Larger Text; the tab bar must read TAB BAR OK here too.
             if key == "home" { tabBarCheck(name, in: app) }
             recordOrCompareTexts(variant: variant, key: key, name: name, in: app)
             app.terminate()
         }
+    }
+
+    /// #36 group 3 (R262 (e), R265): the keyboard screen opened with Select on the WebDAV form's Name field, its picture
+    /// "11-form-webdav-keyboard-name" and every text on it in the "-KEYBOARD" note, so the next run shows the heading (the
+    /// field's title is empty, its prompt the hint "Living Room"). Menu then closes the keyboard; the caller closes the form.
+    func keyboardOfNameField(in app: XCUIApplication) {
+        let name: String = "11-form-webdav-keyboard-name"
+        let field: XCUIElement = app.textFields.matching(NSPredicate(format: "label == %@", "Name")).firstMatch
+        guard field.waitForExistence(timeout: 5), focus(field, in: app, maxPresses: 20) else {
+            return notReached(name, "The Name field could not be focused (focus on \(focusedLabel(in: app))).\n" + focusPathText())
+        }
+        XCUIRemote.shared.press(.select)
+        guard app.keyboards.firstMatch.waitForExistence(timeout: 10) else {
+            return notReached(name, "No keyboard screen appeared after Select on the Name field.\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
+        }
+        sleep(1); shot(name)
+        let texts: [String] = app.staticTexts.allElementsBoundByIndex.prefix(40).map { "\u{201C}\($0.label)\u{201D} \($0.frame)" }
+        let inputs: [String] = (app.textFields.allElementsBoundByIndex + app.searchFields.allElementsBoundByIndex).map {
+            "\u{201C}\($0.label)\u{201D} placeholder \u{201C}\($0.placeholderValue ?? "")\u{201D} \($0.frame)"
+        }
+        note(name + "-KEYBOARD", "Select on the Name field (title empty, prompt \u{201C}Living Room\u{201D}, spoken label \u{201C}Name\u{201D}).\n"
+             + "Texts on the keyboard screen (the heading, if any, is among them):\n" + texts.joined(separator: "\n")
+             + "\nText and search fields:\n" + inputs.joined(separator: "\n"))
+        hierarchy(name, of: app)
+        back()
+    }
+
+    /// #36 group 3 (R265): the fields, Connect and Cancel of the open source form, each inside the 60 pt safe area, as the
+    /// form opens (no focus moved). Written to "<name>-SAFE-AREA"; a failure fails the test.
+    func formSafeArea(_ name: String, in app: XCUIApplication) {
+        let fields: [XCUIElement] = app.textFields.allElementsBoundByIndex + app.secureTextFields.allElementsBoundByIndex
+        var elements: [(name: String, frame: AXRect?)] = fields.map { (field: XCUIElement) in
+            (name: field.label, frame: field.exists ? AXRect(field.frame) : nil)
+        }
+        for label in ["Connect", "Cancel"] {
+            let button: XCUIElement = app.buttons[label].firstMatch
+            elements.append((name: label, frame: button.exists ? AXRect(button.frame) : nil))
+        }
+        let result: CheckResult = ScreenRules.insideSafeArea(elements, window: AXRect(app.windows.firstMatch.frame))
+        note(name + "-SAFE-AREA", "\(fields.count) fields\n" + result.text)
+        XCTAssertTrue(result.passed, "\(name): " + result.verdict)
     }
 
     /// #30 item 5: the app's own texts on screen under each accessibility variant (label to frame), kept by test06 for

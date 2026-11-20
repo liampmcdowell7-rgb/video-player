@@ -68,10 +68,10 @@ The budget is **25 minutes from the start of the first UI test** (`CI_TEST_BUDGE
 Before the tests every UI job spends about 12 minutes (fa00af8, measured: prepare 1:18, pick and boot 1:29, build
 7:37-7:48, launch smoke 1:11-1:21; the accessibility job has no smoke). The collect, check and upload steps after the
 tests take about 1-2 minutes. Each job stays inside its 1,500 s budget: part 1 about 1,118 s, part 2 about 1,055 to
-1,133 s, accessibility 1,108 s (estimates from the run of 20 Nov). Total planned: **164 pictures** (67 / 64 / 33;
+1,133 s, accessibility 1,108 s (estimates from the run of 20 Nov). Total planned: **165 pictures** (68 / 64 / 33;
 scripts/test-ci-ui-tests.sh checks the total against scripts/screenshot-plan.tsv). Earlier totals: 142 after #26 (83 / 26 /
 33); #32 moved the toolbars and menus to part 2 (test16, 20 pictures); #34 moved test12 and test13 (14 pictures) to part 2
-and added the two Continue Watching caption pictures to test04.
+and added the two Continue Watching caption pictures to test04; #36 group 3 added 11-form-webdav-keyboard-name to test02 (the keyboard screen of the Name field, R262 (e)).
 
 **Notes beside the pictures** (the `notes/` folder of each download; the UI tests and scripts/ci-ui-tests.sh write them, and
 none of them fails a job on its own unless the line says so):
