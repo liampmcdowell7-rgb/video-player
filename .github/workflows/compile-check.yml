@@ -14,7 +14,7 @@
 #   4. screenshots       a launch smoke (the app must still be running 8 s after launch, plain and -UITestEmpty; the
 #                        cause is printed in the log if not), then UI tests that take a named screenshot of every screen
 #                        they can reach, with debug-only sample data: part 1 (tests 01, 02, 03, 05, 12, 13, 14, 10)
-#   4b. screenshots-library   the same, part 2: test04 alone (Home, Movies, Shows, the detail pages; 436 s measured)
+#   4b. screenshots-library   the same, part 2: test15, test04 (Home, Movies, Shows, the detail pages; 436 s measured) and test16 (#32 toolbars)
 #   5. accessibility-screenshots   eleven screens under Larger Text and Bold Text (drawn by the app, test06 alone in its
 #                        own call) and at the default size (test11), and a check that the first two differ from the
 #                        default outside the tab bar (rule 17, R170). Built exactly as job 4
@@ -610,7 +610,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  # JOB 4b. Screenshots, part 2 of 2: Home, Movies, Shows, the movie and show pages (test04 alone: 436 s on fa00af8, 26
+  # JOB 4b. Screenshots, part 2 of 2: Home, Movies, Shows, the movie and show pages (test04: 436 s on fa00af8; #32 adds test16, the Movies and Shows toolbars and menus, 20 pictures; 48
   # planned pictures; #24 B). Built and checked exactly as job 4 (part 1), on its own runner with its own cap. Its artifact
   # is "screenshots-library", in the same numbering (01-79, index.md).
   screenshots-library:
@@ -702,7 +702,8 @@ jobs:
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Run the UI tests, one call per test"
           bash scripts/ci-ui-tests.sh "$GITHUB_WORKSPACE/screenshots" \
             test15_ShowPageResponsive \
-            test04_LibraryScreens
+            test04_LibraryScreens \
+            test16_LibraryToolbars
 
       # Runs whatever happened above: copies any picture a cut-off test step left and writes index.md again (never fails).
       - name: Collect the pictures any cut-off test left (loose PNG files)
@@ -712,7 +713,8 @@ jobs:
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Collect the pictures any cut-off test left"
           bash scripts/ci-ui-tests.sh --collect "$GITHUB_WORKSPACE/screenshots" \
             test15_ShowPageResponsive \
-            test04_LibraryScreens
+            test04_LibraryScreens \
+            test16_LibraryToolbars
 
       - name: Summarise errors (file, line, message)
         if: always()

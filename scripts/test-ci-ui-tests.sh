@@ -105,7 +105,7 @@ lit="$(grep -oE 'shot\("[0-9]{2,3}-[a-z0-9-]+"\)' "$here/../UITests/ScreenshotTe
 miss="$(while IFS= read -r n; do [ -n "$n" ] && ! cut -f2 "$here/screenshot-plan.tsv" | grep -qx "$n" && echo "$n"; done <<< "$lit")"
 S="$(mktemp -d)"; echo "not planned: $miss" > "$S/stdout"
 check "plan: every literal shot name in ScreenshotTests.swift is in screenshot-plan.tsv" "[ -z \"$miss\" ] && [ -n \"$lit\" ]"
-check "plan: 146 planned pictures (85 part 1, 28 part 2, 33 accessibility; #25 adds 10-add-source-learn-more, #26 the two key-set pictures, #30 two network-search and two long-caption pictures)" "[ \$(grep -vc '^#' '$here/screenshot-plan.tsv') -eq 146 ]"
+check "plan: 162 planned pictures (81 part 1, 48 part 2, 33 accessibility; #25 adds 10-add-source-learn-more, #26 the two key-set pictures, #30 two network-search and two long-caption pictures, #32 the toolbars and menus moved to part 2 with 16 more)" "[ \$(grep -vc '^#' '$here/screenshot-plan.tsv') -eq 162 ]"
 
 echo "ci-ui-tests self-test: passed $passed, failed $failed"
 [ "$failed" -eq 0 ]

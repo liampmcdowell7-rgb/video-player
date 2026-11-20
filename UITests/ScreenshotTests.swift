@@ -818,9 +818,6 @@ final class ScreenshotTests: XCTestCase {
         app.terminate()
     }
 
-    /// #21 F: the Shows row with Sort, Filter and Saved Views like Movies (07; 35 to 38 are Settings pages), and the card long-press menu with
-    /// Go to Movie / Go to Show (and Remove from Continue Watching when the focused card is in that row) and where it leads (08).
-    /// Job 4b.
     /// #31 (OPEN_QUESTIONS R231): the show page of Sample Show 1 must leave the main thread free. In the run of 20 Nov test04
     /// stopped there: the page was drawn, then nothing changed for 30 s and XCTest reported "main thread busy for 30.0s".
     /// Every query below needs the app's main run loop; a query that takes longer than 5 s fails the test, and so does a
@@ -854,22 +851,135 @@ final class ScreenshotTests: XCTestCase {
         app.terminate()
     }
 
-    func test14_ShowsToolbarAndCardMenu() {
-        var app = launch("-UITestFixtures", tab: "shows")
-        if waitForScreen("screen.shows", in: app), waitFor("Sample", in: app, timeout: 60) {
-            settle(); shot("07-shows-toolbar")
-            // #25 A2: by identifier; Saved Views may sit in the toolbar's More menu when the row does not fit (B2).
-            for (label, id, name) in [("Sort", ControlID.sort, "07-shows-toolbar-sort-menu"), ("Filter", ControlID.filter, "07-shows-toolbar-filter-menu"),
-                                      ("Saved Views", ControlID.savedViews, "07-shows-toolbar-saved-views-menu")] {
-                if openToolbarControl(label, id: id, in: app, name: name) {
-                    sleep(1); shot(name); back()
-                    _ = focusContent(in: app)
-                }
-            }
-        } else { notReached("07-shows-toolbar", "No sample show appeared.") }
-        app.terminate()
+    // MARK: Library toolbars and menus (#32)
 
-        app = launch("-UITestFixtures", tab: "home")
+    /// #32 F: the Movies and Shows toolbars and each of their menus, at the default size and at Larger Text, with checks that
+    /// FAIL the test when the toolbar groups are not clear or a menu is wrong (OPEN_QUESTIONS R233 to R236):
+    /// - `checkToolbarGroups`: the gaps inside the view-control group (Sort, Filter, Saved Views) differ by more than 2 pt,
+    ///   or the gap to the second group (Needs Review, Jump to Letter) is not at least 1.5 times the in-group gap;
+    /// - `checkMenu`: an open menu with fewer than three items, or an item that ends below the window (a menu cut at the
+    ///   bottom); for the Filter menu also each group submenu.
+    /// Moved here from test14 (part 1, the job the time budget stopped) into part 2 (R232). Files has no toolbar (its folders
+    /// list by name, no sort or filter), so it has no pictures here.
+    func test16_LibraryToolbars() {
+        for (tab, prefix) in [("shows", "07-shows-toolbar"), ("movies", "07-movies-toolbar")] {
+            toolbarShots(tab: tab, prefix: prefix, suffix: "", extra: [])
+            toolbarShots(tab: tab, prefix: prefix, suffix: "-larger-text", extra: ["-UITestTextSize", "accessibility3"])
+        }
+    }
+
+    /// One toolbar and its menus: "<prefix><suffix>", then "<prefix>-sort-menu<suffix>", "-filter-menu", "-filter-submenu"
+    /// (the Resolution group open) and "-saved-views-menu" (with no saved view: what the Save View button opens).
+    func toolbarShots(tab: String, prefix: String, suffix: String, extra: [String]) {
+        let app = launch("-UITestFixtures", tab: tab, extra: extra)
+        guard waitForScreen("screen.\(tab)", in: app), waitFor("Sample", in: app, timeout: 60) else {
+            notReached(prefix + suffix, "No sample title appeared on the \(tab) screen."); app.terminate(); return
+        }
+        settle(); shot(prefix + suffix)
+        checkToolbarGroups(prefix + suffix, in: app)
+        // What is on screen with every menu closed: a menu's items are what appears on top of it.
+        let closed: Set<String> = Set(controlLabels(in: app).map { $0.0 })
+        if openToolbarControl("Sort", id: ControlID.sort, in: app, name: prefix + "-sort-menu" + suffix) {
+            sleep(1); shot(prefix + "-sort-menu" + suffix)
+            checkMenu(prefix + "-sort-menu" + suffix, expected: ["Title", "Year", "Date Added"], before: closed, in: app)
+            back(); _ = focusContent(in: app)
+        }
+        if openToolbarControl("Filter", id: ControlID.filter, in: app, name: prefix + "-filter-menu" + suffix) {
+            sleep(1); shot(prefix + "-filter-menu" + suffix)
+            checkMenu(prefix + "-filter-menu" + suffix, expected: ["Watched", "Resolution", "Dynamic Range", "Sound", "Clear All Filters"], before: closed, in: app)
+            let filterOpen: Set<String> = Set(controlLabels(in: app).map { $0.0 })
+            if open("Resolution", in: app, name: prefix + "-filter-submenu" + suffix) {
+                sleep(1); shot(prefix + "-filter-submenu" + suffix)
+                checkMenu(prefix + "-filter-submenu" + suffix, expected: [], before: filterOpen, in: app)
+                back()
+            }
+            back(); _ = focusContent(in: app)
+        }
+        // With no saved view this is the Save View button (R236): the picture shows the page it opens.
+        if openToolbarControl("Save View", id: ControlID.savedViews, in: app, name: prefix + "-saved-views-menu" + suffix) {
+            sleep(1); shot(prefix + "-saved-views-menu" + suffix)
+            back()
+        }
+        app.terminate()
+    }
+
+    /// #32 F: the toolbar's groups. Writes "<name>-GROUPS" with every control's frame and the verdict; fails on unequal gaps
+    /// inside the first group or a gap to the second group that is not clearly wider. When the row is collapsed (the More
+    /// menu, R200) only the first group is checked.
+    func checkToolbarGroups(_ name: String, in app: XCUIApplication) {
+        let first: [(String, String)] = [("Sort", ControlID.sort), ("Filter", ControlID.filter), ("Saved Views", ControlID.savedViews), ("More", ControlID.moreControls)]
+        let second: [(String, String)] = [("Needs Review", ControlID.needsReview), ("Jump to Letter", ControlID.jumpToLetter)]
+        func frames(_ list: [(String, String)]) -> [(String, CGRect)] {
+            list.compactMap { (label: String, id: String) -> (String, CGRect)? in
+                let element: XCUIElement = app.descendants(matching: .any).matching(identifier: id).firstMatch
+                guard element.exists, !element.frame.isEmpty else { return nil }
+                return (label, element.frame)
+            }.sorted { $0.1.minX < $1.1.minX }
+        }
+        let group1: [(String, CGRect)] = frames(first)
+        let group2: [(String, CGRect)] = frames(second)
+        var lines: [String] = (group1 + group2).map { "\($0.0)\t\(String(describing: $0.1))" }
+        var problems: [String] = []
+        let inner: [CGFloat] = zip(group1, group1.dropFirst()).map { $1.1.minX - $0.1.maxX }
+        if group1.count < 2 { problems.append("fewer than two view controls found") }
+        if let low = inner.min(), let high = inner.max(), high - low > 2 {
+            problems.append("gaps inside the view controls differ: \(inner.map { Int($0) })")
+        }
+        if let last = group1.last, let next = group2.first, let gap = inner.max() {
+            let between: CGFloat = next.1.minX - last.1.maxX
+            lines.append("gap inside group \(Int(gap)), gap between groups \(Int(between))")
+            if between < gap * 1.5 { problems.append("the gap between the groups (\(Int(between))) is not at least 1.5 times the gap inside a group (\(Int(gap)))") }
+        } else {
+            lines.append("second group not on the line (collapsed into More, or no Needs Review and no letters)")
+        }
+        lines.append(problems.isEmpty ? "TOOLBAR GROUPS OK" : "TOOLBAR GROUPS PROBLEM: " + problems.joined(separator: "; "))
+        note(name + "-GROUPS", lines.joined(separator: "\n"))
+        XCTAssertTrue(problems.isEmpty, "\(name): " + problems.joined(separator: "; "))
+    }
+
+    /// The labelled buttons, menu items, switches and cells (not tabs, not the toolbar's own controls), each label once. Items
+    /// below the window are kept, so a menu cut at the bottom is seen.
+    func controlLabels(in app: XCUIApplication) -> [(String, CGRect)] {
+        let own: Set<String> = [ControlID.sort, ControlID.filter, ControlID.savedViews, ControlID.moreControls, ControlID.needsReview, ControlID.jumpToLetter]
+        let tabs: Set<String> = Set(app.tabBars.firstMatch.buttons.allElementsBoundByIndex.map { $0.label })
+        var items: [(String, CGRect)] = []
+        for type in [XCUIElement.ElementType.menuItem, .button, .switch, .cell] {
+            for element in app.descendants(matching: type).allElementsBoundByIndex where element.exists {
+                let label: String = element.label
+                if label.isEmpty || own.contains(element.identifier) || tabs.contains(label) { continue }
+                if items.contains(where: { $0.0 == label }) { continue }
+                let frame: CGRect = element.frame
+                if frame.isEmpty { continue }
+                items.append((label, frame))
+            }
+        }
+        return items
+    }
+
+    /// #32 F: the open menu. Its items are the buttons, menu items, switches and cells that are on screen now and are not the
+    /// toolbar's own controls or tabs: the items that appeared since `before` (from `controlLabels` with the menu closed), so
+    /// the grid behind the menu is not counted. Fails when fewer than three are found, when an item ends below the window
+    /// (cut at the bottom), or when an `expected` label is missing. Writes "<name>-MENU".
+    func checkMenu(_ name: String, expected: [String], before: Set<String>, in app: XCUIApplication) {
+        let window: CGRect = app.windows.firstMatch.frame
+        let items: [(String, CGRect)] = controlLabels(in: app).filter { !before.contains($0.0) }
+        var problems: [String] = []
+        if items.count < 3 { problems.append("\(items.count) menu items found, at least 3 expected") }
+        for item in items where item.1.maxY > window.maxY + 1 { problems.append("“\(item.0)” ends at \(Int(item.1.maxY)), below the window (\(Int(window.maxY)))") }
+        for label in expected where !items.contains(where: { $0.0 == label || $0.0.hasPrefix(label + " (") }) {
+            problems.append("no item “\(label)”")
+        }
+        var lines: [String] = items.map { "\($0.0)\t\(String(describing: $0.1))" }
+        lines.append(problems.isEmpty ? "MENU OK" : "MENU PROBLEM: " + problems.joined(separator: "; "))
+        note(name + "-MENU", lines.joined(separator: "\n"))
+        XCTAssertTrue(problems.isEmpty, "\(name): " + problems.joined(separator: "; "))
+    }
+
+    /// The card long-press menu with Go to Movie / Go to Show (and Remove from Continue Watching when the focused card is in
+    /// that row) and where it leads (08). Part 1. The Shows toolbar (07) moved to test16_LibraryToolbars (#32).
+    func test14_ShowsToolbarAndCardMenu() {
+        // #32: the Shows toolbar and its menus (07-shows-*) moved to test16_LibraryToolbars (part 2, R232).
+        let app = launch("-UITestFixtures", tab: "home")
         if waitForScreen("screen.home", in: app), waitFor("Sample", in: app, timeout: 60) {
             settle()
             // #25 A3: into the content first (the focus starts on the tab bar), then the long press; the picture waits
