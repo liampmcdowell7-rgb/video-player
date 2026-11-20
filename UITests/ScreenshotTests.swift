@@ -784,6 +784,19 @@ final class ScreenshotTests: XCTestCase {
         if let anchor { take("row width (C)", ScreenRules.fullScreenRow(in: dump, anchor: anchor)) }
         take("cover exposed to accessibility (#34 2)", ScreenRules.coverExposed(in: dump))
         take("page hidden from accessibility (B 2)", ScreenRules.pageHiddenBehindCover(in: dump))
+        // #36 group 2: for each page screen still in the tree, what XCTest says of it and of its controls (a record, not
+        // part of the rule: the rule stays "not in the tree"). XCTest has no VoiceOver query, so whether VoiceOver can
+        // reach them is NOT measured here; Apple's isModal page says non-modal siblings "are ignored".
+        lines.append("## page behind the cover, as XCTest sees it (record only)")
+        for screenID in Set(dump.nodes.map(\.identifier).filter { $0.hasPrefix("screen.") }).sorted() {
+            let screen: XCUIElement = app.descendants(matching: .any).matching(identifier: screenID).firstMatch
+            guard screen.exists else { continue }
+            lines.append("\(screenID): exists true, isHittable \(screen.isHittable), isEnabled \(screen.isEnabled)")
+            let controls: [XCUIElement] = screen.buttons.allElementsBoundByIndex.prefix(8).map { $0 }
+            for control in controls where control.exists {
+                lines.append("  button “\(control.label)”: isHittable \(control.isHittable), isEnabled \(control.isEnabled)")
+            }
+        }
         var scrolledReason: String? = scrolled
         if scrolledReason == nil, name.hasSuffix("-scrolled") || name.contains("-scrolled-") { scrolledReason = "scrolling (“-scrolled” in its name)" }
         take("cover layout (A)", ScreenRules.coverLayout(in: dump, scrolled: scrolledReason))

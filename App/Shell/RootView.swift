@@ -69,6 +69,9 @@ struct RootView: View {
         // with an Alert, line 113 to 116). This modifier on the TabView did not reach the hosted pages (whether because the
         // tvOS TabView is a UIKit container is not on any page read), so every tab's NavigationStack is now hidden as well,
         // above; the TabView keeps it for the tab bar.
+        // #36 group 2: the third run of 20 Nov (341b43b) still listed the page under about 30 covers with both of these in
+        // place (10-add-source-types-HIERARCHY: screen.home and its four children; 66-move-sheet: screen.needsReview), so
+        // each screen now hides ITSELF, inside its own hosted content (`screenIdentifier`, HiddenUnderTaskCover below).
         .accessibilityHidden(coverPresence.isCovered)
         .environment(coverPresence)
         .overlay(alignment: .bottom) {
@@ -185,5 +188,21 @@ extension View {
     /// accessibility container: its own elements keep their labels and focus order; only the container gets the identifier.
     func screenIdentifier(_ identifier: String) -> some View {
         accessibilityElement(children: .contain).accessibilityIdentifier(identifier)
+            .modifier(HiddenUnderTaskCover())
+    }
+}
+
+/// #36 group 2: every page screen (the views that carry a "screen." identifier through `screenIdentifier`) is hidden from
+/// accessibility while a task cover is open: Apple, `accessibilityHidden(_:)`, "Specifies whether to hide this view from
+/// system accessibility features." The modifier on each tab's NavigationStack and on the TabView (RootView) did not reach
+/// the pages in the third run of 20 Nov; this one is applied inside the page's own SwiftUI content, so it does not depend
+/// on SwiftUI passing the flag through a UIKit container (whether it does is not on any Apple page read: unverified). A
+/// screen inside the cover itself is never hidden (`isInTaskCover`, set by TaskCoverChrome).
+struct HiddenUnderTaskCover: ViewModifier {
+    @Environment(CoverPresence.self) private var presence: CoverPresence?
+    @Environment(\.isInTaskCover) private var isInTaskCover: Bool
+
+    func body(content: Content) -> some View {
+        content.accessibilityHidden(!isInTaskCover && (presence?.isCovered ?? false))
     }
 }

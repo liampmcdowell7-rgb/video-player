@@ -143,7 +143,14 @@ struct TaskCoverChrome: ViewModifier {
             .presentationBackground(.background)
             .onAppear { presence?.opened() }
             .onDisappear { presence?.closed() }
+            // #36 group 2: a screen inside the cover is not the page behind it (HiddenUnderTaskCover, RootView).
+            .environment(\.isInTaskCover, true)
     }
+}
+
+extension EnvironmentValues {
+    /// #36 group 2: true inside a task cover (TaskCoverChrome), so HiddenUnderTaskCover never hides the cover's own content.
+    @Entry var isInTaskCover: Bool = false
 }
 
 /// #33 B (2): how many task covers are open. RootView hides its tabs (and with them the page under a cover) from
