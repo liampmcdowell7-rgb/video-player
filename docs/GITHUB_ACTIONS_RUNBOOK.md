@@ -305,8 +305,8 @@ of the App target (#23) failed, and the other jobs then spent their whole time o
 | Build app + Top Shelf (Simulator) | The app and Top Shelf compile for the tvOS Simulator (arm64) | `compile-check-results` | `errors.txt`, `errors-other.txt`, `build.log` |
 | Build app + Top Shelf (Apple TV device, Release, unsigned) | The same compile for a real Apple TV, and the device slices of the codec frameworks, libnfs and the Dolby Vision RPU library link | `device-build-results` | `errors.txt`, `build.log`, `embedded-frameworks.txt`, `macho-report.txt`, `static-libraries.txt`, `release-strings.txt`, `process-spawning.txt` (#23 C; every report says NOT CHECKED when the build failed) |
 | Package tests (tvOS Simulator) | The package unit tests build and pass on tvOS (tests that need a server, iCloud or a tool are skipped, not failed) | `simulator-test-results` | `test-report.md` (passed / skipped / failed per test target, then the failures), `test.log` |
-| Screenshots, part 1 (setup, Settings, sorting; tvOS Simulator, UI tests) | The UI tests 01, 02, 03, 05, 12, 13, 14 and 10 ran (each its own call) and took pictures | `screenshots` and `screenshots-logs` | `02-….png`, `03-….png` … in viewing order (80 planned: first launch, Add a Source, Settings, About, Files, Search, the player clip 22–27, the synopsis pages 77–78, the Shows row and card menu 07–08, the sorting screens 63–69), `index.md`, `notes/` |
-| Screenshots, part 2 (library and detail pages; tvOS Simulator, UI tests) | The UI test 04 ran and took pictures | `screenshots-library` and `screenshots-library-logs` | the same kind of folder: Home, Movies, Shows, the movie and show pages (44–62; 26 planned), with its own `index.md` |
+| Screenshots, part 1 (setup, Settings, sorting; tvOS Simulator, UI tests) | The UI tests 01, 02, 03, 05, 14 and 10 ran (each its own call) and took pictures | `screenshots` and `screenshots-logs` | `02-….png`, `03-….png` … in viewing order (67 planned: first launch, Add a Source, Settings, About, Files, Search, the card menu 08, the sorting screens 63–69), `index.md`, `notes/` |
+| Screenshots, part 2 (player, synopsis, library and detail pages; tvOS Simulator, UI tests) | The UI tests 12 and 13 ran first (13 after a clean simulator: shut down, erase, boot), then 15, 04 and 16, and took pictures | `screenshots-library` and `screenshots-library-logs` | the same kind of folder: the Movies and Shows toolbars and menus 07, the player clip 22–27, Home (with the Continue Watching caption), Movies, Shows, the movie and show pages 44–62, the synopsis pages 77–78 (64 planned; test15 takes no picture), with its own `index.md` and `notes/` |
 | Accessibility screenshots (tvOS Simulator, UI tests) | Eleven screens were drawn with Larger Text and Bold Text (the app's imitation of those settings) and at the default size, and each Larger Text and Bold Text picture differs from its default one outside the tab bar (OPEN_QUESTIONS R170, #17 A) | `accessibility-screenshots` and `accessibility-screenshots-logs` | folder `text` with its `index.md`: 80–84 and 90–95 Larger Text, 85–89 and 96–101 Bold Text, 102–112 the same screens at the default size (33 planned); `a11y-compare.txt` (the comparison) |
 
 **Increase Contrast, Reduce Transparency and Reduce Motion are device checks only (#24 D).** The tvOS simulator cannot
@@ -331,7 +331,14 @@ tests in one xcodebuild call, the time limit stopped it, and the half-written re
 Each `index.md` lists every test (passed, failed, stopped or not started, its time and seconds per picture), then
 **Planned / Taken / Missing / Failed / Warnings** against the plan, then every picture with its size, then the screens
 not reached (with the reason), the missing ones and the warnings (a picture identical to the one before it is a
-WARNING, not a failure; the picture is kept).
+WARNING, not a failure; the picture is kept, except where a step is marked as meant to change the screen: then the test
+fails, #33 L).
+
+**Notes** (`notes/` in each download, docs/COVERAGE.md "UI-test jobs" has the full list): `-NOT-REACHED` and
+`-UNCHANGED` as above; `-COVER` (the page behind a full-screen cover is hidden from VoiceOver, the cover is not); `-NAME`
+(the server name on 21); `-GAP` (measured gaps on 55, 57 and the toolbar pictures); `-CONTRAST` (31 and 78);
+`fresh-simulator-<test>.txt` (part 2: the clean simulator before test13 and its seconds); `hang-sample-<test>.txt` (a
+sample of the app's main thread when a test hung). None of them fails a job by itself.
 
 **Stage times.** Each job's summary (open the job, scroll to the top of its page) has a table "Stage times" saying how
 long each step took, so you can see where the time goes. The same table is `stage-times.md` inside that job's download
@@ -382,17 +389,19 @@ summary.
 1:11–1:21. UI tests: test01 68 s, test02 36 s, test03 148 s, test10 312 s, test04 436 s, test05 39 s, test06 628 s
 (tests 11, 12, 13 and 14 were not reached). All three screenshot jobs were stopped by the time budget and gave no picture.
 
-**The split since #24** (docs/COVERAGE.md "UI-test jobs" has the detail):
+**The split since #34** (docs/COVERAGE.md "UI-test jobs" has the detail; times measured in the run of 20 Nov, OPEN_QUESTIONS
+R232):
 
 | Job | Tests | Planned pictures | UI tests | Job time (estimate) |
 |---|---|---|---|---|
-| Screenshots, part 1 | 01, 02, 03, 05, 12, 13, 14, 10 | 81 (#25: + 10-add-source-learn-more) | about 15:30 | about 29 min |
-| Screenshots, part 2 | 04 | 26 | 7:16 (measured) | about 21 min |
-| Accessibility screenshots | 06, 11 | 33 | about 12-13 (from the 24:47 job on 1fe5d50) | about 25 min (24:47 measured on 1fe5d50) |
+| Screenshots, part 1 | 01, 02, 03, 05, 14, 10 | 67 | about 18:40 | about 26 min (30 measured with test12 and test13) |
+| Screenshots, part 2 | 12, 13 (after a clean simulator), 15, 04, 16 | 64 | about 17:35 to 18:55 | about 30 min (25 measured without them) |
+| Accessibility screenshots | 06, 11 | 33 | 18:28 (measured) | 31 min (measured) |
 
 **#25 C1:** the accessibility job measured 24:47 start to end on 1fe5d50, so its UI tests took about 12-13 minutes, half
 of the 25-minute budget; #25 adds no picture there and its new waits end as soon as the element is there. test11 stays in
-that job (docs/COVERAGE.md has the reasoning). Expected pictures per set: **83 / 26 / 33 = 142** (#26 added two Online Lookup pictures with a synthetic key) (the run on 1fe5d50
+that job (docs/COVERAGE.md has the reasoning). Expected pictures per set: **67 / 64 / 33 = 164** (#34: test12 and test13
+moved to part 2, two Continue Watching caption pictures added to test04; earlier 83 / 26 / 33 = 142, and the run on 1fe5d50
 delivered 54 / 20 / 33).
 
 **How many minutes a full run uses (estimate; each job's summary now prints its own "Runner minutes for this job"):**
@@ -402,12 +411,12 @@ delivered 54 / 20 / 33).
 | Build app + Top Shelf (Simulator) | macOS (xcode-27) | about 7 |
 | Build app + Top Shelf (Apple TV device) | macOS | about 7 (6:23 in the run of 5ea8e96) |
 | Package tests | macOS | about 12 (not in the #24 numbers; an estimate) |
-| Screenshots, part 1 | macOS | about 29 |
-| Screenshots, part 2 | macOS | about 21 |
-| Accessibility screenshots | macOS | about 25 (24:47 measured on 1fe5d50) |
-| **All jobs** | | **about 101 macOS minutes** |
+| Screenshots, part 1 | macOS | about 26 (30 measured on 20 Nov, before #34 moved test12 and test13) |
+| Screenshots, part 2 | macOS | about 30 (25 measured on 20 Nov, plus test12, test13 and the clean simulator) |
+| Accessibility screenshots | macOS | about 31 (measured on 20 Nov) |
+| **All jobs** | | **about 113 macOS minutes** |
 
-The run takes about **35 minutes** from the button to the last upload (the Simulator build first, then the five other
+The run takes about **40 minutes** from the button to the last upload (the Simulator build first, then the five other
 jobs side by side). GitHub bills every job in whole minutes, rounded up. On a standard runner in a **public** repository
 these minutes are **free** (0 USD; docs.github.com, "GitHub Actions billing", checked 2026-11-17 for this runbook). The
 worst case, every job at its limit, is 30 + 30 + 30 + 60 + 60 + 60 = 270 minutes, still free on a public repository.
@@ -424,7 +433,7 @@ must be added to both.
    red or a picture is missing).
 3. Make a new folder `Downloads\run-3` and unzip each zip into its own subfolder there. Do not unzip into the project folder.
 4. Open `screenshots\index.md` (any text editor) and look at the pictures in number order, then
-   `screenshots-library\index.md` (the numbers continue across both: part 2 holds 44–62). At the end
+   `screenshots-library\index.md` (the numbers continue across both: part 2 holds 07, 22–27, 44–62 and 77–78). At the end
    of each `index.md`, "Fixed in code, verify in these screenshots" (#21 G) lists each change still to be checked by eye,
    what to look for, and the pictures that show it (or NOT REACHED). Look at 08 (the card long-press menu) every time:
    a wrong SF Symbol name builds and passes every test but draws a blank icon, and the three icons of that menu were
