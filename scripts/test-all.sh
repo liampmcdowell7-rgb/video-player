@@ -99,6 +99,12 @@ if bash "$HERE/scripts/test-ci-a11y-compare.sh" >"$LOG/a11y-compare-tests.log" 2
 SUMMARY="$SUMMARY
 a11y-compare self-test ($ACT): $(tail -1 "$LOG/a11y-compare-tests.log")"
 
+# 0b8. The Codemagic TestFlight route (R266): codemagic.yaml's shape, the build number, the profile entitlement check
+# against hand-written sample plists, the log redaction and the pre-push codemagic.yaml section.
+if bash "$HERE/scripts/test-ci-codemagic.sh" >"$LOG/codemagic-tests.log" 2>&1; then CMT=ok; else CMT=bad; fi
+SUMMARY="$SUMMARY
+codemagic self-test ($CMT): $(tail -1 "$LOG/codemagic-tests.log")"
+
 # 0c. Syntax check of the app and extension sources (swiftc -parse). SYNTAX ONLY: it cannot see missing imports, wrong
 # labels or unknown names, because the Apple frameworks do not exist here. A pass is never "it compiles".
 if bash "$HERE/scripts/parse-app.sh" >"$LOG/parse-app.log" 2>&1; then PA=ok; else PA=bad; fi

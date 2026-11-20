@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- HAND-WRITTEN SAMPLE (not a real profile): the Top Shelf profile when its App ID has no App Group. Synthetic team
+     ZZ00000000. scripts/test-ci-codemagic.sh -->
+<plist version="1.0">
+<dict>
+  <key>Name</key><string>Sample Top Shelf App Store profile, no App Group</string>
+  <key>UUID</key><string>00000000-0000-4000-8000-000000000004</string>
+  <key>TeamIdentifier</key><array><string>ZZ00000000</string></array>
+  <key>Entitlements</key>
+  <dict>
+    <key>application-identifier</key><string>ZZ00000000.com.liamp.videoplayer.topshelf</string>
+    <key>get-task-allow</key><false/>
+  </dict>
+</dict>
+</plist>

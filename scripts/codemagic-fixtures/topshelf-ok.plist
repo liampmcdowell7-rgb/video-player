@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- HAND-WRITTEN SAMPLE (not a real profile): the Top Shelf extension's tvOS App Store profile. Synthetic team
+     ZZ00000000. scripts/test-ci-codemagic.sh -->
+<plist version="1.0">
+<dict>
+  <key>Name</key><string>Sample Top Shelf App Store profile</string>
+  <key>UUID</key><string>00000000-0000-4000-8000-000000000003</string>
+  <key>TeamIdentifier</key><array><string>ZZ00000000</string></array>
+  <key>CreationDate</key><date>2026-11-20T12:00:00Z</date>
+  <key>Entitlements</key>
+  <dict>
+    <key>application-identifier</key><string>ZZ00000000.com.liamp.videoplayer.topshelf</string>
+    <key>get-task-allow</key><false/>
+    <key>com.apple.security.application-groups</key><array><string>group.com.liamp.videoplayer</string></array>
+  </dict>
+</dict>
+</plist>

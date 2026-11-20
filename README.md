@@ -8,7 +8,7 @@ Status: step 1 of 8 (scaffold and CI). Placeholder screens only.
 - `project.yml`: XcodeGen spec (the Xcode project is generated on the build machine)
 - `App/`: the tvOS app (`Shell/` tab bar, `Features/` one folder per tab)
 - `Packages/VideoPlayerCore/`: pure-Swift logic with unit tests
-- `codemagic.yaml`: manual-only CI (compile check, TestFlight)
+- `codemagic.yaml`: manual-only TestFlight upload (one workflow, R266; compile checks run on GitHub Actions)
 - `scripts/generate-icons.ps1`: regenerates the neutral app icon and Top Shelf image
 - `docs/CODEMAGIC_SETUP.md`: step-by-step setup
 - `docs/HIG_AUDIT.md`: Human Interface Guidelines audit

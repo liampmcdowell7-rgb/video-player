@@ -1,6 +1,82 @@
-# TestFlight from GitHub Actions (no Mac needed)
+# TestFlight (no Mac needed): Codemagic route, GitHub Actions fallback
 
-Goal: press one button on GitHub, and a signed build of Video Player appears in TestFlight on your Apple TV 4K.
+Goal: press one button, and a signed build of Video Player appears in TestFlight on your Apple TV 4K.
+
+## Which route (OPEN_QUESTIONS R266, PROVISIONAL)
+
+**Use the Codemagic route below.** Your decision of 20 Nov 2026: Codemagic does the TestFlight upload, and only that.
+Compile checks, package tests and UI tests stay on GitHub Actions.
+
+**The GitHub Actions workflow (steps 1 to 28 further down) stays in the repository, unchanged, as the fallback.** Its two
+runs of 20 Nov passed the secrets check, the key step and Prepare, then stopped at Archive with "Your team has no devices
+from which to generate a provisioning profile" and "No profiles for com.liamp.videoplayer (and .topshelf) were found:
+Xcode couldn't find any tvOS App Development provisioning profiles". Why: its archive uses automatic signing, which asks
+Apple for a *Development* profile, and a Development profile needs a registered device. Without a Mac you cannot read the
+Apple TV's real device ID (the placeholder that was registered was classified as "iPod"). The Codemagic route makes an
+*App Store* profile instead, which has no device list. The GitHub workflow can work again after one of R266's
+alternatives (for example the real Apple TV ID, once a Mac is borrowed).
+
+## Codemagic route
+
+Names from Codemagic's pages read on 20 Nov 2026 (listed under Sources at the end); anything else is marked
+*(unverified)*. Your Apple steps are the same as in the GitHub route, so they point there.
+
+- **C1. YOU (Apple website)** — do steps 3 to 14 of the GitHub route below: agreements, the two App IDs, the iCloud
+  container, the App Group, the capabilities on both App IDs (steps 8 and 9 matter most: the build checks them), the app
+  record, API access, a **Team** key with **Admin** access (name it, for example, `Codemagic TestFlight`), its download
+  and its Key ID and Issuer ID. Skip steps 1, 2 and 15 to 22 (they are for GitHub only). Keep the `.p8` file out of the
+  project folder.
+- **C2. YOU (your computer)** — push the commits that contain `codemagic.yaml` (only you push). Codemagic reads the file
+  from the repository.
+- **C3. YOU (Codemagic website)** — add the repository. Sign in at https://codemagic.io *(unverified: sign in with
+  GitHub)*. On the Applications page click **Add application**, pick your team if asked, connect GitHub, select the
+  repository from the list, choose the project type *(unverified: which entry; pick the one for a native iOS app or
+  codemagic.yaml)*, then **Finish: Add application**. If asked, pick the branch `main` and click **Check for
+  configuration file**.
+- **C4. YOU (Codemagic website)** — add the App Store Connect key as the integration **`asc-testflight`** (exactly this
+  name: `codemagic.yaml` refers to it and to nothing else). In your team settings (you must be a team admin) open
+  **Team integrations**, click **Connect** next to **Developer Portal**, then fill in: **App Store Connect API key name**
+  `asc-testflight`, **Issuer ID** and **Key ID** (from step 14), and in **API key** upload the `.p8` file. Click
+  **Save**. (To change it later: **Manage keys** next to Developer Portal.) The key stays in Codemagic, encrypted; it is
+  never in the repository.
+- **C5. YOU (Codemagic website)** — start the build: open the app and click **Start new build**. In **Specify build
+  configuration** choose the branch `main` and the workflow **tvOS TestFlight (manual)**, then start it *(unverified:
+  the name of the final button)*. Nothing starts by itself: the file has no trigger. It stops itself at 30 minutes. An
+  estimate: 15 to 25 minutes (never measured). Free minutes: OPEN_QUESTIONS R105 recorded 494 of 500 free minutes used in
+  November; check the minutes left on Codemagic before you start *(unverified where Codemagic shows them)*.
+- **C6. CODE** — what the workflow does (`codemagic.yaml`, `scripts/cm-testflight.sh`), on a Mac mini M2 with Xcode 27.2
+  (the tvOS 27.2 SDK, the same Xcode as the GitHub runner):
+  1. Prepare exactly as the GitHub compile check does (`scripts/ci-prepare.sh`): check the committed vendored packages,
+     install the pinned XcodeGen 2.46.0 (SHA-256 checked), generate the project, resolve the packages.
+  2. Signing: makes a private key for this build, then for `com.liamp.videoplayer` and `com.liamp.videoplayer.topshelf`
+     asks Apple, through the integration, for an **Apple Distribution** certificate and a **tvOS App Store** profile
+     (`app-store-connect fetch-signing-files --type TVOS_APP_STORE --create`), and adds the certificate to the build
+     keychain. No devices. The key file is deleted at the end of the step.
+  3. Checks the two profiles: the app's must carry the iCloud container `iCloud.com.liamp.videoplayer` and the App Group
+     `group.com.liamp.videoplayer`; the Top Shelf's the App Group. A missing one stops the build (see C7).
+  4. Points each target at its own profile (`xcode-project use-profiles`), checks both now sign manually, sets the build
+     number to the UTC time `yyyyMMddHHmm` and archives for tvOS devices (Release).
+  5. Exports the `.ipa` (method `app-store`), and Codemagic uploads it to App Store Connect with the integration.
+     `submit_to_testflight` is `false`: internal testers need no beta review. No e-mail, Slack or other publishing.
+
+  The log shows only result lines and, on failure, the error lines, with serial numbers, certificate content and the
+  certificate holder's name removed. `project.yml` keeps `ITSAppUsesNonExemptEncryption: false` (step 19, R261).
+- **C7. YOU (Codemagic website)** — if the build turns red: open the red step and copy its last lines (they are already
+  redacted) into a message to me. Two cases you can fix yourself:
+  - **"MISSING CAPABILITY: ... on the App ID ..."**: the line names the capability and the App ID. On
+    developer.apple.com > **Certificates, IDs & Profiles** > **Identifiers**, click that App ID, tick the capability,
+    click **Configure** and tick the named container or group, **Save** (steps 8 and 9 below) *(unverified)*. Then start a
+    new build (C5): it makes new profiles that include the change.
+  - **Too many certificates**: each build makes a new Apple Distribution certificate, because the private key is made
+    fresh each time and Codemagic creates a new certificate when none matches the key (R266). When Apple refuses another
+    one, revoke the oldest "Apple Distribution" certificates on developer.apple.com > **Certificates** *(unverified)*.
+    Apple's certificates page: builds uploaded but not yet submitted for review "may be marked as Invalid Binary" when
+    their certificate is revoked, so revoke only certificates of builds you no longer need.
+- **C8. YOU (Apple website and Apple TV)** — steps 23 to 26 below: wait for Processing, add yourself as an **internal
+  tester** (Internal Testing group, automatic distribution), install TestFlight on the Apple TV and the build.
+- **C9. YOU** — for every later build: C5 only (and C8 if you want it on the Apple TV).
+
+## GitHub Actions route (the fallback; it stops at Archive today, see above)
 
 How to read this list: do the steps **in order**, top to bottom. **YOU** = you do it, on the website or device named in the
 step. **CODE** = already done in this repository; nothing for you to do, it only tells you what the code does. In the page
@@ -8,9 +84,9 @@ addresses, `<you>/<repository>` is your GitHub account and repository name as in
 
 Button and menu names marked *(unverified)* were not checked on the live site for this page (nobody here could open
 Apple's or GitHub's sites); the others are quoted from the Apple and GitHub pages listed at the end, read on 20 Nov 2026.
-If a name differs on screen, look for the nearest match and tell me. Open choices: OPEN_QUESTIONS.md R244 to R252 (all
-PROVISIONAL). docs/CODEMAGIC_SETUP.md is the older Codemagic route; steps 3 to 11 here are the same Apple steps, so skip any
-you already did there.
+If a name differs on screen, look for the nearest match and tell me. Open choices: OPEN_QUESTIONS.md R244 to R252 and
+R266 (all PROVISIONAL). docs/CODEMAGIC_SETUP.md is the older Codemagic setup (its integration name and workflows are
+replaced by the Codemagic route above); steps 3 to 11 here are the same Apple steps, so skip any you already did there.
 
 **Never** put the `.p8` key file, its text, or the Key ID, Issuer ID or Team ID into the repository, an issue, a commit, a
 screenshot or a chat. They go only into GitHub's encrypted secrets (step 16).
@@ -152,3 +228,25 @@ screenshot or a chat. They go only into GitHub's encrypted secrets (step 16).
   https://docs.github.com/en/billing/managing-billing-for-your-products/managing-billing-for-github-actions/about-billing-for-github-actions
   ("Standard GitHub-hosted runners in public repositories" are free; otherwise USD 0.062 per macOS minute against USD 12
   included per month on GitHub Free).
+- Codemagic, codemagic.yaml reference: https://docs.codemagic.io/yaml-basic-configuration/yaml-getting-started/ ("If no
+  events are defined, you can start builds only manually"; **Start new build** and **Specify build configuration**;
+  `max_build_duration` in minutes, "min 1, max 120"; `xcode`: "latest, edge or version (e.g. 11.2)"; `mac_mini_m4` needs
+  billing).
+- Codemagic, Xcode 27.2 build machine: https://docs.codemagic.io/specs-macos/xcode-27-2.md (Xcode 27.2, 27B52, tvOS 27.2
+  SDK, Mac mini M2 and M4); edge is Xcode 27.3 (27C5020n): https://docs.codemagic.io/specs-macos/xcode-27-3.md.
+- Codemagic, App Store Connect publishing: https://docs.codemagic.io/yaml-publishing/app-store-connect/ (`integrations:
+  app_store_connect: <key name>`, `auth: integration`, `submit_to_testflight`; **Team integrations**, **Developer
+  Portal**, **Connect**, **App Store Connect API key name**, **Issuer ID**, **Key ID**, **API key**, **Save**, **Manage
+  keys**).
+- Codemagic, native iOS quick start: https://docs.codemagic.io/yaml-quick-start/building-a-native-ios-app (**Add
+  application**, **Finish: Add application**, **Check for configuration file**, `xcode-project use-profiles`).
+- Codemagic, signing iOS apps and alternative code signing methods: https://docs.codemagic.io/yaml-code-signing/signing-ios/
+  and https://docs.codemagic.io/yaml-code-signing/alternative-code-signing-methods.md (`fetch-signing-files ... --create`
+  with a certificate private key; a new certificate "if there isn't one that already matches this private key"; the
+  integration "will expose necessary environment variables during the build").
+- Codemagic CLI tools: https://github.com/codemagic-ci-cd/cli-tools/tree/master/docs (`fetch-signing-files`: `--type`
+  includes `TVOS_APP_STORE`, `--platform` is IOS, MAC_OS, UNIVERSAL or SERVICES, `--strict-match-identifier`,
+  `--create`, `--certificate-key`; `keychain initialize`, `keychain add-certificates`; `xcode-project use-profiles`
+  writes `$HOME/export_options.plist`).
+- Apple, "Certificates" support page: https://developer.apple.com/support/certificates/ (builds uploaded but not yet
+  submitted for App Review "may be marked as Invalid Binary" when signed with a revoked certificate).

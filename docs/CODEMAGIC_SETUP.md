@@ -1,5 +1,9 @@
 # Setup steps (do once, Windows PowerShell)
 
+> **Superseded for the TestFlight upload (R266, 20 Nov 2026):** follow docs/TESTFLIGHT.md, "Codemagic route". `codemagic.yaml`
+> now has one workflow, "tvOS TestFlight (manual)", and the App Store Connect integration is named `asc-testflight` (not
+> `codemagic-asc` as in step 13 below). The Apple steps here still apply.
+
 Nothing here starts a build. Builds start only when you press "Start new build" in Codemagic.
 Identifiers (developer setup only, never shown in the app): com.liamp.videoplayer
 

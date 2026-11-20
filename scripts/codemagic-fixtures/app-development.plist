@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- HAND-WRITTEN SAMPLE (not a real profile): a Development profile for the app (a device list, get-task-allow true).
+     The check must skip it, even though it has every capability. Synthetic team and device. scripts/test-ci-codemagic.sh -->
+<plist version="1.0">
+<dict>
+  <key>Name</key><string>Sample Development profile</string>
+  <key>UUID</key><string>00000000-0000-4000-8000-000000000005</string>
+  <key>TeamIdentifier</key><array><string>ZZ00000000</string></array>
+  <key>ProvisionedDevices</key><array><string>00000000-0000000000000000</string></array>
+  <key>Entitlements</key>
+  <dict>
+    <key>application-identifier</key><string>ZZ00000000.com.liamp.videoplayer</string>
+    <key>get-task-allow</key><true/>
+    <key>com.apple.developer.icloud-container-identifiers</key><array><string>iCloud.com.liamp.videoplayer</string></array>
+    <key>com.apple.security.application-groups</key><array><string>group.com.liamp.videoplayer</string></array>
+  </dict>
+</dict>
+</plist>
