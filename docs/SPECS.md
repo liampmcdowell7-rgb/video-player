@@ -18,6 +18,7 @@
 | docs/spikes/REMUX.md | FFmpeg remux and audio repackaging feasibility |
 | docs/spikes/DOLBY_VISION_P7.md | Dolby Vision profile 7 to 8.1 conversion cost |
 | scripts/test-all.sh | Every test, every test server, one line per stage |
+| docs/CLAUDE_CODE_SETUP.md | Claude Code setup (#28): CLAUDE.md, hooks, deny rules, /vp-check, /vp-commit, docs-sync agent, what stays unproven (R222 to R225) |
 | scripts/test-core.sh | Unit tests in WSL (no Codemagic minutes); non-zero exit on a failed test or no results, last line "test-core: passed P, skipped S, failed F" (self-test scripts/test-core-tests.sh) |
 | scripts/test-servers.sh | Start and stop local test servers in WSL |
 | scripts/test-integration.sh | Start servers, run integration tests, stop servers |
