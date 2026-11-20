@@ -81,7 +81,7 @@ final class ScreenshotTests: XCTestCase {
     /// The last capture, for the changed-screen check in `shot`.
     private var lastShot: (name: String, png: Data)?
 
-    private func note(_ name: String, _ text: String) {
+    func note(_ name: String, _ text: String) {
         let attachment = XCTAttachment(string: text)
         attachment.name = name
         attachment.lifetime = .keepAlways
@@ -413,8 +413,9 @@ final class ScreenshotTests: XCTestCase {
 
     func test02_AddASource() {
         let app = launch("-UITestEmpty")
-        guard waitForScreen("screen.home", in: app), waitFor("Add a Source", in: app),
-              open("Add a Source", in: app, name: "10-add-source-types") else { return }
+        guard waitForScreen("screen.home", in: app), waitFor("Add a Source", in: app) else { return }
+        rememberPage(app)
+        guard open("Add a Source", in: app, name: "10-add-source-types") else { return }
         // #25 A3: the list is ready when its first row (identifier control.searchYourNetwork) is there; "Type an Address" is a
         // section header further down that a lazy list may not have built yet.
         guard waitForScreen(ControlID.searchYourNetwork, in: app, timeout: 15) else {
@@ -452,7 +453,9 @@ final class ScreenshotTests: XCTestCase {
         let end = launch("-UITestEmpty")
         if waitForScreen("screen.home", in: end), waitFor("Add a Source", in: end), open("Add a Source", in: end, name: "20-add-source-not-available"),
            waitForScreen(ControlID.searchYourNetwork, in: end, timeout: 15) {
-            if moveFocusToEnd(in: end), waitFor("Not Available Yet", in: end, timeout: 5) { settle(); shot("20-add-source-not-available") }
+            if moveFocusToEnd(in: end), waitFor("Not Available Yet", in: end, timeout: 5) {
+                settle(); shot("20-add-source-not-available"); checkCover("20-add-source-not-available", in: end)
+            }
             else { notReached("20-add-source-not-available", "Moving down did not reach “Not Available Yet” (focus on \(focusedLabel(in: end))).") }
             // Network search last: it may ask for local-network permission, which a test cannot answer reliably.
             end.terminate()
@@ -461,7 +464,7 @@ final class ScreenshotTests: XCTestCase {
         if waitForScreen("screen.home", in: network), waitFor("Add a Source", in: network), open("Add a Source", in: network, name: "21-search-your-network"),
            waitForScreen(ControlID.searchYourNetwork, in: network, timeout: 15),
            open("Search Your Network", id: ControlID.searchYourNetwork, in: network, name: "21-search-your-network") {
-            sleep(4); shot("21-search-your-network")
+            sleep(4); shot("21-search-your-network"); checkCover("21-search-your-network", in: network)
         }
         network.terminate()
         // #30 items 2 and 3: the found row and the found server's form, with ONE synthetic server (-UITestFakeServer: the
@@ -472,7 +475,7 @@ final class ScreenshotTests: XCTestCase {
            waitForScreen(ControlID.searchYourNetwork, in: fake, timeout: 15),
            open("Search Your Network", id: ControlID.searchYourNetwork, in: fake, name: "21-search-your-network-result") {
             if waitFor("Sample NAS", in: fake, timeout: 10) {
-                settle(); shot("21-search-your-network-result")
+                settle(); shot("21-search-your-network-result"); checkCover("21-search-your-network-result", in: fake)
                 // The row shows the readable name and the type; the raw identifier is not on the list (item 3).
                 let rawOnList: Bool = fake.staticTexts[rawName].exists
                 note("21-search-your-network-result-ROW", rawOnList ? "RAW ID ON THE LIST ROW" : "RAW ID NOT ON THE LIST ROW OK")
@@ -480,7 +483,9 @@ final class ScreenshotTests: XCTestCase {
                 if open("Sample NAS", in: fake, name: "21-search-your-network-server-details"),
                    waitForScreen(ControlID.serverID, in: fake, timeout: 10) {
                     let row: XCUIElement = control(id: ControlID.serverID, label: "Server ID", in: fake)
-                    if focus(row, in: fake) { settle(); shot("21-search-your-network-server-details") }
+                    if focus(row, in: fake) {
+                        settle(); shot("21-search-your-network-server-details"); checkCover("21-search-your-network-server-details", in: fake)
+                    }
                     else { notReached("21-search-your-network-server-details", "The Server ID row did not take the focus (focus on \(focusedLabel(in: fake))).") }
                     let value: String = (row.value as? String) ?? ""
                     note("21-search-your-network-server-details-ROW", "Server ID row value: \(value)\nframe: \(row.frame)\n" + (value == rawName ? "WHOLE ID OK" : "ID NOT WHOLE"))
@@ -563,32 +568,69 @@ final class ScreenshotTests: XCTestCase {
         }
     }
 
-    /// #26 item 9: a source form never asks for an API key or token (the one app-wide key is in Settings > Online Lookup).
-    /// Fails, with the fields found, when any text or secure field is labelled with "key" or "token".
-    /// #30 (OPEN_QUESTIONS R228): Add a Source and its forms must be full screen, not a small sheet. In the run of 20 Nov the
-    /// sheet was about a third of the screen wide with the tab bar above it (10, 11, 17, 94). The page's column is two thirds
-    /// of the width (TaskPageLayout.columnFraction), so the `anchor` row (a row of the page, found by identifier) must be
-    /// wider than half the window, and no tab bar may be hittable. Writes "<name>-PRESENTATION" with the numbers and fails
-    /// the test when either check fails. A row that is not found fails too: the page cannot be measured.
+    /// #30 C / #33 C: Add a Source and its forms are full screen. The run of 20 Nov measured the Cancel BUTTON's own label (90
+    /// of 1920 wide, note 111-default-source-form-PRESENTATION) and called every form a small sheet; the ROW around the
+    /// anchor is measured now (`ScreenRules.fullScreenRow`: the Cell, else the Table or CollectionView, else the nearest
+    /// wider container; proven on note 10 in Packages/VideoPlayerCore/Tests/ScreenChecksTests). Part of `checkCover`.
     func checkFullScreen(anchor id: String, label: String, in app: XCUIApplication, name: String) {
-        let row: XCUIElement = control(id: id, label: label, in: app)
-        let window: CGRect = app.windows.firstMatch.frame
-        let rowWidth: CGFloat = row.exists ? row.frame.width : 0
-        var share: CGFloat = 0
-        if window.width > 0 { share = rowWidth / window.width }
-        let tabBar: XCUIElement = app.tabBars.firstMatch
-        let tabBarShown: Bool = tabBar.exists && tabBar.isHittable
-        let wide: Bool = share > 0.5
-        var verdict: String = "FULL SCREEN OK"
-        if !wide || tabBarShown { verdict = "SMALL SHEET OR TAB BAR SHOWN" }
-        let lines: [String] = ["row “\(label)” (\(id)) width \(Int(rowWidth)) of window \(Int(window.width)) (share \(String(format: "%.2f", share)), must be over 0.50)",
-                               "tab bar hittable: \(tabBarShown)",
-                               verdict]
-        note(name + "-PRESENTATION", lines.joined(separator: "\n"))
-        XCTAssertTrue(wide, "\(name): the row “\(label)” is \(Int(rowWidth)) of \(Int(window.width)) wide: Add a Source is not full screen")
-        XCTAssertFalse(tabBarShown, "\(name): the tab bar is shown above Add a Source")
+        checkCover(name, anchor: id, in: app)
     }
 
+    /// #33 B: the text frames of the page that is on screen now, kept so `checkCover` can look for them THROUGH the cover
+    /// that opens next (once the cover is open, the page is hidden from accessibility and its frames cannot be read).
+    private var pageTextsBeforeCover: [AXRect] = []
+
+    func rememberPage(_ app: XCUIApplication) {
+        let dump: AccessibilityDump = AccessibilityDump(app.debugDescription)
+        pageTextsBeforeCover = dump.pageRoot.map { dump.textFrames(under: $0) } ?? []
+        print("PAGE TEXTS REMEMBERED: \(pageTextsBeforeCover.count)")
+    }
+
+    /// #33 A and B: every task cover (`taskCover`, App/Shared/SettingsPane.swift) while it is open. Writes "<name>-COVER" with
+    /// one section per check and fails the test, naming the check, when any fails:
+    /// - row (C, with `anchor`): the row around the anchor is wider than half the window;
+    /// - B (2): no "screen.*" element of the page behind is in the accessibility tree;
+    /// - A: the cover's title starts at or below the 60 pt safe area, its rows and fields do not overlap;
+    /// - B (3): the tab bar is not hittable;
+    /// - B (1): the tab bar band (y 46 to 114, full width) and every text the page had (`rememberPage`) show the cover's
+    ///   own background colour, within `CoverPixels.channelTolerance` (its doc comment explains the numbers).
+    /// The same functions fail on pictures 11, 66 and 74 of the run of 20 Nov and pass on a plain opaque cover
+    /// (Packages/VideoPlayerCore/Tests/ScreenChecksTests).
+    func checkCover(_ name: String, anchor: String? = nil, in app: XCUIApplication) {
+        let screenshot: XCUIScreenshot = XCUIScreen.main.screenshot()
+        let dump: AccessibilityDump = AccessibilityDump(app.debugDescription)
+        var lines: [String] = []
+        var failures: [String] = []
+        func take(_ title: String, _ result: CheckResult) {
+            lines.append("## " + title)
+            lines += result.lines
+            if !result.passed { failures.append(title + ": " + result.verdict) }
+        }
+        if let anchor { take("row width (C)", ScreenRules.fullScreenRow(in: dump, anchor: anchor)) }
+        take("page hidden from accessibility (B 2)", ScreenRules.pageHiddenBehindCover(in: dump))
+        take("cover layout (A)", ScreenRules.coverLayout(in: dump))
+        let tabBar: XCUIElement = app.tabBars.firstMatch
+        let hittable: Bool = tabBar.exists && tabBar.isHittable
+        take("tab bar (B 3)", CheckResult(passed: !hittable, lines: ["tab bar in the tree: \(tabBar.exists), hittable: \(hittable)",
+                                                                  hittable ? "TAB BAR HITTABLE" : "TAB BAR NOT HITTABLE OK"]))
+        if let image = RGBImage(screenshot: screenshot), let windowIndex = dump.window,
+           let window = dump.nodes[windowIndex].frame, window.width > 0 {
+            let scale: Double = Double(image.width) / window.width
+            var texts: [AXRect] = pageTextsBeforeCover
+            if texts.isEmpty, let page = dump.pageRoot, page != dump.coverRoot { texts = dump.textFrames(under: page) }
+            lines.append("picture \(image.width) x \(image.height) px, \(String(format: "%.2f", scale)) px per pt, \(texts.count) page texts sampled")
+            take("pixels (B 1)", CoverPixels.check(image, scale: scale, regions: CoverPixels.regions(pageTexts: texts, window: window),
+                                                   exclude: CoverPixels.coverElements(in: dump)))
+        } else {
+            take("pixels (B 1)", CheckResult(passed: false, lines: ["the screenshot could not be read or the window has no frame", "PIXELS NOT MEASURED"]))
+        }
+        lines.append(failures.isEmpty ? "COVER OK" : "COVER PROBLEM: " + failures.joined(separator: "; "))
+        note(name + "-COVER", lines.joined(separator: "\n"))
+        for failure in failures { XCTFail("\(name): \(failure)") }
+    }
+
+    /// #26 item 9: a source form never asks for an API key or token (the one app-wide key is in Settings > Online Lookup).
+    /// Fails, with the fields found, when any text or secure field is labelled with "key" or "token".
     func checkNoKeyField(in app: XCUIApplication, name: String) {
         let fields = app.textFields.allElementsBoundByIndex + app.secureTextFields.allElementsBoundByIndex
         let labels = fields.map { [$0.label, $0.placeholderValue ?? "", $0.identifier].joined(separator: " | ") }
@@ -652,9 +694,10 @@ final class ScreenshotTests: XCTestCase {
             // Fix Match is in the More menu (ItemDetailContentView.moreMenu), not a button on the page: the old test looked for
             // it on the page and never found it (#15 item 1.3). Up to the action row first: the focus is below it after 58.
             for _ in 0..<6 { XCUIRemote.shared.press(.up) }; sleep(1)
+            rememberPage(app)
             if open("More", id: ControlID.more, in: app, name: "59-fix-match"), waitForAny(["Fix Match"], in: app) != nil,
                open("Fix Match", in: app, name: "59-fix-match") {
-                settle(); shot("59-fix-match"); back()
+                settle(); shot("59-fix-match"); checkCover("59-fix-match", in: app); back()
             }
         } else { hierarchy("57-movie-detail", of: app); notReached("57-movie-detail", "The movie detail page did not open.") }
         app.terminate()
@@ -856,7 +899,7 @@ final class ScreenshotTests: XCTestCase {
     /// #32 F: the Movies and Shows toolbars and each of their menus, at the default size and at Larger Text, with checks that
     /// FAIL the test when the toolbar groups are not clear or a menu is wrong (OPEN_QUESTIONS R233 to R236):
     /// - `checkToolbarGroups`: the gaps inside the view-control group (Sort, Filter, Saved Views) differ by more than 2 pt,
-    ///   or the gap to the second group (Needs Review, Jump to Letter) is not at least 1.5 times the in-group gap;
+    ///   or the gap to the second group (Needs Review, Jump to Letter) is not at least 2 times the in-group gap (#33 G, was 1.5);
     /// - `checkMenu`: an open menu with fewer than three items, or an item that ends below the window (a menu cut at the
     ///   bottom); for the Filter menu also each group submenu.
     /// Moved here from test14 (part 1, the job the time budget stopped) into part 2 (R232). Files has no toolbar (its folders
@@ -896,83 +939,58 @@ final class ScreenshotTests: XCTestCase {
             back(); _ = focusContent(in: app)
         }
         // With no saved view this is the Save View button (R236): the picture shows the page it opens.
+        rememberPage(app)
         if openToolbarControl("Save View", id: ControlID.savedViews, in: app, name: prefix + "-saved-views-menu" + suffix) {
-            sleep(1); shot(prefix + "-saved-views-menu" + suffix)
+            sleep(1); shot(prefix + "-saved-views-menu" + suffix); checkCover(prefix + "-saved-views-menu" + suffix, in: app)
             back()
         }
         app.terminate()
     }
 
-    /// #32 F: the toolbar's groups. Writes "<name>-GROUPS" with every control's frame and the verdict; fails on unequal gaps
-    /// inside the first group or a gap to the second group that is not clearly wider. When the row is collapsed (the More
-    /// menu, R200) only the first group is checked.
+    /// #32 F / #33 G: the toolbar's groups. Writes "<name>-GROUPS" with every control's frame, the two gaps and the verdict
+    /// (`ScreenRules.toolbarGroups`, ratio 2: the gap between the groups at least twice the gap inside the first group, at
+    /// the default size and at Larger Text; proven in ScreenChecksTests on the run's frames, 76 vs 60, which fail). When the
+    /// row is collapsed (the More menu, R200) only the first group is checked.
     func checkToolbarGroups(_ name: String, in app: XCUIApplication) {
         let first: [(String, String)] = [("Sort", ControlID.sort), ("Filter", ControlID.filter), ("Saved Views", ControlID.savedViews), ("More", ControlID.moreControls)]
         let second: [(String, String)] = [("Needs Review", ControlID.needsReview), ("Jump to Letter", ControlID.jumpToLetter)]
-        func frames(_ list: [(String, String)]) -> [(String, CGRect)] {
-            list.compactMap { (label: String, id: String) -> (String, CGRect)? in
+        func frames(_ list: [(String, String)]) -> [(String, AXRect)] {
+            list.compactMap { (label: String, id: String) -> (String, AXRect)? in
                 let element: XCUIElement = app.descendants(matching: .any).matching(identifier: id).firstMatch
                 guard element.exists, !element.frame.isEmpty else { return nil }
-                return (label, element.frame)
-            }.sorted { $0.1.minX < $1.1.minX }
+                return (label, AXRect(element.frame))
+            }.sorted { $0.1.x < $1.1.x }
         }
-        let group1: [(String, CGRect)] = frames(first)
-        let group2: [(String, CGRect)] = frames(second)
-        var lines: [String] = (group1 + group2).map { "\($0.0)\t\(String(describing: $0.1))" }
-        var problems: [String] = []
-        let inner: [CGFloat] = zip(group1, group1.dropFirst()).map { $1.1.minX - $0.1.maxX }
-        if group1.count < 2 { problems.append("fewer than two view controls found") }
-        if let low = inner.min(), let high = inner.max(), high - low > 2 {
-            problems.append("gaps inside the view controls differ: \(inner.map { Int($0) })")
-        }
-        if let last = group1.last, let next = group2.first, let gap = inner.max() {
-            let between: CGFloat = next.1.minX - last.1.maxX
-            lines.append("gap inside group \(Int(gap)), gap between groups \(Int(between))")
-            if between < gap * 1.5 { problems.append("the gap between the groups (\(Int(between))) is not at least 1.5 times the gap inside a group (\(Int(gap)))") }
-        } else {
-            lines.append("second group not on the line (collapsed into More, or no Needs Review and no letters)")
-        }
-        lines.append(problems.isEmpty ? "TOOLBAR GROUPS OK" : "TOOLBAR GROUPS PROBLEM: " + problems.joined(separator: "; "))
-        note(name + "-GROUPS", lines.joined(separator: "\n"))
-        XCTAssertTrue(problems.isEmpty, "\(name): " + problems.joined(separator: "; "))
+        let result: CheckResult = ScreenRules.toolbarGroups(first: frames(first), second: frames(second), ratio: 2)
+        note(name + "-GROUPS", result.text)
+        XCTAssertTrue(result.passed, "\(name): " + result.verdict)
     }
 
-    /// The labelled buttons, menu items, switches and cells (not tabs, not the toolbar's own controls), each label once. Items
-    /// below the window are kept, so a menu cut at the bottom is seen.
-    func controlLabels(in app: XCUIApplication) -> [(String, CGRect)] {
-        let own: Set<String> = [ControlID.sort, ControlID.filter, ControlID.savedViews, ControlID.moreControls, ControlID.needsReview, ControlID.jumpToLetter]
-        let tabs: Set<String> = Set(app.tabBars.firstMatch.buttons.allElementsBoundByIndex.map { $0.label })
-        var items: [(String, CGRect)] = []
-        for type in [XCUIElement.ElementType.menuItem, .button, .switch, .cell] {
-            for element in app.descendants(matching: type).allElementsBoundByIndex where element.exists {
-                let label: String = element.label
-                if label.isEmpty || own.contains(element.identifier) || tabs.contains(label) { continue }
-                if items.contains(where: { $0.0 == label }) { continue }
-                let frame: CGRect = element.frame
-                if frame.isEmpty { continue }
-                items.append((label, frame))
-            }
-        }
-        return items
+    /// #33 C: the toolbar's own controls, which are never menu items.
+    static let toolbarControlIDs: Set<String> = [ControlID.sort, ControlID.filter, ControlID.savedViews, ControlID.moreControls,
+                                                ControlID.needsReview, ControlID.jumpToLetter]
+
+    /// #33 C: every labelled Cell, MenuItem, Button and Switch on screen, outside the tab bar and not a toolbar control, read
+    /// from ONE accessibility dump. A tvOS menu item is a Cell with NO label of its own: the run of 20 Nov found "Mark as
+    /// Watched" in the open More menu only as "Cell at {{769.0, 583.4}, {416.0, 67.3}}" through cells containing a
+    /// StaticText with that label (screenshots-library-logs, test.log). The old rule read `element.label` and skipped empty
+    /// labels, so it found 0 items in every open menu. The text of a Cell is now its first StaticText's label.
+    func controlLabels(in app: XCUIApplication) -> [(String, AXRect)] {
+        ScreenRules.menuItems(in: AccessibilityDump(app.debugDescription), before: [], ignoringIdentifiers: Self.toolbarControlIDs)
     }
 
-    /// #32 F: the open menu. Its items are the buttons, menu items, switches and cells that are on screen now and are not the
-    /// toolbar's own controls or tabs: the items that appeared since `before` (from `controlLabels` with the menu closed), so
-    /// the grid behind the menu is not counted. Fails when fewer than three are found, when an item ends below the window
-    /// (cut at the bottom), or when an `expected` label is missing. Writes "<name>-MENU".
+    /// #32 F / #33 C: the open menu: the items that appeared since `before` (from `controlLabels` with the menu closed), so
+    /// the grid behind the menu is not counted (`ScreenRules.menu`). Fails when fewer than three are found, when an item ends
+    /// below the window (cut at the bottom), or when an `expected` label is missing. Writes "<name>-MENU".
     func checkMenu(_ name: String, expected: [String], before: Set<String>, in app: XCUIApplication) {
-        let window: CGRect = app.windows.firstMatch.frame
-        let items: [(String, CGRect)] = controlLabels(in: app).filter { !before.contains($0.0) }
-        var problems: [String] = []
-        if items.count < 3 { problems.append("\(items.count) menu items found, at least 3 expected") }
-        for item in items where item.1.maxY > window.maxY + 1 { problems.append("“\(item.0)” ends at \(Int(item.1.maxY)), below the window (\(Int(window.maxY)))") }
-        for label in expected where !items.contains(where: { $0.0 == label || $0.0.hasPrefix(label + " (") }) {
-            problems.append("no item “\(label)”")
-        }
-        var lines: [String] = items.map { "\($0.0)\t\(String(describing: $0.1))" }
-        lines.append(problems.isEmpty ? "MENU OK" : "MENU PROBLEM: " + problems.joined(separator: "; "))
-        note(name + "-MENU", lines.joined(separator: "\n"))
-        XCTAssertTrue(problems.isEmpty, "\(name): " + problems.joined(separator: "; "))
+        let dump: AccessibilityDump = AccessibilityDump(app.debugDescription)
+        let windowMaxY: Double = dump.window.flatMap { dump.nodes[$0].frame?.maxY } ?? 1080
+        let items: [(String, AXRect)] = ScreenRules.menuItems(in: dump, before: before, ignoringIdentifiers: Self.toolbarControlIDs)
+        let result: CheckResult = ScreenRules.menu(items: items, expected: expected, windowMaxY: windowMaxY)
+        note(name + "-MENU", result.text)
+        // The tree of the open menu, so the next run's notes can prove the element type (none was written in the run of 20 Nov).
+        hierarchy(name, of: app)
+        XCTAssertTrue(result.passed, "\(name): " + result.verdict)
     }
 
     /// The card long-press menu with Go to Movie / Go to Show (and Remove from Continue Watching when the focused card is in
@@ -1023,8 +1041,10 @@ final class ScreenshotTests: XCTestCase {
                     if open("Sample Movie 1 (2021)", in: app, name: "73-files-movie-folder") {
                         settle(); shot("73-files-movie-folder")
                         // #25 B9: the picture waits for the sheet's last element (Done) to stand still.
+                        rememberPage(app)
                         if open("2160p.mkv", in: app, name: "74-file-details") {
                             _ = waitUntilStill(control(id: nil, label: "Done", in: app)); shot("74-file-details"); hierarchy("74-file-details", of: app)
+                            checkCover("74-file-details", in: app)
                         }
                     }
                 }
@@ -1124,6 +1144,7 @@ final class ScreenshotTests: XCTestCase {
             guard waitForScreen("screen.home", in: app, timeout: wait), waitFor("Add a Source", in: app, timeout: wait) else {
                 return fail(app, "Home with “Add a Source” did not appear within \(Int(wait)) s.")
             }
+            rememberPage(app)
             guard step(app, "Add a Source") else { return nil }
             // #24 C: 93, 94, 99 and 100 were NOT REACHED here. "Type an Address" is a section header further down the list;
             // at Larger Text it is below the screen, and a lazy list does not build it yet. "Search Your Network" is the
@@ -1138,13 +1159,9 @@ final class ScreenshotTests: XCTestCase {
             }
             guard open("WebDAV", id: ControlID.sourceKind("webdav"), in: app, name: name) else { app.terminate(); return nil }
             _ = waitUntilStill(control(id: ControlID.sourceCancel, label: "Cancel", in: app))
-            // #30: 94, 100, 111. At Larger Text the Cancel row may be below the screen; the page's first field row is not
-            // identified, so the Cancel row is measured only when it exists (it is built lazily).
-            if control(id: ControlID.sourceCancel, label: "Cancel", in: app).exists {
-                checkFullScreen(anchor: ControlID.sourceCancel, label: "Cancel", in: app, name: name)
-            } else {
-                note(name + "-PRESENTATION", "The Cancel row is not on screen at this text size; the page was not measured (R228).")
-            }
+            // #30: 94, 100, 111. At Larger Text the Cancel row may not be built yet (a lazy list); `fullScreenRow` then
+            // measures the cover's first Cell and says so in the note (#33 C).
+            checkFullScreen(anchor: ControlID.sourceCancel, label: "Cancel", in: app, name: name)
             return app
         default:
             XCTFail("Unknown accessibility screen \(key)")
@@ -1283,9 +1300,10 @@ final class ScreenshotTests: XCTestCase {
                 // #25 A3: the choice is open when its Move to Shows item is there.
                 if waitForAny(["Move to Shows"], in: app) != nil { sleep(1); shot("65-needs-review-choice\(suffix)") }
                 else { notReached("65-needs-review-choice\(suffix)", "The choice did not open (no “Move to Shows” item).\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))") }
+                rememberPage(app)
                 if open("Move to Shows", in: app, name: "66-move-sheet\(suffix)") {
                     // #25 A3: retaken after the sheet's animation: wait for its last element (Cancel) to stand still.
-                    if waitUntilStill(control(id: nil, label: "Cancel", in: app)) { shot("66-move-sheet\(suffix)") }
+                    if waitUntilStill(control(id: nil, label: "Cancel", in: app)) { shot("66-move-sheet\(suffix)"); checkCover("66-move-sheet\(suffix)", in: app) }
                     else { notReached("66-move-sheet\(suffix)", "The move sheet's Cancel button did not appear or kept moving.\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))") }
                     back()
                 }
@@ -1295,9 +1313,10 @@ final class ScreenshotTests: XCTestCase {
 
         app = launch("-UITestFixtures", open: "Sample Movie 1", extra: extra)
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 1", in: app) {
+            rememberPage(app)
             if open("More", id: ControlID.more, in: app, name: "67-sorted-how\(suffix)"), waitForAny(["How This Was Sorted"], in: app) != nil,
                open("How This Was Sorted", in: app, name: "67-sorted-how\(suffix)") {
-                settle(); shot("67-sorted-how\(suffix)")
+                settle(); shot("67-sorted-how\(suffix)"); checkCover("67-sorted-how\(suffix)", in: app)
             }
         } else { notReached("67-sorted-how\(suffix)", "The movie page did not open.") }
         app.terminate()

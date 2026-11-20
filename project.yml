@@ -198,6 +198,8 @@ targets:
       - path: UITests
       # #25 A2: the control identifiers, the same file as in the app, so the tests and the app use the same names.
       - path: App/Shared/ControlID.swift
+      # #33: the screenshot checks as plain Swift, the same files the Linux tests prove (Tests/ScreenChecksTests).
+      - path: Packages/VideoPlayerCore/Sources/ScreenChecks
     dependencies:
       - target: VideoPlayer
     settings:
