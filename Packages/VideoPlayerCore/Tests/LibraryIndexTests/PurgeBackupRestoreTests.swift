@@ -82,6 +82,26 @@ extension PurgeSimulatorTests {
         XCTAssertEqual(try Data(contentsOf: matches), Data("{\"fix\":1}".utf8))
     }
 
+    /// #33 H: a library file read once and then deleted has NO local date, through the same URL value. On Apple platforms
+    /// `URL.resourceValues` caches per URL object, so before the fix the restore saw the deleted file's old date (the
+    /// purge-and-restore test above lost matches.json about half the time on macOS). Foundation on Linux does not cache, so
+    /// on Linux this passes with or without the fix; the macOS run of the package tests is where it proves the fix.
+    func testADeletedLibraryFileHasNoLocalDateThroughTheSameURL() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("vp-h-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let matches = dir.appendingPathComponent("support/matches.json")
+        try FileManager.default.createDirectory(at: matches.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("{\"fix\":1}".utf8).write(to: matches)
+        let store = try SQLiteLibraryStore(path: dir.appendingPathComponent("index.sqlite").path)
+        let content = LibraryBackupFiles(store: store, workDir: dir.appendingPathComponent("work"), libraryFolders: [],
+                                         libraryFiles: ["matches.json": matches], artwork: nil)
+        let before = await content.localModified(.library, name: "matches.json")
+        XCTAssertNotNil(before)
+        try FileManager.default.removeItem(at: matches)
+        let after = await content.localModified(.library, name: "matches.json")
+        XCTAssertNil(after, "a deleted file must not keep its old date (it would be kept as 'newer' instead of restored)")
+    }
+
     /// "Only artwork for items in your library": the index lists its picture files (with the size and date the artwork
     /// cache puts in its key); a cached picture that is not one of them (an old copy, a removed source) is left out and
     /// reported, not uploaded. The app maps each file through ArtworkEngine.sidecarCacheKey; here the path is the name.

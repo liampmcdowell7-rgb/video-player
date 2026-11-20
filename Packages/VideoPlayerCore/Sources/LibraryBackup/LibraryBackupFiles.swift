@@ -41,7 +41,7 @@ public struct LibraryBackupFiles: BackupContent, BackupRestoreTarget {
             var out = [BackupFile(name: backupLibraryDatabaseName, size: data.count, modified: Date()) { data }]
             for folder in libraryFolders { out += folder.files() }
             for (name, url) in libraryFiles.sorted(by: { $0.key < $1.key }) {
-                guard let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]) else { continue }
+                guard let values = try? Self.freshValues(url, [.fileSizeKey, .contentModificationDateKey]) else { continue }
                 out.append(BackupFile(name: name, size: values.fileSize ?? 0, modified: values.contentModificationDate ?? Date(timeIntervalSince1970: 0)) {
                     try Data(contentsOf: url)
                 })
@@ -73,7 +73,7 @@ public struct LibraryBackupFiles: BackupContent, BackupRestoreTarget {
 
     public func localModified(_ set: BackupSet, name: String) async -> Date? {
         if set == .library, let url = libraryFiles[name] {
-            return (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            return (try? Self.freshValues(url, [.contentModificationDateKey]))?.contentModificationDate
         }
         return folder(for: set, name: name)?.modified(name)
     }
@@ -95,6 +95,19 @@ public struct LibraryBackupFiles: BackupContent, BackupRestoreTarget {
         }
         guard let folder = folder(for: set, name: name) else { throw BackupError.local("no place for \(name)") }
         try folder.write(name, data: data, modified: modified)
+    }
+
+    /// #33 H: the values as they are on disk NOW. `URL.resourceValues(forKeys:)` "first checks if the URL instance already
+    /// caches the specified resource values. If so, it returns the cached resource values" (Apple's reference page); off
+    /// the main thread nothing clears that cache. `libraryFiles` keeps ONE URL per file, so after Fix Match's file was
+    /// deleted the restore still read its old modification date. The backed-up date went through `secondsSince1970` in the
+    /// manifest, which loses the last bit about half the time, so the cached date was sometimes "newer" than the backup's:
+    /// the merge rule kept a local file that no longer existed (PurgeBackupRestoreTests.swift: 3 files restored instead of 4,
+    /// matches.json missing, macOS only: Foundation on Linux does not cache, which is why test-core never failed there).
+    static func freshValues(_ url: URL, _ keys: Set<URLResourceKey>) throws -> URLResourceValues {
+        var fresh: URL = url
+        fresh.removeAllCachedResourceValues()
+        return try fresh.resourceValues(forKeys: keys)
     }
 
     private func folder(for set: BackupSet, name: String) -> FolderBackupStore? {
