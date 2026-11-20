@@ -105,18 +105,49 @@ collect() {
 }
 
 # #33 F (1): one sample of the hung app into $2 (see the header). Never fails.
+# #36 group 5a: the third run of 20 Nov found the app (pgrep -x: 27369) but `sample` could not open it ("pid_for_task(...)
+# failed with error 5", then "Sampling process 0"): no access to the process, so no report. Now: the pid is taken from the
+# simulator's own launchd list first (`xcrun simctl spawn <udid> launchctl list`, the app's UIKitApplication job), with
+# `pgrep -x` as the fallback, and both are written down; on macOS `sample` runs through `sudo -n` when sudo needs no
+# password (whether the runner allows it is unverified); a report that sampled pid 0 is called a failure, not a sample;
+# and the app's own log of the last 3 minutes goes to notes/hang-applog-<test>.txt (`log show` inside the simulator,
+# stopped after 60 s). The `simctl spawn`, `launchctl list` and `log show` arguments are from memory (no Mac here).
 hang_sample() {
-  local t="$1" file="$2" name="${CI_HANG_PROCESS:-VideoPlayer}" pid tool="${CI_SAMPLE:-sample}"
-  pid="$(pgrep -x "$name" 2>/dev/null | head -n 1)" || true
+  local t="$1" file="$2" name="${CI_HANG_PROCESS:-VideoPlayer}" pid="" sim_pid="" host_pid="" tool="${CI_SAMPLE:-sample}" runner=""
+  if [ -n "${SIM_UDID:-}" ] && command -v xcrun > /dev/null 2>&1; then
+    sim_pid="$(xcrun simctl spawn "$SIM_UDID" launchctl list 2>/dev/null | awk -v n="$(echo "$name" | tr '[:upper:]' '[:lower:]')" \
+      '$1 ~ /^[0-9]+$/ && tolower($3) ~ /^uikitapplication:/ && index(tolower($3), n) && tolower($3) !~ /uitests|topshelf/ {print $1; exit}')" || true
+  fi
+  host_pid="$(pgrep -x "$name" 2>/dev/null | head -n 1)" || true
+  pid="${sim_pid:-$host_pid}"
+  if [ "$(uname -s 2>/dev/null)" = Darwin ] && sudo -n true > /dev/null 2>&1; then runner="sudo -n"; fi
   {
     echo "HANG SAMPLE for $t at $(date -u +%Y-%m-%dT%H:%M:%SZ): the test log reported a busy main thread."
-    echo "process $name: ${pid:-not found by pgrep -x}"
+    echo "process $name: simulator launchd pid ${sim_pid:-none found}; host pgrep -x pid ${host_pid:-none found}; sampled: ${pid:-the name $name}"
+    echo "sample runs ${runner:-without sudo}"
   } > "$file" 2>/dev/null || true
+  hang_app_log "$t" "$(dirname "$file")/hang-applog-$t.txt" "$name" || true
   if ! command -v "$tool" > /dev/null 2>&1; then echo "no $tool command on this machine: no sample taken" >> "$file"; return 0; fi
-  "$tool" "${pid:-$name}" 5 -file "$file.report" > "$file.out" 2>&1 || echo "$tool exited non-zero" >> "$file"
+  $runner "$tool" "${pid:-$name}" 5 -file "$file.report" > "$file.out" 2>&1 || echo "$tool exited non-zero" >> "$file"
+  if grep -qE 'pid_for_task|Sampling process 0 ' "$file.out" 2>/dev/null; then
+    echo "SAMPLE FAILED: $tool could not open the process (no access; see its output below)" >> "$file"
+  fi
   { cat "$file.out"; echo "---- report ----"; cat "$file.report" 2>/dev/null || echo "(no report written)"; } >> "$file" 2>/dev/null || true
   rm -f "$file.out" "$file.report" 2>/dev/null || true
   echo "HANG SAMPLE written: $file"
+}
+
+# #36 group 5a: the app's log of the last 3 minutes, from inside the simulator, into $2; stopped after 60 s. Never fails.
+hang_app_log() {
+  local t="$1" file="$2" name="$3"
+  if [ -z "${SIM_UDID:-}" ] || ! command -v xcrun > /dev/null 2>&1; then
+    echo "APP LOG for $t: no simulator id or no xcrun on this machine, no log taken" > "$file" 2>/dev/null || true; return 0
+  fi
+  echo "APP LOG for $t at $(date -u +%Y-%m-%dT%H:%M:%SZ): log show --last 3m, process $name" > "$file" 2>/dev/null || true
+  xcrun simctl spawn "$SIM_UDID" log show --last 3m --style compact --predicate "process == \"$name\"" >> "$file" 2>&1 & local p=$!
+  ( sleep 60; kill -TERM "$p" 2>/dev/null ) & local w=$!
+  wait "$p" 2>/dev/null || echo "(log show ended non-zero or was stopped after 60 s)" >> "$file"
+  kill "$w" 2>/dev/null || true
 }
 
 # Watches the lines of $2 after line $3 until it is killed; samples once on the first hang line.

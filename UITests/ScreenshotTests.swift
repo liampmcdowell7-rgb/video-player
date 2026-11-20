@@ -46,8 +46,24 @@ final class ScreenshotTests: XCTestCase {
     }
 
     /// Waits for the screen with the accessibility identifier `id` ("screen.home", "screen.item", ...).
+    /// #36 group 5a: when the screen does not come (test12 of the third run of 20 Nov: "Timed out while evaluating UI query"
+    /// on screen.series), a picture of the screen is kept BEFORE the test goes on to fail: "<test>-WAIT-<id>", taken with
+    /// XCUIScreen (the display, no query on the app).
     func waitForScreen(_ id: String, in app: XCUIApplication, timeout: TimeInterval = 30) -> Bool {
-        app.descendants(matching: .any).matching(identifier: id).firstMatch.waitForExistence(timeout: timeout)
+        let found: Bool = app.descendants(matching: .any).matching(identifier: id).firstMatch.waitForExistence(timeout: timeout)
+        if !found { pictureOfTheScreen("WAIT-" + id) }
+        return found
+    }
+
+    /// The display as it is, saved as "<test>-<what>.png" (no app query, so it works while the app is hung).
+    func pictureOfTheScreen(_ what: String) {
+        let screenshot: XCUIScreenshot = XCUIScreen.main.screenshot()
+        let test: String = name.components(separatedBy: " ").last.map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "]")) } ?? "test"
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = test + "-" + what
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        writeFile(test + "-" + what + ".png", screenshot.pngRepresentation)
     }
 
     /// A screenshot named `name`, taken only while the app is in front. Otherwise a failure and a text note, never a picture
@@ -449,15 +465,38 @@ final class ScreenshotTests: XCTestCase {
 
     /// Types `text` on the tvOS on-screen keyboard by moving to each key and pressing Select (run 44401030622: `typeText`
     /// failed with "Neither element nor any descendant has keyboard focus" on the search keyboard). False when a key is not
-    /// found or cannot be focused.
-    func typeOnKeyboard(_ text: String, in app: XCUIApplication) -> Bool {
-        let keyboard = app.keyboards.firstMatch
+    /// found or cannot be reached.
+    /// #36 group 5b: 76-search-results of the third run of 20 Nov stopped on "t": no key of the linear keyboard carries the
+    /// focus flag (76-search-results-HIERARCHY: "Keyboard …, Focused" and "SearchField …, Keyboard Focused", every Key
+    /// without it), so the focus helper could not tell where it was. The focused key is the ENLARGED one ("t" 70 x 80 beside
+    /// 54 x 64; ScreenRules.focusedKey), and the keys are one row in reading order: Left or Right until the wanted key is the
+    /// enlarged one, then Select. Every step goes to the "-FOCUS-PATH" note of `name`.
+    func typeOnKeyboard(_ text: String, in app: XCUIApplication, name: String) -> Bool {
+        var path: [String] = []
+        defer { note(name + "-FOCUS-PATH", path.joined(separator: "\n")) }
         for character in text {
-            let label = String(character)
-            let candidates = [keyboard.keys[label], keyboard.buttons[label], keyboard.keys[label.uppercased()], keyboard.buttons[label.uppercased()]]
-            guard let key = candidates.first(where: { $0.exists }), focus(key, in: app, maxPresses: 40) else { return false }
-            XCUIRemote.shared.press(.select)
+            let label: String = String(character)
+            var typed: Bool = false
+            for press in 0..<40 {
+                let dump: AccessibilityDump = AccessibilityDump(app.keyboards.firstMatch.debugDescription)
+                let keys: [(label: String, frame: AXRect)] = dump.nodes.filter { $0.type == "Key" }.compactMap { (node: AXNode) in
+                    node.frame.map { (label: node.label, frame: $0) }
+                }
+                guard let target = keys.firstIndex(where: { $0.label == label || $0.label == label.uppercased() }) else {
+                    path.append("no key \u{201C}\(label)\u{201D} among \(keys.count) keys"); return false
+                }
+                guard let here = ScreenRules.focusedKey(keys) else {
+                    path.append("no enlarged key among \(keys.count) keys: the focused key is not known"); return false
+                }
+                path.append("\u{201C}\(label)\u{201D}: focus on \u{201C}\(keys[here].label)\u{201D} \(keys[here].frame) after \(press) presses")
+                if here == target {
+                    XCUIRemote.shared.press(.select); usleep(400_000); typed = true; break
+                }
+                XCUIRemote.shared.press(target < here ? .left : .right); usleep(300_000)
+            }
+            if !typed { path.append("\u{201C}\(label)\u{201D} NOT REACHED in 40 presses"); return false }
         }
+        path.append("TYPED \u{201C}\(text)\u{201D}")
         return true
     }
 
@@ -1386,12 +1425,12 @@ final class ScreenshotTests: XCTestCase {
             XCUIRemote.shared.press(.select)
         }
         if app.keyboards.firstMatch.waitForExistence(timeout: 10) {
-            if typeOnKeyboard("sam", in: app) {
+            if typeOnKeyboard("sam", in: app, name: "76-search-results") {
                 sleep(3)
                 shot("76-search-results")
             } else {
                 hierarchy("76-search-results", of: app)
-                notReached("76-search-results", "The keys of the on-screen keyboard could not be reached with the remote.")
+                notReached("76-search-results", "The keys of the on-screen keyboard could not be reached with the remote (every step in 76-search-results-FOCUS-PATH).")
             }
         } else {
             notReached("76-search-results", "No on-screen keyboard appeared (search field found: \(field != nil)).")

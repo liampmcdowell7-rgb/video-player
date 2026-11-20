@@ -480,6 +480,22 @@ public enum ScreenRules {
         return CheckResult(passed: true, lines: ["the screen changed after \(step)", "SCREEN CHANGED OK"])
     }
 
+    // MARK: #36 group 5b: the focused key of the linear keyboard
+
+    /// #36 group 5b: the index of the focused key of the tvOS linear keyboard, or nil. No key carries the focus flag in the
+    /// tree (76-search-results-HIERARCHY of the third run of 20 Nov); the focused key is drawn larger ("t" {1343, 253.5,
+    /// 70 x 80} beside 54 x 64 keys). The key whose height is at least 8 pt over the median height, and the tallest, is it;
+    /// none or two of the same height: nil.
+    public static func focusedKey(_ keys: [(label: String, frame: AXRect)]) -> Int? {
+        guard keys.count >= 3 else { return nil }
+        let heights: [Double] = keys.map(\.frame.height).sorted()
+        let median: Double = heights[heights.count / 2]
+        let tallest: Double = heights.last ?? 0
+        guard tallest >= median + 8 else { return nil }
+        let candidates: [Int] = keys.indices.filter { abs(keys[$0].frame.height - tallest) < 0.5 }
+        return candidates.count == 1 ? candidates[0] : nil
+    }
+
     // MARK: #36 group 3: a form inside the safe area
 
     /// #36 group 3 (OPEN_QUESTIONS R265, PROVISIONAL): every named element (the fields, Connect and Cancel of a form) lies

@@ -108,8 +108,19 @@ echo "Call graph: fake main thread stack ($1 $2)" > "$out"
 EOF
 chmod +x "$S/bin/fake-sample"
 CI_SAMPLE=fake-sample CI_HANG_PROCESS=no-such-process-vp run $T1 $T2 $T3; rc=$?
-check "hang capture: hang-sample note with the sample's report, for the busy test only" "[ -f '$S/dest/notes/hang-sample-$T2.txt' ] && grep -q 'Call graph: fake main thread stack (no-such-process-vp 5)' '$S/dest/notes/hang-sample-$T2.txt' && ! [ -e '$S/dest/notes/hang-sample-$T1.txt' ] && ! [ -e '$S/dest/notes/hang-sample-$T3.txt' ]"
+check "hang capture: hang-sample note with the sample's report, for the busy test only" "[ -f '$S/dest/notes/hang-sample-$T2.txt' ] && grep -q 'Call graph: fake main thread stack (no-such-process-vp 5)' '$S/dest/notes/hang-sample-$T2.txt' && ! grep -q 'SAMPLE FAILED' '$S/dest/notes/hang-sample-$T2.txt' && ! [ -e '$S/dest/notes/hang-sample-$T1.txt' ] && ! [ -e '$S/dest/notes/hang-sample-$T3.txt' ]"
 check "hang capture: the result is the test's own (exit 1, failed 65), the next test still passed" "[ $rc -eq 1 ] && grep -qF '| $T2 | failed (exit 65) |' '$S/dest/index.md' && grep -qF '| $T3 | passed |' '$S/dest/index.md'"
+# #36 group 5a: a sample that cannot open the process ("pid_for_task ... failed", "Sampling process 0") is marked SAMPLE
+# FAILED, the pid line names both lookups, and an app-log note is written (here: no simulator id, so it says so).
+setup; printf '%s busy
+' $T2 > "$S/behaviour"
+cat > "$S/bin/fail-sample" <<'EOF'
+#!/usr/bin/env bash
+echo "sample[1]: pid_for_task(c03) failed with error 5"; echo "Sampling process 0 for 5 seconds"
+EOF
+chmod +x "$S/bin/fail-sample"
+CI_SAMPLE=fail-sample CI_HANG_PROCESS=no-such-process-vp run $T2; rc=$?
+check "hang capture: a sample without access is marked SAMPLE FAILED, both pid lookups named, app-log note written" "[ $rc -eq 1 ] && grep -q 'SAMPLE FAILED' '$S/dest/notes/hang-sample-$T2.txt' && grep -q 'simulator launchd pid' '$S/dest/notes/hang-sample-$T2.txt' && grep -q 'host pgrep -x pid none found' '$S/dest/notes/hang-sample-$T2.txt' && [ -f '$S/dest/notes/hang-applog-$T2.txt' ]"
 # No sample tool at all: the note says so and nothing else changes.
 setup; printf '%s busy
 ' $T2 > "$S/behaviour"; CI_SAMPLE=no-such-sample-tool run $T2; rc=$?
