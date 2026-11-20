@@ -327,6 +327,45 @@ final class ScreenChecksTests: XCTestCase {
 
     /// #33 L: 56-show-long-episode-caption-later was the same picture as 56-show-long-episode-caption (the run's -UNCHANGED
     /// note); the check fails on that pair and passes on two pictures that differ (55 and 55 scrolled once).
+    /// #33 E: the run's show page had S2 E3 smaller than the other episode cards; equal cards pass.
+    func testRunArtifactsTheEpisodeCardsOfPicture55AreNotEqual() throws {
+        let text: String = try String(contentsOf: try artifact("screenshots-library/notes/55-show-page-HIERARCHY.txt"), encoding: .utf8)
+        let result: CheckResult = ScreenRules.equalEpisodeCards(in: AccessibilityDump(text))
+        XCTAssertFalse(result.passed, result.text)
+        XCTAssertTrue(result.text.contains("378 x 566"), result.text)
+    }
+
+    /// #33 L: the frames of the run of 20 Nov. S1 E1 focused (note 55: {{80, 481}, {410, 615}}), S2 E1 the target
+    /// ({{80, 908}, {410, 615}}): the old rule pressed Left (the frames overlap vertically), the new one Down. A row not laid
+    /// out yet (empty frame at the origin, as About Source Types below the list): old Up, new Down.
+    func testTheFocusHelperMovesDownToTheSecondSeasonAndToARowNotLaidOutYet() {
+        let s1e1: AXRect = AXRect(x: 80, y: 481, width: 410, height: 615)
+        let s2e1: AXRect = AXRect(x: 80, y: 908, width: 410, height: 615)
+        XCTAssertEqual(ScreenRules.oldFocusDirection(from: s1e1, to: s2e1), .left)
+        XCTAssertEqual(ScreenRules.focusDirection(from: s1e1, to: s2e1), .down)
+        let searchRow: AXRect = AXRect(x: 373, y: 300, width: 1174, height: 66)
+        let notBuilt: AXRect = AXRect(x: 0, y: 0, width: 0, height: 0)
+        XCTAssertEqual(ScreenRules.oldFocusDirection(from: searchRow, to: notBuilt), .up)
+        XCTAssertEqual(ScreenRules.focusDirection(from: searchRow, to: notBuilt), .down)
+        // Neighbours on one row still go sideways; a row above still goes up.
+        XCTAssertEqual(ScreenRules.focusDirection(from: s1e1, to: AXRect(x: 530, y: 481, width: 410, height: 615)), .right)
+        XCTAssertEqual(ScreenRules.focusDirection(from: s2e1, to: s1e1), .up)
+    }
+
+    func testEqualEpisodeCardsPassAndOneSmallerCardFails() {
+        func dump(_ third: String) -> AccessibilityDump {
+            AccessibilityDump("""
+             →Application, 0x1, pid: 1, label: 'Video Player'
+                Window (Main), 0x2, {{0.0, 0.0}, {1920.0, 1080.0}}
+                  Button, 0x3, {{80.0, 481.0}, {410.0, 615.0}}, label: 'S1 E1, A quiet beginning', value: 43 min
+                  Button, 0x4, {{530.0, 481.0}, {410.0, 615.0}}, label: 'S1 E2, The long way round', value: 43 min
+                  Button, 0x5, \(third), label: 'S2 E3, A very long episode title', value: 43 min
+            """)
+        }
+        XCTAssertTrue(ScreenRules.equalEpisodeCards(in: dump("{{980.0, 481.0}, {410.0, 615.0}}")).passed)
+        XCTAssertFalse(ScreenRules.equalEpisodeCards(in: dump("{{980.0, 481.0}, {378.0, 566.0}}")).passed)
+    }
+
     func testRunArtifactsTheUnchangedCheckFailsOnTheTwoMarqueePicturesAndPassesOnAScroll() throws {
         let first: [UInt8] = [UInt8](try Data(contentsOf: try artifact("screenshots-library/56-show-long-episode-caption.png")))
         let later: [UInt8] = [UInt8](try Data(contentsOf: try artifact("screenshots-library/56-show-long-episode-caption-later.png")))

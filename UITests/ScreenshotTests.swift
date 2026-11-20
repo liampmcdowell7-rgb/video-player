@@ -52,7 +52,7 @@ final class ScreenshotTests: XCTestCase {
 
     /// A screenshot named `name`, taken only while the app is in front. Otherwise a failure and a text note, never a picture
     /// of the system Home Screen saved under the name of one of the app's screens.
-    func shot(_ name: String) {
+    func shot(_ name: String, mustChangeAfter step: String? = nil) {
         guard let app = current, appIsInFront(app, timeout: 2) else {
             let state = current.map { "\($0.state.rawValue)" } ?? "not launched"
             XCTFail("\(name): the app is not in the foreground (state \(state)); no screenshot taken.")
@@ -71,7 +71,15 @@ final class ScreenshotTests: XCTestCase {
         // #15 item 1.6: every capture must show something new. The CI run for 8bb0f0c saved 58 and 61 "scrolled" three
         // times each, pixel for pixel the same as the page before: Down moved nothing. #24 C: same pixels is a WARNING
         // (the -UNCHANGED note, listed in index.md), not a test failure; the picture is kept either way.
-        if let previous = lastShot, previous.png == png {
+        // #33 L: a step that was MEANT to change the screen (`mustChangeAfter`) fails the test when it did not
+        // (ScreenRules.changed, proven on the run's 56 / 56-later pair in ScreenChecksTests).
+        if let step, let previous = lastShot {
+            let result: CheckResult = ScreenRules.changed([UInt8](previous.png), [UInt8](png), step: step)
+            if !result.passed {
+                note(name + "-UNCHANGED", "Identical, pixel for pixel, to \(previous.name).\n" + result.text)
+                XCTFail("\(name): \(step) did not change the screen (identical to \(previous.name))")
+            }
+        } else if let previous = lastShot, previous.png == png {
             print("WARNING: \(name): the screen did not change since \(previous.name) (identical pixels).")
             note(name + "-UNCHANGED", "Identical, pixel for pixel, to \(previous.name): the step before it did not change the screen.")
         }
@@ -305,12 +313,27 @@ final class ScreenshotTests: XCTestCase {
             if f.contains(CGPoint(x: t.midX, y: t.midY)) || t.contains(CGPoint(x: f.midX, y: f.midY)) { return true }
             if f == lastFrame { unmoved += 1; if unmoved >= 3 { return false } } else { unmoved = 0 }
             lastFrame = f
-            if t.minY >= f.maxY - 2 { remote.press(.down) }
-            else if t.maxY <= f.minY + 2 { remote.press(.up) }
-            else if t.midX > f.midX { remote.press(.right) }
-            else { remote.press(.left) }
+            remote.press(Self.direction(from: f, to: t))
         }
         return target.exists && target.hasFocus
+    }
+
+    /// #33 L: the arrow that moves the focus from `f` toward `t`. The run of 20 Nov missed three targets with the old rule
+    /// (Down only when the target starts below the focused element's bottom edge):
+    /// - a row a lazy list has not laid out yet reports an EMPTY frame at the origin, so the old rule pressed Up, toward the top
+    ///   (10-add-source-learn-more: focus stayed on “Search Your Network”; 65-needs-review-choice-larger-text: on the tab bar);
+    ///   an empty frame now means "further down the list";
+    /// - episode cards of two seasons are 615 pt tall but only 427 pt apart, so the frames overlap vertically and the old rule
+    ///   pressed Left on the first card for ever (56-show-season-2-episode-row); the centres decide now: vertical when they
+    ///   are more than half a height apart, otherwise horizontal.
+    /// The rule is `ScreenRules.focusDirection`, proven on the run's frames in ScreenChecksTests.
+    static func direction(from f: CGRect, to t: CGRect) -> XCUIRemote.Button {
+        switch ScreenRules.focusDirection(from: AXRect(f), to: AXRect(t)) {
+        case .down: return .down
+        case .up: return .up
+        case .left: return .left
+        case .right: return .right
+        }
     }
 
     /// The accessibility hierarchy right after a screen opened (screenshot review item 7): are the rows buttons or cells,
@@ -490,6 +513,12 @@ final class ScreenshotTests: XCTestCase {
                     let value: String = (row.value as? String) ?? ""
                     note("21-search-your-network-server-details-ROW", "Server ID row value: \(value)\nframe: \(row.frame)\n" + (value == rawName ? "WHOLE ID OK" : "ID NOT WHOLE"))
                     XCTAssertEqual(value, rawName, "21-search-your-network-server-details: the Server ID row does not carry the whole identifier")
+                    // #33 D: the Name field starts with the readable name only. The tree carries a field's whole value, not
+                    // what is drawn, so a "…" cut cannot be read here; the picture 21-search-your-network-server-details shows it.
+                    let fieldValues: [String] = fake.textFields.allElementsBoundByIndex.map { ($0.value as? String) ?? "" }
+                    let nameOK: Bool = fieldValues.contains("Sample NAS") && !fieldValues.contains { $0.contains(rawName) }
+                    note("21-search-your-network-server-details-NAME", "text field values: \(fieldValues)\n" + (nameOK ? "NAME IS THE READABLE NAME OK" : "NAME FIELD IS NOT “Sample NAS” ALONE"))
+                    XCTAssertTrue(nameOK, "21-search-your-network-server-details: the Name field is not “Sample NAS” alone: \(fieldValues)")
                 }
             } else {
                 notReached("21-search-your-network-result", "The synthetic server “Sample NAS” was not listed within 10 s.")
@@ -668,9 +697,15 @@ final class ScreenshotTests: XCTestCase {
 
         app = launch("-UITestFixtures", open: "Sample Show 1")
         if waitForScreen("screen.series", in: app, timeout: 60), waitFor("Season 1", in: app, timeout: 20) {
-            settle(); shot("55-show-page"); hierarchy("55-show-page", of: app)
+            settle(); shot("55-show-page")
+            // #33 E: every episode card the same size (55 of the run of 20 Nov: S2 E3 378 x 566 beside 410 x 615).
+            let pageTree: String = app.debugDescription
+            note("55-show-page-HIERARCHY", pageTree)
+            let cards: CheckResult = ScreenRules.equalEpisodeCards(in: AccessibilityDump(pageTree))
+            note("55-show-page-CARDS", cards.text)
+            XCTAssertTrue(cards.passed, "55-show-page: " + cards.verdict)
             // #15 item 1.6: the scrolled states of the show page (each must differ from the one before).
-            for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); shot("55-show-page-scrolled-\(step)") }
+            for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); shot("55-show-page-scrolled-\(step)", mustChangeAfter: step == 1 ? "Down on the show page" : nil) }
             for _ in 0..<2 { XCUIRemote.shared.press(.up) }; sleep(1)
             // Seasons are sections of the show page (there is no separate season page); move down to season 2.
             if focus(control("S2", in: app), in: app) || focus(control("Season 2", in: app), in: app) { settle(); shot("56-show-season-2-episode-row") }
@@ -679,7 +714,8 @@ final class ScreenshotTests: XCTestCase {
             // scroll it; the two pictures 3 s apart show whether it moves (default text size).
             if focus(control("S2 E3", in: app), in: app) || focus(control("S2 E3, A very long episode title that is wider than any episode card on the show page", in: app), in: app) {
                 sleep(1); shot("56-show-long-episode-caption")
-                sleep(3); shot("56-show-long-episode-caption-later")
+                // #33 L: the marquee was meant to move the caption; identical pictures fail (unverified that it runs).
+                sleep(3); shot("56-show-long-episode-caption-later", mustChangeAfter: "3 s of focus on S2 E3 (the system marquee)")
             } else {
                 notReached("56-show-long-episode-caption", "Could not move the focus to S2 E3 (focus on \(focusedLabel(in: app))).")
             }
@@ -690,7 +726,7 @@ final class ScreenshotTests: XCTestCase {
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 1", in: app) {
             settle(); shot("57-movie-detail"); hierarchy("57-movie-detail", of: app)
             focusCheck("57-movie-detail", expected: ControlID.play, in: app)
-            for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); shot("58-movie-detail-scrolled-\(step)") }
+            for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); shot("58-movie-detail-scrolled-\(step)", mustChangeAfter: step == 1 ? "Down on the movie page" : nil) }
             // Fix Match is in the More menu (ItemDetailContentView.moreMenu), not a button on the page: the old test looked for
             // it on the page and never found it (#15 item 1.3). Up to the action row first: the focus is below it after 58.
             for _ in 0..<6 { XCUIRemote.shared.press(.up) }; sleep(1)

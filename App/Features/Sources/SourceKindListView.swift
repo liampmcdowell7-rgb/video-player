@@ -33,9 +33,16 @@ struct SourceKindListView: View {
                 }
             }
             Section("Not Available Yet") {
+                // #33 L (OPEN_QUESTIONS R238, PROVISIONAL): each row opens "About Source Types", where the reason is. As plain
+                // text the rows took no focus, so the focus could not move past them: the run of 20 Nov stopped on “Emby” (20)
+                // and never reached About Source Types or Cancel below them (10-add-source-learn-more), nor could a person.
                 ForEach(kinds.filter { !$0.isAvailable }) { info in
-                    SourceKindRow(info: info)
-                        .accessibilityIdentifier(ControlID.sourceKind(info.kind.rawValue))
+                    NavigationLink {
+                        LongTextPage(title: SourceSetupText.learnMoreTitle, text: SourceSetupText.learnMore(kinds))
+                    } label: {
+                        SourceKindRow(info: info)
+                    }
+                    .accessibilityIdentifier(ControlID.sourceKind(info.kind.rawValue))
                 }
             }
             Section {

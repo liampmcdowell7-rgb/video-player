@@ -172,6 +172,54 @@ public enum ScreenRules {
         return CheckResult(passed: problems.isEmpty, lines: lines)
     }
 
+    // MARK: L: the focus helper
+
+    public enum Arrow: String, Sendable { case up, down, left, right }
+
+    /// #33 L: the arrow that moves the focus from `focused` toward `target`. An empty target frame (a row a lazy list has
+    /// not laid out, reported at the origin) means "further down the list". Otherwise the centres decide: vertical when
+    /// they are more than half the smaller height (at least 8 pt) apart, horizontal when not. The old rule (Down only when
+    /// the target starts below the focused element's bottom) pressed Up for an empty frame and Left for ever between
+    /// overlapping episode cards (run of 20 Nov: 10-add-source-learn-more, 56-show-season-2-episode-row, 65 at Larger Text).
+    public static func focusDirection(from focused: AXRect, to target: AXRect) -> Arrow {
+        if target.isEmpty { return .down }
+        let dy: Double = target.midY - focused.midY
+        let dx: Double = target.midX - focused.midX
+        if abs(dy) > max(8, min(focused.height, target.height) / 2) { return dy > 0 ? .down : .up }
+        return dx > 0 ? .right : .left
+    }
+
+    /// The old rule of `focus(_:in:)` before #33, kept so the tests show where it went wrong.
+    public static func oldFocusDirection(from f: AXRect, to t: AXRect) -> Arrow {
+        if t.y >= f.maxY - 2 { return .down }
+        if t.maxY <= f.y + 2 { return .up }
+        return t.midX > f.midX ? .right : .left
+    }
+
+    // MARK: E: equal episode cards
+
+    /// #33 E: every episode card ("S2 E3, Title", a Button or Cell) has the same size, within 1 pt. Picture 55 of the run of
+    /// 20 Nov had S2 E3 at 378 x 566 beside 410 x 615 cards.
+    public static func equalEpisodeCards(in dump: AccessibilityDump) -> CheckResult {
+        let pattern: NSRegularExpression = try! NSRegularExpression(pattern: "^S[0-9]+ E[0-9]+, ")
+        let cards: [(String, AXRect)] = dump.nodes.compactMap { (node: AXNode) -> (String, AXRect)? in
+            guard ["Button", "Cell"].contains(node.type), let frame = node.frame, !frame.isEmpty,
+                  pattern.firstMatch(in: node.label, range: NSRange(node.label.startIndex..., in: node.label)) != nil else { return nil }
+            return (node.label, frame)
+        }
+        guard cards.count >= 2 else { return CheckResult(passed: false, lines: ["\(cards.count) episode cards found, at least 2 expected", "CARDS NOT MEASURED"]) }
+        var counts: [String: Int] = [:]
+        for card in cards { counts["\(Int(card.1.width.rounded())) x \(Int(card.1.height.rounded()))", default: 0] += 1 }
+        let common: String = counts.max { $0.value < $1.value }?.key ?? ""
+        let reference: AXRect = cards.first { "\(Int($0.1.width.rounded())) x \(Int($0.1.height.rounded()))" == common }!.1
+        let odd: [String] = cards.filter { abs($0.1.width - reference.width) > 1 || abs($0.1.height - reference.height) > 1 }
+            .map { "“\($0.0)” \(Int($0.1.width)) x \(Int($0.1.height))" }
+        var lines: [String] = ["\(cards.count) episode cards, most are \(common)"]
+        if !odd.isEmpty { lines.append("different size: " + odd.joined(separator: "; ")) }
+        lines.append(odd.isEmpty ? "EPISODE CARDS EQUAL OK" : "EPISODE CARDS NOT EQUAL")
+        return CheckResult(passed: odd.isEmpty, lines: lines)
+    }
+
     // MARK: L: pictures that must change
 
     /// #33 L: two captures of a step that was meant to change the screen. Identical pixels fail with the reason.
