@@ -1,0 +1,255 @@
+Attributes: Application, 0x10618e0a0, pid: 38824, label: 'Video Player'
+Element subtree:
+ →Application, 0x10618e0a0, pid: 38824, label: 'Video Player'
+    Window (Main), 0x106188fc0, {{0.0, 0.0}, {1920.0, 1080.0}}
+      Other, 0x106190740, {{0.0, 0.0}, {1920.0, 1080.0}}
+        Other, 0x106166370, {{0.0, 0.0}, {1920.0, 1080.0}}
+          Other, 0x106176440, {{0.0, 0.0}, {1920.0, 1080.0}}
+            Other, 0x1061630e0, {{0.0, 0.0}, {1920.0, 1080.0}}
+              Other, 0x106191d60, {{0.0, 0.0}, {1920.0, 1080.0}}
+                Other, 0x1061679e0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                  Other, 0x106194180, {{0.0, 0.0}, {1920.0, 1080.0}}
+                    Other, 0x10616efc0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                      Other, 0x106193cd0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                        Other, 0x10615dee0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                          Other, 0x1061429c0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                            Other, 0x1061591d0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                              Other, 0x106187440, {{0.0, 0.0}, {1920.0, 1080.0}}
+                                Other, 0x106188b10, {{0.0, 0.0}, {1920.0, 1080.0}}
+                                  Other, 0x10611f1a0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                                    StaticText, 0x10611f2d0, {{535.0, 438.0}, {850.0, 308.0}}, identifier: 'screen.home', label: 'Home'
+                                      StaticText, 0x10611fac0, {{826.0, 438.0}, {268.0, 172.0}}, label: 'No Sources Yet'
+                                      Image, 0x10611fbf0, {{919.0, 438.0}, {83.0, 87.0}}, identifier: 'externaldrive.connected.to.line.below', label: 'External Drive Connected To A Line Below'
+                                      StaticText, 0x10612d9f0, {{535.0, 613.0}, {850.0, 35.0}}, label: 'Add a server or a shared folder to see your movies and shows here.'
+                                      Button, 0x10612db20, {{844.0, 680.0}, {232.0, 66.0}}, label: 'Add a Source'
+                Other, 0x106129110, {{0.0, 46.0}, {1920.0, 68.0}}
+                  TabBar, 0x106129240, {{0.0, 46.0}, {1920.0, 68.0}}, label: 'Menu'
+                    Other, 0x106141bb0, {{80.0, 46.0}, {200.0, 68.0}}
+                      Other, 0x106141ce0, {{80.0, 46.0}, {200.0, 68.0}}
+                    Other, 0x106144ec0, {{280.0, 46.0}, {1360.0, 68.0}}
+                      Other, 0x106144ff0, {{376.5, 54.5}, {185.0, 51.0}}
+                    Other, 0x10612ecb0, {{367.5, 46.0}, {1185.0, 68.0}}
+                      ScrollView, 0x10612ede0, {{367.5, 46.0}, {1185.0, 68.0}}
+                        Button, 0x106148970, {{406.5, 61.5}, {125.0, 37.0}}, identifier: 'house', label: 'Home'
+                          Image, 0x106148aa0, {{406.5, 61.5}, {43.0, 37.0}}, identifier: 'house', label: 'home'
+                        Button, 0x10614f7b0, {{596.5, 63.5}, {138.0, 33.0}}, identifier: 'film', label: 'Movies'
+                          Image, 0x10614f8e0, {{596.5, 63.5}, {42.0, 33.0}}, identifier: 'film', label: 'movie'
+                        Button, 0x1061528c0, {{799.5, 62.0}, {135.0, 36.0}}, identifier: 'tv', label: 'Shows'
+                          Image, 0x1061529f0, {{799.5, 62.0}, {44.0, 36.0}}, identifier: 'tv', label: 'tv'
+                        Button, 0x106153b40, {{999.5, 63.5}, {108.0, 33.0}}, identifier: 'folder', label: 'Files'
+                          Image, 0x106153c70, {{999.5, 63.5}, {41.0, 33.0}}, identifier: 'folder', label: 'move'
+                        Button, 0x106159680, {{1172.5, 62.5}, {129.0, 35.0}}, identifier: 'magnifyingglass', label: 'Search'
+                          Image, 0x1061597b0, {{1172.5, 62.5}, {34.0, 35.0}}, identifier: 'magnifyingglass', label: 'Search'
+                        Button, 0x106159fa0, {{1366.5, 61.5}, {147.0, 37.0}}, identifier: 'gearshape', label: 'Settings'
+                          Image, 0x10615a0d0, {{1366.5, 61.5}, {37.0, 37.0}}, identifier: 'gearshape', label: 'Gear shape'
+                    Other, 0x10615d110, {{1640.0, 46.0}, {200.0, 68.0}}
+                      Other, 0x10615d240, {{1640.0, 46.0}, {200.0, 68.0}}
+      Other, 0x106160730, {{0.0, 0.0}, {1920.0, 1080.0}}
+        Other, 0x106160860, {{0.0, 0.0}, {1920.0, 1080.0}}
+          Other, 0x1061622b0, {{0.0, 0.0}, {1920.0, 1080.0}}
+            Other, 0x1061623e0, {{0.0, 0.0}, {1920.0, 1080.0}}
+              Other, 0x10616fdd0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                Other, 0x10616ff00, {{0.0, 0.0}, {1920.0, 1080.0}}
+                  Other, 0x106172640, {{0.0, 0.0}, {1920.0, 1080.0}}
+                    Other, 0x106172770, {{0.0, 0.0}, {1920.0, 1080.0}}
+                      Table, 0x106177f60, {{373.0, 0.0}, {1174.0, 1080.0}}
+                        Other, 0x106178090, {{373.0, 60.0}, {1174.0, 154.0}}
+                          Other, 0x106178430, {{373.0, 60.0}, {1174.0, 154.0}}
+                            Other, 0x106178560, {{373.0, 60.0}, {1174.0, 154.0}}
+                              StaticText, 0x10617ccf0, {{393.0, 66.0}, {332.0, 69.0}}, label: 'Add a Source'
+                              StaticText, 0x10617ce20, {{393.0, 137.0}, {1070.0, 71.0}}, label: 'Choose how to reach your server. Search Your Network finds servers that announce themselves.'
+                        Other, 0x10617df70, {{373.0, 221.0}, {1174.0, 47.0}}
+                          Other, 0x10617e0a0, {{373.0, 221.0}, {1174.0, 47.0}}
+                            Other, 0x106182750, {{373.0, 221.0}, {1174.0, 47.0}}
+                              StaticText, 0x106182880, {{393.0, 227.0}, {339.0, 35.0}}, label: 'FIND ON YOUR NETWORK'
+                        Cell, 0x106183520, {{373.0, 268.0}, {1174.0, 66.0}}, label: 'Search Your Network', Focused
+                          Other, 0x106183650, {{369.0, 267.8}, {1182.0, 66.4}}
+                            Other, 0x106185d10, {{369.0, 267.8}, {1182.0, 66.4}}
+                              Button, 0x106185e40, {{395.2, 283.9}, {1134.7, 35.2}}, identifier: 'control.searchYourNetwork', label: 'Search Your Network'
+                                StaticText, 0x106190bf0, {{395.2, 283.9}, {1134.7, 35.2}}, label: 'Search Your Network'
+                                  Image, 0x106190d20, {{395.2, 288.9}, {33.2, 24.2}}, identifier: 'wifi', label: 'Wi-Fi'
+                                  StaticText, 0x106199360, {{493.8, 283.9}, {272.8, 35.2}}, label: 'Search Your Network'
+                                Image, 0x106199490, {{1517.8, 290.9}, {12.1, 21.1}}, identifier: 'chevron.forward'
+                          Other, 0x106107d60, {{369.0, 267.8}, {1182.0, 66.4}}
+                            Other, 0x106107e90, {{369.0, 267.8}, {1182.0, 66.4}}
+                              Button, 0x1061146e0, {{395.2, 283.9}, {1134.7, 35.2}}, identifier: 'control.searchYourNetwork', label: 'Search Your Network'
+                                StaticText, 0x106114810, {{395.2, 283.9}, {1134.7, 35.2}}, label: 'Search Your Network'
+                                  Image, 0x10612a350, {{395.2, 288.9}, {33.2, 24.2}}, identifier: 'wifi', label: 'Wi-Fi'
+                                  StaticText, 0x10612a480, {{493.8, 283.9}, {272.8, 35.2}}, label: 'Search Your Network'
+                                Image, 0x10612e310, {{1517.8, 290.9}, {12.1, 21.1}}, identifier: 'chevron.forward'
+                        Other, 0x10612e440, {{373.0, 355.0}, {1174.0, 47.0}}
+                          Other, 0x106134c40, {{373.0, 355.0}, {1174.0, 47.0}}
+                            Other, 0x106134d70, {{373.0, 355.0}, {1174.0, 47.0}}
+                              StaticText, 0x106135f20, {{393.0, 361.0}, {250.0, 35.0}}, label: 'TYPE AN ADDRESS'
+                        Cell, 0x105d37af0, {{373.0, 402.0}, {1174.0, 80.0}}, label: 'WebDAV, Web folder, as on a NAS'
+                          Other, 0x105d37c20, {{373.0, 402.0}, {1174.0, 80.0}}
+                            Other, 0x105d37d50, {{373.0, 402.0}, {1174.0, 80.0}}
+                              Button, 0x105d37e80, {{393.0, 408.0}, {1133.0, 68.0}}, identifier: 'sourceKind.webdav', label: 'WebDAV, Web folder, as on a NAS'
+                                StaticText, 0x105d39480, {{393.0, 408.0}, {1133.0, 68.0}}, label: 'WebDAV, Web folder, as on a NAS'
+                                  StaticText, 0x105d395b0, {{393.0, 408.0}, {115.0, 35.0}}, label: 'WebDAV'
+                                  StaticText, 0x105d396e0, {{393.0, 446.0}, {262.0, 30.0}}, label: 'Web folder, as on a NAS'
+                                Image, 0x105d39810, {{1514.0, 432.0}, {12.0, 21.0}}, identifier: 'chevron.forward'
+                          Other, 0x105d39940, {{373.0, 402.0}, {1174.0, 80.0}}
+                            Other, 0x105d39a70, {{373.0, 402.0}, {1174.0, 80.0}}
+                            Other, 0x105d39ba0, {{373.0, 402.0}, {1174.0, 80.0}}
+                              Image, 0x105d39cd0, {{363.0, 392.0}, {1194.0, 100.0}}
+                        Cell, 0x105d39e00, {{373.0, 496.0}, {1174.0, 80.0}}, label: 'SMB, Shared folder'
+                          Other, 0x105d39f30, {{373.0, 496.0}, {1174.0, 80.0}}
+                            Other, 0x105d3a060, {{373.0, 496.0}, {1174.0, 80.0}}
+                              Button, 0x105d3a190, {{393.0, 502.0}, {1133.0, 68.0}}, identifier: 'sourceKind.smb', label: 'SMB, Shared folder'
+                                StaticText, 0x105d3a2c0, {{393.0, 502.0}, {1133.0, 68.0}}, label: 'SMB, Shared folder'
+                                  StaticText, 0x105d3a3f0, {{393.0, 502.0}, {62.0, 35.0}}, label: 'SMB'
+                                  StaticText, 0x105d3a520, {{393.0, 540.0}, {149.0, 30.0}}, label: 'Shared folder'
+                                Image, 0x105d3a650, {{1514.0, 526.0}, {12.0, 21.0}}, identifier: 'chevron.forward'
+                          Other, 0x105d3a780, {{373.0, 496.0}, {1174.0, 80.0}}
+                            Other, 0x105d3a8b0, {{373.0, 496.0}, {1174.0, 80.0}}
+                            Other, 0x105d3a9e0, {{373.0, 496.0}, {1174.0, 80.0}}
+                              Image, 0x105d3ab10, {{363.0, 486.0}, {1194.0, 100.0}}
+                        Cell, 0x105d3ac40, {{373.0, 590.0}, {1174.0, 80.0}}, label: 'NFS, Exported folder'
+                          Other, 0x105d3ad70, {{373.0, 590.0}, {1174.0, 80.0}}
+                            Other, 0x105d3aea0, {{373.0, 590.0}, {1174.0, 80.0}}
+                              Button, 0x105d3afd0, {{393.0, 596.0}, {1133.0, 68.0}}, identifier: 'sourceKind.nfs', label: 'NFS, Exported folder'
+                                StaticText, 0x105d3b100, {{393.0, 596.0}, {1133.0, 68.0}}, label: 'NFS, Exported folder'
+                                  StaticText, 0x105d3b230, {{393.0, 596.0}, {55.0, 35.0}}, label: 'NFS'
+                                  StaticText, 0x105d3b360, {{393.0, 634.0}, {170.0, 30.0}}, label: 'Exported folder'
+                                Image, 0x105d3b490, {{1514.0, 620.0}, {12.0, 21.0}}, identifier: 'chevron.forward'
+                          Other, 0x105d3b5c0, {{373.0, 590.0}, {1174.0, 80.0}}
+                            Other, 0x105d3b6f0, {{373.0, 590.0}, {1174.0, 80.0}}
+                            Other, 0x105d3b820, {{373.0, 590.0}, {1174.0, 80.0}}
+                              Image, 0x105d3b950, {{363.0, 580.0}, {1194.0, 100.0}}
+                        Cell, 0x105d3ba80, {{373.0, 684.0}, {1174.0, 80.0}}, label: 'SFTP, Folder over SSH'
+                          Other, 0x105d3bbb0, {{373.0, 684.0}, {1174.0, 80.0}}
+                            Other, 0x105d3bce0, {{373.0, 684.0}, {1174.0, 80.0}}
+                              Button, 0x105d3be10, {{393.0, 690.0}, {1133.0, 68.0}}, identifier: 'sourceKind.sftp', label: 'SFTP, Folder over SSH'
+                                StaticText, 0x105d3bf40, {{393.0, 690.0}, {1133.0, 68.0}}, label: 'SFTP, Folder over SSH'
+                                  StaticText, 0x105d3c070, {{393.0, 690.0}, {69.0, 35.0}}, label: 'SFTP'
+                                  StaticText, 0x105d3c1a0, {{393.0, 728.0}, {178.0, 30.0}}, label: 'Folder over SSH'
+                                Image, 0x105d3c2d0, {{1514.0, 714.0}, {12.0, 21.0}}, identifier: 'chevron.forward'
+                          Other, 0x105d3c400, {{373.0, 684.0}, {1174.0, 80.0}}
+                            Other, 0x105d3c530, {{373.0, 684.0}, {1174.0, 80.0}}
+                            Other, 0x105d3c660, {{373.0, 684.0}, {1174.0, 80.0}}
+                              Image, 0x105d3c790, {{363.0, 674.0}, {1194.0, 100.0}}
+                        Cell, 0x105d3c8c0, {{373.0, 778.0}, {1174.0, 80.0}}, label: 'FTP, Folder on an FTP server'
+                          Other, 0x105d3c9f0, {{373.0, 778.0}, {1174.0, 80.0}}
+                            Other, 0x105d3cb20, {{373.0, 778.0}, {1174.0, 80.0}}
+                              Button, 0x105d3cc50, {{393.0, 784.0}, {1133.0, 68.0}}, identifier: 'sourceKind.ftp', label: 'FTP, Folder on an FTP server'
+                                StaticText, 0x105d3cd80, {{393.0, 784.0}, {1133.0, 68.0}}, label: 'FTP, Folder on an FTP server'
+                                  StaticText, 0x105d3ceb0, {{393.0, 784.0}, {51.0, 35.0}}, label: 'FTP'
+                                  StaticText, 0x105d3cfe0, {{393.0, 822.0}, {260.0, 30.0}}, label: 'Folder on an FTP server'
+                                Image, 0x105d3d110, {{1514.0, 808.0}, {12.0, 21.0}}, identifier: 'chevron.forward'
+                          Other, 0x105d3d240, {{373.0, 778.0}, {1174.0, 80.0}}
+                            Other, 0x105d3d370, {{373.0, 778.0}, {1174.0, 80.0}}
+                            Other, 0x105d3d790, {{373.0, 778.0}, {1174.0, 80.0}}
+                              Image, 0x105d3d8c0, {{363.0, 768.0}, {1194.0, 100.0}}
+                        Cell, 0x105d3d9f0, {{373.0, 872.0}, {1174.0, 80.0}}, label: 'UPnP/DLNA, Media server on your network'
+                          Other, 0x105d3db20, {{373.0, 872.0}, {1174.0, 80.0}}
+                            Other, 0x105d3dc50, {{373.0, 872.0}, {1174.0, 80.0}}
+                              Button, 0x105d3dd80, {{393.0, 878.0}, {1133.0, 68.0}}, identifier: 'sourceKind.upnp', label: 'UPnP/DLNA, Media server on your network'
+                                StaticText, 0x105d3deb0, {{393.0, 878.0}, {1133.0, 68.0}}, label: 'UPnP/DLNA, Media server on your network'
+                                  StaticText, 0x105d3dfe0, {{393.0, 878.0}, {156.0, 35.0}}, label: 'UPnP/DLNA'
+                                  StaticText, 0x105d3e110, {{393.0, 916.0}, {327.0, 30.0}}, label: 'Media server on your network'
+                                Image, 0x105d3e240, {{1514.0, 902.0}, {12.0, 21.0}}, identifier: 'chevron.forward'
+                          Other, 0x105d3e370, {{373.0, 872.0}, {1174.0, 80.0}}
+                            Other, 0x105d3e4a0, {{373.0, 872.0}, {1174.0, 80.0}}
+                            Other, 0x105d3e5d0, {{373.0, 872.0}, {1174.0, 80.0}}
+                              Image, 0x105d3e700, {{363.0, 862.0}, {1194.0, 100.0}}
+                        Cell, 0x105d3e830, {{373.0, 966.0}, {1174.0, 80.0}}, label: 'Web Link, Link to one video file'
+                          Other, 0x105d3e960, {{373.0, 966.0}, {1174.0, 80.0}}
+                            Other, 0x105d3ea90, {{373.0, 966.0}, {1174.0, 80.0}}
+                              Button, 0x105d3ebc0, {{393.0, 972.0}, {1133.0, 68.0}}, identifier: 'sourceKind.directLink', label: 'Web Link, Link to one video file'
+                                StaticText, 0x105d3ecf0, {{393.0, 972.0}, {1133.0, 68.0}}, label: 'Web Link, Link to one video file'
+                                  StaticText, 0x105d3ee20, {{393.0, 972.0}, {119.0, 35.0}}, label: 'Web Link'
+                                  StaticText, 0x105d3ef50, {{393.0, 1010.0}, {226.0, 30.0}}, label: 'Link to one video file'
+                                Image, 0x105d3f080, {{1514.0, 996.0}, {12.0, 21.0}}, identifier: 'chevron.forward'
+                          Other, 0x105d3f1b0, {{373.0, 966.0}, {1174.0, 80.0}}
+                            Other, 0x105d3f2e0, {{373.0, 966.0}, {1174.0, 80.0}}
+                            Other, 0x105d3f410, {{373.0, 966.0}, {1174.0, 80.0}}
+                              Image, 0x105d3f540, {{363.0, 956.0}, {1194.0, 100.0}}
+                        Cell, 0x105d3f670, {{373.0, 1060.0}, {1174.0, 80.0}}, label: 'Jellyfin, Jellyfin media server'
+                          Other, 0x105d3f7a0, {{373.0, 1060.0}, {1174.0, 80.0}}
+                            Other, 0x105d3f8d0, {{373.0, 1060.0}, {1174.0, 80.0}}
+                              Button, 0x105d3fa00, {{393.0, 1066.0}, {1133.0, 68.0}}, identifier: 'sourceKind.jellyfin', label: 'Jellyfin, Jellyfin media server'
+                                StaticText, 0x105d3fb30, {{393.0, 1066.0}, {1133.0, 68.0}}, label: 'Jellyfin, Jellyfin media server'
+                                  StaticText, 0x105d3fc60, {{393.0, 1066.0}, {93.0, 35.0}}, label: 'Jellyfin'
+                                  StaticText, 0x105d3fd90, {{393.0, 1104.0}, {228.0, 30.0}}, label: 'Jellyfin media server'
+                                Image, 0x105d3fec0, {{1514.0, 1090.0}, {12.0, 21.0}}, identifier: 'chevron.forward'
+                          Other, 0x105d3fff0, {{373.0, 1060.0}, {1174.0, 80.0}}
+                            Other, 0x105d40120, {{373.0, 1060.0}, {1174.0, 80.0}}
+                            Other, 0x105d40250, {{373.0, 1060.0}, {1174.0, 80.0}}
+                              Image, 0x105d40380, {{363.0, 1050.0}, {1194.0, 100.0}}
+                        Cell, 0x105d404b0, {{373.0, 1154.0}, {1174.0, 80.0}}, label: 'Emby, Emby media server'
+                          Other, 0x105d405e0, {{373.0, 1154.0}, {1174.0, 80.0}}
+                            Other, 0x105d40710, {{373.0, 1154.0}, {1174.0, 80.0}}
+                              Button, 0x105d40840, {{393.0, 1160.0}, {1133.0, 68.0}}, identifier: 'sourceKind.emby', label: 'Emby, Emby media server'
+                                StaticText, 0x105d40970, {{393.0, 1160.0}, {1133.0, 68.0}}, label: 'Emby, Emby media server'
+                                  StaticText, 0x105d40aa0, {{393.0, 1160.0}, {73.0, 35.0}}, label: 'Emby'
+                                  StaticText, 0x105d40bd0, {{393.0, 1198.0}, {211.0, 30.0}}, label: 'Emby media server'
+                                Image, 0x105d40d00, {{1514.0, 1184.0}, {12.0, 21.0}}, identifier: 'chevron.forward'
+                          Other, 0x105d40e30, {{373.0, 1154.0}, {1174.0, 80.0}}
+                            Other, 0x105d40f60, {{373.0, 1154.0}, {1174.0, 80.0}}
+                            Other, 0x105d41090, {{373.0, 1154.0}, {1174.0, 80.0}}
+                              Image, 0x105d411c0, {{363.0, 1144.0}, {1194.0, 100.0}}
+                        Other, 0x105d412f0, {{373.0, 1255.0}, {1174.0, 47.0}}
+                          Other, 0x105d41420, {{373.0, 1255.0}, {1174.0, 47.0}}
+                        Cell, 0x105d41550, {{373.0, 1302.0}, {1174.0, 80.0}}, label: 'Google Drive, No sign-in for TVs'
+                          Other, 0x105d41680, {{373.0, 60.0}, {1174.0, 80.0}}
+                            Other, 0x105d417b0, {{373.0, 60.0}, {1174.0, 80.0}}
+                            Other, 0x105d418e0, {{373.0, 60.0}, {1174.0, 80.0}}
+                              Image, 0x105d41a10, {{373.0, 60.0}, {1194.0, 100.0}}
+                          Other, 0x105d41b40, {{373.0, 60.0}, {1174.0, 80.0}}
+                            Other, 0x105d41c70, {{373.0, 60.0}, {1174.0, 80.0}}
+                              StaticText, 0x105d41da0, {{0.0, 0.0}, {0.0, 0.0}}, identifier: 'sourceKind.googleDrive', label: 'Google Drive, No sign-in for TVs'
+                                StaticText, 0x105d41ed0, {{0.0, 0.0}, {0.0, 0.0}}, label: 'No sign-in for TVs'
+                                StaticText, 0x105d42000, {{0.0, 0.0}, {0.0, 0.0}}, label: 'Google Drive'
+                        Cell, 0x105d42130, {{373.0, 1396.0}, {1174.0, 80.0}}, label: 'OneDrive, Needs an app registration'
+                          Other, 0x105d42260, {{373.0, 60.0}, {1174.0, 80.0}}
+                            Other, 0x105d42390, {{373.0, 60.0}, {1174.0, 80.0}}
+                            Other, 0x105d424c0, {{373.0, 60.0}, {1174.0, 80.0}}
+                              Image, 0x105d425f0, {{373.0, 60.0}, {1194.0, 100.0}}
+                          Other, 0x105d42720, {{373.0, 60.0}, {1174.0, 80.0}}
+                            Other, 0x105d42850, {{373.0, 60.0}, {1174.0, 80.0}}
+                              StaticText, 0x105d42980, {{0.0, 0.0}, {0.0, 0.0}}, identifier: 'sourceKind.oneDrive', label: 'OneDrive, Needs an app registration'
+                                StaticText, 0x105d42ab0, {{0.0, 0.0}, {0.0, 0.0}}, label: 'Needs an app registration'
+                                StaticText, 0x105d42be0, {{0.0, 0.0}, {0.0, 0.0}}, label: 'OneDrive'
+                        Cell, 0x105d42d10, {{373.0, 1490.0}, {1174.0, 80.0}}, label: 'Dropbox, No sign-in for TVs'
+                          Other, 0x105d42e40, {{373.0, 60.0}, {1174.0, 80.0}}
+                            Other, 0x105d42f70, {{373.0, 60.0}, {1174.0, 80.0}}
+                            Other, 0x105d430a0, {{373.0, 60.0}, {1174.0, 80.0}}
+                              Image, 0x105d431d0, {{373.0, 60.0}, {1194.0, 100.0}}
+                          Other, 0x105d43300, {{373.0, 60.0}, {1174.0, 80.0}}
+                            Other, 0x105d43430, {{373.0, 60.0}, {1174.0, 80.0}}
+                              StaticText, 0x105d43560, {{0.0, 0.0}, {0.0, 0.0}}, identifier: 'sourceKind.dropbox', label: 'Dropbox, No sign-in for TVs'
+                                StaticText, 0x105d43690, {{0.0, 0.0}, {0.0, 0.0}}, label: 'No sign-in for TVs'
+                                StaticText, 0x105d437c0, {{0.0, 0.0}, {0.0, 0.0}}, label: 'Dropbox'
+                        Cell, 0x105d438f0, {{373.0, 1584.0}, {1174.0, 80.0}}, label: 'Plex, Needs a Plex sign-in'
+                          Other, 0x105d43a20, {{373.0, 60.0}, {1174.0, 80.0}}
+                            Other, 0x105d43b50, {{373.0, 60.0}, {1174.0, 80.0}}
+                            Other, 0x105d43c80, {{373.0, 60.0}, {1174.0, 80.0}}
+                              Image, 0x105d43db0, {{373.0, 60.0}, {1194.0, 100.0}}
+                          Other, 0x105d43ee0, {{373.0, 60.0}, {1174.0, 80.0}}
+                            Other, 0x105d44010, {{373.0, 60.0}, {1174.0, 80.0}}
+                              StaticText, 0x105d44140, {{0.0, 0.0}, {0.0, 0.0}}, identifier: 'sourceKind.plex', label: 'Plex, Needs a Plex sign-in'
+                                StaticText, 0x105d44270, {{0.0, 0.0}, {0.0, 0.0}}, label: 'Needs a Plex sign-in'
+                                StaticText, 0x105d443a0, {{0.0, 0.0}, {0.0, 0.0}}, label: 'Plex'
+                        Cell, 0x105d444d0, {{373.0, 1692.0}, {1174.0, 66.0}}, label: 'About Source Types'
+                          Other, 0x105d44600, {{373.0, 60.0}, {1174.0, 66.0}}
+                            Other, 0x105d44730, {{373.0, 60.0}, {1174.0, 66.0}}
+                            Other, 0x105d44860, {{373.0, 60.0}, {1174.0, 66.0}}
+                              Image, 0x105d44990, {{373.0, 60.0}, {1194.0, 86.0}}
+                          Other, 0x105d44ac0, {{373.0, 60.0}, {1174.0, 66.0}}
+                            Other, 0x105d44bf0, {{373.0, 60.0}, {1174.0, 66.0}}
+                              Button, 0x105d44d20, {{0.0, 0.0}, {0.0, 0.0}}, identifier: 'control.learnMore', label: 'About Source Types'
+                                Image, 0x105d44e50, {{0.0, 0.0}, {0.0, 0.0}}, identifier: 'chevron.forward'
+                                StaticText, 0x105d44f80, {{0.0, 0.0}, {0.0, 0.0}}, label: 'About Source Types'
+                                  StaticText, 0x105d450b0, {{0.0, 0.0}, {0.0, 0.0}}, label: 'About Source Types'
+                                  Image, 0x105d451e0, {{0.0, 0.0}, {0.0, 0.0}}, identifier: 'info.circle', label: 'Info'
+                        Cell, 0x105d45310, {{373.0, 1772.0}, {1174.0, 66.0}}, label: 'Cancel'
+                          Other, 0x105d45440, {{373.0, 60.0}, {1174.0, 66.0}}
+                            Other, 0x105d45570, {{373.0, 60.0}, {1174.0, 66.0}}
+                            Other, 0x105d456a0, {{373.0, 60.0}, {1174.0, 66.0}}
+                              Image, 0x105d457d0, {{373.0, 60.0}, {1194.0, 86.0}}
+                          Other, 0x105d45900, {{373.0, 60.0}, {1174.0, 66.0}}
+                            Other, 0x105d45a30, {{373.0, 60.0}, {1174.0, 66.0}}
+                              Button, 0x105d45b60, {{0.0, 0.0}, {0.0, 0.0}}, identifier: 'control.sourceCancel', label: 'Cancel'
+                        Other, 0x105d45c90, {{0.0, 0.0}, {0.0, 0.0}}, label: '0 pages', value: 0%
+                          Other, 0x105d45dc0, {{1541.0, 992.0}, {3.0, 25.0}}

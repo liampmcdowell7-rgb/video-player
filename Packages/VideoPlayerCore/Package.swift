@@ -93,6 +93,13 @@ products.append(.library(name: "AppLogic", targets: ["AppLogic"]))
 targets.append(.target(name: "AppLogic", dependencies: ["VideoPlayerCore", "LibraryIndex", "PlaybackLogic", "Subtitles", "PlaybackStatus", "UserData", "MetadataLocal", "MetadataOnline", "RemuxEngine", "DolbyVisionRPU"]))
 targets.append(.testTarget(name: "AppLogicTests", dependencies: [.target(name: "AppLogic"), "VideoPlayerCore", "UserData", "MetadataOnline", "MetadataLocal", "RemuxEngine", "DolbyVisionRPU"]))
 
+// --- #33: the verdicts of the screenshot UI tests (accessibility dump, cover pixels, menus, toolbar groups) as plain
+// Swift. No product: the app never links it. The UI-test target compiles these files by path (project.yml), and
+// ScreenChecksTests runs the same code on Linux against fixtures and, when VP_RUN_ARTIFACTS names an unzipped CI run,
+// against that run's pictures and notes.
+targets.append(.target(name: "ScreenChecks"))
+targets.append(.testTarget(name: "ScreenChecksTests", dependencies: [.target(name: "ScreenChecks")], resources: [.copy("Fixtures")]))
+
 // CITADEL-BLOCK-BEGIN (owned by the SFTP/Citadel work: the Citadel backend target and its test target; conditional on a
 // patched local copy under Vendor/, like AMSMB2 below, so the base manifest never needs the network)
 // `bash scripts/setup-citadel.sh` creates Vendor/Citadel (0.12.1, pinned commit) and Vendor/swift-nio-ssh (the Wellz26

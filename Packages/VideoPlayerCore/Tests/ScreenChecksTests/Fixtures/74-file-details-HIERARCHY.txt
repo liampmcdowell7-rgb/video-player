@@ -1,0 +1,184 @@
+Attributes: Application, 0x1026ef520, pid: 62223, label: 'Video Player'
+Element subtree:
+ →Application, 0x1026ef520, pid: 62223, label: 'Video Player'
+    Window (Main), 0x1026f16c0, {{0.0, 0.0}, {1920.0, 1080.0}}
+      Other, 0x1026f1e50, {{0.0, 0.0}, {1920.0, 1080.0}}
+        Other, 0x1026f1f80, {{0.0, 0.0}, {1920.0, 1080.0}}
+          Other, 0x1026f1d00, {{0.0, 0.0}, {1920.0, 1080.0}}
+            Other, 0x1026e79b0, {{0.0, 0.0}, {1920.0, 1080.0}}
+              Other, 0x1026f20b0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                Other, 0x1026f21e0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                  Other, 0x1026f2310, {{0.0, 0.0}, {1920.0, 1080.0}}
+                    Other, 0x1026f2440, {{0.0, 0.0}, {1920.0, 1080.0}}
+                      Other, 0x1026f2570, {{0.0, 0.0}, {1920.0, 1080.0}}
+                        Other, 0x1026f26a0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                          Other, 0x1026f27d0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                            Other, 0x1026f2900, {{0.0, 0.0}, {1920.0, 1080.0}}
+                              Other, 0x1026f2a30, {{0.0, 0.0}, {1920.0, 1080.0}}
+                                Other, 0x1026f2b60, {{0.0, 0.0}, {1920.0, 1080.0}}
+                                  Other, 0x1026f2c90, {{0.0, 0.0}, {1920.0, 1080.0}}
+                                    StaticText, 0x1026f2dc0, {{80.0, 157.0}, {1760.0, 863.0}}, identifier: 'screen.folder', label: 'Sample Movie 1 (2021)'
+                                      StaticText, 0x1026f2ef0, {{80.0, 157.0}, {568.0, 69.0}}, label: 'Sample Movie 1 (2021)'
+                                      Table, 0x1026f3020, {{990.0, 0.0}, {930.0, 1080.0}}
+                                        Cell, 0x1026f3150, {{990.0, 157.0}, {850.0, 80.0}}, label: 'fanart.png, 389.2 KB · Picture'
+                                          Other, 0x1026f3280, {{990.0, 157.0}, {850.0, 80.0}}
+                                            Other, 0x1026f33b0, {{990.0, 157.0}, {850.0, 80.0}}
+                                              Button, 0x1026f34e0, {{1015.0, 163.0}, {299.0, 68.0}}, label: 'fanart.png, 389.2 KB · Picture'
+                                                Image, 0x1026f3610, {{1015.0, 184.0}, {34.0, 27.0}}, identifier: 'photo', label: 'Photo'
+                                                StaticText, 0x1026f3740, {{1114.0, 163.0}, {133.0, 35.0}}, label: 'fanart.png'
+                                                StaticText, 0x1026f3870, {{1114.0, 201.0}, {200.0, 30.0}}, label: '389.2 KB · Picture'
+                                          Other, 0x1026f39a0, {{990.0, 157.0}, {850.0, 80.0}}
+                                            Other, 0x1026f3ad0, {{990.0, 157.0}, {850.0, 80.0}}
+                                              Button, 0x1026f3c00, {{1015.0, 163.0}, {299.0, 68.0}}, label: 'fanart.png, 389.2 KB · Picture'
+                                                Image, 0x1026f3d30, {{1015.0, 184.0}, {34.0, 27.0}}, identifier: 'photo', label: 'Photo'
+                                                StaticText, 0x1026f3ed0, {{1114.0, 163.0}, {133.0, 35.0}}, label: 'fanart.png'
+                                                StaticText, 0x1026f4000, {{1114.0, 201.0}, {200.0, 30.0}}, label: '389.2 KB · Picture'
+                                        Cell, 0x1026f4130, {{990.0, 251.0}, {850.0, 80.0}}, label: 'poster.png, 259.6 KB · Picture'
+                                          Other, 0x1026f4260, {{990.0, 251.0}, {850.0, 80.0}}
+                                            Other, 0x1026f4390, {{990.0, 251.0}, {850.0, 80.0}}
+                                              Button, 0x1026f44c0, {{1015.0, 257.0}, {299.0, 68.0}}, label: 'poster.png, 259.6 KB · Picture'
+                                                Image, 0x1026f45f0, {{1015.0, 278.0}, {34.0, 27.0}}, identifier: 'photo', label: 'Photo'
+                                                StaticText, 0x1026f4720, {{1114.0, 257.0}, {138.0, 35.0}}, label: 'poster.png'
+                                                StaticText, 0x1026f4850, {{1114.0, 295.0}, {200.0, 30.0}}, label: '259.6 KB · Picture'
+                                          Other, 0x1026f4980, {{990.0, 251.0}, {850.0, 80.0}}
+                                            Other, 0x1026f4ab0, {{990.0, 251.0}, {850.0, 80.0}}
+                                              Button, 0x1026f4be0, {{1015.0, 257.0}, {299.0, 68.0}}, label: 'poster.png, 259.6 KB · Picture'
+                                                Image, 0x1026f4d10, {{1015.0, 278.0}, {34.0, 27.0}}, identifier: 'photo', label: 'Photo'
+                                                StaticText, 0x1026f4e40, {{1114.0, 257.0}, {138.0, 35.0}}, label: 'poster.png'
+                                                StaticText, 0x1026f4f70, {{1114.0, 295.0}, {200.0, 30.0}}, label: '259.6 KB · Picture'
+                                        Cell, 0x1026f50a0, {{990.0, 345.0}, {850.0, 80.0}}, label: 'Sample Movie 1 (2021) 2160p.en.srt, 117 bytes · Subtitles'
+                                          Other, 0x1026f51d0, {{990.0, 345.0}, {850.0, 80.0}}
+                                            Other, 0x1026f5300, {{990.0, 345.0}, {850.0, 80.0}}
+                                              Button, 0x1026f5430, {{1016.0, 351.0}, {562.0, 68.0}}, label: 'Sample Movie 1 (2021) 2160p.en.srt, 117 bytes · Subtitles'
+                                                Image, 0x1026f5560, {{1016.0, 370.0}, {32.0, 30.0}}, identifier: 'captions.bubble', label: 'Captions'
+                                                StaticText, 0x1026f5690, {{1114.0, 351.0}, {464.0, 35.0}}, label: 'Sample Movie 1 (2021) 2160p.en.srt'
+                                                StaticText, 0x1026f57c0, {{1114.0, 389.0}, {219.0, 30.0}}, label: '117 bytes · Subtitles'
+                                          Other, 0x1026f58f0, {{990.0, 345.0}, {850.0, 80.0}}
+                                            Other, 0x1026f5a20, {{990.0, 345.0}, {850.0, 80.0}}
+                                              Button, 0x1026f5b50, {{1016.0, 351.0}, {562.0, 68.0}}, label: 'Sample Movie 1 (2021) 2160p.en.srt, 117 bytes · Subtitles'
+                                                Image, 0x1026f5c80, {{1016.0, 370.0}, {32.0, 30.0}}, identifier: 'captions.bubble', label: 'Captions'
+                                                StaticText, 0x1026f5db0, {{1114.0, 351.0}, {464.0, 35.0}}, label: 'Sample Movie 1 (2021) 2160p.en.srt'
+                                                StaticText, 0x1026f5ee0, {{1114.0, 389.0}, {219.0, 30.0}}, label: '117 bytes · Subtitles'
+                                        Cell, 0x1026f6010, {{990.0, 439.0}, {850.0, 80.0}}, label: 'Sample Movie 1 (2021) 2160p.en.sup, 2.4 MB · Subtitles'
+                                          Other, 0x1026f6140, {{990.0, 439.0}, {850.0, 80.0}}
+                                            Other, 0x1026f6270, {{990.0, 439.0}, {850.0, 80.0}}
+                                              Button, 0x1026f63a0, {{1016.0, 445.0}, {575.0, 68.0}}, label: 'Sample Movie 1 (2021) 2160p.en.sup, 2.4 MB · Subtitles'
+                                                Image, 0x1026f64d0, {{1016.0, 464.0}, {32.0, 30.0}}, identifier: 'captions.bubble', label: 'Captions'
+                                                StaticText, 0x1026f6600, {{1114.0, 445.0}, {477.0, 35.0}}, label: 'Sample Movie 1 (2021) 2160p.en.sup'
+                                                StaticText, 0x1026f6730, {{1114.0, 483.0}, {195.0, 30.0}}, label: '2.4 MB · Subtitles'
+                                          Other, 0x1026f6860, {{990.0, 439.0}, {850.0, 80.0}}
+                                            Other, 0x1026f6990, {{990.0, 439.0}, {850.0, 80.0}}
+                                              Button, 0x1026f6ac0, {{1016.0, 445.0}, {575.0, 68.0}}, label: 'Sample Movie 1 (2021) 2160p.en.sup, 2.4 MB · Subtitles'
+                                                Image, 0x1026f6bf0, {{1016.0, 464.0}, {32.0, 30.0}}, identifier: 'captions.bubble', label: 'Captions'
+                                                StaticText, 0x1026f6d20, {{1114.0, 445.0}, {477.0, 35.0}}, label: 'Sample Movie 1 (2021) 2160p.en.sup'
+                                                StaticText, 0x1026f6e50, {{1114.0, 483.0}, {195.0, 30.0}}, label: '2.4 MB · Subtitles'
+                                        Cell, 0x1026f6f80, {{990.0, 533.0}, {850.0, 80.0}}, label: 'Sample Movie 1 (2021) 2160p.mkv, 52.3 GB · MKV'
+                                          Other, 0x1026f70b0, {{990.0, 533.0}, {850.0, 80.0}}
+                                            Other, 0x1026f71e0, {{990.0, 533.0}, {850.0, 80.0}}
+                                              Button, 0x1026f7310, {{1015.0, 539.0}, {545.0, 68.0}}, label: 'Sample Movie 1 (2021) 2160p.mkv, 52.3 GB · MKV'
+                                                Image, 0x1026f7440, {{1015.0, 560.0}, {34.0, 27.0}}, identifier: 'film', label: 'Movie'
+                                                StaticText, 0x1026f7570, {{1114.0, 539.0}, {446.0, 35.0}}, label: 'Sample Movie 1 (2021) 2160p.mkv'
+                                                StaticText, 0x1026f76a0, {{1114.0, 577.0}, {162.0, 30.0}}, label: '52.3 GB · MKV'
+                                          Other, 0x1026f77d0, {{990.0, 533.0}, {850.0, 80.0}}
+                                            Other, 0x1026f7900, {{990.0, 533.0}, {850.0, 80.0}}
+                                              Button, 0x1026f7a30, {{1015.0, 539.0}, {545.0, 68.0}}, label: 'Sample Movie 1 (2021) 2160p.mkv, 52.3 GB · MKV'
+                                                Image, 0x1026f7b60, {{1015.0, 560.0}, {34.0, 27.0}}, identifier: 'film', label: 'Movie'
+                                                StaticText, 0x1026f7c90, {{1114.0, 539.0}, {446.0, 35.0}}, label: 'Sample Movie 1 (2021) 2160p.mkv'
+                                                StaticText, 0x1026f7dc0, {{1114.0, 577.0}, {162.0, 30.0}}, label: '52.3 GB · MKV'
+                                        Other, 0x1026f7ef0, {{0.0, 0.0}, {0.0, 0.0}}, label: '0 pages', value: 0%
+                                          Other, 0x1026f8020, {{1834.0, 992.0}, {3.0, 25.0}}
+                                      StaticText, 0x1026f8150, {{80.0, 228.0}, {629.0, 35.0}}, label: 'Sample Library › Movies › Sample Movie 1 (2021)'
+                Other, 0x1026f8280, {{0.0, 46.0}, {1920.0, 68.0}}
+                  TabBar, 0x1026f83b0, {{0.0, 46.0}, {1920.0, 68.0}}, label: 'Menu'
+                    Other, 0x1026f84e0, {{80.0, 46.0}, {200.0, 68.0}}
+                      Other, 0x1026f8610, {{80.0, 46.0}, {200.0, 68.0}}
+                    Other, 0x1026f8740, {{280.0, 46.0}, {1360.0, 68.0}}
+                      Other, 0x1026f8870, {{969.5, 54.5}, {168.0, 51.0}}
+                    Other, 0x1026f89a0, {{367.5, 46.0}, {1185.0, 68.0}}
+                      ScrollView, 0x1026f8ad0, {{367.5, 46.0}, {1185.0, 68.0}}
+                        Button, 0x1026f8c00, {{406.5, 61.5}, {125.0, 37.0}}, identifier: 'house', label: 'Home'
+                          Image, 0x1026f8d30, {{406.5, 61.5}, {43.0, 37.0}}, identifier: 'house', label: 'home'
+                        Button, 0x1026f8e60, {{596.5, 63.5}, {138.0, 33.0}}, identifier: 'film', label: 'Movies'
+                          Image, 0x1026f8f90, {{596.5, 63.5}, {42.0, 33.0}}, identifier: 'film', label: 'movie'
+                        Button, 0x1026f90c0, {{799.5, 62.0}, {135.0, 36.0}}, identifier: 'tv', label: 'Shows'
+                          Image, 0x1026f91f0, {{799.5, 62.0}, {44.0, 36.0}}, identifier: 'tv', label: 'tv'
+                        Button, 0x1026f9320, {{999.5, 63.5}, {108.0, 33.0}}, identifier: 'folder', label: 'Files'
+                          Image, 0x1026f9450, {{999.5, 63.5}, {41.0, 33.0}}, identifier: 'folder', label: 'move'
+                        Button, 0x1026f9580, {{1172.5, 62.5}, {129.0, 35.0}}, identifier: 'magnifyingglass', label: 'Search'
+                          Image, 0x1026f96b0, {{1172.5, 62.5}, {34.0, 35.0}}, identifier: 'magnifyingglass', label: 'Search'
+                        Button, 0x1026f97e0, {{1366.5, 61.5}, {147.0, 37.0}}, identifier: 'gearshape', label: 'Settings'
+                          Image, 0x1026f9910, {{1366.5, 61.5}, {37.0, 37.0}}, identifier: 'gearshape', label: 'Gear shape'
+                    Other, 0x1026f9a40, {{1640.0, 46.0}, {200.0, 68.0}}
+                      Other, 0x1026f9b70, {{1640.0, 46.0}, {200.0, 68.0}}
+      Other, 0x1026f9ca0, {{0.0, 0.0}, {1920.0, 1080.0}}
+        Other, 0x1026f9dd0, {{0.0, 0.0}, {1920.0, 1080.0}}
+          Other, 0x1026f9f00, {{0.0, 0.0}, {1920.0, 1080.0}}
+            Other, 0x1026fa030, {{0.0, 0.0}, {1920.0, 1080.0}}
+              Other, 0x1026fa160, {{0.0, 0.0}, {1920.0, 1080.0}}
+                Other, 0x1026fa290, {{0.0, 0.0}, {1920.0, 1080.0}}
+                  Other, 0x1026fa3c0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                    Other, 0x1026fa4f0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                      Table, 0x1026fa620, {{373.0, 0.0}, {1174.0, 1080.0}}
+                        Other, 0x1026fa750, {{373.0, 60.0}, {1174.0, 81.0}}
+                          Other, 0x1026fa880, {{373.0, 60.0}, {1174.0, 81.0}}
+                            Other, 0x1026fa9b0, {{373.0, 60.0}, {1174.0, 81.0}}
+                              StaticText, 0x1026faae0, {{393.0, 66.0}, {270.0, 69.0}}, label: 'File Details'
+                        Other, 0x1026fac10, {{373.0, 148.0}, {1174.0, 47.0}}
+                          Other, 0x1026fad40, {{373.0, 148.0}, {1174.0, 47.0}}
+                            Other, 0x1026fae70, {{373.0, 148.0}, {1174.0, 47.0}}
+                              StaticText, 0x1026fafa0, {{393.0, 154.0}, {81.0, 35.0}}, label: 'NAME'
+                        Cell, 0x1026fb0d0, {{373.0, 195.0}, {1174.0, 66.0}}, label: 'Sample Movie 1 (2021) 2160p.mkv'
+                          Other, 0x1026fb200, {{373.0, 195.0}, {1174.0, 66.0}}
+                            Other, 0x1026fb330, {{373.0, 195.0}, {1174.0, 66.0}}
+                              StaticText, 0x1026fb460, {{393.0, 211.0}, {446.0, 35.0}}, label: 'Sample Movie 1 (2021) 2160p.mkv'
+                          Other, 0x1026fb590, {{373.0, 195.0}, {1174.0, 66.0}}
+                            Other, 0x1026fb6c0, {{373.0, 195.0}, {1174.0, 66.0}}
+                            Other, 0x1026fb7f0, {{373.0, 195.0}, {1174.0, 66.0}}
+                              Image, 0x1026fb920, {{363.0, 185.0}, {1194.0, 86.0}}
+                        Cell, 0x1026fba50, {{373.0, 289.0}, {1174.0, 66.0}}, label: 'Size'
+                          Other, 0x1026fbb80, {{373.0, 289.0}, {1174.0, 66.0}}
+                            Other, 0x1026fbcb0, {{373.0, 289.0}, {1174.0, 66.0}}
+                              Other, 0x1026fbde0, {{393.0, 305.0}, {1134.0, 35.0}}, label: 'Size', value: 52.3 GB
+                                StaticText, 0x1026fbf10, {{393.0, 305.0}, {55.0, 35.0}}, label: 'Size'
+                                StaticText, 0x1026fc040, {{1421.0, 305.0}, {106.0, 35.0}}, label: '52.3 GB'
+                          Other, 0x1025ac5f0, {{373.0, 289.0}, {1174.0, 66.0}}
+                            Other, 0x1025abfb0, {{373.0, 289.0}, {1174.0, 66.0}}
+                            Other, 0x1025abb90, {{373.0, 289.0}, {1174.0, 66.0}}
+                              Image, 0x1025ab770, {{363.0, 279.0}, {1194.0, 86.0}}
+                        Cell, 0x1025ab350, {{373.0, 369.0}, {1174.0, 66.0}}, label: 'Modified'
+                          Other, 0x1025aaf30, {{373.0, 369.0}, {1174.0, 66.0}}
+                            Other, 0x1025a21c0, {{373.0, 369.0}, {1174.0, 66.0}}
+                              Other, 0x10258b8a0, {{393.0, 385.0}, {1134.0, 35.0}}, label: 'Modified', value: Jan 1, 2026 at 12:...
+                                StaticText, 0x1025854f0, {{393.0, 385.0}, {114.0, 35.0}}, label: 'Modified'
+                                StaticText, 0x102584470, {{1218.0, 385.0}, {309.0, 35.0}}, label: 'Jan 1, 2026 at 12:00 AM'
+                          Other, 0x10257f340, {{373.0, 369.0}, {1174.0, 66.0}}
+                            Other, 0x102593a40, {{373.0, 369.0}, {1174.0, 66.0}}
+                            Other, 0x10258b060, {{373.0, 369.0}, {1174.0, 66.0}}
+                              Image, 0x1025aca10, {{363.0, 359.0}, {1194.0, 86.0}}
+                        Other, 0x1025acb40, {{373.0, 456.0}, {1174.0, 47.0}}
+                          Other, 0x1025acc70, {{373.0, 456.0}, {1174.0, 47.0}}
+                            Other, 0x1025acda0, {{373.0, 456.0}, {1174.0, 47.0}}
+                              StaticText, 0x1025aced0, {{393.0, 462.0}, {139.0, 35.0}}, label: 'LOCATION'
+                        Cell, 0x1025ad000, {{373.0, 503.0}, {1174.0, 66.0}}, label: 'Location', Focused
+                          Other, 0x1025ad130, {{369.0, 502.8}, {1182.0, 66.4}}
+                            Other, 0x1025ad260, {{369.0, 502.8}, {1182.0, 66.4}}
+                              Button, 0x1025ad390, {{389.1, 518.9}, {1140.7, 35.2}}, label: 'Location', value: /Movies/Sample Mov...
+                                StaticText, 0x1025ad4c0, {{389.1, 518.9}, {1140.7, 35.2}}, label: '/Movies/Sample Movie 1 (2021)/Sample Movie 1 (2021) 2160p.mkv'
+                                Image, 0x1025ad5f0, {{1517.8, 525.9}, {12.1, 21.1}}, identifier: 'chevron.forward'
+                          Other, 0x1025ad720, {{369.0, 502.8}, {1182.0, 66.4}}
+                            Other, 0x1025ad850, {{369.0, 502.8}, {1182.0, 66.4}}
+                              Button, 0x1025ad980, {{389.1, 518.9}, {1140.7, 35.2}}, label: 'Location', value: /Movies/Sample Mov...
+                                StaticText, 0x1025adab0, {{389.1, 518.9}, {1140.7, 35.2}}, label: '/Movies/Sample Movie 1 (2021)/Sample Movie 1 (2021) 2160p.mkv'
+                                Image, 0x1025adbe0, {{1517.8, 525.9}, {12.1, 21.1}}, identifier: 'chevron.forward'
+                        Cell, 0x1025add10, {{373.0, 597.0}, {1174.0, 66.0}}, label: 'Done'
+                          Other, 0x1025ade40, {{373.0, 597.0}, {1174.0, 66.0}}
+                            Other, 0x1025adf70, {{373.0, 597.0}, {1174.0, 66.0}}
+                              Button, 0x1025ae0a0, {{402.0, 613.0}, {164.0, 35.0}}, label: 'Done'
+                                Image, 0x1025ae1d0, {{402.0, 618.0}, {26.0, 25.0}}, identifier: 'checkmark', label: 'Selected', Selected
+                                StaticText, 0x1025ae300, {{497.0, 613.0}, {69.0, 35.0}}, label: 'Done'
+                          Other, 0x1025ae430, {{373.0, 597.0}, {1174.0, 66.0}}
+                            Other, 0x1025ae560, {{373.0, 597.0}, {1174.0, 66.0}}
+                            Other, 0x1025ae690, {{373.0, 597.0}, {1174.0, 66.0}}
+                              Image, 0x1025ae7c0, {{363.0, 587.0}, {1194.0, 86.0}}
+                        Other, 0x1025ae8f0, {{0.0, 0.0}, {0.0, 0.0}}, label: '0 pages', value: 0%
+                          Other, 0x1025aea20, {{1541.0, 992.0}, {3.0, 25.0}}
