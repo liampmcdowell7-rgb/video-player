@@ -39,15 +39,17 @@ struct SortMoveSheet: View {
     var body: some View {
         TaskPage(title: SortTexts.moveTitle(target.kind), summary: SortTexts.moveSummary(target.kind)) {
             if let binding = Binding($draft) {
+                // #36 S-D (R256): one rounded shape per field row, the label beside the field, no placeholder inside it
+                // (66: the title was the placeholder, #585858 on #111111, 2.65:1).
                 Section {
-                    TextField(binding.wrappedValue.titleLabel, text: binding.title)
-                    TextField("Year (Optional)", text: binding.year)
+                    FieldRow(binding.wrappedValue.titleLabel, text: binding.title)
+                    FieldRow("Year (Optional)", text: binding.year)
                 }
                 if target.kind == .episode {
                     Section("Episode") {
-                        TextField("Season", text: binding.season)
-                        TextField("Episode", text: binding.episode)
-                        TextField("Last Episode (Optional)", text: binding.episodeEnd)
+                        FieldRow("Season", text: binding.season)
+                        FieldRow("Episode", text: binding.episode)
+                        FieldRow("Last Episode (Optional)", text: binding.episodeEnd)
                     }
                 }
                 Section {

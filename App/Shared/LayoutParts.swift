@@ -212,3 +212,72 @@ struct TaskButtonRow<Content: View>: View {
         .listRowBackground(Color.clear)
     }
 }
+
+/// #36 S-D (OPEN_QUESTIONS R256, PROVISIONAL): one text or secure field as ONE rounded shape. The run of 20 Nov drew two:
+/// the Form row's own rounded background and, inside it, the field's rounded pill (11 to 19, 66, 36). The row now draws no
+/// background of its own, so the system field (automatic style, its own focus look kept) is the only shape.
+/// No placeholder inside the field: the system draws a focused field's placeholder in its own grey on the white pill, which
+/// we cannot restyle (94 and 66: #B7B7BC on #EAEAEA, 1.66:1). The example or "Optional" that was the placeholder is a hint
+/// line under the label instead, in `ReadableSecondary.style` (R240, 4.5:1 or more on the cover background), and the field
+/// is empty until something is typed. The spoken label is the title.
+/// At the default text size the label is on the leading side and the field on the trailing side (`LabeledContent`), every
+/// field the same width (`TaskPageLayout.fieldFraction`); at an accessibility text size the label goes above (#30 E).
+struct FieldRow: View {
+    let title: String
+    var hint: String? = nil
+    @Binding var text: String
+    var isSecret: Bool = false
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    init(_ title: String, hint: String? = nil, text: Binding<String>, isSecret: Bool = false) {
+        self.title = title
+        self.hint = hint
+        self._text = text
+        self.isSecret = isSecret
+    }
+
+    var body: some View {
+        Group {
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading) {
+                    label
+                    field
+                }
+            } else {
+                LabeledContent {
+                    field
+                        .containerRelativeFrame(.horizontal) { (length: CGFloat, _: Axis) -> CGFloat in
+                            length * TaskPageLayout.fieldFraction
+                        }
+                } label: {
+                    label
+                }
+            }
+        }
+        // design-lint:allow #36 S-D (R256): the row around a system text field has no background of its own; the field's own shape is the only one
+        .listRowBackground(Color.clear)
+    }
+
+    private var label: some View {
+        VStack(alignment: .leading) {
+            FittingText(title)
+            if let hint, !hint.isEmpty {
+                FittingText(hint, style: .caption)
+                    .foregroundStyle(ReadableSecondary.style)
+            }
+        }
+    }
+
+    /// The control itself: no title and no prompt, so nothing is drawn inside it until text is typed.
+    @ViewBuilder
+    private var field: some View {
+        if isSecret {
+            SecureField("", text: $text)
+                .accessibilityLabel(title)
+        } else {
+            TextField("", text: $text)
+                .autocorrectionDisabled()
+                .accessibilityLabel(title)
+        }
+    }
+}

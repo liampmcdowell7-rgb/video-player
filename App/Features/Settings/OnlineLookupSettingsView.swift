@@ -84,8 +84,8 @@ private struct KeyRow: View {
                     TaskButton("Remove Key", role: .destructive) { confirmRemove = true }
                 }
             }
-            SecureField(saved == nil ? OnlineLookupText.enterKey : OnlineLookupText.replaceKey, text: $entry)
-                .autocorrectionDisabled()
+            // #36 S-D (R256): Enter Key / Replace Key as one rounded shape, the label beside the field.
+            FieldRow(saved == nil ? OnlineLookupText.enterKey : OnlineLookupText.replaceKey, text: $entry, isSecret: true)
             TaskButtonRow {
                 TaskButton("Save Key", prominent: true) { Task { await save() } }
                     .disabled(entry.isEmpty || working)

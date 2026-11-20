@@ -11,10 +11,11 @@ import AppLogic
 /// #30 E: at an accessibility text size the label goes above the field and both use the full row (HIG Layout: "horizontally
 /// adjacent views may need to stack vertically"), so nothing is shrunk or cut. The problem texts are under the section
 /// (SourceFormView).
+/// #36 S-D (OPEN_QUESTIONS R256, PROVISIONAL): text and secure fields are `FieldRow`: one rounded shape (the row draws no
+/// background), no placeholder in the field, the former placeholder ("Living Room", "Optional") a hint under the label.
 struct SourceFieldRow: View {
     let spec: SourceFieldSpec
     @Binding var text: String
-    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         if !spec.choices.isEmpty {
@@ -26,31 +27,8 @@ struct SourceFieldRow: View {
                 FittingText(spec.title)
             }
             .accessibilityLabel(spec.title)
-        } else if typeSize.isAccessibilitySize {
-            VStack(alignment: .leading) {
-                FittingText(spec.title)
-                field
-            }
         } else {
-            LabeledContent {
-                field
-                    .containerRelativeFrame(.horizontal) { (length: CGFloat, _: Axis) -> CGFloat in
-                        length * TaskPageLayout.fieldFraction
-                    }
-            } label: {
-                FittingText(spec.title)
-            }
-        }
-    }
-
-    /// The control itself; its title stays its spoken label.
-    @ViewBuilder
-    private var field: some View {
-        if spec.isSecret {
-            SecureField(spec.title, text: $text, prompt: Text(spec.prompt))
-        } else {
-            TextField(spec.title, text: $text, prompt: Text(spec.prompt))
-                .autocorrectionDisabled()
+            FieldRow(spec.title, hint: spec.prompt, text: $text, isSecret: spec.isSecret)
         }
     }
 
