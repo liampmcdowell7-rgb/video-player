@@ -250,14 +250,66 @@ final class ScreenChecksTests: XCTestCase {
         XCTAssertFalse(run.passed, run.text)
         XCTAssertTrue(run.text.contains("gap inside group 60, gap between groups 76"), run.text)
         // #33 G: 140 pt between the groups, 2.33 times the 60 pt gap inside a group (replaced in #34 by 100 and 48, below).
+        // #36 6: the ratio is met, but the run's symbols (102, 96, 90 pt) are not one size and Needs Review is 2 pt lower.
         let fixed: CheckResult = ScreenRules.toolbarGroups(first: first, second: [("Needs Review", AXRect(x: 488 + 140, y: 158, width: 336, height: 66))])
-        XCTAssertTrue(fixed.passed, fixed.text)
+        XCTAssertFalse(fixed.passed, fixed.text)
+        XCTAssertFalse(fixed.text.contains("is not at least"), fixed.text)
+        XCTAssertTrue(fixed.text.contains("icon controls not the same size: widths [102, 96, 90]"), fixed.text)
         // Larger Text of the run: 60 inside, 76 between; fails the same way.
         let larger: [(String, AXRect)] = [("Sort", AXRect(x: 80, y: 157, width: 125, height: 87)),
                                           ("Filter", AXRect(x: 265, y: 157, width: 114, height: 87)),
                                           ("Saved Views", AXRect(x: 439, y: 157, width: 107, height: 87))]
         XCTAssertFalse(ScreenRules.toolbarGroups(first: larger, second: [("Needs Review", AXRect(x: 622, y: 158, width: 476, height: 85))]).passed)
-        XCTAssertTrue(ScreenRules.toolbarGroups(first: larger, second: [("Needs Review", AXRect(x: 546 + 140, y: 158, width: 476, height: 85))]).passed)
+        XCTAssertFalse(ScreenRules.toolbarGroups(first: larger, second: [("Needs Review", AXRect(x: 546 + 140, y: 158, width: 476, height: 85))]).passed)
+    }
+
+    /// #36 6 (R258): the row #36 asks for: three symbol controls of one size, the gaps inside both groups equal, the text
+    /// controls of the symbols' height, the groups 100 pt apart. Default size and Larger Text, from the run's widths
+    /// (the widest symbol, 102 and 125 pt) and the GridToolbarLayout numbers.
+    func equalToolbar(icon: Double, height: Double, texts: [(String, Double)], inGroup: Double, groupGap: Double) -> ([(String, AXRect)], [(String, AXRect)]) {
+        var x: Double = 80
+        var first: [(String, AXRect)] = []
+        for name in ["Sort", "Filter", "Saved Views"] {
+            first.append((name, AXRect(x: x, y: 157, width: icon, height: height)))
+            x += icon + inGroup
+        }
+        x += groupGap - inGroup
+        var second: [(String, AXRect)] = []
+        for (name, width) in texts {
+            second.append((name, AXRect(x: x, y: 157, width: width, height: height)))
+            x += width + inGroup
+        }
+        return (first, second)
+    }
+
+    func testEqualSymbolControlsAndEqualGapsPassTheGroupsCheck() {
+        for (icon, height, texts) in [(102.0, 68.0, [("Needs Review", 336.0), ("Jump to Letter", 317.0)]),
+                                      (125.0, 87.0, [("Needs Review", 476.0), ("Jump to Letter", 448.0)])] {
+            let (first, second) = equalToolbar(icon: icon, height: height, texts: texts, inGroup: 40, groupGap: 100)
+            let result: CheckResult = ScreenRules.toolbarGroups(first: first, second: second)
+            XCTAssertTrue(result.passed, result.text)
+        }
+    }
+
+    /// #36 6: the check fails on the uneven rows: the run's own notes (07-*-GROUPS of the run of 20 Nov: symbols 102, 96 and
+    /// 90 pt wide, text controls 66 pt beside 68), one symbol 2 pt wider, and unequal gaps between the groups' items.
+    func testUnevenToolbarRowsFailTheGroupsCheck() throws {
+        for note in ["07-movies-toolbar-GROUPS", "07-movies-toolbar-larger-text-GROUPS"] {
+            let frames: [(String, AXRect)] = try groupsNote(note)
+            let result: CheckResult = ScreenRules.toolbarGroups(first: Array(frames.prefix(3)), second: Array(frames.suffix(2)))
+            XCTAssertFalse(result.passed, result.text)
+            XCTAssertTrue(result.text.contains("icon controls not the same size"), "\(note): \(result.text)")
+            XCTAssertTrue(result.text.contains("text controls not the symbols' height"), "\(note): \(result.text)")
+        }
+        let texts: [(String, Double)] = [("Needs Review", 336), ("Jump to Letter", 317)]
+        var (first, second) = equalToolbar(icon: 102, height: 68, texts: texts, inGroup: 40, groupGap: 100)
+        first[1].1 = AXRect(x: first[1].1.x, y: 157, width: 104, height: 68)
+        XCTAssertTrue(ScreenRules.toolbarGroups(first: first, second: second).text.contains("icon controls not the same size"))
+        (first, second) = equalToolbar(icon: 102, height: 68, texts: texts, inGroup: 40, groupGap: 100)
+        second[1].1 = AXRect(x: second[1].1.x + 20, y: 157, width: 317, height: 68)
+        let gaps: CheckResult = ScreenRules.toolbarGroups(first: first, second: second)
+        XCTAssertFalse(gaps.passed, gaps.text)
+        XCTAssertTrue(gaps.text.contains("gaps inside the groups not equal: [40, 40] and [60]"), gaps.text)
     }
 
     /// The frames of one 07-*-GROUPS note of the run, in note order ("Label<TAB>(x, y, width, height)").
@@ -357,7 +409,8 @@ final class ScreenChecksTests: XCTestCase {
         XCTAssertFalse(oldLabel.contains("FittingText(card.title"), "the brace matcher must see the old title outside the label")
     }
 
-    /// #34 3: the full toolbar row at Larger Text, from the run's notes. The count's width is not in the notes: its glyphs
+    /// #34 3: the full toolbar row at Larger Text, from the run's notes. #36 6: every symbol control as wide as the widest
+    /// (the row the app now lays out). The count's width is not in the notes: its glyphs
     /// were measured on the pictures (07-movies-toolbar-larger-text: x 1666 to 1836, 171 pt; shows 1677 to 1835, 159 pt;
     /// default size 1726 to 1837 and 1735 to 1837), plus 8 pt for the text's side bearings.
     func testTheToolbarRowFitsAtLargerTextWithTheseGaps() throws {
@@ -369,14 +422,22 @@ final class ScreenChecksTests: XCTestCase {
         for (note, count) in cases {
             let frames: [AXRect] = try groupsNote(note).map { (item: (String, AXRect)) -> AXRect in item.1 }
             XCTAssertEqual(frames.count, 5, note)
-            let first: [AXRect] = Array(frames.prefix(3))
+            // #36 6 (R258): equal symbol controls, each the widest of the note's three.
+            let widest: Double = frames.prefix(3).map { (rect: AXRect) -> Double in rect.width }.max() ?? 0
+            let first: [AXRect] = frames.prefix(3).map { (rect: AXRect) -> AXRect in AXRect(x: rect.x, y: rect.y, width: widest, height: rect.height) }
             let second: [AXRect] = Array(frames.suffix(2))
             // #33's numbers (60 inside, 140 between) plus the system's space before the count, which is not known: between
             // 0 and the 60 pt the run shows between Jump to Letter and the count. Movies does not fit even at 0.
             let old: CheckResult = ScreenRules.toolbarRowWidth(first: first, second: second, count: count, inGroup: 60, groupGap: 140, countGap: 0)
             let new: CheckResult = ScreenRules.toolbarRowWidth(first: first, second: second, count: count, inGroup: inGroup, groupGap: groupGap, countGap: countGap)
             print("TOOLBAR \(note) #33: \(old.lines[0]) | #34: \(new.lines[0]) \(new.lines[1])")
-            if note == "07-movies-toolbar-larger-text-GROUPS" { XCTAssertFalse(old.passed, "\(note): \(old.text)") }
+            if note == "07-movies-toolbar-larger-text-GROUPS" {
+                XCTAssertFalse(old.passed, "\(note): \(old.text)")
+                // #34's 48 inside a group no longer fits with equal symbols: 1,762 of 1,760 pt.
+                let was: CheckResult = ScreenRules.toolbarRowWidth(first: first, second: second, count: count, inGroup: 48, groupGap: 100, countGap: 40)
+                XCTAssertFalse(was.passed, "\(note): \(was.text)")
+                XCTAssertTrue(was.lines[0].contains("= 1762 of 1760"), was.lines[0])
+            }
             XCTAssertTrue(new.passed, "\(note): \(new.text)")
             // With 60 inside a group, a 120 pt gap (twice 60) fits at Larger Text only if the system's space before the count
             // is under 12 pt (Movies: 1,749 + that space of 1,760); unproven, so the row's spacings are now explicit.

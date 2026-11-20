@@ -188,6 +188,8 @@ public enum ScreenRules {
 
     /// #33 G: the gap between the two toolbar groups must be at least `ratio` (2) times the gap inside the first group, and
     /// the gaps inside the first group may differ by at most 2 pt. Frames sorted left to right.
+    /// #36 6 (R258): the symbol controls (first group) must have one size (width and height within 1 pt), every gap inside
+    /// either group must be the same (within 2 pt), and the text controls must have the symbols' height (within 1 pt).
     public static func toolbarGroups(first: [(String, AXRect)], second: [(String, AXRect)], ratio: Double = 2) -> CheckResult {
         var lines: [String] = (first + second).map { "\($0.0)\t\($0.1)" }
         var problems: [String] = []
@@ -198,6 +200,27 @@ public enum ScreenRules {
         if first.count < 2 { problems.append("fewer than two view controls found") }
         if let low = inner.min(), let high = inner.max(), high - low > 2 {
             problems.append("gaps inside the view controls differ: \(inner.map { Int($0) })")
+        }
+        // #36 6: one size for the symbol controls.
+        let widths: [Double] = first.map { (item: (String, AXRect)) -> Double in item.1.width }
+        let heights: [Double] = first.map { (item: (String, AXRect)) -> Double in item.1.height }
+        if let low = widths.min(), let high = widths.max(), let short = heights.min(), let tall = heights.max(), high - low > 1 || tall - short > 1 {
+            problems.append("icon controls not the same size: widths \(widths.map { Int($0) }), heights \(heights.map { Int($0) })")
+        }
+        // #36 6: the gaps inside the second group equal those inside the first.
+        let innerSecond: [Double] = zip(second, second.dropFirst()).map { (pair: ((String, AXRect), (String, AXRect))) -> Double in
+            pair.1.1.x - pair.0.1.maxX
+        }
+        let allInner: [Double] = inner + innerSecond
+        if !innerSecond.isEmpty, let low = allInner.min(), let high = allInner.max(), high - low > 2 {
+            problems.append("gaps inside the groups not equal: \(inner.map { Int($0) }) and \(innerSecond.map { Int($0) })")
+        }
+        // #36 6: the text controls have the symbols' height.
+        if let tall = heights.max() {
+            let off: [(String, AXRect)] = second.filter { (item: (String, AXRect)) -> Bool in abs(item.1.height - tall) > 1 }
+            if !off.isEmpty {
+                problems.append("text controls not the symbols' height (\(Int(tall))): " + off.map { (item: (String, AXRect)) -> String in "\(item.0) \(Int(item.1.height))" }.joined(separator: ", "))
+            }
         }
         if let last = first.last, let next = second.first, let gap = inner.max() {
             let between: Double = next.1.x - last.1.maxX

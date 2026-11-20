@@ -232,6 +232,7 @@ Pure bash/grep/POSIX awk (runs with mawk), no Swift. Default scope: every `.swif
 | App/Features/Settings/AboutView.swift:39 | fixed-card | the TMDB logo's own image height inside the scrolling list, not a card |
 | App/Shared/LayoutParts.swift (`FieldRow`) | row-background | #36 S-D (OPEN_QUESTIONS R256, PROVISIONAL): the row around a system text field draws no background of its own, so the field's own shape is the only one. |
 | App/Shared/LayoutParts.swift (`TaskButtonRow`) | row-background | #36 S-C (OPEN_QUESTIONS R255, PROVISIONAL): the row around bezeled action buttons draws no background of its own (`Color.clear`), so the system button bezels are the only shape. (The former pushed-title exceptions of the sheet roots are gone: every task cover uses `TaskPage`, which hides the navigation bar, #36 S-B, R254.) |
+| App/Shared/GridToolbar.swift (`ToolbarIconGroup`) | custom-glass | #36 6 (OPEN_QUESTIONS R258, PROVISIONAL, owner decision against D-DS9): one `GlassEffectContainer` around the library toolbar's symbol controls so they read as one group; no `glassEffect` of our own, the controls keep their system style. |
 
 App/Support/Attribution.swift no longer needs exceptions: TMDB and JustWatch are allowlisted, and the TMDB notice is exempt from `claim-wording` because it says "not endorsed". No package module carries an exception.
 
@@ -275,6 +276,7 @@ Screens use these parts instead of drawing their own. All of them are in App/Sha
 | `SymbolColumn` | LayoutParts.swift | D5 | A value-column symbol (the watched check) that keeps its slot when hidden, so columns line up. |
 | `TaskButton` + `TaskButtonRow` | LayoutParts.swift | D2, equal size | #36 S-C (R255, PROVISIONAL): action buttons (Connect, Cancel, Save, Done, Check Connection, Sync Now and the rest) as bezeled system buttons, label centred, at least 66 pt high (HIG Accessibility, tvOS default control size), the most likely action `.borderedProminent`, the others `.bordered`; side by side they share the row equally. Rows that open a page stay rows. |
 | `FieldRow` | LayoutParts.swift | L2, equal size | #36 S-D (R256, PROVISIONAL): a text or secure field as one rounded shape (the row draws no background), the label beside it, no placeholder inside it; the example or "Optional" is a hint under the label. |
+| `ToolbarIconGroup` + `EqualWidthHStack` | GridToolbar.swift | equal size | #36 6 (R258, PROVISIONAL): the library toolbar's symbol controls as one group, one shared glass container, every control the width of the widest and the height of the tallest, 40 pt apart (`GridToolbarLayout`). |
 | `StatusText` | LayoutParts.swift | L3 | Status and explanations: secondary callout text, never a row, pill or button. |
 | `LearnMoreLink` + `LongTextPage` | LayoutParts.swift, LongTextPage.swift | L5 | A one- or two-line footer, with the complete text one press away ("Learn More", "What Is Sent"). |
 | Progress inside the artwork | PosterCard.swift | D4 | A `ProgressView` overlaid on the artwork's bottom edge, so it moves with the focused card. |
