@@ -1,7 +1,8 @@
 import SwiftUI
 import AppLogic
 
-/// Asks for a name and saves the current sort and filters as a view.
+/// Asks for a name and saves the current sort and filters as a view. #36 S-B (OPEN_QUESTIONS R254, PROVISIONAL): the one
+/// task-cover layout, `TaskPage` (left title in the bounded column), not a centred navigation title.
 struct SaveViewSheet<Screen: QueryGridScreen>: View {
     let model: ScreenModel<Screen>
     @Environment(\.dismiss) private var dismiss
@@ -9,7 +10,7 @@ struct SaveViewSheet<Screen: QueryGridScreen>: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            TaskPage(title: "Save View") {
                 Section("Name") {
                     TextField("Saved View", text: $name)
                 }
@@ -24,7 +25,6 @@ struct SaveViewSheet<Screen: QueryGridScreen>: View {
                     Button("Cancel", role: .cancel) { dismiss() }
                 }
             }
-            .navigationTitle("Save View") // design-lint:allow sheet root: the title is the sheet's own heading, not a pushed page (rule D1 is for pushed pages)
         }
     }
 }

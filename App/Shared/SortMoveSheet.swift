@@ -26,7 +26,8 @@ enum SortMoveTarget: Identifiable, Equatable {
 
 /// Move to Movies / Move to Shows (docs/SORTING.md): system form fields, filled from the file name. The choice is a synced
 /// user-data record, so it survives rescans and reaches the other Apple TVs; the next scan files the item. Layout:
-/// `SettingsPane` (#15 L1, D1); the main action is the first button under the fields (L7).
+/// `TaskPage`, the one task-cover layout (#36 S-B, OPEN_QUESTIONS R254, PROVISIONAL; it was `SettingsPane`'s two columns);
+/// the main action is the first button under the fields (L7).
 struct SortMoveSheet: View {
     let target: SortMoveTarget
     var onSaved: () -> Void = {}
@@ -36,7 +37,7 @@ struct SortMoveSheet: View {
     @State private var problem: String?
 
     var body: some View {
-        SettingsPane(title: SortTexts.moveTitle(target.kind), summary: SortTexts.moveSummary(target.kind)) {
+        TaskPage(title: SortTexts.moveTitle(target.kind), summary: SortTexts.moveSummary(target.kind)) {
             if let binding = Binding($draft) {
                 Section {
                     TextField(binding.wrappedValue.titleLabel, text: binding.title)
@@ -98,7 +99,8 @@ struct SortInfoSheet: View {
     @State private var move: SortMoveTarget?
 
     var body: some View {
-        SettingsPane(title: "How This Was Sorted", summary: SortTexts.infoSummary) {
+        // #36 S-B (R254): `TaskPage`, as every task cover.
+        TaskPage(title: "How This Was Sorted", summary: SortTexts.infoSummary) {
             Section {
                 if let info {
                     LabeledContent("Sorted By", value: SortTexts.title(info.record.signal))

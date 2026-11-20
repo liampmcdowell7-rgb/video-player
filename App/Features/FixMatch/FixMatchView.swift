@@ -15,7 +15,8 @@ struct FixMatchView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            // #36 S-B (OPEN_QUESTIONS R254, PROVISIONAL): the one task-cover layout, `TaskPage`, not a centred title.
+            TaskPage(title: "Fix Match") {
                 if services.online.hasCatalogueKey {
                     Section("Title") {
                         TextField("Title", text: $text)
@@ -41,7 +42,6 @@ struct FixMatchView: View {
                 }
                 Button("Cancel", role: .cancel) { dismiss() }
             }
-            .navigationTitle("Fix Match") // design-lint:allow sheet root: the title is the sheet's own heading, not a pushed page (rule D1 is for pushed pages)
         }
         .onAppear {
             if text.isEmpty { text = currentTitle }

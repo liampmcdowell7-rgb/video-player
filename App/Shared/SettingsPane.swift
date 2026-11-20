@@ -60,6 +60,9 @@ enum TaskPageLayout {
 /// - They scroll with the rows, so at Larger Text the rows get the whole screen height (#30 E).
 /// - The system scroll edge effect at both ends shows that more rows are above or below (#30 D; tvOS 26 and later).
 /// - The navigation bar stays hidden (rule D1): the title is drawn once, here.
+/// #36 S-B (OPEN_QUESTIONS R254, PROVISIONAL): the ONE layout of every task cover: Add a Source, the source forms, Your
+/// Network, File Details, Save View, Fix Match, the Move choice and How This Was Sorted. (Save View and Fix Match had a
+/// centred navigation title; Move and How This Was Sorted had `SettingsPane`'s two columns.)
 struct TaskPage<Content: View>: View {
     let title: String
     var summary: String? = nil
