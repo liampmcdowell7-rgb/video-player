@@ -79,6 +79,23 @@ public enum ScreenRules {
         return CheckResult(passed: false, lines: ["page screens still in the accessibility tree: \(visible.joined(separator: ", "))", "PAGE BEHIND THE COVER IS EXPOSED"])
     }
 
+    /// #34 2: the cover itself is still in the accessibility tree while the page behind it is hidden. RootView hides the
+    /// tab view (`accessibilityHidden(coverPresence.isCovered)`); the cover must not be inside that subtree. In the run of
+    /// 20 Nov the cover was its own top-level subtree of the window, beside the tab view (10-add-source-types-HIERARCHY);
+    /// Apple's pages do not say whether the hidden state reaches a presented cover, so this checks it on every cover.
+    public static func coverExposed(in dump: AccessibilityDump) -> CheckResult {
+        guard let cover = dump.coverRoot else {
+            return CheckResult(passed: false, lines: ["no cover subtree in the accessibility tree", "COVER HIDDEN FROM ACCESSIBILITY"])
+        }
+        let labelled: [Int] = dump.descendants(of: cover).filter { (index: Int) -> Bool in
+            !dump.nodes[index].label.isEmpty && !(dump.nodes[index].frame?.isEmpty ?? true)
+        }
+        if labelled.isEmpty {
+            return CheckResult(passed: false, lines: ["the cover subtree has no labelled element", "COVER HIDDEN FROM ACCESSIBILITY"])
+        }
+        return CheckResult(passed: true, lines: ["\(labelled.count) labelled elements in the cover", "COVER EXPOSED OK"])
+    }
+
     /// #33 A: the task page's title starts at or below the 60 pt top safe area (HIG Layout, tvOS) and its interactive rows
     /// (cells and fields of the cover) do not overlap one another.
     public static func coverLayout(in dump: AccessibilityDump, safeTop: Double = 60) -> CheckResult {

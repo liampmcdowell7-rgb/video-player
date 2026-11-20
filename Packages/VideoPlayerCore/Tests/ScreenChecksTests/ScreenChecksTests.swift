@@ -94,6 +94,31 @@ final class ScreenChecksTests: XCTestCase {
         XCTAssertNil(page.coverRoot)
     }
 
+    /// #34 2: the cover must stay in the tree while the page is hidden: passes on the run's 10 and 74 notes and on a lone
+    /// cover, fails when the window has nothing (everything hidden) or only an unlabelled cover.
+    func testTheCoverMustStayExposedWhileThePageIsHidden() throws {
+        XCTAssertTrue(ScreenRules.coverExposed(in: try fixture("10-add-source-types-HIERARCHY")).passed)
+        XCTAssertTrue(ScreenRules.coverExposed(in: try fixture("74-file-details-HIERARCHY")).passed)
+        let lone: AccessibilityDump = AccessibilityDump("""
+         →Application, 0x1, pid: 1, label: 'Video Player'
+            Window (Main), 0x2, {{0.0, 0.0}, {1920.0, 1080.0}}
+              Other, 0x4, {{0.0, 0.0}, {1920.0, 1080.0}}
+                StaticText, 0x5, {{393.0, 66.0}, {270.0, 69.0}}, label: 'File Details'
+        """)
+        XCTAssertTrue(ScreenRules.coverExposed(in: lone).passed)
+        let empty: AccessibilityDump = AccessibilityDump("""
+         →Application, 0x1, pid: 1, label: 'Video Player'
+            Window (Main), 0x2, {{0.0, 0.0}, {1920.0, 1080.0}}
+        """)
+        XCTAssertEqual(ScreenRules.coverExposed(in: empty).lines.last, "COVER HIDDEN FROM ACCESSIBILITY")
+        let blank: AccessibilityDump = AccessibilityDump("""
+         →Application, 0x1, pid: 1, label: 'Video Player'
+            Window (Main), 0x2, {{0.0, 0.0}, {1920.0, 1080.0}}
+              Other, 0x4, {{0.0, 0.0}, {1920.0, 1080.0}}
+        """)
+        XCTAssertFalse(ScreenRules.coverExposed(in: blank).passed)
+    }
+
     func testTheRowCheckFailsOnANarrowSheetAndOnAMissingAnchor() {
         let narrow: AccessibilityDump = AccessibilityDump("""
          →Application, 0x1, pid: 1, label: 'Video Player'

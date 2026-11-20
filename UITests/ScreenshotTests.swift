@@ -515,9 +515,18 @@ final class ScreenshotTests: XCTestCase {
                     XCTAssertEqual(value, rawName, "21-search-your-network-server-details: the Server ID row does not carry the whole identifier")
                     // #33 D: the Name field starts with the readable name only. The tree carries a field's whole value, not
                     // what is drawn, so a "…" cut cannot be read here; the picture 21-search-your-network-server-details shows it.
-                    let fieldValues: [String] = fake.textFields.allElementsBoundByIndex.map { ($0.value as? String) ?? "" }
-                    let nameOK: Bool = fieldValues.contains("Sample NAS") && !fieldValues.contains { $0.contains(rawName) }
-                    note("21-search-your-network-server-details-NAME", "text field values: \(fieldValues)\n" + (nameOK ? "NAME IS THE READABLE NAME OK" : "NAME FIELD IS NOT “Sample NAS” ALONE"))
+                    let fieldValues: [String] = fake.textFields.allElementsBoundByIndex.map { (field: XCUIElement) -> String in
+                        guard let value = field.value as? String else { return "" }
+                        return value
+                    }
+                    // #34 1: typed steps, no ternary inside a `+` chain (the #29 pattern).
+                    let hasReadable: Bool = fieldValues.contains("Sample NAS")
+                    let hasRaw: Bool = fieldValues.contains { (value: String) -> Bool in value.contains(rawName) }
+                    let nameOK: Bool = hasReadable && !hasRaw
+                    var nameVerdict: String = "NAME FIELD IS NOT “Sample NAS” ALONE"
+                    if nameOK { nameVerdict = "NAME IS THE READABLE NAME OK" }
+                    let nameNote: String = "text field values: \(fieldValues)\n" + nameVerdict
+                    note("21-search-your-network-server-details-NAME", nameNote)
                     XCTAssertTrue(nameOK, "21-search-your-network-server-details: the Name field is not “Sample NAS” alone: \(fieldValues)")
                 }
             } else {
@@ -614,7 +623,9 @@ final class ScreenshotTests: XCTestCase {
 
     func rememberPage(_ app: XCUIApplication) {
         let dump: AccessibilityDump = AccessibilityDump(app.debugDescription)
-        pageTextsBeforeCover = dump.pageRoot.map { dump.textFrames(under: $0) } ?? []
+        var texts: [AXRect] = []
+        if let page = dump.pageRoot { texts = dump.textFrames(under: page) }
+        pageTextsBeforeCover = texts
         print("PAGE TEXTS REMEMBERED: \(pageTextsBeforeCover.count)")
     }
 
@@ -639,12 +650,15 @@ final class ScreenshotTests: XCTestCase {
             if !result.passed { failures.append(title + ": " + result.verdict) }
         }
         if let anchor { take("row width (C)", ScreenRules.fullScreenRow(in: dump, anchor: anchor)) }
+        take("cover exposed to accessibility (#34 2)", ScreenRules.coverExposed(in: dump))
         take("page hidden from accessibility (B 2)", ScreenRules.pageHiddenBehindCover(in: dump))
         take("cover layout (A)", ScreenRules.coverLayout(in: dump))
         let tabBar: XCUIElement = app.tabBars.firstMatch
         let hittable: Bool = tabBar.exists && tabBar.isHittable
+        var tabBarVerdict: String = "TAB BAR NOT HITTABLE OK"
+        if hittable { tabBarVerdict = "TAB BAR HITTABLE" }
         take("tab bar (B 3)", CheckResult(passed: !hittable, lines: ["tab bar in the tree: \(tabBar.exists), hittable: \(hittable)",
-                                                                  hittable ? "TAB BAR HITTABLE" : "TAB BAR NOT HITTABLE OK"]))
+                                                                  tabBarVerdict]))
         if let image = RGBImage(screenshot: screenshot), let windowIndex = dump.window,
            let window = dump.nodes[windowIndex].frame, window.width > 0 {
             let scale: Double = Double(image.width) / window.width
@@ -656,7 +670,9 @@ final class ScreenshotTests: XCTestCase {
         } else {
             take("pixels (B 1)", CheckResult(passed: false, lines: ["the screenshot could not be read or the window has no frame", "PIXELS NOT MEASURED"]))
         }
-        lines.append(failures.isEmpty ? "COVER OK" : "COVER PROBLEM: " + failures.joined(separator: "; "))
+        var coverVerdict: String = "COVER OK"
+        if !failures.isEmpty { coverVerdict = "COVER PROBLEM: " + failures.joined(separator: "; ") }
+        lines.append(coverVerdict)
         note(name + "-COVER", lines.joined(separator: "\n"))
         for failure in failures { XCTFail("\(name): \(failure)") }
     }
@@ -709,7 +725,7 @@ final class ScreenshotTests: XCTestCase {
             XCTAssertTrue(cards.passed, "55-show-page: " + cards.verdict)
             checkGap("55-show-page", tree: pageTree, anchors: [ControlID.play, ControlID.more], kinds: ["StaticText"], minimum: 40, what: "buttons to the first season heading")
             // #15 item 1.6: the scrolled states of the show page (each must differ from the one before).
-            for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); shot("55-show-page-scrolled-\(step)", mustChangeAfter: step == 1 ? "Down on the show page" : nil) }
+            for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); let mustChange: String? = step == 1 ? "Down on the show page" : nil; shot("55-show-page-scrolled-\(step)", mustChangeAfter: mustChange) }
             for _ in 0..<2 { XCUIRemote.shared.press(.up) }; sleep(1)
             // Seasons are sections of the show page (there is no separate season page); move down to season 2.
             if focus(control("S2", in: app), in: app) || focus(control("Season 2", in: app), in: app) { settle(); shot("56-show-season-2-episode-row") }
@@ -733,7 +749,7 @@ final class ScreenshotTests: XCTestCase {
             note("57-movie-detail-HIERARCHY", movieTree)
             checkGap("57-movie-detail", tree: movieTree, anchors: [ControlID.play, ControlID.more], kinds: ["StaticText"], minimum: 40, what: "buttons to the next heading")
             focusCheck("57-movie-detail", expected: ControlID.play, in: app)
-            for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); shot("58-movie-detail-scrolled-\(step)", mustChangeAfter: step == 1 ? "Down on the movie page" : nil) }
+            for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); let mustChange: String? = step == 1 ? "Down on the movie page" : nil; shot("58-movie-detail-scrolled-\(step)", mustChangeAfter: mustChange) }
             // Fix Match is in the More menu (ItemDetailContentView.moreMenu), not a button on the page: the old test looked for
             // it on the page and never found it (#15 item 1.3). Up to the action row first: the focus is below it after 58.
             for _ in 0..<6 { XCUIRemote.shared.press(.up) }; sleep(1)
@@ -922,7 +938,9 @@ final class ScreenshotTests: XCTestCase {
             guard text.exists, let m = Contrast.measure(image, frame: AXRect(text.frame), scale: scale) else {
                 lines.append("“\(prefix)…”: not found"); continue
             }
-            lines.append("“\(prefix)…” \(AXRect(text.frame)): \(m)" + (m.ratio >= 4.5 ? "" : " BELOW 4.5"))
+            var line: String = "“\(prefix)…” \(AXRect(text.frame)): \(m)"
+            if m.ratio < 4.5 { line += " BELOW 4.5" }
+            lines.append(line)
         }
         note(name + "-CONTRAST", lines.joined(separator: "\n"))
     }
@@ -941,10 +959,16 @@ final class ScreenshotTests: XCTestCase {
             let found: Bool = app.staticTexts[text].exists
             let took: TimeInterval = Date().timeIntervalSince(start)
             worst = max(worst, took)
-            lines.append("query after \(move.map { String(describing: $0) } ?? "no press"): \(String(format: "%.2f", took)) s, “\(text)” found: \(found)")
+            var pressed: String = "no press"
+            if let move { pressed = String(describing: move) }
+            let seconds: String = String(format: "%.2f", took)
+            lines.append("query after \(pressed): \(seconds) s, “\(text)” found: \(found)")
             sleep(1)
         }
-        lines.append("worst \(String(format: "%.2f", worst)) s, limit 5 s: " + (worst > 5 ? "MAIN THREAD BUSY" : "RESPONSIVE OK"))
+        var busyVerdict: String = "RESPONSIVE OK"
+        if worst > 5 { busyVerdict = "MAIN THREAD BUSY" }
+        let worstText: String = String(format: "%.2f", worst)
+        lines.append("worst \(worstText) s, limit 5 s: " + busyVerdict)
         note(name, lines.joined(separator: "\n"))
         XCTAssertLessThanOrEqual(worst, 5, "\(name): a query waited \(String(format: "%.1f", worst)) s for the app's main thread (limit 5 s).")
     }
@@ -1048,7 +1072,7 @@ final class ScreenshotTests: XCTestCase {
                 let element: XCUIElement = app.descendants(matching: .any).matching(identifier: id).firstMatch
                 guard element.exists, !element.frame.isEmpty else { return nil }
                 return (label, AXRect(element.frame))
-            }.sorted { $0.1.x < $1.1.x }
+            }.sorted { (a: (String, AXRect), b: (String, AXRect)) -> Bool in a.1.x < b.1.x }
         }
         let result: CheckResult = ScreenRules.toolbarGroups(first: frames(first), second: frames(second), ratio: 2)
         note(name + "-GROUPS", result.text)
@@ -1080,7 +1104,8 @@ final class ScreenshotTests: XCTestCase {
     /// below the window (cut at the bottom), or when an `expected` label is missing. Writes "<name>-MENU".
     func checkMenu(_ name: String, expected: [String], before: Set<String>, in app: XCUIApplication) {
         let dump: AccessibilityDump = AccessibilityDump(app.debugDescription)
-        let windowMaxY: Double = dump.window.flatMap { dump.nodes[$0].frame?.maxY } ?? 1080
+        var windowMaxY: Double = 1080
+        if let window = dump.window, let frame = dump.nodes[window].frame { windowMaxY = frame.maxY }
         let items: [(String, AXRect)] = ScreenRules.menuItems(in: dump, before: before, ignoringIdentifiers: Self.toolbarControlIDs)
         let result: CheckResult = ScreenRules.menu(items: items, expected: expected, windowMaxY: windowMaxY)
         note(name + "-MENU", result.text)

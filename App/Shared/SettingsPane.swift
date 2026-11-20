@@ -121,6 +121,12 @@ struct TaskCoverChrome: ViewModifier {
             .uiTestAccessibilityOverrides()
             .accessibilityElement(children: .contain)
             .accessibilityAddTraits(.isModal)
+            // #34 2: the cover's own root also draws the system background, full bleed, so the cover is opaque even if
+            // tvOS ignores `presentationBackground` on a full-screen cover (its page speaks of "the enclosing sheet").
+            // This is the pattern of Apple's `fullScreenCover(isPresented:onDismiss:content:)` example (a full-frame
+            // background that ignores the safe area); `background(_:ignoresSafeAreaEdges:)` ignores all edges by default.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(BackgroundStyle(), ignoresSafeAreaEdges: .all)
             .presentationBackground(.background)
             .onAppear { presence?.opened() }
             .onDisappear { presence?.closed() }
