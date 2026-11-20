@@ -706,6 +706,26 @@ final class ScreenshotTests: XCTestCase {
         } else { notReached("52-card-long-press-menu", "The focus could not leave the tab bar for a card (focus on \(focusedLabel(in: app))).") }
         app.terminate()
 
+        // #34 5a (R229): the Continue Watching caption is now inside the focused button, so the system marquee can scroll it.
+        // Sample Movie 7 (the long title, 20 % watched) is in Continue Watching; its wide card is focused, and two pictures
+        // 3 s apart must differ (the marquee moved), as 56-show-long-episode-caption does for an episode caption.
+        app = launch("-UITestFixtures", tab: "home")
+        if waitForScreen("screen.home", in: app), waitFor("Sample", in: app, timeout: 60), focusContent(in: app),
+           focus(control("Sample Movie 7", in: app), in: app) {
+            let focusedFrame: CGRect = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch.frame
+            let isWide: Bool = focusedFrame.width > focusedFrame.height
+            note("50-home-continue-watching-caption-FOCUS", "focused \(focusedLabel(in: app)) frame \(focusedFrame) wide \(isWide)")
+            if isWide {
+                sleep(1); shot("50-home-continue-watching-caption")
+                sleep(3); shot("50-home-continue-watching-caption-later", mustChangeAfter: "3 s of focus on the Continue Watching card of Sample Movie 7 (the system marquee, #34 5a)")
+            } else {
+                notReached("50-home-continue-watching-caption", "The focused Sample Movie 7 card is not the wide Continue Watching card (frame \(focusedFrame)).")
+            }
+        } else {
+            notReached("50-home-continue-watching-caption", "Could not move the focus to the Continue Watching card of Sample Movie 7 (focus on \(focusedLabel(in: app))).")
+        }
+        app.terminate()
+
         for (n, tab) in [("53", "movies"), ("54", "shows")] {
             app = launch("-UITestFixtures", tab: tab)
             if waitForScreen("screen.\(tab)", in: app), waitFor("Sample", in: app, timeout: 60) { settle(); shot("\(n)-\(tab)") } else { notReached("\(n)-\(tab)", "No sample title appeared.") }

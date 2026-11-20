@@ -300,6 +300,63 @@ final class ScreenChecksTests: XCTestCase {
         return try XCTUnwrap(Double(value.trimmingCharacters(in: .whitespaces)), name)
     }
 
+    /// #34 5a: an app source file (VP_PROJECT_ROOT, else up from this file), as `toolbarConstant`.
+    func appSource(_ relative: String) throws -> String? {
+        var candidates: [URL] = []
+        if let root = ProcessInfo.processInfo.environment["VP_PROJECT_ROOT"], !root.isEmpty {
+            candidates.append(URL(fileURLWithPath: root).appendingPathComponent(relative))
+        }
+        let up: URL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        candidates.append(up.appendingPathComponent(relative))
+        guard let found = candidates.first(where: { (url: URL) -> Bool in FileManager.default.fileExists(atPath: url.path) }) else {
+            #if os(Linux)
+            XCTFail("\(relative) not found (tried \(candidates.map(\.path))). Set VP_PROJECT_ROOT.")
+            return nil
+            #else
+            throw XCTSkip("\(relative) is not readable from this test host (tried \(candidates.map(\.path))).")
+            #endif
+        }
+        return try String(contentsOf: found, encoding: .utf8)
+    }
+
+    /// The text between the brace that opens after `start` (first `{` at or after it) and its matching `}`.
+    static func braceBody(of source: String, after start: String.Index) -> Substring? {
+        guard let open = source[start...].firstIndex(of: "{") else { return nil }
+        var depth: Int = 0
+        var i: String.Index = open
+        while i < source.endIndex {
+            let c: Character = source[i]
+            if c == "{" { depth += 1 }
+            if c == "}" { depth -= 1; if depth == 0 { return source[source.index(after: open)..<i] } }
+            i = source.index(after: i)
+        }
+        return nil
+    }
+
+    /// #34 5a (R229): the system marquee scrolls a label only when an ANCESTOR has focus (Apple, UILabel
+    /// enablesMarqueeWhenAncestorFocused). The wide (Continue Watching) card's title must be inside the label closure of its
+    /// NavigationLink, with the rest fade on; the portrait cards keep the title outside (unchanged). Structure only: that the
+    /// marquee then moves is shown by 50-home-continue-watching-caption(-later) in CI (mustChangeAfter).
+    func testTheContinueWatchingCaptionIsInsideTheFocusedButton() throws {
+        guard let source = try appSource("App/Shared/PosterCard.swift") else { return }
+        let body: String = String(try XCTUnwrap(source.range(of: "var body: some View").map { source[$0.lowerBound...] }))
+        let wideStart: String.Index = try XCTUnwrap(body.range(of: "if wide {")?.lowerBound, "no `if wide {` branch")
+        let wideBranch: Substring = try XCTUnwrap(Self.braceBody(of: body, after: wideStart), "the wide branch")
+        let wideText: String = String(wideBranch)
+        let linkStart: String.Index = try XCTUnwrap(wideText.range(of: "NavigationLink(")?.lowerBound, "no NavigationLink in the wide branch")
+        let label: Substring = try XCTUnwrap(Self.braceBody(of: wideText, after: linkStart), "the NavigationLink label")
+        XCTAssertTrue(label.contains("FittingText(card.title, style: .caption, fadesAtRest: true)"),
+                      "the Continue Watching title is not inside the button's label:\n\(label)")
+        XCTAssertTrue(wideText.contains(".buttonStyle(.borderless)"), "the wide card is not Apple's borderless lockup")
+
+        // The check itself: the old layout (title after the button) fails it.
+        let old: String = "if wide { NavigationLink(value: x) { artwork } .buttonStyle(.card) FittingText(card.title, style: .caption, fadesAtRest: wide) }"
+        let oldBranch: String = String(try XCTUnwrap(Self.braceBody(of: old, after: old.startIndex)))
+        let oldLabel: Substring = try XCTUnwrap(Self.braceBody(of: oldBranch, after: try XCTUnwrap(oldBranch.range(of: "NavigationLink(")?.lowerBound)))
+        XCTAssertFalse(oldLabel.contains("FittingText(card.title"), "the brace matcher must see the old title outside the label")
+    }
+
     /// #34 3: the full toolbar row at Larger Text, from the run's notes. The count's width is not in the notes: its glyphs
     /// were measured on the pictures (07-movies-toolbar-larger-text: x 1666 to 1836, 171 pt; shows 1677 to 1835, 159 pt;
     /// default size 1726 to 1837 and 1735 to 1837), plus 8 pt for the text's side bearings.

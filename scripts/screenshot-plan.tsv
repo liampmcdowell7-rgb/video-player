@@ -89,6 +89,8 @@ test14_ShowsToolbarAndCardMenu	08-card-go-to-result
 test04_LibraryScreens	50-home-rows
 test04_LibraryScreens	51-home-rows-lower
 test04_LibraryScreens	52-card-long-press-menu
+test04_LibraryScreens	50-home-continue-watching-caption
+test04_LibraryScreens	50-home-continue-watching-caption-later
 test04_LibraryScreens	53-movies
 test04_LibraryScreens	54-shows
 test04_LibraryScreens	55-show-page
