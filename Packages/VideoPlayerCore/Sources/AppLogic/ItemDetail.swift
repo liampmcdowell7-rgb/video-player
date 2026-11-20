@@ -9,6 +9,25 @@ public struct VersionRow: Equatable, Sendable, Identifiable {
     public var title: String
     public var detail: String?
     public var isPreferred: Bool
+
+    /// #33 J: the Versions menu item, each fact once. The title (from the file name: "2160p · BluRay · HDR10 · HEVC") and
+    /// the detail (from the file: "2160p · HEVC · HDR10 · … · 4.2 GB") repeated the resolution, codec and HDR, which made the
+    /// item too long for the menu ("…"). Facts of the detail that the title already has (same text, ignoring case, or the
+    /// same codec under another name) are left out.
+    public var label: String {
+        let titleParts: [String] = title.components(separatedBy: " · ")
+        let known: Set<String> = Set(titleParts.map(Self.key))
+        let extra: [String] = (detail ?? "").components(separatedBy: " · ").filter { !$0.isEmpty && !known.contains(Self.key($0)) }
+        return extra.isEmpty ? title : title + " · " + extra.joined(separator: " · ")
+    }
+
+    /// One spelling per fact: case folded, and the codec aliases a file name uses for the names the file reports.
+    static func key(_ fact: String) -> String {
+        let folded: String = fact.lowercased().trimmingCharacters(in: .whitespaces)
+        let aliases: [String: String] = ["x265": "hevc", "h265": "hevc", "h.265": "hevc", "x264": "avc", "h264": "avc", "h.264": "avc",
+                                         "4k": "2160p", "uhd": "2160p"]
+        return aliases[folded] ?? folded
+    }
 }
 
 public struct ExtraRow: Equatable, Sendable, Identifiable {
@@ -118,7 +137,9 @@ public struct ItemDetailViewModel: Sendable {
             if let s = f.size { parts.append(DisplayText.fileSize(s)) }
             return VersionRow(id: f.id, title: f.versionLabel ?? f.name, detail: parts.isEmpty ? nil : parts.joined(separator: " · "), isPreferred: f.id == preferred)
         }
-        let extras = sidecars.map { s in
+        // #33 J: Extras lists the information files only. Subtitle files belong to the player's Subtitles menu and pictures are
+        // the item's artwork; neither is an "extra".
+        let extras = sidecars.filter { $0.kind != .subtitle && $0.kind != .image }.map { s in
             ExtraRow(id: s.id, name: s.name, kindText: Self.kindText(s.kind), sizeText: s.size.map(DisplayText.fileSize))
         }
         var timeLeft: String?

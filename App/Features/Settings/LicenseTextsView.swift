@@ -4,9 +4,14 @@ import AppLogic
 /// Settings > About > Full Licence Texts: every licence and notice text bundled in App/Licenses (OPEN_QUESTIONS R149).
 struct LicenseTextsView: View {
     var body: some View {
-        List(LicenseNotices.texts) { item in
-            NavigationLink(item.title) {
-                LicenseTextView(item: item)
+        VStack(alignment: .leading) {
+            // #33 J: the page's visible title, once (the navigation bar is hidden on pushed pages, rule D1). One line, rule S1.
+            FittingText("Full Licence Texts", style: .title2)
+                .accessibilityAddTraits(.isHeader)
+            List(LicenseNotices.texts) { item in
+                NavigationLink(item.title) {
+                    LicenseTextView(item: item)
+                }
             }
         }
         .pushedScreen("Full Licence Texts")
@@ -27,9 +32,15 @@ struct LicenseTextView: View {
 
     var body: some View {
         ScrollView {
-            Text(text)
-                .font(.caption)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading) {
+                // #33 J: the page's title, drawn once (the navigation bar is hidden on pushed pages, rule D1, so the page
+                // had no visible title). One line, rule S1.
+                FittingText(item.title, style: .title2)
+                    .accessibilityAddTraits(.isHeader)
+                Text(text)
+                    .font(.caption)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         // design-lint:allow a long licence text has no controls, so the scroll view itself takes focus for the Siri Remote to scroll it
         .focusable()

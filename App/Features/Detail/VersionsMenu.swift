@@ -10,7 +10,7 @@ struct VersionsMenu: View {
         Menu {
             Picker("Version", selection: selection) {
                 ForEach(versions) { version in
-                    Text(label(version)).tag(version.id)
+                    Text(version.label).tag(version.id)
                 }
             }
         } label: {
@@ -25,9 +25,5 @@ struct VersionsMenu: View {
         Binding(
             get: { versions.first(where: \.isPreferred)?.id ?? versions.first?.id ?? 0 },
             set: { id in Task { await model.run { await $0.choosePreferredVersion(id) } } })
-    }
-
-    private func label(_ version: VersionRow) -> String {
-        version.detail.map { "\(version.title), \($0)" } ?? version.title
     }
 }

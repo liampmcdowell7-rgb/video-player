@@ -184,8 +184,12 @@ final class UITestLaunchTests: XCTestCase {
         XCTAssertTrue(row.contains("Dolby Vision"), row)
         XCTAssertTrue(row.contains("Dolby TrueHD with Dolby Atmos"), row)
         XCTAssertEqual(content.playTitle, "Resume")
-        // The two subtitle files; poster.png and fanart.png are the item's artwork, not extras.
-        XCTAssertEqual(content.extras.map(\.name).sorted(), ["Sample Movie 1 (2021) 2160p.en.srt", "Sample Movie 1 (2021) 2160p.en.sup"])
+        // #33 J: subtitle files and pictures are not extras (before: the two subtitle files were listed here).
+        XCTAssertFalse(content.extras.contains { $0.name.hasSuffix(".srt") || $0.name.hasSuffix(".sup") || $0.name.hasSuffix(".png") }, "\(content.extras.map(\.name))")
+        // Each fact once in the Versions label.
+        let label: String = try XCTUnwrap(content.versions.first?.label)
+        let facts: [String] = label.components(separatedBy: " · ").map { VersionRow.key($0) }
+        XCTAssertEqual(facts.count, Set(facts).count, label)
 
         // Continue Watching has the half-watched movies and the started episode.
         let continuing = try await store.continueWatching(limit: 20, now: now, retentionDays: 90)

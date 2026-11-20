@@ -16,7 +16,10 @@ struct StorageSettingsView: View {
             // #23 A: SwiftUI has no Section("title") { } footer: { } form; the title goes in a header closure (plain Text,
             // the one system header style, rule L4), as on the other Settings pages.
             Section {
+                // #33 J: while sync is off the button is disabled (the system dims it and the focus skips it); the footer
+                // below says why ("Sync is off. …", CloudSyncHost.line).
                 Button("Sync Now") { services.sync.syncNow() }
+                    .disabled(services.sync.unavailableReason != nil)
             } header: {
                 Text("iCloud")
             } footer: {

@@ -805,9 +805,12 @@ final class ScreenshotTests: XCTestCase {
             app.terminate()
         }
 
-        // 48: the Extras menu open.
+        // 48 (#33 J): Sample Movie 1 has only subtitle files and pictures beside it, which are not extras, so the page has no
+        // Extras button. Before #33 this picture showed the menu listing the two subtitle files.
         if let app = openMovie("Sample Movie 1", "48-movie-extras") {
-            if open("Extras", id: ControlID.extras, in: app, name: "48-movie-extras") { sleep(1); shot("48-movie-extras") }
+            sleep(1)
+            XCTAssertFalse(app.buttons[ControlID.extras].exists, "48: an Extras button is shown for a movie with only subtitles and pictures")
+            shot("48-movie-extras")
             app.terminate()
         }
 
