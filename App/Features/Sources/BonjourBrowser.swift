@@ -23,6 +23,13 @@ final class BonjourBrowser {
 
     func start() {
         guard browsers.isEmpty else { return }
+        #if DEBUG
+        // #30 item 2: the screenshot job's one synthetic server, with no browsing and no network. Not compiled into Release.
+        if UITestLaunch.usesFakeServer(arguments: ProcessInfo.processInfo.arguments, mode: UITestMode.current) {
+            found = [UITestFixtures.discoveredServer]
+            return
+        }
+        #endif
         isSearching = true
         for entry in BonjourMapping.serviceTypes {
             let type = entry.type

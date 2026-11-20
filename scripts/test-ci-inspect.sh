@@ -38,7 +38,7 @@ vp_symbols_defined "$T/missing.txt" _nfs_;     check "missing nm output file: re
 
 printf 'Video Player\nContinue Watching\n' > "$T/strings-clean.txt"
 vp_forbidden_strings "$T/strings-clean.txt" >/dev/null; check "clean Release strings pass" 0 $?
-for s in '-UITestFixtures' '-UITestEmpty' '-UITestTab' '-UITestOpen' '-UITestTextSize' '-UITestBoldText' 'Sample Movie 1 (2021)' 'uitest-sample-library' 'sample.invalid' 'Sample Library' 'Sample Clip.mkv' 'Sample Unsorted Recital.mkv' 'Sample Server' 'uitest-sample-server'; do
+for s in '-UITestFixtures' '-UITestEmpty' '-UITestTab' '-UITestOpen' '-UITestTextSize' '-UITestBoldText' 'Sample Movie 1 (2021)' 'uitest-sample-library' 'sample.invalid' 'Sample Library' 'Sample Clip.mkv' 'Sample Unsorted Recital.mkv' 'Sample Server' 'uitest-sample-server' '-UITestFakeServer' 'Sample NAS 802046173902541866'; do
   printf 'Video Player\n%s\n' "$s" > "$T/strings-bad.txt"
   vp_forbidden_strings "$T/strings-bad.txt" >/dev/null; check "Release string '$s' is caught" 1 $?
 done

@@ -65,5 +65,13 @@ public enum UITestLaunch: Equatable, Sendable {
     public static func usesFakeTMDBKey(arguments: [String], mode: UITestLaunch) -> Bool {
         mode != .off && arguments.contains(fakeTMDBKeyArgument)
     }
+
+    /// #30 item 2: `-UITestFakeServer` makes the network search list one synthetic server (`UITestFixtures.discoveredServer`)
+    /// instead of browsing, so the found row and its form can be photographed. No network is used; Debug builds only.
+    public static let fakeServerArgument = "-UITestFakeServer"
+
+    public static func usesFakeServer(arguments: [String], mode: UITestLaunch) -> Bool {
+        mode != .off && arguments.contains(fakeServerArgument)
+    }
 }
 #endif

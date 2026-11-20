@@ -5,6 +5,8 @@ import AppLogic
 /// The form for one source type: its fields, a Connect button, and the answers (progress, errors, the certificate question).
 struct SourceFormView: View {
     @State var draft: SourceDraft
+    /// #30 item 3: the machine identifier of a server found on the network (nil for a typed source).
+    var serverID: String? = nil
     var onFinished: () -> Void
     @Environment(AppServices.self) private var services
     @State private var model: ScreenModel<SourceSetupViewModel>?
@@ -40,6 +42,26 @@ struct SourceFormView: View {
             } footer: {
                 if !problems.isEmpty {
                     Text(problemText)
+                }
+            }
+            // #30 item 3 (21-search-your-network-server-details): the found server's raw identifier, WHOLE on one line, in its own
+            // details row here and never on the list row. It is a link to the identifier as a page, so the row takes the focus
+            // and the system marquee can show the whole line if even the readable floor is too wide (R229). Fixed in code, verify
+            // in the next screenshots.
+            if let serverID {
+                Section("Server Details") {
+                    NavigationLink {
+                        LongTextPage(title: "Server ID", text: serverID)
+                    } label: {
+                        LabeledContent {
+                            FittingText(serverID)
+                        } label: {
+                            FittingText("Server ID")
+                        }
+                    }
+                    .accessibilityLabel("Server ID")
+                    .accessibilityValue(serverID)
+                    .accessibilityIdentifier(ControlID.serverID)
                 }
             }
             Section {

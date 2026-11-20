@@ -27,6 +27,8 @@ enum ControlID {
     static let searchYourNetwork = "control.searchYourNetwork"
     static let sourceCancel = "control.sourceCancel"
     static let learnMore = "control.learnMore"
+    /// #30 item 3: the found server's identifier row in its form (the discovered draft only).
+    static let serverID = "control.serverID"
     /// #26: Settings > Online Lookup (the TMDB key row, its masked value, Free Data Sources) and About > Data Sources.
     static func keyRow(_ service: String) -> String { "control.keyRow." + service }
     static func keyValue(_ service: String) -> String { "control.keyValue." + service }

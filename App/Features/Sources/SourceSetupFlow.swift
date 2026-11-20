@@ -23,10 +23,16 @@ struct SourceSetupFlow: View {
                     case .discovery:
                         DiscoveryView()
                     case .discovered(let found):
-                        SourceFormView(draft: SourceDraft(discovered: found), onFinished: { dismiss() })
+                        SourceFormView(draft: SourceDraft(discovered: found), serverID: Self.identifier(of: found), onFinished: { dismiss() })
                     }
                 }
         }
+    }
+
+    /// #30 item 3: the machine identifier in a found server's advertised name (nil when it has none), shown whole in the form.
+    static func identifier(of found: DiscoveredSource) -> String? {
+        let kindTitle: String = SourceCatalog.info(for: found.kind).title
+        return SourceSetupText.discoveredName(found.name, kindTitle: kindTitle).identifier
     }
 }
 

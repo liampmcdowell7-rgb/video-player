@@ -38,6 +38,13 @@ public enum UITestFixtures {
                            addedAt: referenceDate)
     }
 
+    /// #30 item 2: the one server the network search lists under `-UITestFakeServer`. Its advertised name ends in a machine
+    /// identifier (a run of hex digits), as real servers often do, so the row shows the readable part and the form shows the
+    /// identifier whole in its details row. `.invalid` never resolves; nothing connects to it.
+    public static var discoveredServer: DiscoveredSource {
+        DiscoveredSource(kind: .smb, name: "Sample NAS 802046173902541866", host: "nas.sample.invalid", port: 445)
+    }
+
     // MARK: Content
 
     /// Files that end in Needs Review (addendum #18 B): no episode marker, no year, no folder hint. One very long name (it

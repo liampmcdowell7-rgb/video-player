@@ -40,6 +40,17 @@ final class UITestLaunchTests: XCTestCase {
         XCTAssertNil(UITestLaunch.textSize(arguments: ["app", "-UITestEmpty", "-UITestTextSize", "huge"], mode: .empty), "unknown size")
         XCTAssertFalse(UITestLaunch.boldText(arguments: ["app", "-UITestEmpty"], mode: .empty))
     }
+
+    /// #30 item 2: the fake network server is listed only in a UI-test mode, and its name carries an identifier.
+    func testTheFakeServerIsOnlyUsedInAUITestMode() {
+        let args = ["app", "-UITestEmpty", "-UITestFakeServer"]
+        XCTAssertTrue(UITestLaunch.usesFakeServer(arguments: args, mode: .empty))
+        XCTAssertFalse(UITestLaunch.usesFakeServer(arguments: args, mode: .off))
+        XCTAssertFalse(UITestLaunch.usesFakeServer(arguments: ["app", "-UITestEmpty"], mode: .empty))
+        let name = SourceSetupText.discoveredName(UITestFixtures.discoveredServer.name, kindTitle: "SMB")
+        XCTAssertEqual(name.title, "Sample NAS")
+        XCTAssertEqual(name.identifier, UITestFixtures.discoveredServer.name)
+    }
     #endif
 
     /// Every file that holds sample data, the launch-argument texts or reads the switch starts with `#if DEBUG` and ends with `#endif`, so a Release build
