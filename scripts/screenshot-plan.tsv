@@ -1,6 +1,10 @@
 # Planned screenshots per UI test (#24 D), one line each: test<TAB>picture name. scripts/ci-ui-index.py counts taken,
 # missing and failed against it. Keep it in step with UITests/ScreenshotTests.swift (scripts/test-ci-ui-tests.sh checks
 # that every literal shot("NN-...") name there is planned here).
+# #33 (OPEN_QUESTIONS R237): no picture names added. New notes beside the pictures: -COVER (10 to 21, 59, 66, 67, 74,
+# saved views, the accessibility add-source screens), -GAP (55, 57, the toolbar pictures), -CONTRAST (31, 78), -NAME
+# (21-server-details), the responsiveness notes of test12 and test13, and -UNCHANGED when a step meant to change the
+# screen did not. 48-movie-extras now shows the movie page WITHOUT an Extras button (subtitles and pictures are not extras).
 test01_FirstLaunchAndEmptyScreens	02-home-empty
 test01_FirstLaunchAndEmptyScreens	03-movies-empty
 test01_FirstLaunchAndEmptyScreens	04-shows-empty
