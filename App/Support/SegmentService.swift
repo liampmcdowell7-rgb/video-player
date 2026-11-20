@@ -21,7 +21,7 @@ struct SegmentService: Sendable {
     @MainActor
     init(services: AppServices) {
         let sqlite = services.sqlite
-        let lookup = services.online.segmentLookup
+        let online: SegmentProvider.OnlineTimings? = SegmentProvider.onlineTimings(services.online.segmentLookup)
         self.provider = SegmentProvider(
             store: sqlite,
             ledger: services.ledger,
@@ -32,7 +32,7 @@ struct SegmentService: Sendable {
                     return services.makeSource(definition)
                 }
             },
-            online: lookup.map { lookup in { item, file in await lookup.segments(for: item, file: file) } })
+            online: online)
     }
 
     /// The merged segments of the file the player will open (the item's preferred version). Empty when there are none.

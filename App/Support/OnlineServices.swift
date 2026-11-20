@@ -105,18 +105,18 @@ final class OnlineServices {
         // UI-test modes never send anything: the switch can show On, but no client is made.
         if UITestMode.current != .off { wikidata = nil; return }
         #endif
-        wikidata = freeSourcesOn
-            ? WikidataClient(transport: URLSessionTransport(), cache: JSONFileMetadataCache(directory: ArtworkFolders.metadata),
-                             userAgent: Self.userAgent, language: Locale.preferredLanguages.first.map { String($0.prefix(2)) } ?? "en")
-            : nil
+        // #29: typed steps instead of a ternary between a client and nil.
+        guard freeSourcesOn else { wikidata = nil; return }
+        var language = "en"
+        if let preferred: String = Locale.preferredLanguages.first { language = String(preferred.prefix(2)) }
+        let cache = JSONFileMetadataCache(directory: ArtworkFolders.metadata)
+        let client = WikidataClient(transport: URLSessionTransport(), cache: cache, userAgent: Self.userAgent, language: language)
+        wikidata = client
     }
 
     private func rebuildSegmentLookup() {
         guard freeSourcesOn, let wikidata else { segmentLookup = nil; return }
-        let tmdb = tmdbClient
-        let external: IMDbIDResolver.TMDBExternal? = tmdb.map { client in
-            { kind, id in try await client.externalIDs(kind: kind, id: id).imdb }
-        }
+        let external: IMDbIDResolver.TMDBExternal? = IMDbIDResolver.tmdbExternal(tmdbClient)
         let introDB = IntroDBClient(transport: URLSessionTransport(), cache: JSONFileMetadataCache(directory: ArtworkFolders.metadata),
                                     userAgent: Self.userAgent)
         segmentLookup = OnlineSegmentLookup(resolver: IMDbIDResolver(tmdbExternal: external, wikidata: wikidata), client: introDB)
@@ -158,13 +158,12 @@ final class OnlineServices {
         // #21 D: the screenshot job's fake synopsis and cast (no key, no network). Not compiled into Release.
         if UITestMode.current == .fixtures { return await UITestFixtureDetails.details(key: key, store: store) }
         #endif
-        let resolver = self.resolver
-        let wikidataLayer = wikidata.map { WikidataDetailsLayer(store: store, client: $0) }
-        let service = LayeredDetailsService(
-            source: nil,
-            wikidata: wikidataLayer.map { layer in { await layer.details(key: $0) } },
-            tmdb: hasCatalogueKey ? { await resolver.details(key: $0) } : nil)
-        return await service.details(key: key).details
+        // #29: typed steps; the closures are built in AppLogic (OnlineComposition.swift), where the package tests cover them.
+        var tmdbSource: (any TitleDetailsSource)? = nil
+        if hasCatalogueKey { tmdbSource = resolver }
+        let service: LayeredDetailsService = LayeredDetailsService.online(store: store, wikidata: wikidata, tmdb: tmdbSource)
+        let layered: LayeredDetails = await service.details(key: key)
+        return layered.details
     }
 
     /// Bytes of one picture for the Top Shelf folder (a cached file, or a download of the matched poster). Nil when there is none.

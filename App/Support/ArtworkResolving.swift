@@ -5,7 +5,7 @@ import AppLogic
 /// Turns the artwork key a card carries ("item-42", "series-7", "remote:/abc.jpg") into something to draw: a file read from the
 /// source and kept in the purgeable cache, a web address the system image loader fetches, or nothing (the placeholder symbol).
 /// Order: a picture next to the video first, then the matched online poster (docs/ARTWORK_DISCOVER.md).
-protocol ArtworkResolving: Sendable {
+protocol ArtworkResolving: TitleDetailsSource {
     func resolve(key: String) async -> ArtworkResult
     /// Title-logo pictures to try, strongest source first (#15 Part 9).
     func logoCandidates(key: String, userLanguage: String?) async -> [LogoCandidate]
