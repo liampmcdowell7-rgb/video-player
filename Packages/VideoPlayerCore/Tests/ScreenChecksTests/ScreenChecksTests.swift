@@ -677,4 +677,74 @@ final class ScreenChecksTests: XCTestCase {
         }
         XCTAssertTrue(lowerFails, "primary at \(alpha - 0.1) passes everywhere too: R240 picks the lowest opacity that passes")
     }
+
+    // MARK: #36 S-A and T6: text contrast on a task cover
+
+    /// A black picture with a block of `ink` over the left third of every leaf text of `dump`'s cover: a "right" cover.
+    func paintedCover(_ dump: AccessibilityDump, root: Int, ink: RGB, title: RGB? = nil) -> RGBImage {
+        var image: RGBImage = RGBImage(width: 1920, height: 1080, fill: RGB(r: 0, g: 0, b: 0))
+        let leaves: [Int] = dump.descendants(of: root).filter { (index: Int) -> Bool in
+            dump.nodes[index].type == "StaticText" && !(dump.nodes[index].frame?.isEmpty ?? true)
+                && !dump.descendants(of: index).contains { dump.nodes[$0].type == "StaticText" }
+        }
+        let top: Int? = leaves.min { (dump.nodes[$0].frame?.y ?? 0) < (dump.nodes[$1].frame?.y ?? 0) }
+        for index in leaves {
+            guard let frame = dump.nodes[index].frame, !frame.isEmpty else { continue }
+            let colour: RGB = (index == top ? title : nil) ?? ink
+            let x1: Int = min(1920, Int(frame.x + frame.width / 3))
+            let y1: Int = min(1080, Int(frame.maxY))
+            guard Int(frame.y) < y1, Int(frame.x) < x1 else { continue }
+            for y in Int(frame.y)..<y1 {
+                for x in Int(frame.x)..<x1 {
+                    let i: Int = (y * 1920 + x) * 3
+                    image.bytes[i] = colour.r; image.bytes[i + 1] = colour.g; image.bytes[i + 2] = colour.b
+                }
+            }
+        }
+        return image
+    }
+
+    func testTheCoverContrastCheckPassesOnWhiteTextAndFailsOnTheRunsDimTitle() throws {
+        let dump: AccessibilityDump = try fixture("10-add-source-types-HIERARCHY")
+        let cover: Int = try XCTUnwrap(dump.coverRoot)
+        let right: CheckResult = ScreenRules.coverContrast(paintedCover(dump, root: cover, ink: RGB(r: 255, g: 255, b: 255)),
+                                                           scale: 1, in: dump, root: cover)
+        XCTAssertTrue(right.passed, right.text)
+        XCTAssertTrue(right.text.contains("title “Add a Source”"), right.text)
+        XCTAssertEqual(right.lines.last, "CONTRAST OK")
+        // The run's colours (note 10 and picture 11 of 20 Nov): title #4C4C4C, every other text #262626.
+        let wrong: CheckResult = ScreenRules.coverContrast(paintedCover(dump, root: cover, ink: RGB(r: 0x26, g: 0x26, b: 0x26),
+                                                                        title: RGB(r: 0x4C, g: 0x4C, b: 0x4C)),
+                                                           scale: 1, in: dump, root: cover)
+        XCTAssertFalse(wrong.passed, wrong.text)
+        XCTAssertTrue(wrong.text.contains("“Add a Source” 2.4"), wrong.text)
+        XCTAssertTrue(wrong.lines.last?.hasPrefix("CONTRAST PROBLEM") ?? false, wrong.text)
+    }
+
+    /// A title at 6.9:1 fails (7:1 for the title), the same grey on a body text passes (4.5:1): the two targets differ.
+    func testTheTitleNeedsSevenToOneAndOtherTextFourAndAHalf() throws {
+        let dump: AccessibilityDump = try fixture("10-add-source-types-HIERARCHY")
+        let cover: Int = try XCTUnwrap(dump.coverRoot)
+        let grey: RGB = RGB(r: 0x82, g: 0x82, b: 0x82)   // about 5.7:1 on black
+        XCTAssertGreaterThan(Contrast.ratio(grey, RGB(r: 0, g: 0, b: 0)), 4.5)
+        XCTAssertLessThan(Contrast.ratio(grey, RGB(r: 0, g: 0, b: 0)), 7)
+        let titleGrey: CheckResult = ScreenRules.coverContrast(paintedCover(dump, root: cover, ink: RGB(r: 255, g: 255, b: 255), title: grey),
+                                                               scale: 1, in: dump, root: cover)
+        XCTAssertFalse(titleGrey.passed, titleGrey.text)
+        let bodyGrey: CheckResult = ScreenRules.coverContrast(paintedCover(dump, root: cover, ink: grey, title: RGB(r: 255, g: 255, b: 255)),
+                                                              scale: 1, in: dump, root: cover)
+        XCTAssertTrue(bodyGrey.passed, bodyGrey.text)
+    }
+
+    /// On the run's own picture of 10 with its tree: the check fails. With VP_RUN_ARTIFACTS on the first run of 20 Nov (the
+    /// see-through cover) the sentence and headers are caught; on the second run (after #33/#34, opaque cover) the title
+    /// too: “Add a Source” 2.45:1 (#4C4C4C on #000000), the sentence 1.39:1, the headers 2.45:1.
+    func testTheCoverContrastCheckFailsOnTheRunsPicture10() throws {
+        let image: RGBImage = try picture("screenshots/10-add-source-types.png")
+        let dump: AccessibilityDump = try fixture("10-add-source-types-HIERARCHY")
+        let result: CheckResult = ScreenRules.coverContrast(image, scale: 1, in: dump, root: try XCTUnwrap(dump.coverRoot))
+        XCTAssertFalse(result.passed, result.text)
+        XCTAssertTrue(result.text.contains("“FIND ON YOUR NETWORK”") && result.text.contains("BELOW 4.5"), result.text)
+        print(result.text)
+    }
 }

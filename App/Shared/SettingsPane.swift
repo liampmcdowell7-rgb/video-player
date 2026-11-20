@@ -74,6 +74,14 @@ struct TaskPage<Content: View>: View {
             }
             content
         }
+        // #36 S-A (OPEN_QUESTIONS R253, PROVISIONAL): the same two hierarchical levels as `SettingsPane`'s Form. Why the
+        // header was dim here and bright on Move: the title and sentence sit in this Form's first SECTION HEADER, which
+        // the system draws in the Form's dimmed header level when the Form sets no levels of its own (run of 20 Nov: title
+        // #4C4C4C, 2.45:1; the sentence, `.secondary` on top of that, #262626, 1.39:1; the other section headers 2.45:1).
+        // `SettingsPane` (Move, How This Was Sorted) sets primary and `ReadableSecondary` on its Form (#34 5b), so its
+        // section headers are white (66: EPISODE 21:1), and its title is outside the Form. One line, here, gives every
+        // TaskPage (Add a Source, the forms, Your Network, File Details) the same levels.
+        .foregroundStyle(HierarchicalShapeStyle.primary, ReadableSecondary.style)
         .containerRelativeFrame(.horizontal) { (length: CGFloat, _: Axis) -> CGFloat in
             length * TaskPageLayout.columnFraction
         }
@@ -157,12 +165,14 @@ private struct TaskPageHeader: View {
 
     var body: some View {
         VStack(alignment: .leading) {
+            // #36 S-A: the levels of the Form (TaskPage), named here so the header cannot fall back to a dimmer one.
             FittingText(title, style: .title2)
+                .foregroundStyle(HierarchicalShapeStyle.primary)
                 .accessibilityAddTraits(.isHeader)
             if let summary {
                 Text(summary)
                     .font(.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(ReadableSecondary.style)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

@@ -548,11 +548,13 @@ final class ScreenshotTests: XCTestCase {
             guard open(page, in: app, name: name) else { continue }
             settle()
             shot(name)
+            // #36 T6: every Settings page from 31 to 38 gets a -CONTRAST note of all its texts.
+            textContrast(name, in: app)
             if page == "Playback" {
                 checkContrast(name, prefixes: ["How titles play", "Skip buttons appear", "Playback Stats adds"], in: app)
             }
             if page == "Sources", open("Sample Library", in: app, name: "34-settings-source-detail") {
-                settle(); shot("34-settings-source-detail"); back()
+                settle(); shot("34-settings-source-detail"); textContrast("34-settings-source-detail", in: app); back()
             }
             back()
         }
@@ -668,6 +670,8 @@ final class ScreenshotTests: XCTestCase {
         } else {
             take("pixels (B 1)", CheckResult(passed: false, lines: ["the screenshot could not be read or the window has no frame", "PIXELS NOT MEASURED"]))
         }
+        // #36 S-A: every cover picture gets a -CONTRAST note of its own texts.
+        textContrast(name, in: app, root: dump.coverRoot, screenshot: screenshot, dump: dump)
         var coverVerdict: String = "COVER OK"
         if !failures.isEmpty { coverVerdict = "COVER PROBLEM: " + failures.joined(separator: "; ") }
         lines.append(coverVerdict)
@@ -961,6 +965,24 @@ final class ScreenshotTests: XCTestCase {
             lines.append(line)
         }
         note(name + "-CONTRAST", lines.joined(separator: "\n"))
+    }
+
+    /// #36 S-A and T6 (OPEN_QUESTIONS R253, PROVISIONAL): "<name>-CONTRAST" for a whole screen: every text under `root` (a
+    /// cover's root; the page's when nil) by `ScreenRules.coverContrast`, the title against 7:1 and every other text against
+    /// 4.5:1. A note and a printed warning, never a test failure (the targets are PROVISIONAL, as R240).
+    func textContrast(_ name: String, in app: XCUIApplication, root: Int? = nil, screenshot: XCUIScreenshot? = nil,
+                      dump: AccessibilityDump? = nil) {
+        let picture: XCUIScreenshot = screenshot ?? XCUIScreen.main.screenshot()
+        let tree: AccessibilityDump = dump ?? AccessibilityDump(app.debugDescription)
+        guard let image = RGBImage(screenshot: picture), let windowIndex = tree.window,
+              let window = tree.nodes[windowIndex].frame, window.width > 0,
+              let start = root ?? tree.pageRoot else {
+            return note(name + "-CONTRAST", "The screenshot or the accessibility tree could not be read.\nCONTRAST NOT MEASURED")
+        }
+        let scale: Double = Double(image.width) / window.width
+        let result: CheckResult = ScreenRules.coverContrast(image, scale: scale, in: tree, root: start)
+        note(name + "-CONTRAST", result.text)
+        if !result.passed { print("WARNING: \(name): " + (result.lines.last ?? "")) }
     }
 
     /// #33 F (2): the same measure as test15 inside test12 and test13, the two tests that hung in part 1 of the run of 20 Nov

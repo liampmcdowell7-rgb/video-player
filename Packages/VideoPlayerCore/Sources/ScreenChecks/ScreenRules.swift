@@ -290,6 +290,57 @@ public enum ScreenRules {
         return CheckResult(passed: odd.isEmpty, lines: lines)
     }
 
+    // MARK: S-A: text contrast on a task cover (#36 group 1, T6)
+
+    /// #36 S-A (OPEN_QUESTIONS R253, PROVISIONAL): the contrast of every text of a task cover, measured on its screenshot by
+    /// `Contrast.measure`. The texts are the leaf StaticText elements under `root` (a StaticText that holds another
+    /// StaticText is a combined row label, measured through its parts). The topmost one is the cover's title and must reach
+    /// 7:1; every other text 4.5:1. HIG Accessibility table: "Up to 17 pts | All | 4.5:1", "18 pts | All | 3:1". tvOS text is
+    /// 23 pt and larger, so the 18 pt row (3:1) would allow less; 4.5:1 is the owner's target (R240, R253) and is used for
+    /// every size. The verdict line is "CONTRAST OK" or "CONTRAST PROBLEM" with the texts below their target.
+    public static func coverContrast(_ image: RGBImage, scale: Double, in dump: AccessibilityDump, root: Int) -> CheckResult {
+        // Texts not wholly inside the safe area (HIG Layout: 60 pt from the top and bottom) are under the system scroll edge
+        // effect or off the screen; they are listed, not measured (run of 20 Nov, 10: "Jellyfin" at y 1066 read 1.07:1).
+        let window: AXRect = dump.window.flatMap { dump.nodes[$0].frame } ?? AXRect(x: 0, y: 0, width: 1920, height: 1080)
+        var skipped: [String] = []
+        let leaves: [Int] = dump.descendants(of: root).filter { (index: Int) -> Bool in
+            let node: AXNode = dump.nodes[index]
+            guard node.type == "StaticText", !node.label.isEmpty, !dump.isInTabBar(index),
+                  let frame = node.frame, !frame.isEmpty,
+                  !dump.descendants(of: index).contains(where: { dump.nodes[$0].type == "StaticText" }) else { return false }
+            if frame.y < window.y + 60 - 10 || frame.maxY > window.maxY - 60 || frame.x < window.x || frame.maxX > window.maxX {
+                skipped.append("“\(node.label)” \(frame)")
+                return false
+            }
+            return true
+        }
+        guard !leaves.isEmpty else { return CheckResult(passed: false, lines: ["no text under the cover", "CONTRAST NOT MEASURED"]) }
+        let title: Int = leaves.min { (dump.nodes[$0].frame?.y ?? 0) < (dump.nodes[$1].frame?.y ?? 0) }!
+        var lines: [String] = ["targets: title 7:1, other text 4.5:1 (R253); \(leaves.count) texts"]
+        if !skipped.isEmpty { lines.append("not measured (outside the 60 pt safe area): " + skipped.joined(separator: "; ")) }
+        var below: [String] = []
+        var seen: Set<String> = []
+        for index in leaves {
+            let node: AXNode = dump.nodes[index]
+            let frame: AXRect = node.frame!
+            let key: String = node.label + frame.description
+            guard seen.insert(key).inserted else { continue }
+            let target: Double = index == title ? 7 : 4.5
+            let role: String = index == title ? "title" : "text"
+            guard let m = Contrast.measure(image, frame: frame, scale: scale) else {
+                lines.append("\(role) “\(node.label)” \(frame): outside the picture"); continue
+            }
+            var line: String = "\(role) “\(node.label)” \(frame): \(m)"
+            if m.ratio < target {
+                line += String(format: " BELOW %.1f", target)
+                below.append("“\(node.label)” \(String(format: "%.2f", m.ratio)):1")
+            }
+            lines.append(line)
+        }
+        lines.append(below.isEmpty ? "CONTRAST OK" : "CONTRAST PROBLEM: " + below.joined(separator: "; "))
+        return CheckResult(passed: below.isEmpty, lines: lines)
+    }
+
     // MARK: L: pictures that must change
 
     /// #33 L: two captures of a step that was meant to change the screen. Identical pixels fail with the reason.
