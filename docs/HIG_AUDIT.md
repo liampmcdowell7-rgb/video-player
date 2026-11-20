@@ -158,6 +158,11 @@ tested on any screen: **unproven everywhere**, and nothing was run with those se
 - 10 Section headers and sheet title: system `Section` and `navigationTitle`, no custom style; no change (Sheets).
   Unproven.
 - 20 Honesty lines: unchanged, as written.
+- #30 (OPEN_QUESTIONS R228, PROVISIONAL): no longer a sheet. Run of 20 Nov (10, 11, 17, 94): a third-width card, rows cut,
+  the title at the card edge, Home text and the tab bar visible. Changed: a full-screen cover (Modality: full-screen style
+  for a multistep task; tvOS dismiss button in the content), one bounded column with the title as the first section's header,
+  label and field on one row (Text fields: consistent widths), stacked at accessibility sizes (Layout). Unproven until the
+  next screenshots (10 to 21, 93, 94, 99, 100, 110, 111).
 
 ### Search
 - 7 System keyboard: unproven. The UI test could not type with `typeText` in run 44401030622 (a test problem, not an

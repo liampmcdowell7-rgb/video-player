@@ -49,7 +49,7 @@ Every screen #16 item 1.10 asks for, with its numbers. Added in this change: eve
 | Movie page with a title logo (Sample Movie 2) | 90 | 96 | 107 | movie-detail-logo |
 | Show page (Sample Show 1) | 91 | 97 | 108 | show-page |
 | A Settings sub-page: Backup (also #17 D) | 92 | 98 | 109 | settings-backup |
-| Add a Source sheet | 93 | 99 | 110 | add-source |
+| Add a Source (full screen since #30, R228) | 93 | 99 | 110 | add-source |
 | A form (WebDAV, Connect at the bottom) | 94 | 100 | 111 | source-form |
 | Search | 95 | 101 | 112 | search |
 
