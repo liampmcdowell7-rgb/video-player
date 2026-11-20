@@ -56,18 +56,38 @@ The run on fa00af8 delivered **no picture at all**: each UI job ran all its test
 stopped it, and the incomplete result bundle could not be exported. Since #24 every test is its own call
 (scripts/ci-ui-tests.sh) and writes its pictures as PNG files too, so the pictures before a stop or a failure are kept.
 The budget is **25 minutes from the start of the first UI test** (`CI_TEST_BUDGET_SECONDS` 1500); each job's hard cap is
-60 minutes. Times marked "measured" are from fa00af8; the others are estimates.
+60 minutes. The table is the split since #34 (OPEN_QUESTIONS R232, R242); times marked "measured" are from the run of
+20 Nov (R232), the others are estimates.
 
 | Job | Tests, in run order | Planned pictures | UI tests | Job, start to end (estimate) |
 |---|---|---|---|---|
-| Screenshots, part 1 | 01 (68 s), 02 (36 s), 03 (148 s), 05 (39 s), 12, 13, 14 (never reached on fa00af8: about 90 s each), 10 (312 s) | 5 + 13 + 16 + 7 + 6 + 8 + 6 + 20 = **81** (#25: + 10-add-source-learn-more) | about 14:30 (10:03 measured + 4:30 estimated) | about 28 min |
-| Screenshots, part 2 (`screenshots-library`) | 04 alone (436 s) | **26** | 7:16 measured | about 21 min |
-| Accessibility screenshots | 06 (628 s), then 11 (about 315 s: half as many screens) | 22 + 11 = **33** | about 15:45 | about 28 min |
+| Screenshots, part 1 | 01 (69 s), 02 (213 s), 03 (259 s), 05 (140 s), 14 (56 s), 10 (352 s) | 5 + 15 + 18 + 7 + 2 + 20 = **67** | about 18:40 (the run of 20 Nov took 22:32 with test12 and test13; minus their 234 s: about 1,118 s) | about 26 min (30 measured, minus test12 and test13) |
+| Screenshots, part 2 (`screenshots-library`) | 12 (84 s) first, on the job's fresh boot; 13 (150 s) after a clean simulator (`CI_FRESH_SIM_BEFORE`: shutdown, erase, boot); then 15 (65 s), 04 (398 s), 16 (321 s) | 6 + 8 + 0 + 30 + 20 = **64** | about 17:35 to 18:55 (13:17 measured, plus 234 s for test12 and test13 and 24 to 102 s for the erase and boot; the erase time is unverified) | about 30 min (25 measured, plus about 5) |
+| Accessibility screenshots | 06 (751 s), then 11 (341 s) | 22 + 11 = **33** | 18:28 measured | 31 min measured |
 
 Before the tests every UI job spends about 12 minutes (fa00af8, measured: prepare 1:18, pick and boot 1:29, build
 7:37-7:48, launch smoke 1:11-1:21; the accessibility job has no smoke). The collect, check and upload steps after the
-tests take about 1-2 minutes. Each job stays well inside its budget (part 1 and accessibility use about 60% of the 25
-minutes). Total planned: **142 pictures** (83 / 26 / 33; #25 added 10-add-source-learn-more to part 1; #26 added 36-settings-online-lookup-key-set and its scrolled picture to test03, about 40 s more in part 1).
+tests take about 1-2 minutes. Each job stays inside its 1,500 s budget: part 1 about 1,118 s, part 2 about 1,055 to
+1,133 s, accessibility 1,108 s (estimates from the run of 20 Nov). Total planned: **164 pictures** (67 / 64 / 33;
+scripts/test-ci-ui-tests.sh checks the total against scripts/screenshot-plan.tsv). Earlier totals: 142 after #26 (83 / 26 /
+33); #32 moved the toolbars and menus to part 2 (test16, 20 pictures); #34 moved test12 and test13 (14 pictures) to part 2
+and added the two Continue Watching caption pictures to test04.
+
+**Notes beside the pictures** (the `notes/` folder of each download; the UI tests and scripts/ci-ui-tests.sh write them, and
+none of them fails a job on its own unless the line says so):
+- `<picture>-NOT-REACHED.txt` (and a `.png` of what was on screen instead): why the picture could not be taken; counted as
+  failed in `index.md`. `<picture>-UNCHANGED.txt`: a step meant to change the screen did not; a WARNING, and since #33 L a
+  test failure where the step is marked `mustChangeAfter`. `-TABBAR`, `-HIERARCHY`: the tab bar and the accessibility tree
+  at that moment.
+- `-COVER` (#33, #34 2): while a full-screen cover is open, the page behind it is hidden from VoiceOver and the cover itself
+  is exposed (10 to 21, 59, 66, 67, 74, the saved views, the accessibility Add a Source screens).
+- `-NAME` (#33): whether the server's name is readable on 21-server-details.
+- `-GAP` (#33): the measured gaps on 55, 57 and the toolbar pictures (with `-GROUPS` for the toolbar's two groups).
+- `-CONTRAST` (#33 K, #34 5b): the measured contrast of the Settings secondary text (31) and the Media Info labels (78).
+- `fresh-simulator-<test>.txt` (#34 4, part 2, before test13): the clean simulator's output and how many seconds it took.
+- `hang-sample-<test>.txt` (#33 F): when a test's log shows "main thread busy" or "Timed out while evaluating UI query",
+  a sample of the app's main thread taken while it is still hung (or a line saying the sample tool is not there).
+  test12 and test13 also write a responsiveness note and fail when a query waits more than 5 s.
 
 **#25 C1 (2026-11-19), the budget after the #25 test changes.** The run on 1fe5d50 delivered 54 / 20 / 33 pictures; its
 accessibility job took **24:47 start to end** (the owner's figure). With about 10:30 before the tests (no launch smoke in
