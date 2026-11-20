@@ -22,13 +22,88 @@ struct SettingsPane<Content: View>: View {
 }
 
 /// #25 B1 (OPEN_QUESTIONS R202, PROVISIONAL): a sheet's page as ONE column, full height: the title on top, one sentence under
-/// it, then the rows in a system `Form`. The Add a Source sheet is a panel narrower than the screen; the two columns of
-/// `SettingsPane` cramped it (the run on 1fe5d50: "Sea…", "A web folder, f…", the title "WebDAV" past the panel's left edge,
-/// 10, 93, 94, 99, 100, 110, 111). The navigation bar stays hidden (rule D1), so the title is drawn once, here.
+/// it, then the rows in a system `Form`. Used by File Details. (#30: Add a Source and its forms are no longer sheets; they
+/// use `TaskPage`.) The navigation bar stays hidden (rule D1), so the title is drawn once, here.
 struct SheetColumn<Content: View>: View {
     let title: String
     var summary: String? = nil
     @ViewBuilder var content: Content
+
+    /// #30 B: the same layout as every task screen (one shared layout, so none can drift).
+    var body: some View {
+        TaskPage(title: title, summary: summary) { content }
+    }
+}
+
+/// #30 (OPEN_QUESTIONS R228, PROVISIONAL): the column sizes of a full-screen task page. Fractions of the space the system
+/// gives the page (inside the tvOS safe area), not points: the HIG Layout page gives the safe area (60 pt top and bottom,
+/// 80 pt at the sides) but no form width, so these are our choice and are listed with their alternatives in R228.
+enum TaskPageLayout {
+    /// The rows sit in one bounded column (rule L1, owner decision R202), centred, two thirds of the width.
+    static let columnFraction: CGFloat = 2.0 / 3.0
+    /// Every text field takes the same share of its row, so fields side by side in the column line up at one width (HIG
+    /// Text fields: "use consistent widths"; the equal-size rule). The label has the rest of the row.
+    static let fieldFraction: CGFloat = 0.5
+}
+
+/// #30 (OPEN_QUESTIONS R228, PROVISIONAL): a FULL-SCREEN page for a task (Add a Source and each source form): one bounded
+/// column with the title and its one sentence at the top, then the rows of a system grouped `Form`.
+/// - The title and sentence are the header of the first section, so the system gives them the same inner margin as the
+///   row text below them (#30 B: in the sheet they started at the card's rounded edge). Unverified on tvOS 27 until the
+///   next screenshots (10 to 19).
+/// - They scroll with the rows, so at Larger Text the rows get the whole screen height (#30 E).
+/// - The system scroll edge effect at both ends shows that more rows are above or below (#30 D; tvOS 26 and later).
+/// - The navigation bar stays hidden (rule D1): the title is drawn once, here.
+struct TaskPage<Content: View>: View {
+    let title: String
+    var summary: String? = nil
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        Form {
+            Section {
+                EmptyView()
+            } header: {
+                TaskPageHeader(title: title, summary: summary)
+            }
+            content
+        }
+        .containerRelativeFrame(.horizontal) { (length: CGFloat, _: Axis) -> CGFloat in
+            length * TaskPageLayout.columnFraction
+        }
+        .frame(maxWidth: .infinity)
+        .scrollEdgeEffectStyle(.soft, for: .all)
+        .navigationTitle(title)
+        .toolbarVisibility(.hidden, for: .navigationBar)
+    }
+}
+
+extension View {
+    /// #30 B (OPEN_QUESTIONS R228, PROVISIONAL): the ONE way the app presents a task screen (Add a Source, File Details,
+    /// Save View, Fix Match, How This Was Sorted, the Move choice): a full-screen cover, so no tab bar is on top and nothing
+    /// shows behind it, with the UI-test text-size and Bold Text overrides applied inside (a presented view is outside the
+    /// tab content that carries them, App/Shell/RootView.swift). scripts/design-lint.sh rule `form-sheet` fails on `.sheet(`.
+    func taskCover<Content: View>(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Content) -> some View {
+        fullScreenCover(isPresented: isPresented) {
+            content()
+                .uiTestAccessibilityOverrides()
+        }
+    }
+
+    /// `taskCover` for an item: shown while `item` is not nil.
+    func taskCover<Item: Identifiable, Content: View>(item: Binding<Item?>, @ViewBuilder content: @escaping (Item) -> Content) -> some View {
+        fullScreenCover(item: item) { (value: Item) in
+            content(value)
+                .uiTestAccessibilityOverrides()
+        }
+    }
+}
+
+/// The title (one line, rule S1) and the one sentence of a `TaskPage`, in the system section-header position. The sentence
+/// may wrap: it is a sentence, not a short text.
+private struct TaskPageHeader: View {
+    let title: String
+    let summary: String?
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -36,14 +111,12 @@ struct SheetColumn<Content: View>: View {
                 .accessibilityAddTraits(.isHeader)
             if let summary {
                 Text(summary)
+                    .font(.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Form { content }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .navigationTitle(title)
-        .toolbarVisibility(.hidden, for: .navigationBar)
+        .textCase(nil)
     }
 }
 
@@ -66,8 +139,11 @@ struct PaneColumns<Content: View>: View {
                 }
                 Text(summary)
                     .foregroundStyle(.secondary)
+                // #30 Part 3 (35-38): each status sentence is its own paragraph, with the system padding above it, so the
+                // left column is not one block of sentences. Wording unchanged. Fixed in code, verify in next 35 to 38.
                 ForEach(status.filter { !$0.isEmpty }, id: \.self) { line in
                     StatusText(line)
+                        .padding(.top)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)

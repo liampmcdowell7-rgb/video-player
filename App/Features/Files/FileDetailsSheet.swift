@@ -27,11 +27,13 @@ struct FileDetailsSheet: View {
                     }
                 }
                 Section("Location") {
-                    Text(row.id)
+                    // #30 F: the path whole on ONE line, scaled to fit (FittingText; below the readable minimum see R229).
+                    FittingText(row.id)
                         .foregroundStyle(.secondary)
                 }
                 Section {
-                    Button("Done") { dismiss() }
+                    // #30 F: the last row is a named control with its symbol (74: a focused white bar with no visible label).
+                    Button { dismiss() } label: { RowLabel("Done", systemImage: "checkmark") }
                 }
             }
         }

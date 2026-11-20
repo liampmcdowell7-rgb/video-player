@@ -39,6 +39,6 @@ struct SourcesSettingsView: View {
             }
         }
         .task(id: services.libraryRevision) { definitions = services.definitions }
-        .sheet(isPresented: $showSetup) { SourceSetupFlow() }
+        .addSourceCover(isPresented: $showSetup)
     }
 }

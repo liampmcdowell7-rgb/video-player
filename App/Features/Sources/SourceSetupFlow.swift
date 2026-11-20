@@ -2,7 +2,14 @@ import SwiftUI
 import VideoPlayerCore
 import AppLogic
 
-/// The add-a-source flow: pick a type (or search the network), fill in the form, connect. Shown as a sheet.
+/// The add-a-source flow: pick a type (or search the network), fill in the form, connect.
+///
+/// #30 (OPEN_QUESTIONS R228, PROVISIONAL): shown as a FULL-SCREEN cover (`addSourceCover`), not a sheet. The run of 20 Nov
+/// showed the sheet as a card about a third of the screen wide, with only 3 to 4 rows, the Home text showing through and
+/// the tab bar above it (10, 11, 17, 94). HIG Modality: a full-screen modal style suits "a multistep task", and in tvOS
+/// "people expect to find a button in the main content view" to dismiss it (the Cancel rows). A full-screen cover hides
+/// the tab bar and the page that opened it. scripts/design-lint.sh rule `form-sheet` fails if this flow or one of its
+/// forms is presented with `.sheet` again.
 struct SourceSetupFlow: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -20,5 +27,12 @@ struct SourceSetupFlow: View {
                     }
                 }
         }
+    }
+}
+
+extension View {
+    /// #30: the one way to open Add a Source, from Home, Movies, Shows, Files and Settings > Sources: full screen.
+    func addSourceCover(isPresented: Binding<Bool>) -> some View {
+        taskCover(isPresented: isPresented) { SourceSetupFlow() }
     }
 }

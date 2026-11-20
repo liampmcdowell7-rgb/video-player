@@ -29,6 +29,6 @@ struct FilesView: View {
             }
         }
         .task(id: services.libraryRevision) { sources = (try? await services.store.sources()) ?? [] }
-        .sheet(isPresented: $showSetup) { SourceSetupFlow() }
+        .addSourceCover(isPresented: $showSetup)
     }
 }

@@ -33,7 +33,7 @@ struct FilesFolderView: View {
         }
         .pushedScreen(title)
         .task { await reload() }
-        .sheet(item: $selected) { row in FileDetailsSheet(row: row) }
+        .taskCover(item: $selected) { row in FileDetailsSheet(row: row) }
     }
 
     private var title: String { path == "/" ? sourceName : (path as NSString).lastPathComponent }

@@ -28,8 +28,8 @@ struct ShowsView: View {
             }
         }
         .task(id: services.libraryRevision) { await reload() }
-        .sheet(isPresented: $showSetup) { SourceSetupFlow() }
-        .sheet(isPresented: $showSaveView) {
+        .addSourceCover(isPresented: $showSetup)
+        .taskCover(isPresented: $showSaveView) {
             if let model { SaveViewSheet(model: model) }
         }
     }

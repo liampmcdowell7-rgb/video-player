@@ -21,12 +21,12 @@ struct ItemDetailView: View {
             }
         }
         .task(id: services.libraryRevision) { await reload() }
-        .sheet(isPresented: $showFixMatch) {
+        .taskCover(isPresented: $showFixMatch) {
             if let content = model?.screen.state.content {
                 FixMatchView(itemID: itemID, kind: content.kind, currentTitle: content.title)
             }
         }
-        .sheet(isPresented: $showSortInfo) {
+        .taskCover(isPresented: $showSortInfo) {
             if let content = model?.screen.state.content {
                 SortInfoSheet(itemID: itemID, kind: content.kind)
             }

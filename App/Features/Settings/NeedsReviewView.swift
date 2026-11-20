@@ -65,7 +65,7 @@ struct NeedsReviewView: View {
         } message: { entry in
             Text(entry.note)
         }
-        .sheet(item: $move) { target in
+        .taskCover(item: $move) { target in
             SortMoveSheet(target: target, onSaved: {
                 if case .review(let entry, _) = target { model?.remove(entry) }
             })

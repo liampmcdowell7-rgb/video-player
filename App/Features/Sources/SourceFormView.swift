@@ -19,17 +19,28 @@ struct SourceFormView: View {
         guard let caveat: String = info.caveat else { return status }
         return status + " " + caveat
     }
+    /// #30: the problem texts of all fields, one per line, under the fields' section (each names its field).
+    private var problemText: String {
+        let lines: [String] = problems.map { (problem: FieldProblem) -> String in problem.message }
+        return lines.joined(separator: "\n")
+    }
 
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        // #25 B1 (R202): one column (`SheetColumn`), the type's name on top and its one sentence under it; the fields are
-        // system Form rows; Connect and Cancel sit together after them. What was tested and what was not (the status and the
-        // caveat) are on the type's Learn More page, one press away. Fixed in code, verify in next screenshots (11 to 19,
-        // 94, 100, 111).
-        SheetColumn(title: info.title, summary: info.summary) {
-            ForEach(info.fields) { spec in
-                SourceFieldRow(spec: spec, text: binding(spec.kind), problem: problems.first { $0.field == spec.kind }?.message)
+        // #25 B1 (R202): one column, the type's name on top and its one sentence under it; Connect and Cancel sit together
+        // after the fields. What was tested and what was not (the status and the caveat) are on the type's Learn More page,
+        // one press away. #30 (R228): a full-screen `TaskPage`; all fields in ONE section, label and field on one row, the
+        // problems under it. Fixed in code, verify in next screenshots (11 to 19, 94, 100, 111).
+        TaskPage(title: info.title, summary: info.summary) {
+            Section {
+                ForEach(info.fields) { spec in
+                    SourceFieldRow(spec: spec, text: binding(spec.kind))
+                }
+            } footer: {
+                if !problems.isEmpty {
+                    Text(problemText)
+                }
             }
             Section {
                 connectRow

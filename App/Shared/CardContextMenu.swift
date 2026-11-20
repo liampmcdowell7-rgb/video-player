@@ -39,7 +39,7 @@ struct CardContextMenu: ViewModifier {
                     Button("Move to Movies", systemImage: "film") { move = .item(card.id, .movie) }
                 }
             }
-            .sheet(item: $move) { target in SortMoveSheet(target: target) }
+            .taskCover(item: $move) { target in SortMoveSheet(target: target) }
     }
 }
 

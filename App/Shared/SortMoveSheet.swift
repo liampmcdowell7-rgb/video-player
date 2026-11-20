@@ -135,7 +135,7 @@ struct SortInfoSheet: View {
             info = try? await services.store.sortInfo(itemID: itemID)
             loaded = true
         }
-        .sheet(item: $move) { target in
+        .taskCover(item: $move) { target in
             SortMoveSheet(target: target, onSaved: { dismiss() })
         }
     }

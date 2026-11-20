@@ -7,7 +7,8 @@ struct DiscoveryView: View {
     @State private var browser = BonjourBrowser()
 
     var body: some View {
-        List {
+        // #30 B: the shared full-screen task layout (TaskPage), as the list and the forms.
+        TaskPage(title: "Your Network") {
             if browser.found.isEmpty {
                 Section {
                     HStack {
@@ -19,25 +20,20 @@ struct DiscoveryView: View {
             }
             ForEach(browser.found, id: \.self) { found in
                 NavigationLink(value: SetupRoute.discovered(found)) {
-                    // #15 2.3 (R188): the readable name on one line (S1), the type, and a machine identifier only as a
-                    // secondary line. Fixed in code, verify in next screenshots (21).
+                    // #15 2.3 (R188), #30 E: the readable name on one line and the type on one line (S1). The machine identifier
+                    // (21: a raw ID wrapped over three lines) is not on the row; the form it opens has the address filled in.
+                    // Fixed in code, verify in next screenshots (21, 21-search-your-network-result).
                     let kindTitle = SourceCatalog.info(for: found.kind).title
                     let name = SourceSetupText.discoveredName(found.name, kindTitle: kindTitle)
                     VStack(alignment: .leading) {
                         FittingText(name.title)
                         FittingText(kindTitle, style: .caption)
                             .foregroundStyle(.secondary)
-                        if let identifier = name.identifier {
-                            Text(identifier)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
                     }
                     .accessibilityElement(children: .combine)
                 }
             }
         }
-        .pushedScreen("Your Network")
         .onAppear { browser.start() }
         .onDisappear { browser.stop() }
     }

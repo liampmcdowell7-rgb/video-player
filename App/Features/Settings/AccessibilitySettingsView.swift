@@ -11,16 +11,27 @@ struct AccessibilitySettingsView: View {
     @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        SettingsPane(title: "Accessibility", summary: SettingsTexts.accessibilitySummary, status: [
-            "Currently on this device:",
-            "Reduce Motion: " + (reduceMotion ? "On" : "Off"),
-            "Reduce Transparency: " + (reduceTransparency ? "On" : "Off"),
-            "Bold Text: " + (legibilityWeight == .bold ? "On" : "Off"),
-            "Increase Contrast: " + (contrast == .increased ? "On" : "Off"),
-        ]) {
+        // #30 Part 3: the device states are ONE paragraph (a short list under its lead line); the summary is another.
+        SettingsPane(title: "Accessibility", summary: SettingsTexts.accessibilitySummary, status: [deviceStates]) {
             Section {
                 LearnMoreLink(title: SettingsTexts.accessibilityLearnMoreTitle, text: SettingsTexts.accessibilityFull)
             }
         }
+    }
+
+    /// "Currently on this device:" and the four states, one per line (typed steps).
+    private var deviceStates: String {
+        let lines: [String] = [
+            "Currently on this device:",
+            "Reduce Motion: " + onOff(reduceMotion),
+            "Reduce Transparency: " + onOff(reduceTransparency),
+            "Bold Text: " + onOff(legibilityWeight == .bold),
+            "Increase Contrast: " + onOff(contrast == .increased),
+        ]
+        return lines.joined(separator: "\n")
+    }
+
+    private func onOff(_ isOn: Bool) -> String {
+        isOn ? "On" : "Off"
     }
 }

@@ -25,7 +25,7 @@ struct HomeView: View {
             }
         }
         .task(id: services.libraryRevision) { await reload() }
-        .sheet(isPresented: $showSetup) { SourceSetupFlow() }
+        .addSourceCover(isPresented: $showSetup)
     }
 
     private func visible(_ rows: [HomeRow]) -> [HomeRow] {
