@@ -606,4 +606,75 @@ final class ScreenChecksTests: XCTestCase {
             XCTAssertTrue(m.ratio > 1.5 && m.ratio < 7, "\(name): \(m)")
         }
     }
+
+    /// #34 5b (R240): primary at `alpha` drawn over `background`, composited in sRGB-encoded values (an assumption: how
+    /// tvOS blends a text's opacity over vibrancy and material is not documented; CI's -CONTRAST note measures the real one).
+    static func composite(_ primary: RGB, alpha: Double, over background: RGB) -> RGB {
+        func mix(_ p: UInt8, _ b: UInt8) -> UInt8 { UInt8((alpha * Double(p) + (1 - alpha) * Double(b)).rounded()) }
+        return RGB(r: mix(primary.r, background.r), g: mix(primary.g, background.g), b: mix(primary.b, background.b))
+    }
+
+    /// #34 5b (R240), run artifacts: the system secondary style as drawn in the run of 20 Nov, against primary at 60, 70, 80
+    /// and 90 % on the same measured backgrounds. The primary colour is measured on the same picture (31: the title
+    /// "Playback"; 78: the value beside each label). Prints the table for OPEN_QUESTIONS R240; asserts what R240 states.
+    func testTheRunsSecondaryTextAgainstPrimaryAtLowerOpacities() throws {
+        let settings: RGBImage = try picture("screenshots/31-settings-playback.png")
+        let movie: RGBImage = try picture("screenshots/78-movie-no-synopsis-or-cast.png")
+        // (name, picture, the secondary text's frame, a primary text's frame on the same picture)
+        let cases: [(String, RGBImage, AXRect, AXRect)] = [
+            ("31 footer", settings, AXRect(x: 1005, y: 440, width: 655, height: 36), AXRect(x: 80, y: 165, width: 225, height: 50)),
+            ("31 summary", settings, AXRect(x: 78, y: 230, width: 545, height: 36), AXRect(x: 80, y: 165, width: 225, height: 50)),
+            ("78 Resolution", movie, AXRect(x: 78, y: 503, width: 150, height: 36), AXRect(x: 296, y: 503, width: 250, height: 36)),
+            ("78 Frame Rate", movie, AXRect(x: 78, y: 709, width: 160, height: 36), AXRect(x: 296, y: 709, width: 150, height: 36)),
+        ]
+        let alphas: [Double] = [0.6, 0.7, 0.8, 0.9]
+        var minimum: [Double: Double] = [:]
+        for (name, image, frame, primaryFrame) in cases {
+            let secondary: Contrast.Measurement = try XCTUnwrap(Contrast.measure(image, frame: frame, scale: 1), name)
+            let primary: Contrast.Measurement = try XCTUnwrap(Contrast.measure(image, frame: primaryFrame, scale: 1), name)
+            var row: String = String(format: "CONTRAST-5B %@: secondary %.2f (%@ on %@); primary %.2f (%@)", name, secondary.ratio,
+                                     secondary.foreground.description, secondary.background.description, Contrast.ratio(primary.foreground, secondary.background),
+                                     primary.foreground.description)
+            for alpha in alphas {
+                let colour: RGB = Self.composite(primary.foreground, alpha: alpha, over: secondary.background)
+                let r: Double = Contrast.ratio(colour, secondary.background)
+                minimum[alpha] = min(minimum[alpha] ?? .infinity, r)
+                row += String(format: "; primary %.0f%% %.2f (%@)", alpha * 100, r, colour.description)
+            }
+            print(row)
+            XCTAssertLessThan(secondary.ratio, 4.5, "\(name): the system secondary already passes; R240 keeps it there")
+        }
+        print("CONTRAST-5B lowest per option: " + alphas.map { String(format: "%.0f%% %.2f", $0 * 100, minimum[$0] ?? 0) }.joined(separator: ", "))
+        XCTAssertLessThan(minimum[0.6] ?? 0, 4.5, "60 % fails on one background (78 Resolution, 4.34:1 in the run)")
+        XCTAssertGreaterThanOrEqual(minimum[0.7] ?? 0, 4.5, "70 % passes on every background (R240's pick)")
+    }
+
+    /// #34 5b (R240): the colours measured on the run of 20 Nov (testTheRunsSecondaryTextAgainstPrimaryAtLowerOpacities,
+    /// run artifacts): (secondary text, its background, the primary text on that picture). Runs without the pictures.
+    static let measuredSecondary: [(String, RGB, RGB, RGB)] = [
+        ("31 footer", RGB(r: 0x6D, g: 0x6E, b: 0x6E), RGB(r: 0x2B, g: 0x2B, b: 0x2B), RGB(r: 0xFF, g: 0xFF, b: 0xFF)),
+        ("31 summary", RGB(r: 0x9A, g: 0x9C, b: 0x9F), RGB(r: 0x33, g: 0x37, b: 0x3C), RGB(r: 0xFF, g: 0xFF, b: 0xFF)),
+        ("78 Resolution", RGB(r: 0x9A, g: 0xA7, b: 0xAF), RGB(r: 0x34, g: 0x4E, b: 0x5D), RGB(r: 0xFF, g: 0xFF, b: 0xFF)),
+        ("78 Frame Rate", RGB(r: 0x96, g: 0x9E, b: 0xA5), RGB(r: 0x2B, g: 0x3B, b: 0x49), RGB(r: 0xFF, g: 0xFF, b: 0xFF)),
+    ]
+
+    /// #34 5b (R240): `ReadableSecondary.opacity` (read from App/Shared/LayoutParts.swift) reaches 4.5:1 on every measured
+    /// background, the system secondary does not, 10 points less opacity would not (so it is the lowest that passes: the
+    /// most hierarchy kept), and the text stays below primary.
+    func testTheReadableSecondaryOpacityPassesOnTheRunsBackgrounds() throws {
+        guard let source = try appSource("App/Shared/LayoutParts.swift") else { return }
+        let marker: String = "static let opacity: Double = "
+        let line: Substring = try XCTUnwrap(source.split(separator: "\n").first { (l: Substring) -> Bool in l.contains(marker) }, "ReadableSecondary.opacity")
+        let alpha: Double = try XCTUnwrap(Double((line.components(separatedBy: marker).last ?? "").trimmingCharacters(in: .whitespaces)))
+        var lowerFails: Bool = false
+        for (name, secondary, background, primary) in Self.measuredSecondary {
+            let chosen: Double = Contrast.ratio(Self.composite(primary, alpha: alpha, over: background), background)
+            let lower: Double = Contrast.ratio(Self.composite(primary, alpha: alpha - 0.1, over: background), background)
+            XCTAssertLessThan(Contrast.ratio(secondary, background), 4.5, "\(name): the system secondary passes; keep it (R240)")
+            XCTAssertGreaterThanOrEqual(chosen, 4.5, "\(name): primary at \(alpha) is \(chosen):1")
+            XCTAssertLessThan(chosen, Contrast.ratio(primary, background), "\(name): not below primary")
+            if lower < 4.5 { lowerFails = true }
+        }
+        XCTAssertTrue(lowerFails, "primary at \(alpha - 0.1) passes everywhere too: R240 picks the lowest opacity that passes")
+    }
 }

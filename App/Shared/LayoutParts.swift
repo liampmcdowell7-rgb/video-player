@@ -140,3 +140,15 @@ struct LearnMoreLink: View {
 enum DetailPageLayout {
     static let belowActions: CGFloat = 40
 }
+
+/// #34 5b (OPEN_QUESTIONS R240, PROVISIONAL): secondary text that must reach 4.5:1 (the HIG's table up to 17 pt; the tvOS
+/// text here is larger but regular weight, so the 4.5:1 row is kept), used ONLY for Settings' secondary text and the Media
+/// Info labels. The system primary style at 70 % opacity (`ShapeStyle.opacity(_:)`, tvOS 15): measured on the run of 20 Nov
+/// (31, 78) it reaches 5.28:1 at the lowest (78 "Resolution" on #344E5D) where .secondary had 2.77 to 4.35 and 60 % had
+/// 4.34; 70 % is the lowest that passes everywhere, so it keeps the most distance from the primary text (8.77 to 14.16:1).
+/// The 60 % / 70 % / 80 % / 90 % table is printed by ScreenChecksTests (`testTheRunsSecondaryTextAgainstPrimaryAtLowerOpacities`),
+/// and `testTheReadableSecondaryOpacityPassesOnTheRunsBackgrounds` reads `opacity` from this file.
+enum ReadableSecondary {
+    static let opacity: Double = 0.7
+    static var style: AnyShapeStyle { AnyShapeStyle(HierarchicalShapeStyle.primary.opacity(opacity)) }
+}

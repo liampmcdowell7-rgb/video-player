@@ -13,12 +13,14 @@ struct SettingsPane<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        // #33 K (OPEN_QUESTIONS R240, PROVISIONAL target 4.5:1): Settings' secondary text in the primary system colour. The run
-        // of 20 Nov measured the footer at 2.77:1 and the summary at 4.35:1 (31-settings-playback, scripts: ScreenChecks
-        // Contrast). Whether the system section footers take this style is unverified until the next 31 -CONTRAST note.
-        PaneColumns(title: title, summary: summary, status: status, summaryStyle: .primary) {
+        // #33 K / #34 5b (OPEN_QUESTIONS R240, PROVISIONAL target 4.5:1): Settings' secondary text (the summary, and the
+        // secondary level of the Form, which the section footers are expected to use) is the primary system colour at
+        // `ReadableSecondary.opacity`, not full primary, so it stays below the row titles. The run of 20 Nov measured the
+        // footer at 2.77:1 and the summary at 4.35:1 in .secondary (31-settings-playback). Whether the system footers take
+        // the Form's secondary level is unverified until the next 31 -CONTRAST note.
+        PaneColumns(title: title, summary: summary, status: status, summaryStyle: ReadableSecondary.style) {
             Form { content }
-                .foregroundStyle(.primary)
+                .foregroundStyle(HierarchicalShapeStyle.primary, ReadableSecondary.style)
         }
         .navigationTitle(title)
         .toolbarVisibility(.hidden, for: .navigationBar)
@@ -175,8 +177,8 @@ struct PaneColumns<Content: View>: View {
     var title: String? = nil
     let summary: String
     var status: [String] = []
-    /// #33 K: Settings passes `.primary` (R240); the Files screens keep the system's secondary style.
-    var summaryStyle: HierarchicalShapeStyle = .secondary
+    /// #33 K / #34 5b: Settings passes `ReadableSecondary.style` (R240); the Files screens keep the system's secondary style.
+    var summaryStyle: AnyShapeStyle = AnyShapeStyle(HierarchicalShapeStyle.secondary)
     @ViewBuilder var content: Content
 
     var body: some View {
