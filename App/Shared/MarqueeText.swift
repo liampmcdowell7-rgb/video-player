@@ -40,7 +40,10 @@ struct MarqueeText: UIViewRepresentable {
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize? {
         let font: UIFont = Self.floorFont(size: context.environment.dynamicTypeSize, bold: context.environment.legibilityWeight == .bold)
         let natural: CGFloat = uiView.intrinsicContentSize.width
-        let width: CGFloat = proposal.width ?? (fadesAtRest ? 0 : natural)
+        // #34 1: typed steps (the #29 pattern), no ternary inside `??`.
+        var width: CGFloat = natural
+        if fadesAtRest { width = 0 }
+        if let proposed = proposal.width { width = proposed }
         return CGSize(width: width, height: ceil(font.lineHeight))
     }
 

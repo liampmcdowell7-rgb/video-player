@@ -144,8 +144,11 @@ private struct RestFade: View {
 
     var body: some View {
         if active {
-            LinearGradient(stops: [.init(color: .primary, location: 0), .init(color: .primary, location: 0.9), .init(color: .clear, location: 1)],
-                           startPoint: .leading, endPoint: .trailing)
+            // #34 1: the stops typed on their own (the #29 pattern: no generic inference inside one long expression).
+            let stops: [Gradient.Stop] = [Gradient.Stop(color: Color.primary, location: 0),
+                                          Gradient.Stop(color: Color.primary, location: 0.9),
+                                          Gradient.Stop(color: Color.clear, location: 1)]
+            LinearGradient(stops: stops, startPoint: .leading, endPoint: .trailing)
         } else {
             Rectangle()
         }
