@@ -78,6 +78,8 @@ def main():
     # A picture can be taken AND have a NOT-REACHED note (72-files-folder: the picture, then the check after it failed).
     taken_but_failed = [n for n in taken if (n + "-NOT-REACHED.txt") in notes]
     warnings = sorted((f[:-len("-UNCHANGED.txt")] for f in notes if f.endswith("-UNCHANGED.txt")), key=order)
+    # #36 group 1 c: an identical picture after a scroll at the end of the page is "end of scroll", not a warning.
+    ends = sorted((f[:-len("-END-OF-SCROLL.txt")] for f in notes if f.endswith("-END-OF-SCROLL.txt")), key=order)
     extra = sorted((k for k in pictures if k not in planned), key=order)
 
     lines = ["# Screenshots: %s (viewing order)" % os.path.basename(os.path.normpath(dest)), ""]
@@ -116,6 +118,9 @@ def main():
     if warnings:
         lines += ["", "## Warnings", ""]
         lines += ["- WARNING: %s: %s" % (n, first_line(os.path.join(notes_dir, n + "-UNCHANGED.txt"))) for n in warnings]
+    if ends:
+        lines += ["", "## End of scroll (not a warning)", ""]
+        lines += ["- %s: %s" % (n, first_line(os.path.join(notes_dir, n + "-END-OF-SCROLL.txt"))) for n in ends]
     try:
         module = load_index_module()
         not_reached = {n: "" for n in failed}

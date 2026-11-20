@@ -108,14 +108,23 @@ public enum ScreenRules {
 
     /// #33 A: the task page's title starts at or below the 60 pt top safe area (HIG Layout, tvOS) and its interactive rows
     /// (cells and fields of the cover) do not overlap one another.
-    public static func coverLayout(in dump: AccessibilityDump, safeTop: Double = 60) -> CheckResult {
+    /// `scrolled`: the picture was taken after the list was scrolled or the focus moved down it (a name ending in
+    /// "-scrolled", or 20-add-source-not-available after moving to Cancel). The title has then legitimately scrolled above
+    /// the safe area (third run of 20 Nov, 20: “FTP, Folder on an FTP server” at y -117), so the title rule is SKIPPED and
+    /// the note says so with the reason; the overlap rule still runs.
+    public static func coverLayout(in dump: AccessibilityDump, safeTop: Double = 60, scrolled: String? = nil) -> CheckResult {
         guard let cover = dump.coverRoot else { return CheckResult(passed: false, lines: ["no cover subtree in the tree", "COVER NOT FOUND"]) }
         var lines: [String] = []
         var passed: Bool = true
         // The title is the cover's FIRST static text in tree order (the page header). Not the topmost one: rows a list has
         // built off screen report frames at y 0 (10-add-source-types: “Google Drive, No sign-in for TVs”).
         let texts: [Int] = dump.descendants(of: cover).filter { dump.nodes[$0].type == "StaticText" && !(dump.nodes[$0].frame?.isEmpty ?? true) }
-        if let title = texts.first, let frame = dump.nodes[title].frame {
+        if let scrolled {
+            var first: String = "no text"
+            if let title = texts.first, let frame = dump.nodes[title].frame { first = "“\(dump.nodes[title].label)” at y \(Int(frame.y))" }
+            lines.append("safe-area title rule SKIPPED: the picture was taken after \(scrolled), so the first text (\(first)) may "
+                         + "have scrolled above the \(Int(safeTop)) pt safe area")
+        } else if let title = texts.first, let frame = dump.nodes[title].frame {
             let ok: Bool = frame.y >= safeTop - 1
             lines.append("first text “\(dump.nodes[title].label)” starts at y \(Int(frame.y)) (safe area \(Int(safeTop)))")
             if !ok { passed = false; lines.append("TITLE ABOVE THE SAFE AREA") }
@@ -403,15 +412,22 @@ public enum ScreenRules {
     // MARK: S-C: buttons side by side are the same size (#36 group 3)
 
     /// #36 S-C (OPEN_QUESTIONS R255, PROVISIONAL): the buttons under `root` that stand side by side (centres within 2 pt
-    /// vertically, outside the tab bar) must have the same width and height (within 1 pt) and be at least 66 pt high (HIG
-    /// Accessibility, tvOS default control size). A button alone on its line is not compared. Passes with no such group.
+    /// vertically, outside the tab bar) must have the same width and height (within 1 pt) AT REST and be at least 66 pt
+    /// high (HIG Accessibility, tvOS default control size). A button alone on its line is not compared. Passes with no
+    /// such group.
+    /// The focused button is drawn larger by the system focus effect (HIG Focus and selection, tvOS: "focusing an item
+    /// often increases its scale"; run of 20 Nov, third run: “Connect” focused 545 x 104 beside “Cancel” at rest 537 x 96),
+    /// so its frame is not its resting size. It is compared with the resting buttons of its row instead: each side may be
+    /// from equal to `focusScale` (1.10) times theirs. The equal-size and 66 pt rules apply to the resting frames.
+    public static let focusScale: Double = 1.10
+
     public static func sideBySideButtons(in dump: AccessibilityDump, root: Int) -> CheckResult {
-        let buttons: [(String, AXRect)] = dump.descendants(of: root).compactMap { (index: Int) -> (String, AXRect)? in
+        let buttons: [(String, AXRect, Bool)] = dump.descendants(of: root).compactMap { (index: Int) -> (String, AXRect, Bool)? in
             let node: AXNode = dump.nodes[index]
             guard node.type == "Button", !dump.isInTabBar(index), let frame = node.frame, !frame.isEmpty else { return nil }
-            return (dump.text(of: index), frame)
+            return (dump.text(of: index), frame, node.isFocused)
         }
-        var groups: [[(String, AXRect)]] = []
+        var groups: [[(String, AXRect, Bool)]] = []
         for button in buttons.sorted(by: { $0.1.x < $1.1.x }) {
             if let i = groups.firstIndex(where: { abs($0[0].1.midY - button.1.midY) <= 2 }) {
                 // The same element reported twice (a button and its label element) is one button.
@@ -425,13 +441,29 @@ public enum ScreenRules {
         var lines: [String] = []
         var problems: [String] = []
         for group in groups where group.count >= 2 {
-            let names: String = group.map { "“\($0.0)” \(Int($0.1.width.rounded())) x \(Int($0.1.height.rounded()))" }.joined(separator: ", ")
+            let names: String = group.map {
+                "“\($0.0)” \(Int($0.1.width.rounded())) x \(Int($0.1.height.rounded()))" + ($0.2 ? " (focused)" : "")
+            }.joined(separator: ", ")
             lines.append("side by side: " + names)
-            let first: AXRect = group[0].1
-            if group.contains(where: { abs($0.1.width - first.width) > 1 || abs($0.1.height - first.height) > 1 }) {
-                problems.append("not the same size: " + names)
+            let resting: [AXRect] = group.filter { !$0.2 }.map { $0.1 }
+            let focused: [AXRect] = group.filter { $0.2 }.map { $0.1 }
+            if let first = resting.first {
+                if resting.contains(where: { abs($0.width - first.width) > 1 || abs($0.height - first.height) > 1 }) {
+                    problems.append("not the same size at rest: " + names)
+                }
+                if resting.contains(where: { $0.height < 66 - 0.5 }) { problems.append("lower than 66 pt at rest: " + names) }
+                for f in focused {
+                    let w: Double = f.width / first.width
+                    let h: Double = f.height / first.height
+                    if w < 1 - 1 / first.width || h < 1 - 1 / first.height || w > focusScale || h > focusScale {
+                        problems.append(String(format: "the focused button is %.3f x %.3f its resting neighbour (allowed 1 to %.2f): ",
+                                               w, h, focusScale) + names)
+                    }
+                }
+                if !focused.isEmpty { lines.append("the focused button is compared at up to \(focusScale) times the resting size") }
+            } else if group.contains(where: { $0.1.height < 66 - 0.5 }) {
+                problems.append("lower than 66 pt: " + names)
             }
-            if group.contains(where: { $0.1.height < 66 - 0.5 }) { problems.append("lower than 66 pt: " + names) }
         }
         if lines.isEmpty { lines.append("no buttons side by side") }
         lines.append(problems.isEmpty ? "BUTTONS OK" : "BUTTONS PROBLEM: " + problems.joined(separator: "; "))
@@ -446,5 +478,63 @@ public enum ScreenRules {
             return CheckResult(passed: false, lines: ["identical, pixel for pixel: \(step) did not change the screen", "SCREEN UNCHANGED"])
         }
         return CheckResult(passed: true, lines: ["the screen changed after \(step)", "SCREEN CHANGED OK"])
+    }
+
+    // MARK: #36 group 1 d / group 4: a card caption is whole, and stays still
+
+    /// How close (in points) to the right edge of its column a caption's ink may come before it counts as cut off.
+    public static let captionEdge: Double = 6
+
+    /// #36 group 4 (OPEN_QUESTIONS R264, PROVISIONAL): the caption of a card is drawn whole, not cut at its column's right
+    /// edge. `column` is the space the caption may use (the card's width less its side paddings), `text` the caption's own
+    /// frame. A caption narrower than its column is laid out at its own width and whole. One that fills the column is cut
+    /// when it has ink in the last `captionEdge` points: third run of 20 Nov, 56 "S2 E3 · A very long episode title that i"
+    /// (the "i" at x 1367 to 1370, column ending at 1374: 26 ink pixels) and 50 "… Than Any" (the "y" at about 620, column
+    /// ending at 624: 6 ink pixels); the whole S2 E2 caption beside it has none. Ink: a pixel of luminance 0.3 or more and
+    /// little colour (the caption is the primary label colour on the darker backdrop). A scaled line whose last glyph ends
+    /// within `captionEdge` of the edge would also be reported cut: the check errs towards "cut" (R264, unverified until a run).
+    public static func captionFits(_ image: RGBImage, scale: Double, column: AXRect, text: AXRect) -> CheckResult {
+        var lines: [String] = ["caption \(text) in column \(column)"]
+        if text.maxX > column.maxX + 1 {
+            lines.append("the caption is wider than its column")
+            lines.append("CAPTION CUT")
+            return CheckResult(passed: false, lines: lines)
+        }
+        if text.width < column.width - 1 {
+            lines.append("the caption is narrower than its column: laid out at its own width")
+            lines.append("CAPTION WHOLE OK")
+            return CheckResult(passed: true, lines: lines)
+        }
+        let x0: Int = max(0, Int(((column.maxX - captionEdge) * scale).rounded(.down)))
+        let x1: Int = min(image.width, Int((column.maxX * scale).rounded(.up)))
+        let y0: Int = max(0, Int((text.y * scale).rounded(.down)))
+        let y1: Int = min(image.height, Int((text.maxY * scale).rounded(.up)))
+        var ink: Int = 0
+        if x0 < x1, y0 < y1 {
+            for y in y0..<y1 {
+                for x in x0..<x1 {
+                    let c: RGB = image.pixel(x, y)
+                    let spread: Int = Int(max(c.r, c.g, c.b)) - Int(min(c.r, c.g, c.b))
+                    if Contrast.luminance(c) >= 0.3 && spread <= 48 { ink += 1 }
+                }
+            }
+        }
+        lines.append("\(ink) caption pixels in the last \(Int(captionEdge)) pt of the column")
+        let fits: Bool = ink < 2
+        lines.append(fits ? "CAPTION WHOLE OK" : "CAPTION CUT")
+        return CheckResult(passed: fits, lines: lines)
+    }
+
+    /// #36 group 1 d: the "-later" picture of 50 and 56. The system does NOT scroll a focused long caption (third run of
+    /// 20 Nov: 50/50-later and 56/56-later identical, both captions cut), so a moving caption is no longer expected. The
+    /// pair passes only when the two pictures are identical (nothing moves on its own) AND the caption is whole.
+    public static func stillAndWhole(_ before: [UInt8], _ after: [UInt8], caption: CheckResult) -> CheckResult {
+        var lines: [String] = []
+        let still: Bool = before == after
+        lines.append(still ? "the two pictures are identical: nothing moved during the wait" : "the two pictures differ: something moved during the wait")
+        lines += caption.lines
+        let passed: Bool = still && caption.passed
+        lines.append(passed ? "CAPTION STILL AND WHOLE OK" : "CAPTION PROBLEM: " + [still ? nil : "the screen changed", caption.passed ? nil : "the caption is cut"].compactMap { $0 }.joined(separator: "; "))
+        return CheckResult(passed: passed, lines: lines)
     }
 }

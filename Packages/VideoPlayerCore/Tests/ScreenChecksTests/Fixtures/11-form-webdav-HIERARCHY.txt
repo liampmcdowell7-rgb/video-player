@@ -1,0 +1,119 @@
+Attributes: Application, 0x1051563f0, pid: 36735, label: 'Video Player'
+Element subtree:
+ →Application, 0x1051563f0, pid: 36735, label: 'Video Player'
+    Window (Main), 0x1051d6c30, {{0.0, 0.0}, {1920.0, 1080.0}}
+      Other, 0x1051d3b70, {{0.0, 0.0}, {1920.0, 1080.0}}
+        Other, 0x10519ab40, {{0.0, 0.0}, {1920.0, 1080.0}}
+          Other, 0x1051dfa80, {{0.0, 0.0}, {1920.0, 1080.0}}
+            Other, 0x1051d3750, {{0.0, 0.0}, {1920.0, 1080.0}}
+              Other, 0x105155dc0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                Other, 0x105155580, {{0.0, 0.0}, {1920.0, 1080.0}}
+                  Other, 0x1051559a0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                    Other, 0x10519a720, {{0.0, 0.0}, {1920.0, 1080.0}}
+                      Other, 0x10519a300, {{0.0, 0.0}, {1920.0, 1080.0}}
+                        Other, 0x105199ee0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                          Other, 0x105199ac0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                            Other, 0x1051996a0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                              Other, 0x105199280, {{0.0, 0.0}, {1920.0, 1080.0}}
+                                Other, 0x105198e60, {{0.0, 0.0}, {1920.0, 1080.0}}
+                                  Other, 0x105198a40, {{0.0, 0.0}, {1920.0, 1080.0}}
+                                    StaticText, 0x105198620, {{535.0, 438.0}, {850.0, 308.0}}, identifier: 'screen.home', label: 'Home'
+                                      StaticText, 0x105198200, {{826.0, 438.0}, {268.0, 172.0}}, label: 'No Sources Yet'
+                                      Image, 0x105197de0, {{919.0, 438.0}, {83.0, 87.0}}, identifier: 'externaldrive.connected.to.line.below', label: 'External Drive Connected To A Line Below'
+                                      StaticText, 0x1051979c0, {{535.0, 613.0}, {850.0, 35.0}}, label: 'Add a server or a shared folder to see your movies and shows here.'
+                                      Button, 0x1051975a0, {{844.0, 680.0}, {232.0, 66.0}}, label: 'Add a Source'
+                Other, 0x105197180, {{0.0, 46.0}, {1920.0, 68.0}}
+                  TabBar, 0x105196d60, {{0.0, 46.0}, {1920.0, 68.0}}, label: 'Menu'
+                    Other, 0x1051e02b0, {{80.0, 46.0}, {200.0, 68.0}}
+                      Other, 0x1051dfe90, {{80.0, 46.0}, {200.0, 68.0}}
+                    Other, 0x1051df320, {{280.0, 46.0}, {1360.0, 68.0}}
+                      Other, 0x105157480, {{376.5, 54.5}, {185.0, 51.0}}
+                    Other, 0x1051575b0, {{367.5, 46.0}, {1185.0, 68.0}}
+                      ScrollView, 0x1051576e0, {{367.5, 46.0}, {1185.0, 68.0}}
+                        Button, 0x105157810, {{406.5, 61.5}, {125.0, 37.0}}, identifier: 'house', label: 'Home'
+                          Image, 0x105157940, {{406.5, 61.5}, {43.0, 37.0}}, identifier: 'house', label: 'home'
+                        Button, 0x105157a70, {{596.5, 63.5}, {138.0, 33.0}}, identifier: 'film', label: 'Movies'
+                          Image, 0x105157ba0, {{596.5, 63.5}, {42.0, 33.0}}, identifier: 'film', label: 'movie'
+                        Button, 0x105157cd0, {{799.5, 62.0}, {135.0, 36.0}}, identifier: 'tv', label: 'Shows'
+                          Image, 0x105157e00, {{799.5, 62.0}, {44.0, 36.0}}, identifier: 'tv', label: 'tv'
+                        Button, 0x105157f30, {{999.5, 63.5}, {108.0, 33.0}}, identifier: 'folder', label: 'Files'
+                          Image, 0x105158060, {{999.5, 63.5}, {41.0, 33.0}}, identifier: 'folder', label: 'move'
+                        Button, 0x105158190, {{1172.5, 62.5}, {129.0, 35.0}}, identifier: 'magnifyingglass', label: 'Search'
+                          Image, 0x1051582c0, {{1172.5, 62.5}, {34.0, 35.0}}, identifier: 'magnifyingglass', label: 'Search'
+                        Button, 0x1051583f0, {{1366.5, 61.5}, {147.0, 37.0}}, identifier: 'gearshape', label: 'Settings'
+                          Image, 0x105158520, {{1366.5, 61.5}, {37.0, 37.0}}, identifier: 'gearshape', label: 'Gear shape'
+                    Other, 0x105158650, {{1640.0, 46.0}, {200.0, 68.0}}
+                      Other, 0x105158780, {{1640.0, 46.0}, {200.0, 68.0}}
+      Other, 0x1051588b0, {{0.0, 0.0}, {1920.0, 1080.0}}
+        Other, 0x1051589e0, {{0.0, 0.0}, {1920.0, 1080.0}}
+          Other, 0x105158b10, {{0.0, 0.0}, {1920.0, 1080.0}}
+            Alert, 0x105158c40, {{0.0, 0.0}, {1920.0, 1080.0}}
+              Other, 0x105158d70, {{0.0, 0.0}, {1920.0, 1080.0}}
+                Other, 0x105158ea0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                  Other, 0x105158fd0, {{0.0, 0.0}, {1920.0, 1080.0}}
+                    Other, 0x105159100, {{0.0, 0.0}, {1920.0, 1080.0}}
+                      Other, 0x105159230, {{0.0, 0.0}, {1920.0, 1080.0}}
+                        Table, 0x105159360, {{373.0, 0.0}, {1174.0, 1080.0}}
+                          Other, 0x105159490, {{373.0, 60.0}, {1174.0, 118.0}}
+                            Other, 0x1051595c0, {{373.0, 60.0}, {1174.0, 118.0}}
+                              Other, 0x1051596f0, {{373.0, 60.0}, {1174.0, 118.0}}
+                                StaticText, 0x105159820, {{393.0, 66.0}, {223.0, 69.0}}, label: 'WebDAV'
+                                StaticText, 0x105159950, {{393.0, 137.0}, {452.0, 35.0}}, label: 'A web folder, for example on a NAS.'
+                          Cell, 0x105159a80, {{373.0, 192.0}, {1174.0, 84.0}}, label: 'Name, Living Room, Name'
+                            Other, 0x105159bb0, {{373.0, 192.0}, {1174.0, 84.0}}
+                              Other, 0x105159ce0, {{373.0, 192.0}, {1174.0, 84.0}}
+                                StaticText, 0x105159e10, {{393.0, 200.0}, {76.0, 35.0}}, label: 'Name'
+                                StaticText, 0x105159f40, {{393.0, 238.0}, {137.0, 30.0}}, label: 'Living Room'
+                                TextField, 0x10515a070, {{936.0, 197.5}, {595.0, 73.0}}, label: 'Name'
+                            Other, 0x10515a1a0, {{373.0, 192.0}, {1174.0, 84.0}}
+                              Other, 0x10515a2d0, {{373.0, 192.0}, {1174.0, 84.0}}
+                                Other, 0x10515a400, {{373.0, 192.0}, {1174.0, 84.0}}
+                          Cell, 0x10515a530, {{373.0, 290.0}, {1174.0, 84.0}}, label: 'Address, https://nas.local, Address'
+                            Other, 0x10515a660, {{373.0, 290.0}, {1174.0, 84.0}}
+                              Other, 0x10515a790, {{373.0, 290.0}, {1174.0, 84.0}}
+                                StaticText, 0x10515a8c0, {{393.0, 298.0}, {107.0, 35.0}}, label: 'Address'
+                                StaticText, 0x10515a9f0, {{393.0, 336.0}, {177.0, 30.0}}, label: 'https://nas.local'
+                                TextField, 0x10515ab20, {{936.0, 295.5}, {595.0, 73.0}}, label: 'Address'
+                            Other, 0x10515ac50, {{373.0, 290.0}, {1174.0, 84.0}}
+                              Other, 0x10515ad80, {{373.0, 290.0}, {1174.0, 84.0}}
+                                Other, 0x10515aeb0, {{373.0, 290.0}, {1174.0, 84.0}}
+                          Cell, 0x10515afe0, {{373.0, 388.0}, {1174.0, 84.0}}, label: 'User Name, Optional, User Name'
+                            Other, 0x10515b110, {{373.0, 388.0}, {1174.0, 84.0}}
+                              Other, 0x10515b240, {{373.0, 388.0}, {1174.0, 84.0}}
+                                StaticText, 0x10515b370, {{393.0, 396.0}, {143.0, 35.0}}, label: 'User Name'
+                                StaticText, 0x10515b4a0, {{393.0, 434.0}, {95.0, 30.0}}, label: 'Optional'
+                                TextField, 0x10515b5d0, {{936.0, 393.5}, {595.0, 73.0}}, label: 'User Name'
+                            Other, 0x10515b700, {{373.0, 388.0}, {1174.0, 84.0}}
+                              Other, 0x10515b830, {{373.0, 388.0}, {1174.0, 84.0}}
+                                Other, 0x10515b960, {{373.0, 388.0}, {1174.0, 84.0}}
+                          Cell, 0x10515ba90, {{373.0, 486.0}, {1174.0, 82.0}}, label: 'Password, Optional, Password'
+                            Other, 0x10515bbc0, {{373.0, 486.0}, {1174.0, 82.0}}
+                              Other, 0x10515bcf0, {{373.0, 486.0}, {1174.0, 82.0}}
+                                StaticText, 0x10515be20, {{393.0, 493.0}, {125.0, 35.0}}, label: 'Password'
+                                StaticText, 0x10515bf50, {{393.0, 531.0}, {95.0, 30.0}}, label: 'Optional'
+                                SecureTextField, 0x10515c080, {{936.0, 491.5}, {595.0, 71.0}}, label: 'Password'
+                            Other, 0x10515c1b0, {{373.0, 486.0}, {1174.0, 82.0}}
+                              Other, 0x10515c2e0, {{373.0, 486.0}, {1174.0, 82.0}}
+                                Other, 0x10515c410, {{373.0, 486.0}, {1174.0, 82.0}}
+                          Cell, 0x10515c540, {{373.0, 596.0}, {1174.0, 108.0}}, label: 'Connect, Cancel'
+                            Other, 0x10515c670, {{373.0, 596.0}, {1174.0, 108.0}}
+                              Other, 0x10515c7a0, {{373.0, 596.0}, {1174.0, 108.0}}
+                                Button, 0x10515c8d0, {{389.0, 598.0}, {545.0, 104.0}}, label: 'Connect', Focused
+                                Button, 0x10515ca00, {{990.0, 602.0}, {537.0, 96.0}}, identifier: 'control.sourceCancel', label: 'Cancel'
+                            Other, 0x10515cb30, {{373.0, 596.0}, {1174.0, 108.0}}
+                              Other, 0x10515cc60, {{373.0, 596.0}, {1174.0, 108.0}}
+                                Other, 0x10515cd90, {{373.0, 596.0}, {1174.0, 108.0}}
+                          Cell, 0x10515cec0, {{373.0, 718.0}, {1174.0, 66.0}}, label: 'About WebDAV'
+                            Other, 0x10515cff0, {{373.0, 718.0}, {1174.0, 66.0}}
+                              Other, 0x10515d120, {{373.0, 718.0}, {1174.0, 66.0}}
+                                Button, 0x10515d250, {{400.0, 734.0}, {1126.0, 35.0}}, identifier: 'control.learnMore', label: 'About WebDAV'
+                                  StaticText, 0x10515d380, {{400.0, 734.0}, {1126.0, 35.0}}, label: 'About WebDAV'
+                                    Image, 0x10515d4b0, {{400.0, 736.0}, {30.0, 30.0}}, identifier: 'info.circle', label: 'Info'
+                                    StaticText, 0x10515d5e0, {{497.0, 734.0}, {200.0, 35.0}}, label: 'About WebDAV'
+                                  Image, 0x10515d710, {{1514.0, 741.0}, {12.0, 21.0}}, identifier: 'chevron.forward'
+                            Other, 0x10515d840, {{373.0, 718.0}, {1174.0, 66.0}}
+                              Other, 0x10515d970, {{373.0, 718.0}, {1174.0, 66.0}}
+                              Other, 0x10515daa0, {{373.0, 718.0}, {1174.0, 66.0}}
+                                Image, 0x10515dbd0, {{363.0, 708.0}, {1194.0, 86.0}}
+                          Other, 0x10515dd00, {{0.0, 0.0}, {0.0, 0.0}}, label: '0 pages', value: 0%
+                            Other, 0x10515de30, {{1541.0, 258.0}, {3.0, 759.0}}

@@ -52,7 +52,11 @@ final class ScreenshotTests: XCTestCase {
 
     /// A screenshot named `name`, taken only while the app is in front. Otherwise a failure and a text note, never a picture
     /// of the system Home Screen saved under the name of one of the app's screens.
-    func shot(_ name: String, mustChangeAfter step: String? = nil) {
+    /// #36 group 1 c: `endOfScroll` names a scroll step that may find the page already at the end of its content; an
+    /// identical picture after it is reported as "end of scroll" (an -END-OF-SCROLL note), not as a warning. `expectStill`:
+    /// the picture is MEANT to equal the one before (the "-later" pictures, group 1 d), so no warning either; the caller
+    /// checks it. Every other identical pair keeps the WARNING and the -UNCHANGED note.
+    func shot(_ name: String, mustChangeAfter step: String? = nil, endOfScroll: String? = nil, expectStill: Bool = false) {
         guard let app = current, appIsInFront(app, timeout: 2) else {
             let state = current.map { "\($0.state.rawValue)" } ?? "not launched"
             XCTFail("\(name): the app is not in the foreground (state \(state)); no screenshot taken.")
@@ -79,12 +83,20 @@ final class ScreenshotTests: XCTestCase {
                 note(name + "-UNCHANGED", "Identical, pixel for pixel, to \(previous.name).\n" + result.text)
                 XCTFail("\(name): \(step) did not change the screen (identical to \(previous.name))")
             }
+        } else if let previous = lastShot, previous.png == png, expectStill {
+            // Checked by the caller (laterPictures: identical AND the caption whole).
+        } else if let previous = lastShot, previous.png == png, let endOfScroll {
+            note(name + "-END-OF-SCROLL", "end of scroll: identical, pixel for pixel, to \(previous.name) after \(endOfScroll); the page is at the end of its content, so the scroll had nothing more to show.")
         } else if let previous = lastShot, previous.png == png {
             print("WARNING: \(name): the screen did not change since \(previous.name) (identical pixels).")
             note(name + "-UNCHANGED", "Identical, pixel for pixel, to \(previous.name): the step before it did not change the screen.")
         }
         lastShot = (name, png)
+        lastScreenshot = screenshot
     }
+
+    /// The last capture as a screenshot, for the pixel checks of the "-later" pictures.
+    private var lastScreenshot: XCUIScreenshot?
 
     /// The last capture, for the changed-screen check in `shot`.
     private var lastShot: (name: String, png: Data)?
@@ -294,8 +306,11 @@ final class ScreenshotTests: XCTestCase {
 
     /// #36 8 T4: the first picture, then 3 s of focus and the "-later" picture, with the focus asserted before each wait and
     /// written to "<name>-FOCUS" (before the first picture, before the wait, after the wait). No "-later" picture is taken
-    /// when the focus has left `expected`: the comparison would say nothing about the marquee.
-    func laterPictures(_ name: String, expected: String, step: String, in app: XCUIApplication, firstLine: String) {
+    /// when the focus has left `expected`: the comparison would say nothing.
+    /// #36 group 1 d: the system does NOT scroll a long caption on a focused card (third run of 20 Nov: 50 and 56 identical
+    /// to their "-later" pictures, both captions cut mid-word), so the pair now passes only when the two pictures are
+    /// identical (nothing moves on its own) AND the caption `caption` is whole (ScreenRules.captionFits, R264).
+    func laterPictures(_ name: String, expected: String, caption: String, step: String, in app: XCUIApplication, firstLine: String) {
         var lines: [String] = [firstLine]
         let before: (ok: Bool, line: String) = focusLine(expected: expected, in: app)
         lines.append("before the first picture: " + before.line)
@@ -314,7 +329,28 @@ final class ScreenshotTests: XCTestCase {
         lines.append("after the 3 s wait: " + after.line)
         lines.append(after.ok ? "FOCUS OK" : "FOCUS PROBLEM: the focus left “\(expected)” during the wait")
         note(name + "-FOCUS", lines.joined(separator: "\n"))
-        shot(name + "-later", mustChangeAfter: step)
+        let first: Data? = lastShot?.png
+        shot(name + "-later", expectStill: true)
+        guard let first, let later = lastShot?.png, let screenshot = lastScreenshot else { return }
+        let result: CheckResult = ScreenRules.stillAndWhole([UInt8](first), [UInt8](later), caption: captionCheck(caption, in: app, screenshot: screenshot))
+        note(name + "-later-CAPTION", "after \(step)\n" + result.text)
+        XCTAssertTrue(result.passed, "\(name)-later: " + result.verdict)
+    }
+
+    /// The caption check for a focused card: the caption is the StaticText containing `caption`, its column the focused
+    /// card's width less the caption's left inset on both sides (the caption is leading-aligned with equal side paddings).
+    func captionCheck(_ caption: String, in app: XCUIApplication, screenshot: XCUIScreenshot) -> CheckResult {
+        let card: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        let text: XCUIElement = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", caption)).firstMatch
+        let window: CGRect = app.windows.firstMatch.frame
+        guard card.exists, text.exists, window.width > 0, let image = RGBImage(screenshot: screenshot) else {
+            return CheckResult(passed: false, lines: ["no focused card, no caption containing “\(caption)”, or the picture could not be read", "CAPTION NOT MEASURED"])
+        }
+        let cardFrame: CGRect = card.frame
+        let textFrame: CGRect = text.frame
+        let inset: CGFloat = max(0, textFrame.minX - cardFrame.minX)
+        let column = AXRect(x: Double(cardFrame.minX + inset), y: Double(textFrame.minY), width: Double(cardFrame.width - 2 * inset), height: Double(textFrame.height))
+        return ScreenRules.captionFits(image, scale: Double(image.width) / Double(window.width), column: column, text: AXRect(textFrame))
     }
 
     /// Presses Down until the focus stops moving (three presses in a row with the same focused frame) or `maxPresses`.
@@ -566,7 +602,8 @@ final class ScreenshotTests: XCTestCase {
             let header: Bool = end.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@", "Not Available Yet")).firstMatch
                 .waitForExistence(timeout: 5)
             if onCancel || header {
-                settle(); shot("20-add-source-not-available"); checkCover("20-add-source-not-available", in: end)
+                settle(); shot("20-add-source-not-available")
+                checkCover("20-add-source-not-available", scrolled: "moving the focus down the list to Cancel", in: end)
             }
             if !onCancel {
                 notReached("20-add-source-not-available", "Moving down did not reach Cancel (focus on \(focusedLabel(in: end))).\n" + focusPathText())
@@ -733,7 +770,8 @@ final class ScreenshotTests: XCTestCase {
     ///   own background colour, within `CoverPixels.channelTolerance` (its doc comment explains the numbers).
     /// The same functions fail on pictures 11, 66 and 74 of the run of 20 Nov and pass on a plain opaque cover
     /// (Packages/VideoPlayerCore/Tests/ScreenChecksTests).
-    func checkCover(_ name: String, anchor: String? = nil, in app: XCUIApplication) {
+    /// `scrolled`: why the picture shows a scrolled list (#36 group-1 b); a name ending in "-scrolled" counts as scrolled.
+    func checkCover(_ name: String, anchor: String? = nil, scrolled: String? = nil, in app: XCUIApplication) {
         let screenshot: XCUIScreenshot = XCUIScreen.main.screenshot()
         let dump: AccessibilityDump = AccessibilityDump(app.debugDescription)
         var lines: [String] = []
@@ -746,7 +784,9 @@ final class ScreenshotTests: XCTestCase {
         if let anchor { take("row width (C)", ScreenRules.fullScreenRow(in: dump, anchor: anchor)) }
         take("cover exposed to accessibility (#34 2)", ScreenRules.coverExposed(in: dump))
         take("page hidden from accessibility (B 2)", ScreenRules.pageHiddenBehindCover(in: dump))
-        take("cover layout (A)", ScreenRules.coverLayout(in: dump))
+        var scrolledReason: String? = scrolled
+        if scrolledReason == nil, name.hasSuffix("-scrolled") || name.contains("-scrolled-") { scrolledReason = "scrolling (“-scrolled” in its name)" }
+        take("cover layout (A)", ScreenRules.coverLayout(in: dump, scrolled: scrolledReason))
         // #36 S-C (R255): buttons side by side are the same size and at least 66 pt high.
         if let cover = dump.coverRoot { take("buttons side by side (#36 S-C)", ScreenRules.sideBySideButtons(in: dump, root: cover)) }
         let tabBar: XCUIElement = app.tabBars.firstMatch
@@ -809,9 +849,8 @@ final class ScreenshotTests: XCTestCase {
         } else { notReached("52-card-long-press-menu", "The focus could not leave the tab bar for a card (focus on \(focusedLabel(in: app))).") }
         app.terminate()
 
-        // #34 5a (R229): the Continue Watching caption is now inside the focused button, so the system marquee can scroll it.
-        // Sample Movie 7 (the long title, 20 % watched) is in Continue Watching; its wide card is focused, and two pictures
-        // 3 s apart must differ (the marquee moved), as 56-show-long-episode-caption does for an episode caption.
+        // #36 group 1 d (R264): Sample Movie 7 (the long title, 20 % watched) is in Continue Watching; its wide card is focused,
+        // and two pictures 3 s apart must be identical with the caption whole (no moving text, nothing cut).
         app = launch("-UITestFixtures", tab: "home")
         if waitForScreen("screen.home", in: app), waitFor("Sample", in: app, timeout: 60), focusContent(in: app),
            focus(control("Sample Movie 7", in: app), in: app) {
@@ -820,10 +859,10 @@ final class ScreenshotTests: XCTestCase {
             let firstLine: String = "focused \(focusedLabel(in: app)) frame \(focusedFrame) wide \(isWide)"
             note("50-home-continue-watching-caption-FOCUS", firstLine)
             if isWide {
-                // #36 8 T4: Sample Movie 7 is the long title (a short one fits and has nothing to scroll); the focus is
-                // asserted before the wait and written to the -FOCUS note.
-                laterPictures("50-home-continue-watching-caption", expected: "Sample Movie 7",
-                              step: "3 s of focus on the Continue Watching card of Sample Movie 7 (the system marquee, #34 5a)",
+                // #36 8 T4: Sample Movie 7 is the long title; the focus is asserted before the wait and written to the
+                // -FOCUS note.
+                laterPictures("50-home-continue-watching-caption", expected: "Sample Movie 7", caption: "Sample Movie 7",
+                              step: "3 s of focus on the Continue Watching card of Sample Movie 7",
                               in: app, firstLine: firstLine)
             } else {
                 notReached("50-home-continue-watching-caption", "The focused Sample Movie 7 card is not the wide Continue Watching card (frame \(focusedFrame)).")
@@ -850,18 +889,17 @@ final class ScreenshotTests: XCTestCase {
             XCTAssertTrue(cards.passed, "55-show-page: " + cards.verdict)
             checkGap("55-show-page", tree: pageTree, anchors: [ControlID.play, ControlID.more], kinds: ["StaticText"], minimum: 40, what: "buttons to the first season heading")
             // #15 item 1.6: the scrolled states of the show page (each must differ from the one before).
-            for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); let mustChange: String? = step == 1 ? "Down on the show page" : nil; shot("55-show-page-scrolled-\(step)", mustChangeAfter: mustChange) }
+            for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); let mustChange: String? = step == 1 ? "Down on the show page" : nil; shot("55-show-page-scrolled-\(step)", mustChangeAfter: mustChange, endOfScroll: step == 1 ? nil : "Down on the show page") }
             for _ in 0..<2 { XCUIRemote.shared.press(.up) }; sleep(1)
             // Seasons are sections of the show page (there is no separate season page); move down to season 2.
-            if focus(control("S2", in: app), in: app) || focus(control("Season 2", in: app), in: app) { settle(); shot("56-show-season-2-episode-row") }
+            if focus(control("S2", in: app), in: app) || focus(control("Season 2", in: app), in: app) { settle(); shot("56-show-season-2-episode-row", endOfScroll: "moving the focus to the season 2 row") }
             else { notReached("56-show-season-2-episode-row", "Could not move the focus to a season 2 episode row.") }
-            // #30 Part 2 (R229): S2 E3 has the caption too long even at the readable floor. Focused, the system marquee should
-            // scroll it; the two pictures 3 s apart show whether it moves (default text size).
+            // #30 Part 2 / #36 group 4 (R264): S2 E3 has the longest caption. It wraps at the readable floor instead of being
+            // cut; the two pictures 3 s apart must be identical with the caption whole (default text size).
             if focus(control("S2 E3", in: app), in: app) || focus(control("S2 E3, A very long episode title that is wider than any episode card on the show page", in: app), in: app) {
-                // #33 L: the marquee was meant to move the caption; identical pictures fail (unverified that it runs).
                 // #36 8 T4: S2 E3 is the long title; the focus is asserted before the wait and written to the -FOCUS note.
-                laterPictures("56-show-long-episode-caption", expected: "S2 E3",
-                              step: "3 s of focus on S2 E3 (the system marquee)", in: app,
+                laterPictures("56-show-long-episode-caption", expected: "S2 E3", caption: "A very long episode title",
+                              step: "3 s of focus on S2 E3", in: app,
                               firstLine: "focused \(focusedLabel(in: app)) after moving to S2 E3")
             } else {
                 notReached("56-show-long-episode-caption", "Could not move the focus to S2 E3 (focus on \(focusedLabel(in: app))).")
@@ -876,7 +914,7 @@ final class ScreenshotTests: XCTestCase {
             note("57-movie-detail-HIERARCHY", movieTree)
             checkGap("57-movie-detail", tree: movieTree, anchors: [ControlID.play, ControlID.more], kinds: ["StaticText"], minimum: 40, what: "buttons to the next heading")
             focusCheck("57-movie-detail", expected: ControlID.play, in: app)
-            for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); let mustChange: String? = step == 1 ? "Down on the movie page" : nil; shot("58-movie-detail-scrolled-\(step)", mustChangeAfter: mustChange) }
+            for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); let mustChange: String? = step == 1 ? "Down on the movie page" : nil; shot("58-movie-detail-scrolled-\(step)", mustChangeAfter: mustChange, endOfScroll: step == 1 ? nil : "Down on the movie page") }
             // Fix Match is in the More menu (ItemDetailContentView.moreMenu), not a button on the page: the old test looked for
             // it on the page and never found it (#15 item 1.3). Up to the action row first: the focus is below it after 58.
             for _ in 0..<6 { XCUIRemote.shared.press(.up) }; sleep(1)
@@ -892,7 +930,7 @@ final class ScreenshotTests: XCTestCase {
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 2", in: app) {
             settle(); shot("60-movie-detail-two-versions")
             focusCheck("60-movie-detail-two-versions", expected: ControlID.play, in: app)
-            for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); shot("61-movie-detail-two-versions-scrolled-\(step)") }
+            for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); shot("61-movie-detail-two-versions-scrolled-\(step)", endOfScroll: step == 1 ? nil : "Down on the movie page") }
         } else { notReached("60-movie-detail-two-versions", "The detail page did not open.") }
         app.terminate()
 

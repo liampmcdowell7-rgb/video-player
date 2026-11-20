@@ -32,6 +32,7 @@ echo "running $test ($what)"
 case "$what" in
   ok|simdata) for n in $first $second; do printf 'PNG %s' "$n" > "$folder/$n.png"; done
      printf 'Identical to %s' "$first" > "$folder/$second-UNCHANGED.txt"
+     printf 'end of scroll: identical to the picture before' > "$folder/$first-END-OF-SCROLL.txt"
      echo plist > "$bundle/Info.plist"; echo "** TEST SUCCEEDED **"; exit 0 ;;
   fail) printf 'PNG' > "$folder/$first.png"; printf 'PNG' > "$folder/$second-NOT-REACHED.png"
      printf 'The row could not be focused.' > "$folder/$second-NOT-REACHED.txt"
@@ -59,6 +60,7 @@ check "index.md: tests table with seconds per picture" "grep -qF '| $T1 | passed
 check "index.md: every picture with its size" "grep -qE '^- \[02-home-empty\]\(02-home-empty.png\) [0-9]+ KB' '$S/dest/index.md'"
 check "index.md: counts against the plan (20 planned for test01+test02, 4 taken)" "grep -qF 'Planned: 20. Taken: 4. Missing: 16. Failed (not reached): 0. Warnings (unchanged): 2.' '$S/dest/index.md'"
 check "index.md: an unchanged picture is a WARNING line, and the picture is kept" "grep -qF -- '- WARNING: 03-movies-empty: Identical to 02-home-empty' '$S/dest/index.md' && [ -f '$S/dest/03-movies-empty.png' ] && [ -f '$S/dest/notes/03-movies-empty-UNCHANGED.txt' ]"
+check "index.md: an end-of-scroll note is listed apart, not counted as a warning (#36 group 1 c)" "grep -qF -- '- 02-home-empty: end of scroll: identical to the picture before' '$S/dest/index.md' && grep -qF '## End of scroll (not a warning)' '$S/dest/index.md' && ! grep -qF -- '- WARNING: 02-home-empty' '$S/dest/index.md'"
 check "results file has one row per test" "[ \$(grep -c '	passed	' '$S/out/ui-tests.tsv') -eq 2 ]"
 check "the main-set artifact check passes on DEST" "bash '$here/ci-artifact-contents.sh' '$S/dest' main > /dev/null 2>&1"
 

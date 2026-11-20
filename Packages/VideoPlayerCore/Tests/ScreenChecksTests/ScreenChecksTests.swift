@@ -191,6 +191,34 @@ final class ScreenChecksTests: XCTestCase {
         XCTAssertTrue(result.text.contains("rows overlap: “Title”") && result.text.contains(" and “Year”"), result.text)
     }
 
+    /// #36 group 1 b: a picture taken after scrolling or after moving the focus down (20-add-source-not-available: "FTP…" at
+    /// y -117) skips the safe-area title rule and says which rule and why; the overlap rule still runs.
+    func testAScrolledPictureSkipsOnlyTheSafeAreaTitleRule() {
+        let dump: AccessibilityDump = AccessibilityDump("""
+         →Application, 0x1, pid: 1, label: 'Video Player'
+            Window (Main), 0x2, {{0.0, 0.0}, {1920.0, 1080.0}}
+              Other, 0x3, {{0.0, 0.0}, {1920.0, 1080.0}}
+              Other, 0x4, {{0.0, 0.0}, {1920.0, 1080.0}}
+                StaticText, 0x5, {{393.0, -117.0}, {300.0, 35.0}}, label: 'FTP'
+                Cell, 0x6, {{1000.0, 300.0}, {820.0, 80.0}}, label: 'Title'
+                Cell, 0x7, {{1000.0, 400.0}, {820.0, 80.0}}, label: 'Year'
+        """)
+        XCTAssertFalse(ScreenRules.coverLayout(in: dump).passed)
+        let skipped: CheckResult = ScreenRules.coverLayout(in: dump, scrolled: "moving the focus down the list to Cancel")
+        XCTAssertTrue(skipped.passed, skipped.text)
+        XCTAssertTrue(skipped.text.contains("safe-area title rule SKIPPED") && skipped.text.contains("moving the focus down"), skipped.text)
+        let overlapping: AccessibilityDump = AccessibilityDump("""
+         →Application, 0x1, pid: 1, label: 'Video Player'
+            Window (Main), 0x2, {{0.0, 0.0}, {1920.0, 1080.0}}
+              Other, 0x3, {{0.0, 0.0}, {1920.0, 1080.0}}
+              Other, 0x4, {{0.0, 0.0}, {1920.0, 1080.0}}
+                StaticText, 0x5, {{393.0, -117.0}, {300.0, 35.0}}, label: 'FTP'
+                Cell, 0x6, {{1000.0, 100.0}, {820.0, 80.0}}, label: 'Title'
+                Cell, 0x7, {{1000.0, 150.0}, {820.0, 80.0}}, label: 'Year'
+        """)
+        XCTAssertFalse(ScreenRules.coverLayout(in: overlapping, scrolled: "scrolling").passed)
+    }
+
     /// #36 8 T2: a field whose frame reaches up to 6 pt past its row on every side is nesting, not overlap (66 and the Saved
     /// View cover in the second run of 20 Nov); 7 pt past, or two rows sharing 30 pt of height, is still overlap.
     func testAFieldAFewPointsPastItsRowIsNotAnOverlapButTwoRowsAre() {
@@ -454,10 +482,10 @@ final class ScreenChecksTests: XCTestCase {
         return nil
     }
 
-    /// #34 5a (R229): the system marquee scrolls a label only when an ANCESTOR has focus (Apple, UILabel
-    /// enablesMarqueeWhenAncestorFocused). The wide (Continue Watching) card's title must be inside the label closure of its
-    /// NavigationLink, with the rest fade on; the portrait cards keep the title outside (unchanged). Structure only: that the
-    /// marquee then moves is shown by 50-home-continue-watching-caption(-later) in CI (mustChangeAfter).
+    /// #34 5a (R229): the wide (Continue Watching) card's title is inside the label closure of its NavigationLink, so the
+    /// whole lockup takes the focus; the portrait cards keep the title outside (unchanged). Structure only. #36 group 1 d:
+    /// the third run of 20 Nov showed that nothing scrolls a long caption, so 50-home-continue-watching-caption(-later) now
+    /// checks that the pair is identical AND the caption whole (ScreenRules.stillAndWhole).
     func testTheContinueWatchingCaptionIsInsideTheFocusedButton() throws {
         guard let source = try appSource("App/Shared/PosterCard.swift") else { return }
         let body: String = String(try XCTUnwrap(source.range(of: "var body: some View").map { source[$0.lowerBound...] }))
@@ -730,13 +758,72 @@ final class ScreenChecksTests: XCTestCase {
         XCTAssertFalse(ScreenRules.equalEpisodeCards(in: dump("{{980.0, 481.0}, {378.0, 566.0}}")).passed)
     }
 
-    func testRunArtifactsTheUnchangedCheckFailsOnTheTwoMarqueePicturesAndPassesOnAScroll() throws {
+    func testRunArtifactsTheUnchangedCheckFailsOnTheTwoCaptionPicturesAndPassesOnAScroll() throws {
         let first: [UInt8] = [UInt8](try Data(contentsOf: try artifact("screenshots-library/56-show-long-episode-caption.png")))
         let later: [UInt8] = [UInt8](try Data(contentsOf: try artifact("screenshots-library/56-show-long-episode-caption-later.png")))
         XCTAssertFalse(ScreenRules.changed(first, later, step: "3 s of focus on S2 E3").passed)
         let page: [UInt8] = [UInt8](try Data(contentsOf: try artifact("screenshots-library/55-show-page.png")))
         let scrolled: [UInt8] = [UInt8](try Data(contentsOf: try artifact("screenshots-library/55-show-page-scrolled-1.png")))
         XCTAssertTrue(ScreenRules.changed(page, scrolled, step: "Down").passed)
+    }
+
+    // MARK: Caption whole and still (#36 group 1 d, group 4, R264)
+
+    /// A synthetic caption: a dark backdrop with light "glyph" columns from `from` to `to` (in points, scale 1).
+    func captionImage(from: Int, to: Int) -> RGBImage {
+        var image: RGBImage = RGBImage(width: 400, height: 60, fill: RGB(r: 55, g: 37, b: 64))
+        for x in stride(from: from, to: to, by: 7) { for y in 20..<44 { image.set(x, y, RGB(r: 250, g: 250, b: 250)); image.set(x + 1, y, RGB(r: 190, g: 186, b: 194)) } }
+        return image
+    }
+
+    func testACaptionNarrowerThanItsColumnIsWhole() {
+        let column = AXRect(x: 16, y: 18, width: 368, height: 28)
+        let result: CheckResult = ScreenRules.captionFits(captionImage(from: 16, to: 200), scale: 1, column: column,
+                                                           text: AXRect(x: 16, y: 18, width: 190, height: 28))
+        XCTAssertTrue(result.passed, result.text)
+        XCTAssertTrue(result.text.contains("narrower than its column"), result.text)
+    }
+
+    func testACaptionThatFillsItsColumnIsCutWhenItsInkReachesTheEdge() {
+        let column = AXRect(x: 16, y: 18, width: 368, height: 28)
+        let text = AXRect(x: 16, y: 18, width: 368, height: 28)
+        // Ink up to x 381, column ending at 384: cut (the 56 of the run: the "i" 4 pt from the edge).
+        XCTAssertFalse(ScreenRules.captionFits(captionImage(from: 16, to: 384), scale: 1, column: column, text: text).passed)
+        // Ink ending 20 pt before the edge (a wrapped or scaled line that ends at a word): whole.
+        XCTAssertTrue(ScreenRules.captionFits(captionImage(from: 16, to: 360), scale: 1, column: column, text: text).passed)
+        // Wider than the column: cut without looking at the pixels.
+        XCTAssertFalse(ScreenRules.captionFits(captionImage(from: 16, to: 200), scale: 1, column: column,
+                                               text: AXRect(x: 16, y: 18, width: 400, height: 28)).passed)
+    }
+
+    func testTheLaterPairPassesOnlyWhenIdenticalAndWhole() {
+        let whole = CheckResult(passed: true, lines: ["CAPTION WHOLE OK"])
+        let cut = CheckResult(passed: false, lines: ["CAPTION CUT"])
+        XCTAssertTrue(ScreenRules.stillAndWhole([1, 2, 3], [1, 2, 3], caption: whole).passed)
+        let cutResult: CheckResult = ScreenRules.stillAndWhole([1, 2, 3], [1, 2, 3], caption: cut)
+        XCTAssertFalse(cutResult.passed)
+        XCTAssertTrue((cutResult.lines.last ?? "").contains("the caption is cut"), cutResult.text)
+        let moved: CheckResult = ScreenRules.stillAndWhole([1, 2, 3], [1, 2, 4], caption: whole)
+        XCTAssertFalse(moved.passed)
+        XCTAssertTrue((moved.lines.last ?? "").contains("the screen changed"), moved.text)
+    }
+
+    /// The third run of 20 Nov (run artifacts): the cut S2 E3 caption of 56 fails, the whole S2 E2 caption beside it passes,
+    /// and the 56 / 56-later pair fails as a whole (identical, but cut). Frames from 55-show-page-HIERARCHY moved up by the
+    /// scroll (the button at y 1155 there, 379 in 56's -FOCUS note: 776 pt): S2 E3 caption {996, 629, 378 x 28} in the
+    /// column 996 to 1374 (button 980 + 410, inset 16); S2 E2 caption {546, 634, 224 x 30} in 546 to 924.
+    func testRunArtifactsThe56CaptionIsCutAndTheS2E2CaptionIsWhole() throws {
+        let image: RGBImage = try picture("screenshots-library/56-show-long-episode-caption.png")
+        let cutResult: CheckResult = ScreenRules.captionFits(image, scale: 1, column: AXRect(x: 996, y: 629, width: 378, height: 28),
+                                                             text: AXRect(x: 996, y: 629, width: 378, height: 28))
+        print("56 S2 E3:\n" + cutResult.text)
+        XCTAssertFalse(cutResult.passed, cutResult.text)
+        let whole: CheckResult = ScreenRules.captionFits(image, scale: 1, column: AXRect(x: 546, y: 634, width: 378, height: 30),
+                                                         text: AXRect(x: 546, y: 634, width: 224, height: 30))
+        XCTAssertTrue(whole.passed, whole.text)
+        let first: [UInt8] = [UInt8](try Data(contentsOf: try artifact("screenshots-library/56-show-long-episode-caption.png")))
+        let later: [UInt8] = [UInt8](try Data(contentsOf: try artifact("screenshots-library/56-show-long-episode-caption-later.png")))
+        XCTAssertFalse(ScreenRules.stillAndWhole(first, later, caption: cutResult).passed)
     }
 
     // MARK: Contrast (#33 K, R240)
@@ -948,6 +1035,61 @@ final class ScreenChecksTests: XCTestCase {
         XCTAssertTrue(result.text.contains("not the same size") && result.text.contains("lower than 66 pt"), result.text)
         let low: AccessibilityDump = buttonDump("Button, 0x5, {{986.0, 711.0}, {573.0, 64.0}}, label: 'Cancel'")
         XCTAssertFalse(ScreenRules.sideBySideButtons(in: low, root: try XCTUnwrap(low.coverRoot)).passed)
+    }
+
+    /// #36 group-1 a: the third run of 20 Nov (341b43b) failed every form because the focused Connect is drawn larger by
+    /// the system focus effect: 545 x 104 focused beside Cancel 537 x 96 at rest. Compared at rest, the pair passes.
+    func testTheRunsFocusedConnectBesideCancelAtRestPasses() throws {
+        let dump: AccessibilityDump = try fixture("11-form-webdav-HIERARCHY")
+        let result: CheckResult = ScreenRules.sideBySideButtons(in: dump, root: try XCTUnwrap(dump.coverRoot))
+        XCTAssertTrue(result.passed, result.text)
+        XCTAssertTrue(result.text.contains("“Connect” 545 x 104 (focused), “Cancel” 537 x 96"), result.text)
+    }
+
+    /// The same pair in a synthetic tree, both cases: a focused button up to 1.10 times its resting neighbour passes; one
+    /// more than 1.10 times, or one smaller than its neighbour, fails; two resting buttons of different sizes still fail
+    /// even when a third, focused one is in the row; a resting button lower than 66 pt still fails.
+    func testAFocusedButtonMayBeUpToTenPercentLargerButRestingButtonsMustBeEqual() throws {
+        func row(_ buttons: String) -> AccessibilityDump {
+            AccessibilityDump("""
+            Window, 0x1, {{0.0, 0.0}, {1920.0, 1080.0}}
+              Other, 0x2, {{0.0, 0.0}, {1920.0, 1080.0}}
+                StaticText, 0x3, {{393.0, 66.0}, {300.0, 69.0}}, label: 'WebDAV'
+            \(buttons)
+            """)
+        }
+        func check(_ dump: AccessibilityDump) throws -> CheckResult {
+            ScreenRules.sideBySideButtons(in: dump, root: try XCTUnwrap(dump.coverRoot))
+        }
+        let scaled: CheckResult = try check(row("""
+                Button, 0x4, {{389.0, 598.0}, {590.0, 105.0}}, label: 'Connect', Focused
+                Button, 0x5, {{990.0, 602.0}, {537.0, 96.0}}, label: 'Cancel'
+        """))
+        XCTAssertTrue(scaled.passed, scaled.text)   // 1.099 x 1.094
+        let tooLarge: CheckResult = try check(row("""
+                Button, 0x4, {{389.0, 590.0}, {600.0, 120.0}}, label: 'Connect', Focused
+                Button, 0x5, {{990.0, 602.0}, {537.0, 96.0}}, label: 'Cancel'
+        """))
+        XCTAssertFalse(tooLarge.passed, tooLarge.text)
+        XCTAssertTrue(tooLarge.text.contains("the focused button is"), tooLarge.text)
+        let smaller: CheckResult = try check(row("""
+                Button, 0x4, {{389.0, 610.0}, {500.0, 80.0}}, label: 'Connect', Focused
+                Button, 0x5, {{990.0, 602.0}, {537.0, 96.0}}, label: 'Cancel'
+        """))
+        XCTAssertFalse(smaller.passed, smaller.text)
+        let unevenAtRest: CheckResult = try check(row("""
+                Button, 0x4, {{100.0, 598.0}, {545.0, 104.0}}, label: 'Move to Shows', Focused
+                Button, 0x5, {{700.0, 602.0}, {537.0, 96.0}}, label: 'Sort Automatically'
+                Button, 0x6, {{1300.0, 607.0}, {400.0, 86.0}}, label: 'Done'
+        """))
+        XCTAssertFalse(unevenAtRest.passed, unevenAtRest.text)
+        XCTAssertTrue(unevenAtRest.text.contains("not the same size at rest"), unevenAtRest.text)
+        let low: CheckResult = try check(row("""
+                Button, 0x4, {{389.0, 609.0}, {545.0, 70.0}}, label: 'Connect', Focused
+                Button, 0x5, {{990.0, 612.0}, {537.0, 64.0}}, label: 'Cancel'
+        """))
+        XCTAssertFalse(low.passed, low.text)
+        XCTAssertTrue(low.text.contains("lower than 66 pt at rest"), low.text)
     }
 
     /// The run's own Add a Source page (rows only, no buttons side by side) passes: nothing to compare.
