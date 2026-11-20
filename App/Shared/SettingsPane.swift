@@ -13,8 +13,12 @@ struct SettingsPane<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        PaneColumns(title: title, summary: summary, status: status) {
+        // #33 K (OPEN_QUESTIONS R240, PROVISIONAL target 4.5:1): Settings' secondary text in the primary system colour. The run
+        // of 20 Nov measured the footer at 2.77:1 and the summary at 4.35:1 (31-settings-playback, scripts: ScreenChecks
+        // Contrast). Whether the system section footers take this style is unverified until the next 31 -CONTRAST note.
+        PaneColumns(title: title, summary: summary, status: status, summaryStyle: .primary) {
             Form { content }
+                .foregroundStyle(.primary)
         }
         .navigationTitle(title)
         .toolbarVisibility(.hidden, for: .navigationBar)
@@ -165,6 +169,8 @@ struct PaneColumns<Content: View>: View {
     var title: String? = nil
     let summary: String
     var status: [String] = []
+    /// #33 K: Settings passes `.primary` (R240); the Files screens keep the system's secondary style.
+    var summaryStyle: HierarchicalShapeStyle = .secondary
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -176,7 +182,7 @@ struct PaneColumns<Content: View>: View {
                         .accessibilityAddTraits(.isHeader)
                 }
                 Text(summary)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(summaryStyle)
                 // #30 Part 3 (35-38): each status sentence is its own paragraph, with the system padding above it, so the
                 // left column is not one block of sentences. Wording unchanged. Fixed in code, verify in next 35 to 38.
                 ForEach(status.filter { !$0.isEmpty }, id: \.self) { line in

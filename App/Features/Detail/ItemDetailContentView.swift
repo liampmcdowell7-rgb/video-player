@@ -213,8 +213,10 @@ private struct MediaInfoSection: View {
             Grid(alignment: .leadingFirstTextBaseline) {
                 ForEach(rows) { row in
                     GridRow {
+                        // #33 K (R240, PROVISIONAL): the labels in the primary system colour; the run of 20 Nov measured them
+                        // at 3.56:1 and 4.24:1 in .secondary (78). Label and value are told apart by their column.
                         FittingText(row.label, style: .callout)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.primary)
                         Text(row.value)
                             .font(.callout)
                             .frame(maxWidth: .infinity, alignment: .leading)

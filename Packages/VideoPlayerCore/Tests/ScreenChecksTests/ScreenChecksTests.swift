@@ -404,4 +404,44 @@ final class ScreenChecksTests: XCTestCase {
         let scrolled: [UInt8] = [UInt8](try Data(contentsOf: try artifact("screenshots-library/55-show-page-scrolled-1.png")))
         XCTAssertTrue(ScreenRules.changed(page, scrolled, step: "Down").passed)
     }
+
+    // MARK: Contrast (#33 K, R240)
+
+    func testTheContrastRatioIsWCAGs() {
+        XCTAssertEqual(Contrast.ratio(RGB(r: 0, g: 0, b: 0), RGB(r: 255, g: 255, b: 255)), 21, accuracy: 0.01)
+        XCTAssertEqual(Contrast.ratio(RGB(r: 118, g: 118, b: 118), RGB(r: 255, g: 255, b: 255)), 4.54, accuracy: 0.01)
+        XCTAssertEqual(Contrast.ratio(RGB(r: 40, g: 40, b: 40), RGB(r: 40, g: 40, b: 40)), 1, accuracy: 0.001)
+    }
+
+    func testTheMeasureFindsTheTextAndTheBackgroundOfASyntheticLabel() throws {
+        // A 200 × 40 frame: background #2E2E2E, 6 % of the pixels "ink" #8A8A8A, 6 % anti-aliased halfway.
+        var image: RGBImage = RGBImage(width: 200, height: 40, fill: RGB(r: 46, g: 46, b: 46))
+        for x in stride(from: 10, to: 190, by: 15) {
+            for y in 10..<30 { image.set(x, y, RGB(r: 138, g: 138, b: 138)); image.set(x + 1, y, RGB(r: 92, g: 92, b: 92)) }
+        }
+        let m: Contrast.Measurement = try XCTUnwrap(Contrast.measure(image, frame: AXRect(x: 0, y: 0, width: 200, height: 40), scale: 1))
+        XCTAssertEqual(m.background, RGB(r: 46, g: 46, b: 46))
+        XCTAssertEqual(m.foreground, RGB(r: 138, g: 138, b: 138))
+        XCTAssertEqual(m.ratio, Contrast.ratio(RGB(r: 138, g: 138, b: 138), RGB(r: 46, g: 46, b: 46)), accuracy: 0.001)
+        XCTAssertNil(Contrast.measure(image, frame: AXRect(x: 300, y: 0, width: 10, height: 10), scale: 1))
+    }
+
+    /// The run of 20 Nov (run artifacts): the two kinds of text #33 K changes, measured before the change. The frames are
+    /// read off the pictures (1920 × 1080, scale 1): no hierarchy note was written for 31 or 78. Printed for the notes; the
+    /// assertion only proves that the measure reads a dim text on these pictures (between 1.5 and 7).
+    func testTheRunsSettingsFooterAndMediaInfoLabelsAreMeasured() throws {
+        let settings: RGBImage = try picture("screenshots/31-settings-playback.png")
+        let movie: RGBImage = try picture("screenshots/78-movie-no-synopsis-or-cast.png")
+        let cases: [(String, RGBImage, AXRect)] = [
+            ("31 footer “Skip buttons appear …”", settings, AXRect(x: 1005, y: 440, width: 655, height: 36)),
+            ("31 summary “How titles play …”", settings, AXRect(x: 78, y: 230, width: 545, height: 36)),
+            ("78 label “Resolution”", movie, AXRect(x: 78, y: 503, width: 150, height: 36)),
+            ("78 label “Frame Rate”", movie, AXRect(x: 78, y: 709, width: 160, height: 36)),
+        ]
+        for (name, image, frame) in cases {
+            let m: Contrast.Measurement = try XCTUnwrap(Contrast.measure(image, frame: frame, scale: 1), name)
+            print("CONTRAST \(name): \(m)")
+            XCTAssertTrue(m.ratio > 1.5 && m.ratio < 7, "\(name): \(m)")
+        }
+    }
 }

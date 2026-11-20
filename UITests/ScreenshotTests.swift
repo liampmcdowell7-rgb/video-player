@@ -541,6 +541,9 @@ final class ScreenshotTests: XCTestCase {
             guard open(page, in: app, name: name) else { continue }
             settle()
             shot(name)
+            if page == "Playback" {
+                checkContrast(name, prefixes: ["How titles play", "Skip buttons appear", "Playback Stats adds"], in: app)
+            }
             if page == "Sources", open("Sample Library", in: app, name: "34-settings-source-detail") {
                 settle(); shot("34-settings-source-detail"); back()
             }
@@ -883,6 +886,7 @@ final class ScreenshotTests: XCTestCase {
         app = launch("-UITestFixtures", open: "Sample Movie 6")
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 6", in: app) {
             settle(); shot("78-movie-no-synopsis-or-cast")
+            checkContrast("78-movie-no-synopsis-or-cast", prefixes: ["Resolution", "Frame Rate", "Bitrate"], in: app)
             focusCheck("78-movie-no-synopsis-or-cast", expected: ControlID.play, in: app)
         } else { notReached("78-movie-no-synopsis-or-cast", "The page did not open.") }
         app.terminate()
@@ -904,6 +908,23 @@ final class ScreenshotTests: XCTestCase {
             settle(); shot("78-show-no-synopsis-or-cast")
         } else { notReached("78-show-no-synopsis-or-cast", "The show page did not open.") }
         app.terminate()
+    }
+
+    /// #33 K (OPEN_QUESTIONS R240): the contrast of the texts whose labels start with `prefixes`, measured on a fresh
+    /// screenshot by ScreenChecks `Contrast` (method and limits in its header). Writes "<name>-CONTRAST" with one line per
+    /// text. It never fails the test: the 4.5:1 target is PROVISIONAL, and the HIG table gives 3:1 for text of 18 pt and up.
+    func checkContrast(_ name: String, prefixes: [String], in app: XCUIApplication) {
+        guard let image = RGBImage(screenshot: XCUIScreen.main.screenshot()) else { return note(name + "-CONTRAST", "The screenshot could not be read.") }
+        let scale: Double = Double(image.width) / max(1, Double(app.windows.firstMatch.frame.width))
+        var lines: [String] = ["scale \(scale); target 4.5:1 PROVISIONAL (R240); HIG table: 3:1 at 18 pt and up"]
+        for prefix in prefixes {
+            let text = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", prefix)).firstMatch
+            guard text.exists, let m = Contrast.measure(image, frame: AXRect(text.frame), scale: scale) else {
+                lines.append("“\(prefix)…”: not found"); continue
+            }
+            lines.append("“\(prefix)…” \(AXRect(text.frame)): \(m)" + (m.ratio >= 4.5 ? "" : " BELOW 4.5"))
+        }
+        note(name + "-CONTRAST", lines.joined(separator: "\n"))
     }
 
     /// #33 F (2): the same measure as test15 inside test12 and test13, the two tests that hung in part 1 of the run of 20 Nov
