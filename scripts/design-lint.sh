@@ -42,6 +42,7 @@
 #   pushed-title           a .navigationTitle with the navigation bar left visible (rule D1: no dim duplicate title)
 #   fixture-claim          "Tested against a real server" or .realServer in sample or fixture data (rule D7)
 #   section-title-closure  Section("Title") { } followed by header: or footer: (no such SwiftUI initializer; #23 A)
+#   form-sheet             any .sheet( presentation (#30: every task screen is a full-screen .taskCover, never a small sheet)
 #
 # The names rule (unknown-name), exactly. It reads UI strings only (string literals in .swift files, keys and values in
 # .xcstrings files), never comments or code identifiers. Per string: interpolations \(...), escapes, URLs, paths and
@@ -464,6 +465,9 @@ for e in "${FILES[@]}"; do
   fi
 
   while IFS= read -r ln; do [ -n "$ln" ] && report "$f" "$nf" "$ln" section-title-closure 'Section("Title") { } with a header: or footer: closure does not compile: write Section { } header: { Text("Title") } footer: { } (#23 A)'; done < <(section_title_closure "$cf")
+  # #30 (OPEN_QUESTIONS R228): every task screen opens full screen through `.taskCover` (or `.addSourceCover`); any
+  # `.sheet(` presentation is reported (a small card over the page, the tab bar above it: 10, 11, 17, 21, 74, 94).
+  scan "$f" "$nf" "$cf" form-sheet '\.sheet\(' 'presented as a sheet: present task screens full screen with .taskCover(isPresented:) or .taskCover(item:) (#30, R228)'
   if ! grep -q 'accessibilityReduceMotion' "$cf"; then
     scan "$f" "$nf" "$cf" motion 'withAnimation|\.animation\(|\.transition\(|\.contentTransition\(|\.symbolEffect\(|\.phaseAnimator\(|\.keyframeAnimator\(' 'animation with no @Environment(\.accessibilityReduceMotion) in this file: honour Reduce Motion'
   fi
