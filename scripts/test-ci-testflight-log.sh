@@ -40,7 +40,14 @@ out="$(bash "$S" "$t/none.log" Export 1 2>&1)"; rc=$?
 
 # The workflow's shape (the pre-push check enforces the secret and trigger rules; these lock the rest).
 grep -qE '^  workflow_dispatch:' "$W" && ! grep -qE '^  (push|pull_request|schedule|workflow_run|release):' "$W" && ok "testflight.yml: manual trigger only" || bad "trigger"
-grep -A12 'archive_identity:' "$W" | grep -q 'type: choice' && ok "testflight.yml: the archive identity is a fixed choice on the Run button (R245)" || bad "archive_identity input"
+# R245: automatic signing with no identity set by hand (Xcode refuses Automatic together with a CODE_SIGN_IDENTITY), no
+# Run-button input, and the export does the distribution signing. Comment lines are left out of these checks.
+code="$(grep -vE '^[[:space:]]*#' "$W")"
+printf '%s\n' "$code" | grep -qE '^    inputs:' && bad "testflight.yml: a Run-button input is back" || ok "testflight.yml: no Run-button input (R245)"
+printf '%s\n' "$code" | grep -q 'CODE_SIGN_IDENTITY' && bad "testflight.yml: CODE_SIGN_IDENTITY is set (Xcode refuses it with Automatic)" || ok "testflight.yml: no CODE_SIGN_IDENTITY override (R245)"
+[ "$(printf '%s\n' "$code" | grep -cE '^[[:space:]]+CODE_SIGN_STYLE=Automatic \\$')" -eq 1 ] && ok "testflight.yml: the archive uses CODE_SIGN_STYLE=Automatic" || bad "CODE_SIGN_STYLE=Automatic missing on the archive"
+printf '%s\n' "$code" | grep -q '<key>method</key><string>app-store-connect</string>' && printf '%s\n' "$code" | grep -q '<key>signingStyle</key><string>automatic</string>' \
+  && ok "testflight.yml: the export signs for App Store Connect, automatically" || bad "export options"
 grep -qiE 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY' "$W" && bad "a key header is written out in the workflow" || ok "testflight.yml: no key header text (built at run time, R251)"
 grep -q 'kind="PRIVATE"' "$W" && grep -q 'fold -w 64' "$W" && ok "testflight.yml: the key file is rebuilt from the secret's body (R251)" || bad "key rebuild"
 [ "$(grep -cE '^[[:space:]]*runs-on: xcode-27$' "$W")" -eq 1 ] && ok "testflight.yml: one job on the standard xcode-27 runner" || bad "runner"
@@ -52,7 +59,8 @@ grep -q 'upload-artifact' "$W" && bad "an artifact is uploaded (logs can name th
 grep -A2 'Delete the key' "$W" | grep -q 'if: always()' && ok "testflight.yml: the key is deleted in an always() step" || bad "key deletion not always()"
 grep -qE 'echo.*\$(ASC_KEY_P8|\{ASC_KEY_P8\})' "$W" && bad "the key text is echoed" || ok "testflight.yml: the key text is never echoed"
 for f in -authenticationKeyPath -authenticationKeyID -authenticationKeyIssuerID -allowProvisioningUpdates; do
-  [ "$(grep -c -- "$f" "$W")" -ge 2 ] && ok "testflight.yml: $f on archive and export" || bad "$f missing"
+  # Only command lines count (a flag at the start of an indented line), not comments that name the flag.
+  [ "$(printf '%s\n' "$code" | grep -cE -- "^[[:space:]]+$f( |$)")" -eq 2 ] && ok "testflight.yml: $f on archive and export" || bad "$f missing"
 done
 grep -q 'CURRENT_PROJECT_VERSION="\$BUILD_NUMBER"' "$W" && grep -q "date -u +%Y%m%d%H%M" "$W" && ok "testflight.yml: build number is the UTC time (R246)" || bad "build number"
 

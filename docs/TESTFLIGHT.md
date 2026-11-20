@@ -98,13 +98,14 @@ screenshot or a chat. They go only into GitHub's encrypted secrets (step 16).
     manual workflow on the Actions tab only once its file is on the repository's default branch *(unverified)*.
 21. **YOU (GitHub website)** — run it. Page: `https://github.com/<you>/<repository>/actions/workflows/testflight.yml`
     (tab **Actions**, left column **TestFlight upload (tvOS, manual)**). Click **Run workflow** (right side); in the box
-    keep the branch **main** and **Signing identity for the archive** = **Apple Distribution**; click the green **Run
-    workflow** *(unverified)*. Expected time: about 15 to 20 minutes (an estimate: it has never run). It stops itself at 45
-    minutes.
+    keep the branch **main** (there is nothing else to choose); click the green **Run workflow** *(unverified)*. Expected
+    time: about 15 to 20 minutes (an estimate: it has never run). It stops itself at 45 minutes.
 22. **YOU (GitHub website)** — if the run turns red: click it, click the red step, and copy the lines that start with
     `error:` or `::error::` (with the lines above them that the step printed) into a message to me. Secrets show as `***`;
     do not send anything else. If the error is about signing (no devices registered, no profile, no certificate), do not
-    just switch the **Signing identity** choice and run again: send me the error first (R245).
+    run it again: send me the error first. The archive is signed automatically by Xcode and the export step signs it for
+    distribution; whether the archive needs a registered Apple TV is not known until a run (R245 lists what can be done:
+    register the Apple TV, archive unsigned and sign at export, or manual signing).
 23. **YOU (Apple website)** — wait for Apple to process the build. App Store Connect > **Apps** > your app > tab
     **TestFlight** *(unverified)*. The build appears with its number (the UTC time of the run) as "Processing", then
     becomes ready to test (often 10 to 30 minutes; Apple e-mails you). If it asks about encryption, answer for an app that

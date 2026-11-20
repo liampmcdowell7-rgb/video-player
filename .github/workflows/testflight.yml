@@ -32,9 +32,15 @@
 # -authenticationKeyPath, -authenticationKeyID and -authenticationKeyIssuerID. No certificate or provisioning profile is
 # made by hand or stored. UNVERIFIED (no Mac, never run): that Xcode 27 creates the distribution certificate and the
 # profiles for both targets (app, Top Shelf) with their iCloud, App Group and keychain entitlements on this runner.
-# The archive is signed with the identity chosen on the Run button (default "Apple Distribution", which should need no
-# registered device; "Apple Development" is the plain automatic default, which needs a registered Apple TV for its
-# development profile). Which one works is UNVERIFIED (R245).
+# The archive passes CODE_SIGN_STYLE=Automatic and the team, and NO CODE_SIGN_IDENTITY: Xcode refuses an automatically
+# signed target whose identity is set by hand ("... is automatically signed, but code signing identity ... has been
+# manually specified"; reported by the owner, not read on an Apple page). Xcode picks the archive's identity itself; the
+# export step then signs for distribution (method app-store-connect, signingStyle automatic, -allowProvisioningUpdates and
+# the key). Xcode 13 notes: cloud signing "is available when signing for App Store Connect" (said of the distribution
+# assistant; that -exportArchive uses it too is UNVERIFIED). UNVERIFIED (no Mac, never run): whether the archive's own
+# automatic signing needs a registered Apple TV when the team has none; the Apple pages read do not say. If a run stops
+# on that, the alternatives are in R245 (register the Apple TV; archive with CODE_SIGNING_ALLOWED=NO and sign at export;
+# manual signing). There is no Run-button choice any more: the identity override it set is gone.
 # BUILD NUMBER (R246): the UTC time yyyyMMddHHmm, the same scheme as codemagic.yaml, so each upload is unique.
 # UPLOAD (R247): xcodebuild -exportArchive with method app-store-connect and destination upload (ExportOptions keys are
 # UNVERIFIED on an Apple page; see OPEN_QUESTIONS R247 for the alternatives, altool and Transporter).
@@ -43,14 +49,6 @@ name: TestFlight upload (tvOS, manual)
 
 on:
   workflow_dispatch:
-    inputs:
-      archive_identity:
-        description: "Signing identity for the archive (R245). Keep Apple Distribution unless a run asks for a device."
-        type: choice
-        default: Apple Distribution
-        options:
-          - Apple Distribution
-          - Apple Development
 
 permissions:
   contents: read
@@ -134,12 +132,11 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ARCHIVE_IDENTITY: ${{ inputs.archive_identity }}
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Archive (Release, tvOS devices, automatic signing)"
           mkdir -p "$RUNNER_TEMP/logs"
-          case "$ARCHIVE_IDENTITY" in "Apple Distribution"|"Apple Development") ;; *) ARCHIVE_IDENTITY="Apple Distribution" ;; esac
-          echo "Archive signing identity: $ARCHIVE_IDENTITY (automatic signing, R245)"
+          # R245: automatic signing with no CODE_SIGN_IDENTITY override; the export step signs for distribution.
+          echo "Archive: automatic signing, identity chosen by Xcode (R245)"
           set +e
           xcodebuild archive \
             -project VideoPlayer.xcodeproj \
@@ -157,7 +154,6 @@ jobs:
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
-            CODE_SIGN_IDENTITY="$ARCHIVE_IDENTITY" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             > "$RUNNER_TEMP/logs/archive.log" 2>&1
           rc=$?
@@ -173,6 +169,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Export and upload"
+          # R245: this step does the distribution signing (automatic, with the key and -allowProvisioningUpdates).
           umask 077
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
