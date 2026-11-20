@@ -219,7 +219,8 @@ struct TaskButtonRow<Content: View>: View {
 /// No placeholder inside the field: the system draws a focused field's placeholder in its own grey on the white pill, which
 /// we cannot restyle (94 and 66: #B7B7BC on #EAEAEA, 1.66:1). The example or "Optional" that was the placeholder is a hint
 /// line under the label instead, in `ReadableSecondary.style` (R240, 4.5:1 or more on the cover background), and the field
-/// is empty until something is typed. The spoken label is the title.
+/// is empty until something is typed. The spoken label is the title. Whether the tvOS keyboard screen then shows a
+/// heading is not on Apple's pages (R262, PROVISIONAL: kept until a run shows that screen).
 /// At the default text size the label is on the leading side and the field on the trailing side (`LabeledContent`), every
 /// field the same width (`TaskPageLayout.fieldFraction`); at an accessibility text size the label goes above (#30 E).
 struct FieldRow: View {
