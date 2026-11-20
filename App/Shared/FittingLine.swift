@@ -58,13 +58,15 @@ extension TVTextStyle {
     }
 }
 
-/// One short text (a name, a label, a value) on one line under rule S1: scaled down to the readable minimum, never cut,
-/// never wrapped. For texts made of several segments use `FittingLine`.
+/// One short text (a name, a label, a value) on one line under rule S1: scaled down to the readable floor, never cut with
+/// "…", never wrapped. For texts made of several segments use `FittingLine`.
 ///
-/// #25 B4 (OPEN_QUESTIONS R199, PROVISIONAL): when the text does not fit even at the readable minimum (the run on 1fe5d50:
-/// "Sample Movie 7 With A Much Longer Title Than A…" on Continue Watching, 50/51 and 80, and a Files row), the system cut
-/// it with "…". Now it is scaled further, just enough to fit the line, so it is never cut and never wrapped; only such a
-/// text goes below the readable minimum. The natural width is measured off screen, as `FittingLine` does.
+/// #30 Part 2 (OPEN_QUESTIONS R229, PROVISIONAL; replaces the "scale further" of R199): ONE readable floor for every
+/// resize-to-fit text, `ShortLine.minimumScale(forPointSize:)` = 23 pt over the style's size (23 pt is the tvOS minimum in
+/// the HIG Typography table). A text that does not fit even at the floor is shown whole by the system marquee
+/// (`MarqueeText`, a `UILabel` that scrolls while a containing view has focus), at the floor size, never smaller. Before,
+/// R199 scaled it as far as needed (down to 1 %), which made the "S2 E3" caption unreadable (77) and, with the width fed
+/// back into the scale, looped on the main thread (#31, R231).
 struct FittingText: View {
     let text: String
     var style: TVTextStyle = .body
@@ -78,17 +80,11 @@ struct FittingText: View {
 
     var body: some View {
         let readable: Double = ShortLine.minimumScale(forPointSize: style.pointSize)
-        let maxWidth: CGFloat? = Self.widthLimit(tooLong: Self.isTooLong(natural: natural, available: available, readable: readable))
-        Text(text)
-            .font(style.font)
-            .lineLimit(1)
-            // design-lint:allow rule S1 (OPEN_QUESTIONS R165, R199): the system text style shrinks to fit; below the readable minimum only when even that does not fit, so it is never cut
-            .minimumScaleFactor(Self.scale(natural: natural, available: available, readable: readable))
-            // #31 (OPEN_QUESTIONS R231): below the readable minimum the text takes the whole width it is offered, so the
-            // width measured next is the space, not the text's own scaled width. Before, each measure of the shrunk text fed
-            // a smaller scale (0.98 of the last width), the next layout shrank it again, and so on: a layout loop on the
-            // main thread (test04 froze on the show page, run of 20 Nov) and an unreadable caption (77, "S2 E3").
-            .frame(maxWidth: maxWidth, alignment: .leading)
+        let tooLong: Bool = Self.isTooLong(natural: natural, available: available, readable: readable)
+        line(tooLong: tooLong, readable: readable)
+            // #31 (R231): a text below the floor takes the whole width it is offered, so the width measured next is the
+            // space, not the text's own width, and no measure feeds back into the next layout.
+            .frame(maxWidth: Self.widthLimit(tooLong: tooLong), alignment: .leading)
             .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { (width: Double) in
                 // Only a real change is written, so equal widths never start another layout pass.
                 if abs(width - available) >= 0.5 { available = width }
@@ -97,28 +93,36 @@ struct FittingText: View {
                 // The natural one-line width, measured off screen (hidden: not drawn, not spoken).
                 Text(text)
                     .font(style.font)
-                    .lineLimit(1) // design-lint:allow hidden measurement of the natural width, never drawn or spoken (rule S1 is applied to the visible text above)
+                    .lineLimit(1) // design-lint:allow hidden measurement of the natural width, never drawn or spoken (rule S1 is applied to the visible text)
                     .fixedSize()
                     .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { natural = $0 }
                     .hidden()
             }
     }
 
-    /// #31: no limit (the offered width) for a text below the readable minimum, otherwise the text's own width.
+    /// The visible line: the system text scaled no lower than the floor, or the marquee at the floor when even that is too
+    /// long (R229).
+    @ViewBuilder
+    private func line(tooLong: Bool, readable: Double) -> some View {
+        if tooLong {
+            MarqueeText(text: text)
+        } else {
+            Text(text)
+                .font(style.font)
+                .lineLimit(1)
+                // design-lint:allow rule S1 (OPEN_QUESTIONS R165, R229): the system text style shrinks to fit, never below the readable floor
+                .minimumScaleFactor(readable)
+        }
+    }
+
+    /// #31: no limit (the offered width) for a text below the floor, otherwise the text's own width.
     static func widthLimit(tooLong: Bool) -> CGFloat? {
         guard tooLong else { return nil }
         return .infinity
     }
 
-    /// True when the text does not fit its width even at the readable minimum (R199).
+    /// True when the text does not fit its width even at the readable floor (R229).
     static func isTooLong(natural: Double, available: Double, readable: Double) -> Bool {
         natural > 0 && available > 0 && available < natural * readable
-    }
-
-    /// The smallest scale the text may take: the readable minimum, or less when even that does not fit (R199).
-    static func scale(natural: Double, available: Double, readable: Double) -> Double {
-        guard isTooLong(natural: natural, available: available, readable: readable) else { return readable }
-        // A little under the exact ratio, so rounding never leaves the last letter to an "…".
-        return max(0.01, available / natural * 0.98)
     }
 }

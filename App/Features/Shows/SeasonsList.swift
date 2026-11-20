@@ -101,14 +101,19 @@ struct SeasonsList: View {
     }
 }
 
-/// One episode as a 16:9 card: the still is the button (system `.card` style), the text sits below it, as on Home.
+/// One episode as a 16:9 lockup: the still and the text under it are ONE system button (`.borderless`, the tvOS lockup
+/// style of Apple's "Creating a tvOS media catalog app in SwiftUI"), so the text belongs to the focused item.
+/// #30 Part 2 (R229): a caption too long even at the readable floor is drawn whole by the system marquee, which scrolls
+/// while a containing view has focus; with the text inside the button, the focused lockup is that container. Before, the
+/// still was a `.card` button and the text sat outside it. Fixed in code, verify in next screenshots (55, 56,
+/// 56-show-long-episode-caption and -later): the lift of the still and whether the marquee runs are unverified.
 private struct EpisodeCard: View {
     let episode: EpisodeRow
     let model: ScreenModel<SeasonsViewModel>
 
     var body: some View {
-        VStack(alignment: .leading) {
-            NavigationLink(value: Route.item(episode.id)) {
+        NavigationLink(value: Route.item(episode.id)) {
+            VStack(alignment: .leading) {
                 ArtworkView(key: episode.artworkKey, symbol: "tv", wide: true)
                     .overlay(alignment: .bottom) {
                         if let progress = episode.progress {
@@ -116,29 +121,41 @@ private struct EpisodeCard: View {
                                 .padding()
                         }
                     }
+                captions
             }
-            .buttonStyle(.card)
-            .accessibilityLabel("\(episode.code), \(episode.title)")
-            .accessibilityValue([episode.runtimeText, episode.isWatched ? "Watched" : nil].compactMap { $0 }.joined(separator: ", "))
-            .contextMenu {
-                Button(episode.isWatched ? "Mark as Unwatched" : "Mark as Watched", systemImage: episode.isWatched ? "eye.slash" : "eye") {
-                    Task { await model.run { await $0.setWatched(!episode.isWatched, episodeID: episode.id) } }
-                }
-            }
-            VStack(alignment: .leading) {
-                // #25 B7: always "S2 E1 · Title" (the title is "Episode 1" when the file names none, never the code again).
-                // One line under rule S1: scaled to fit, never cut (FittingText; R199 for a title that is very long).
-                FittingText(episode.code + " · " + episode.title, style: .caption)
-                HStack {
-                    if let runtime = episode.runtimeText {
-                        FittingText(runtime, style: .caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    // #15 D5: the watched mark keeps its slot.
-                    SymbolColumn(systemImage: "checkmark.circle", isShown: episode.isWatched, accessibilityText: "Watched")
-                }
-            }
-            .padding(.horizontal)
         }
+        .buttonStyle(.borderless)
+        .accessibilityLabel("\(episode.code), \(episode.title)")
+        .accessibilityValue(accessibilityValue)
+        .contextMenu {
+            Button(episode.isWatched ? "Mark as Unwatched" : "Mark as Watched", systemImage: episode.isWatched ? "eye.slash" : "eye") {
+                Task { await model.run { await $0.setWatched(!episode.isWatched, episodeID: episode.id) } }
+            }
+        }
+    }
+
+    /// The duration and "Watched", spoken after the label (typed steps).
+    private var accessibilityValue: String {
+        var parts: [String] = []
+        if let runtime = episode.runtimeText { parts.append(runtime) }
+        if episode.isWatched { parts.append("Watched") }
+        return parts.joined(separator: ", ")
+    }
+
+    private var captions: some View {
+        VStack(alignment: .leading) {
+            // #25 B7: always "S2 E1 · Title" (the title is "Episode 1" when the file names none, never the code again).
+            // One line under rule S1: scaled to the floor, then the system marquee (FittingText, R229).
+            FittingText(episode.code + " · " + episode.title, style: .caption)
+            HStack {
+                if let runtime = episode.runtimeText {
+                    FittingText(runtime, style: .caption2)
+                        .foregroundStyle(.secondary)
+                }
+                // #15 D5: the watched mark keeps its slot.
+                SymbolColumn(systemImage: "checkmark.circle", isShown: episode.isWatched, accessibilityText: "Watched")
+            }
+        }
+        .padding(.horizontal)
     }
 }

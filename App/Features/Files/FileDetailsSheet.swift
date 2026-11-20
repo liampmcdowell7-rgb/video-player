@@ -27,9 +27,16 @@ struct FileDetailsSheet: View {
                     }
                 }
                 Section("Location") {
-                    // #30 F: the path whole on ONE line, scaled to fit (FittingText; below the readable minimum see R229).
-                    FittingText(row.id)
-                        .foregroundStyle(.secondary)
+                    // #30 F, R229: the path on ONE line, scaled to the readable floor; when even that is too long the system
+                    // marquee shows it whole while this row has focus. The row is a link to the whole path as a page, so it can
+                    // take the focus (and the path can be read at full size).
+                    NavigationLink {
+                        LongTextPage(title: "Location", text: row.id)
+                    } label: {
+                        FittingText(row.id)
+                    }
+                    .accessibilityLabel("Location")
+                    .accessibilityValue(row.id)
                 }
                 Section {
                     // #30 F: the last row is a named control with its symbol (74: a focused white bar with no visible label).
