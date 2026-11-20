@@ -14,12 +14,13 @@ struct LibrarySettingsView: View {
         SettingsPane(title: "Library", summary: SettingsTexts.librarySummary) {
             Section {
                 SettingToggle("Scan Sources When the App Opens", isOn: $scanOnLaunch)
-                Button {
-                    Task { await services.scanAll() }
-                } label: {
-                    RowLabel(services.isScanning ? "Scanning" : "Scan Now", systemImage: "arrow.clockwise")
+                // #36 S-C (R255): the page's main action, a prominent bezeled button, label centred, not a row.
+                TaskButtonRow {
+                    TaskButton(services.isScanning ? "Scanning" : "Scan Now", prominent: true) {
+                        Task { await services.scanAll() }
+                    }
+                    .disabled(services.isScanning)
                 }
-                .disabled(services.isScanning)
                 ScanProgressRow(progress: services.scanProgress)
             }
             // #15 3.2 and 9.4: title logos on the movie and show pages (on by default).

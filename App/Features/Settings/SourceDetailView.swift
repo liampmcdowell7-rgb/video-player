@@ -70,8 +70,11 @@ struct SourceDetailView: View {
                 }
             }
             Section {
-                Button(checking ? "Checking" : "Check Connection") { Task { await check() } }
-                    .disabled(checking)
+                // #36 S-C (R255): the page's main action, a prominent bezeled button.
+                TaskButtonRow {
+                    TaskButton(checking ? "Checking" : "Check Connection", prominent: true) { Task { await check() } }
+                        .disabled(checking)
+                }
             } footer: {
                 if let checkResult { Text(checkResult) }
             }
@@ -87,7 +90,9 @@ struct SourceDetailView: View {
                 }
             }
             Section {
-                Button("Remove Source", role: .destructive) { confirmRemove = true }
+                TaskButtonRow {
+                    TaskButton("Remove Source", role: .destructive) { confirmRemove = true }
+                }
             }
         }
         .confirmationDialog(issue?.acceptTitle ?? "", isPresented: $confirmTrust, titleVisibility: .visible, presenting: issue) { issue in

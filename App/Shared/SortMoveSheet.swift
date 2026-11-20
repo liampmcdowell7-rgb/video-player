@@ -51,8 +51,11 @@ struct SortMoveSheet: View {
                     }
                 }
                 Section {
-                    Button(binding.wrappedValue.sheetTitle, systemImage: target.kind == .movie ? "film" : "tv") { Task { await save() } }
-                    Button("Cancel", role: .cancel) { dismiss() }
+                    // #36 S-C (R255): the Move button prominent, Cancel beside it, the same size.
+                    TaskButtonRow {
+                        TaskButton(binding.wrappedValue.sheetTitle, prominent: true) { Task { await save() } }
+                        TaskButton("Cancel", role: .cancel) { dismiss() }
+                    }
                 } footer: {
                     if let problem { Text(problem) }
                 }
@@ -116,21 +119,25 @@ struct SortInfoSheet: View {
                 }
             }
             Section {
-                if kind == .movie {
-                    Button("Move to Shows", systemImage: "tv") { move = .item(itemID, .episode) }
-                } else {
-                    Button("Move to Movies", systemImage: "film") { move = .item(itemID, .movie) }
-                }
-                if let signal = info?.record.signal, signal == .manual || signal == .onlineLookup {
-                    Button("Sort Automatically", systemImage: "arrow.uturn.backward") {
-                        Task {
-                            try? await services.sortMover.sortAutomatically(itemID: itemID)
-                            services.sortChoiceSaved()
-                            dismiss()
+                // #36 S-C (R255): one row of bezeled buttons, the same size; Done (closing the information) is the most
+                // likely action, so it is the prominent one; Move and Sort Automatically are bordered.
+                TaskButtonRow {
+                    if kind == .movie {
+                        TaskButton("Move to Shows") { move = .item(itemID, .episode) }
+                    } else {
+                        TaskButton("Move to Movies") { move = .item(itemID, .movie) }
+                    }
+                    if let signal = info?.record.signal, signal == .manual || signal == .onlineLookup {
+                        TaskButton("Sort Automatically") {
+                            Task {
+                                try? await services.sortMover.sortAutomatically(itemID: itemID)
+                                services.sortChoiceSaved()
+                                dismiss()
+                            }
                         }
                     }
+                    TaskButton("Done", prominent: true) { dismiss() }
                 }
-                Button("Done") { dismiss() }
             }
         }
         .task {

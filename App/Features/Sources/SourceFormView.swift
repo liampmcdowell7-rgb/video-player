@@ -65,9 +65,12 @@ struct SourceFormView: View {
                 }
             }
             Section {
-                connectRow
-                Button("Cancel", role: .cancel) { dismiss() }
-                    .accessibilityIdentifier(ControlID.sourceCancel)
+                // #36 S-C (R255): Connect and Cancel side by side, the same size, Connect prominent.
+                TaskButtonRow {
+                    connectRow
+                    TaskButton("Cancel", role: .cancel) { dismiss() }
+                        .accessibilityIdentifier(ControlID.sourceCancel)
+                }
                 LearnMoreLink(title: "About \(info.title)", text: aboutText)
                     .accessibilityIdentifier(ControlID.learnMore)
             }
@@ -100,12 +103,14 @@ struct SourceFormView: View {
     @ViewBuilder
     private var connectRow: some View {
         if case .testing = phase {
+            // Status, not a button (L3), in the Connect button's place and size while the connection is tested.
             HStack {
                 ProgressView()
                 Text("Connecting")
             }
+            .frame(maxWidth: .infinity, minHeight: TaskButtonLayout.minimumHeight)
         } else {
-            Button("Connect") { Task { await connect() } }
+            TaskButton("Connect", prominent: true) { Task { await connect() } }
         }
     }
 

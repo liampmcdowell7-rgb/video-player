@@ -18,8 +18,11 @@ struct StorageSettingsView: View {
             Section {
                 // #33 J: while sync is off the button is disabled (the system dims it and the focus skips it); the footer
                 // below says why ("Sync is off. …", CloudSyncHost.line).
-                Button("Sync Now") { services.sync.syncNow() }
-                    .disabled(services.sync.unavailableReason != nil)
+                // #36 S-C (R255): the page's only action, a prominent bezeled button.
+                TaskButtonRow {
+                    TaskButton("Sync Now", prominent: true) { services.sync.syncNow() }
+                        .disabled(services.sync.unavailableReason != nil)
+                }
             } header: {
                 Text("iCloud")
             } footer: {

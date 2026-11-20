@@ -15,14 +15,17 @@ struct SaveViewSheet<Screen: QueryGridScreen>: View {
                     TextField("Saved View", text: $name)
                 }
                 Section {
-                    Button("Save") {
-                        let chosen = name
-                        Task {
-                            await model.run { screen in _ = try? await screen.saveCurrentView(name: chosen, pinned: false) }
-                            dismiss()
+                    // #36 S-C (R255): Save prominent, Cancel beside it, the same size.
+                    TaskButtonRow {
+                        TaskButton("Save", prominent: true) {
+                            let chosen = name
+                            Task {
+                                await model.run { screen in _ = try? await screen.saveCurrentView(name: chosen, pinned: false) }
+                                dismiss()
+                            }
                         }
+                        TaskButton("Cancel", role: .cancel) { dismiss() }
                     }
-                    Button("Cancel", role: .cancel) { dismiss() }
                 }
             }
         }

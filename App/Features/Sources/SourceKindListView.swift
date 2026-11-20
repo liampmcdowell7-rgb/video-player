@@ -48,8 +48,11 @@ struct SourceKindListView: View {
             Section {
                 LearnMoreLink(title: SourceSetupText.learnMoreTitle, text: SourceSetupText.learnMore(kinds))
                     .accessibilityIdentifier(ControlID.learnMore)
-                Button("Cancel", role: .cancel, action: onCancel)
-                    .accessibilityIdentifier(ControlID.sourceCancel)
+                // #36 S-C (R255): a bezeled button, not a row; plain bordered (nothing on this page is the main action).
+                TaskButtonRow {
+                    TaskButton("Cancel", role: .cancel, action: onCancel)
+                        .accessibilityIdentifier(ControlID.sourceCancel)
+                }
             }
         }
     }

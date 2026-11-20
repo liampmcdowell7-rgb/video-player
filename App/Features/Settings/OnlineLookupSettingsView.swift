@@ -79,12 +79,17 @@ private struct KeyRow: View {
                 // Masked as text, never the whole key (OnlineKeyStore.masked: dots and the last four characters).
                 ValueRow("Key", value: OnlineKeyStore.masked(saved))
                     .accessibilityIdentifier(ControlID.keyValue(kind.rawValue))
-                Button("Remove Key", role: .destructive) { confirmRemove = true }
+                // #36 S-C (R255): bezeled, not a row.
+                TaskButtonRow {
+                    TaskButton("Remove Key", role: .destructive) { confirmRemove = true }
+                }
             }
             SecureField(saved == nil ? OnlineLookupText.enterKey : OnlineLookupText.replaceKey, text: $entry)
                 .autocorrectionDisabled()
-            Button("Save Key") { Task { await save() } }
-                .disabled(entry.isEmpty || working)
+            TaskButtonRow {
+                TaskButton("Save Key", prominent: true) { Task { await save() } }
+                    .disabled(entry.isEmpty || working)
+            }
         } footer: {
             // L3: the result of Save or Remove is footer text, not a row.
             Text(message.map { $0 + " " + help } ?? help)

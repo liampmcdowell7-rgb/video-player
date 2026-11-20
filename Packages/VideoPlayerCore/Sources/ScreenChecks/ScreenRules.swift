@@ -341,6 +341,44 @@ public enum ScreenRules {
         return CheckResult(passed: below.isEmpty, lines: lines)
     }
 
+    // MARK: S-C: buttons side by side are the same size (#36 group 3)
+
+    /// #36 S-C (OPEN_QUESTIONS R255, PROVISIONAL): the buttons under `root` that stand side by side (centres within 2 pt
+    /// vertically, outside the tab bar) must have the same width and height (within 1 pt) and be at least 66 pt high (HIG
+    /// Accessibility, tvOS default control size). A button alone on its line is not compared. Passes with no such group.
+    public static func sideBySideButtons(in dump: AccessibilityDump, root: Int) -> CheckResult {
+        let buttons: [(String, AXRect)] = dump.descendants(of: root).compactMap { (index: Int) -> (String, AXRect)? in
+            let node: AXNode = dump.nodes[index]
+            guard node.type == "Button", !dump.isInTabBar(index), let frame = node.frame, !frame.isEmpty else { return nil }
+            return (dump.text(of: index), frame)
+        }
+        var groups: [[(String, AXRect)]] = []
+        for button in buttons.sorted(by: { $0.1.x < $1.1.x }) {
+            if let i = groups.firstIndex(where: { abs($0[0].1.midY - button.1.midY) <= 2 }) {
+                // The same element reported twice (a button and its label element) is one button.
+                if !groups[i].contains(where: { abs($0.1.x - button.1.x) < 1 && abs($0.1.width - button.1.width) < 1 }) {
+                    groups[i].append(button)
+                }
+            } else {
+                groups.append([button])
+            }
+        }
+        var lines: [String] = []
+        var problems: [String] = []
+        for group in groups where group.count >= 2 {
+            let names: String = group.map { "“\($0.0)” \(Int($0.1.width.rounded())) x \(Int($0.1.height.rounded()))" }.joined(separator: ", ")
+            lines.append("side by side: " + names)
+            let first: AXRect = group[0].1
+            if group.contains(where: { abs($0.1.width - first.width) > 1 || abs($0.1.height - first.height) > 1 }) {
+                problems.append("not the same size: " + names)
+            }
+            if group.contains(where: { $0.1.height < 66 - 0.5 }) { problems.append("lower than 66 pt: " + names) }
+        }
+        if lines.isEmpty { lines.append("no buttons side by side") }
+        lines.append(problems.isEmpty ? "BUTTONS OK" : "BUTTONS PROBLEM: " + problems.joined(separator: "; "))
+        return CheckResult(passed: problems.isEmpty, lines: lines)
+    }
+
     // MARK: L: pictures that must change
 
     /// #33 L: two captures of a step that was meant to change the screen. Identical pixels fail with the reason.

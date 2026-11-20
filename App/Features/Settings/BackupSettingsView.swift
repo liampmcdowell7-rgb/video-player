@@ -45,8 +45,12 @@ struct BackupSettingsView: View {
             Section("iCloud") {
                 ValueRow("Size in iCloud", value: BackupStatusText.size(backup.totalSize))
                 ValueRow("Last Backup", value: backup.lastSuccess.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "Never")
-                Button("Back Up Now") { backup.backUpNow() }
-                    .disabled(backup.isWorking || backup.unavailableReason != nil || !(backup.settings.library || backup.settings.artwork))
+                // #36 S-C (R255): the page's main action, prominent. Restore from iCloud below is not in #36's list and
+                // stays a row (not changed: rule "do not extend any fix to a screen not named").
+                TaskButtonRow {
+                    TaskButton("Back Up Now", prominent: true) { backup.backUpNow() }
+                        .disabled(backup.isWorking || backup.unavailableReason != nil || !(backup.settings.library || backup.settings.artwork))
+                }
                 Button("Restore from iCloud", role: .destructive) { confirmRestore = true }
                     .disabled(backup.isWorking || backup.unavailableReason != nil)
             }

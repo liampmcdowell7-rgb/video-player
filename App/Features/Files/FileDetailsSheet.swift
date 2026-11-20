@@ -39,8 +39,11 @@ struct FileDetailsSheet: View {
                     .accessibilityValue(row.id)
                 }
                 Section {
-                    // #30 F: the last row is a named control with its symbol (74: a focused white bar with no visible label).
-                    Button { dismiss() } label: { RowLabel("Done", systemImage: "checkmark") }
+                    // #30 F: a named control (74: a focused white bar with no visible label). #36 S-C (R255): a prominent
+                    // bezeled button, label centred, no longer a row.
+                    TaskButtonRow {
+                        TaskButton("Done", prominent: true) { dismiss() }
+                    }
                 }
             }
         }

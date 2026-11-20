@@ -152,3 +152,63 @@ enum ReadableSecondary {
     static let opacity: Double = 0.7
     static var style: AnyShapeStyle { AnyShapeStyle(HierarchicalShapeStyle.primary.opacity(opacity)) }
 }
+
+/// #36 S-C (OPEN_QUESTIONS R255, PROVISIONAL): the action buttons of a task cover or a Settings page (Connect, Cancel,
+/// Save, Move to Shows, Done, Check Connection, Remove Source, Save Key, Remove Key, Back Up Now, Scan Now, Sync Now).
+/// Before: full-width Form rows (about 1174 or 850 pt wide) with the label at the left, which look like the rows that open
+/// a page. Now: a system bezeled button, its label centred, at least the tvOS default control height (HIG Accessibility:
+/// "tvOS | 66x66 pt | 56x56 pt", default and minimum control size); the most likely action `.borderedProminent`, every
+/// other one `.bordered` (HIG Buttons: "use a button that has a prominent visual style for the most likely action in a
+/// view"; "Keep the number of prominent buttons to one or two per view"). Both styles exist on tvOS (`borderedProminent`
+/// tvOS 15.0, `bordered` tvOS 13.0, each "applies a Liquid Glass effect when the button gains focus" in tvOS). Rows that
+/// open another page keep the row look.
+enum TaskButtonLayout {
+    /// HIG Accessibility, tvOS default control size (66 x 66 pt); the label is at least this tall, so the button is too.
+    static let minimumHeight: CGFloat = 66
+}
+
+/// One action button (#36 S-C, R255): bezeled, label centred on one line (rule S1), `.borderedProminent` when `prominent`.
+struct TaskButton: View {
+    let title: String
+    var role: ButtonRole? = nil
+    var prominent: Bool = false
+    let action: () -> Void
+
+    init(_ title: String, role: ButtonRole? = nil, prominent: Bool = false, action: @escaping () -> Void) {
+        self.title = title
+        self.role = role
+        self.prominent = prominent
+        self.action = action
+    }
+
+    var body: some View {
+        if prominent {
+            button.buttonStyle(.borderedProminent)
+        } else {
+            button.buttonStyle(.bordered)
+        }
+    }
+
+    private var button: some View {
+        Button(role: role, action: action) {
+            FittingText(title)
+                .frame(maxWidth: .infinity, minHeight: TaskButtonLayout.minimumHeight)
+        }
+        .accessibilityLabel(title)
+    }
+}
+
+/// The row that holds one or more `TaskButton`s side by side (#36 S-C, R255). Each button takes an equal share of the row
+/// (every label is `maxWidth: .infinity`), so buttons side by side have exactly the same width and height (the equal-size
+/// rule); the system spacing between them. The row draws no background of its own: the bezels are the buttons' own.
+struct TaskButtonRow<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        HStack {
+            content
+        }
+        // design-lint:allow #36 S-C (R255): the row around bezeled buttons has no background of its own; the system button bezels are the only shape
+        .listRowBackground(Color.clear)
+    }
+}

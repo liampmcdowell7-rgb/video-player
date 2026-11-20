@@ -747,4 +747,41 @@ final class ScreenChecksTests: XCTestCase {
         XCTAssertTrue(result.text.contains("“FIND ON YOUR NETWORK”") && result.text.contains("BELOW 4.5"), result.text)
         print(result.text)
     }
+
+    // MARK: #36 S-C: buttons side by side
+
+    func buttonDump(_ second: String) -> AccessibilityDump {
+        AccessibilityDump("""
+        Window, 0x1, {{0.0, 0.0}, {1920.0, 1080.0}}
+          Other, 0x2, {{0.0, 0.0}, {1920.0, 1080.0}}
+            StaticText, 0x3, {{393.0, 66.0}, {300.0, 69.0}}, label: 'Add a Source'
+            Button, 0x4, {{393.0, 700.0}, {573.0, 86.0}}, label: 'Connect'
+            \(second)
+            Button, 0x6, {{393.0, 820.0}, {1134.0, 66.0}}, label: 'About WebDAV'
+        """)
+    }
+
+    func testTwoButtonsSideBySidePassWhenTheyAreTheSameSize() throws {
+        let dump: AccessibilityDump = buttonDump("Button, 0x5, {{986.0, 700.0}, {573.0, 86.0}}, label: 'Cancel'")
+        let result: CheckResult = ScreenRules.sideBySideButtons(in: dump, root: try XCTUnwrap(dump.coverRoot))
+        XCTAssertTrue(result.passed, result.text)
+        XCTAssertTrue(result.text.contains("“Connect” 573 x 86, “Cancel” 573 x 86"), result.text)
+    }
+
+    /// The wrong fixture: Cancel narrower (its label's width, as a plain button would be) and lower than 66 pt.
+    func testAnUnevenPairFailsAndAButtonLowerThan66PointsFails() throws {
+        let uneven: AccessibilityDump = buttonDump("Button, 0x5, {{986.0, 721.0}, {120.0, 44.0}}, label: 'Cancel'")
+        let result: CheckResult = ScreenRules.sideBySideButtons(in: uneven, root: try XCTUnwrap(uneven.coverRoot))
+        XCTAssertFalse(result.passed, result.text)
+        XCTAssertTrue(result.text.contains("not the same size") && result.text.contains("lower than 66 pt"), result.text)
+        let low: AccessibilityDump = buttonDump("Button, 0x5, {{986.0, 711.0}, {573.0, 64.0}}, label: 'Cancel'")
+        XCTAssertFalse(ScreenRules.sideBySideButtons(in: low, root: try XCTUnwrap(low.coverRoot)).passed)
+    }
+
+    /// The run's own Add a Source page (rows only, no buttons side by side) passes: nothing to compare.
+    func testTheRunsAddASourcePageHasNoButtonsSideBySide() throws {
+        let dump: AccessibilityDump = try fixture("10-add-source-types-HIERARCHY")
+        let result: CheckResult = ScreenRules.sideBySideButtons(in: dump, root: try XCTUnwrap(dump.coverRoot))
+        XCTAssertTrue(result.passed, result.text)
+    }
 }

@@ -230,7 +230,7 @@ Pure bash/grep/POSIX awk (runs with mawk), no Swift. Default scope: every `.swif
 | App/Features/Detail/ItemDetailContentView.swift:22, App/Shared/FittingLine.swift:23 and :76 | rule S1 | the system text style shrinks to fit, never below Apple's 23 pt minimum (R165) |
 | App/Shared/FittingLine.swift:33 | short-line | hidden measurement of a candidate's natural width, never drawn or spoken; S1 is applied to the visible line |
 | App/Features/Settings/AboutView.swift:39 | fixed-card | the TMDB logo's own image height inside the scrolling list, not a card |
-| App/Features/Files/FileDetailsSheet.swift:22, FixMatch/FixMatchView.swift:44, Movies/SaveViewSheet.swift:27, Sources/SourceKindListView.swift:33 | pushed-title | sheet roots: the title is the sheet's own heading, not a pushed page (D1 is about pushed pages) |
+| App/Shared/LayoutParts.swift (`TaskButtonRow`) | row-background | #36 S-C (OPEN_QUESTIONS R255, PROVISIONAL): the row around bezeled action buttons draws no background of its own (`Color.clear`), so the system button bezels are the only shape. (The former pushed-title exceptions of the sheet roots are gone: every task cover uses `TaskPage`, which hides the navigation bar, #36 S-B, R254.) |
 
 App/Support/Attribution.swift no longer needs exceptions: TMDB and JustWatch are allowlisted, and the TMDB notice is exempt from `claim-wording` because it says "not endorsed". No package module carries an exception.
 
@@ -272,6 +272,7 @@ Screens use these parts instead of drawing their own. All of them are in App/Sha
 |---|---|---|---|
 | `SlotLabel` | LayoutParts.swift | L10, D2 | A symbol and title with the system spacing, the symbol in a fixed slot scaled with the text. Every button label on the detail pages and every list row (through `RowLabel`). |
 | `SymbolColumn` | LayoutParts.swift | D5 | A value-column symbol (the watched check) that keeps its slot when hidden, so columns line up. |
+| `TaskButton` + `TaskButtonRow` | LayoutParts.swift | D2, equal size | #36 S-C (R255, PROVISIONAL): action buttons (Connect, Cancel, Save, Done, Check Connection, Sync Now and the rest) as bezeled system buttons, label centred, at least 66 pt high (HIG Accessibility, tvOS default control size), the most likely action `.borderedProminent`, the others `.bordered`; side by side they share the row equally. Rows that open a page stay rows. |
 | `StatusText` | LayoutParts.swift | L3 | Status and explanations: secondary callout text, never a row, pill or button. |
 | `LearnMoreLink` + `LongTextPage` | LayoutParts.swift, LongTextPage.swift | L5 | A one- or two-line footer, with the complete text one press away ("Learn More", "What Is Sent"). |
 | Progress inside the artwork | PosterCard.swift | D4 | A `ProgressView` overlaid on the artwork's bottom edge, so it moves with the focused card. |

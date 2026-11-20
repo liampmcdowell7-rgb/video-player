@@ -653,6 +653,8 @@ final class ScreenshotTests: XCTestCase {
         take("cover exposed to accessibility (#34 2)", ScreenRules.coverExposed(in: dump))
         take("page hidden from accessibility (B 2)", ScreenRules.pageHiddenBehindCover(in: dump))
         take("cover layout (A)", ScreenRules.coverLayout(in: dump))
+        // #36 S-C (R255): buttons side by side are the same size and at least 66 pt high.
+        if let cover = dump.coverRoot { take("buttons side by side (#36 S-C)", ScreenRules.sideBySideButtons(in: dump, root: cover)) }
         let tabBar: XCUIElement = app.tabBars.firstMatch
         let hittable: Bool = tabBar.exists && tabBar.isHittable
         var tabBarVerdict: String = "TAB BAR NOT HITTABLE OK"
