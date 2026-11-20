@@ -224,6 +224,16 @@ final class SourceWiringTests: XCTestCase {
         XCTAssertEqual(plain[.address], "http://nas.local:8080")
     }
 
+    /// #33 D: the Name field of a found server holds the readable name only; the raw ID is not in it.
+    func testAFoundServersNameFieldHoldsOnlyTheReadableName() {
+        let found = SourceDraft(discovered: DiscoveredSource(kind: .smb, name: "Sample NAS 802046173902541866", host: "nas.local", port: 445))
+        XCTAssertEqual(found[.name], "Sample NAS")
+        let plain = SourceDraft(discovered: DiscoveredSource(kind: .smb, name: "Media", host: "nas.local", port: 445))
+        XCTAssertEqual(plain[.name], "Media")
+        let onlyID = SourceDraft(discovered: DiscoveredSource(kind: .smb, name: "802046173902541866", host: "nas.local", port: 445))
+        XCTAssertEqual(onlyID[.name], "\(SourceCatalog.info(for: .smb).title) server")
+    }
+
     // MARK: The approved fingerprint is saved and restored
 
     func testTheApprovedCertificateIsSavedInTheDefinitionAndSurvivesTheLedgerAndEssentials() async throws {

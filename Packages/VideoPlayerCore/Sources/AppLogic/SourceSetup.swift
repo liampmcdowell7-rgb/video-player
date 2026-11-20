@@ -161,7 +161,9 @@ public struct SourceDraft: Equatable, Sendable {
     /// Fills the fields from a server the system found.
     public init(discovered: DiscoveredSource) {
         self.kind = discovered.kind
-        values[.name] = discovered.name
+        // #33 D: the readable part only ("Sample NAS", not "Sample NAS 802046173902541866"): the raw ID made the Name field
+        // end in "…" (pictures 21-search-your-network-server-details). The whole ID stays on the Server ID row.
+        values[.name] = SourceSetupText.discoveredName(discovered.name, kindTitle: SourceCatalog.info(for: discovered.kind).title).title
         values[.host] = discovered.host
         if let address = discovered.address, !address.isEmpty {
             values[.address] = address
