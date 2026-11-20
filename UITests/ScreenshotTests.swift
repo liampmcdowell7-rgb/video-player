@@ -283,16 +283,28 @@ final class ScreenshotTests: XCTestCase {
     /// Presses Down until the focus stops moving (three presses in a row with the same focused frame) or `maxPresses`.
     /// True when the focus stopped, i.e. the end of the list was reached.
     func moveFocusToEnd(in app: XCUIApplication, maxPresses: Int = 40) -> Bool {
-        var last: CGRect?
+        // #36 group 5: the focus is "unmoved" only when BOTH its label and its frame stay the same (a scrolling list can put
+        // the next row where the last one was), and every press is recorded in `focusPath` for the notes.
+        focusPath = []
+        var last: String?
         var unmoved = 0
-        for _ in 0..<maxPresses {
+        for press in 1...maxPresses {
             XCUIRemote.shared.press(.down); usleep(400_000)
             let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
-            let frame = focused.exists ? focused.frame : .null
-            if frame == last { unmoved += 1; if unmoved >= 3 { return true } } else { unmoved = 0 }
-            last = frame
+            let here: String = focused.exists ? "“\(focused.label)” \(focused.frame)" : "none"
+            focusPath.append("\(press) Down: \(here)")
+            if here == last { unmoved += 1; if unmoved >= 3 { return true } } else { unmoved = 0 }
+            last = here
         }
         return false
+    }
+
+    /// #36 group 5: what each press of the last `moveFocusToEnd` or `focus` did, one line per press ("3 Down: “Plex” {…}").
+    private var focusPath: [String] = []
+
+    /// The presses recorded by the last focus helper, for a NOT-REACHED note.
+    func focusPathText() -> String {
+        "\(focusPath.count) presses:\n" + focusPath.joined(separator: "\n")
     }
 
     /// Moves the focus with the remote's arrows until `target` has it. Direction comes from where the target is relative to
@@ -302,18 +314,23 @@ final class ScreenshotTests: XCTestCase {
     /// presses in a row leave the focus where it was.
     func focus(_ target: XCUIElement, in app: XCUIApplication, maxPresses: Int = 30) -> Bool {
         let remote = XCUIRemote.shared
-        var lastFrame: CGRect?
+        var last: String?
         var unmoved = 0
-        for _ in 0..<maxPresses {
-            guard target.exists else { remote.press(.down); continue }
+        focusPath = []
+        for press in 1...maxPresses {
+            guard target.exists else { remote.press(.down); focusPath.append("\(press) Down: target not in the tree yet"); continue }
             if target.hasFocus { return true }
             let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
-            guard focused.exists else { remote.press(.down); continue }
+            guard focused.exists else { remote.press(.down); focusPath.append("\(press) Down: nothing focused"); continue }
             let f = focused.frame, t = target.frame
             if f.contains(CGPoint(x: t.midX, y: t.midY)) || t.contains(CGPoint(x: f.midX, y: f.midY)) { return true }
-            if f == lastFrame { unmoved += 1; if unmoved >= 3 { return false } } else { unmoved = 0 }
-            lastFrame = f
-            remote.press(Self.direction(from: f, to: t))
+            // #36 group 5: unmoved only when the label AND the frame stay the same (see `moveFocusToEnd`).
+            let here: String = "“\(focused.label)” \(f)"
+            if here == last { unmoved += 1; if unmoved >= 3 { return false } } else { unmoved = 0 }
+            last = here
+            let direction: XCUIRemote.Button = Self.direction(from: f, to: t)
+            focusPath.append("\(press) \(Self.name(of: direction)) from \(here) toward \(t)")
+            remote.press(direction)
         }
         return target.exists && target.hasFocus
     }
@@ -327,6 +344,16 @@ final class ScreenshotTests: XCTestCase {
     ///   pressed Left on the first card for ever (56-show-season-2-episode-row); the centres decide now: vertical when they
     ///   are more than half a height apart, otherwise horizontal.
     /// The rule is `ScreenRules.focusDirection`, proven on the run's frames in ScreenChecksTests.
+    static func name(of button: XCUIRemote.Button) -> String {
+        switch button {
+        case .down: return "Down"
+        case .up: return "Up"
+        case .left: return "Left"
+        case .right: return "Right"
+        default: return "other"
+        }
+    }
+
     static func direction(from f: CGRect, to t: CGRect) -> XCUIRemote.Button {
         switch ScreenRules.focusDirection(from: AXRect(f), to: AXRect(t)) {
         case .down: return .down
@@ -368,7 +395,7 @@ final class ScreenshotTests: XCTestCase {
         }
         if let id, target.identifier == id { checkExposedOnce(id, name: name, in: app) }
         guard focus(target, in: app, maxPresses: 40) else {
-            notReached(name, "The focus could not be moved to the \(searched) with the remote's arrows (focus stayed on \(focusedLabel(in: app))).\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
+            notReached(name, "The focus could not be moved to the \(searched) with the remote's arrows (focus stayed on \(focusedLabel(in: app))).\n" + focusPathText() + "\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
             return false
         }
         XCUIRemote.shared.press(.select)
@@ -470,14 +497,31 @@ final class ScreenshotTests: XCTestCase {
 
         // 20: the types that cannot be set up yet, with their reasons, at the bottom of the list (#15 item 1.3). A fresh launch,
         // so nothing left open by the forms above can stop it; then Down until the focus stops (the Cancel row is last, the
-        // "Not Available Yet" rows above it are not focusable).
+        // "Not Available Yet" rows above it are focusable since #33 L).
         let end = launch("-UITestEmpty")
         if waitForScreen("screen.home", in: end), waitFor("Add a Source", in: end), open("Add a Source", in: end, name: "20-add-source-not-available"),
            waitForScreen(ControlID.searchYourNetwork, in: end, timeout: 15) {
-            if moveFocusToEnd(in: end), waitFor("Not Available Yet", in: end, timeout: 5) {
+            // #36 group 5: the run of 20 Nov stopped with “Dropbox, No sign-in for TVs” focused (Plex, About Source Types and
+            // Cancel below it). The end is reached when Cancel has the focus; every press is written to the -FOCUS-PATH note.
+            // The section header is drawn in upper case and its label in the tree is too (“NOT AVAILABLE YET” in the
+            // run's notes), so it is looked for without case.
+            let reachedEnd: Bool = moveFocusToEnd(in: end)
+            let cancel: XCUIElement = control(id: ControlID.sourceCancel, label: "Cancel", in: end)
+            let onCancel: Bool = cancel.exists && (cancel.hasFocus || focusedLabel(in: end) == "“Cancel”")
+            // #29: typed steps, no ternary inside a `+` chain.
+            var pathVerdict: String = "FOCUS PROBLEM: Cancel was not reached (focus on \(focusedLabel(in: end)))"
+            if onCancel { pathVerdict = "FOCUS REACHED CANCEL OK" }
+            let pathNote: String = focusPathText() + "\nend reached: \(reachedEnd); Cancel focused: \(onCancel)\n" + pathVerdict
+            note("20-add-source-not-available-FOCUS-PATH", pathNote)
+            let header: Bool = end.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@", "Not Available Yet")).firstMatch
+                .waitForExistence(timeout: 5)
+            if onCancel || header {
                 settle(); shot("20-add-source-not-available"); checkCover("20-add-source-not-available", in: end)
             }
-            else { notReached("20-add-source-not-available", "Moving down did not reach “Not Available Yet” (focus on \(focusedLabel(in: end))).") }
+            if !onCancel {
+                notReached("20-add-source-not-available", "Moving down did not reach Cancel (focus on \(focusedLabel(in: end))).\n" + focusPathText())
+                XCTFail("20-add-source-not-available: the remote's Down did not reach Cancel below the Not Available Yet rows")
+            }
             // Network search last: it may ask for local-network permission, which a test cannot answer reliably.
             end.terminate()
         }
