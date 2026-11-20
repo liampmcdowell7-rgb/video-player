@@ -77,12 +77,22 @@ struct FittingText: View {
     }
 
     var body: some View {
+        let readable: Double = ShortLine.minimumScale(forPointSize: style.pointSize)
+        let maxWidth: CGFloat? = Self.widthLimit(tooLong: Self.isTooLong(natural: natural, available: available, readable: readable))
         Text(text)
             .font(style.font)
             .lineLimit(1)
             // design-lint:allow rule S1 (OPEN_QUESTIONS R165, R199): the system text style shrinks to fit; below the readable minimum only when even that does not fit, so it is never cut
-            .minimumScaleFactor(Self.scale(natural: natural, available: available, readable: ShortLine.minimumScale(forPointSize: style.pointSize)))
-            .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { available = $0 }
+            .minimumScaleFactor(Self.scale(natural: natural, available: available, readable: readable))
+            // #31 (OPEN_QUESTIONS R231): below the readable minimum the text takes the whole width it is offered, so the
+            // width measured next is the space, not the text's own scaled width. Before, each measure of the shrunk text fed
+            // a smaller scale (0.98 of the last width), the next layout shrank it again, and so on: a layout loop on the
+            // main thread (test04 froze on the show page, run of 20 Nov) and an unreadable caption (77, "S2 E3").
+            .frame(maxWidth: maxWidth, alignment: .leading)
+            .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { (width: Double) in
+                // Only a real change is written, so equal widths never start another layout pass.
+                if abs(width - available) >= 0.5 { available = width }
+            }
             .background(alignment: .leading) {
                 // The natural one-line width, measured off screen (hidden: not drawn, not spoken).
                 Text(text)
@@ -94,9 +104,20 @@ struct FittingText: View {
             }
     }
 
+    /// #31: no limit (the offered width) for a text below the readable minimum, otherwise the text's own width.
+    static func widthLimit(tooLong: Bool) -> CGFloat? {
+        guard tooLong else { return nil }
+        return .infinity
+    }
+
+    /// True when the text does not fit its width even at the readable minimum (R199).
+    static func isTooLong(natural: Double, available: Double, readable: Double) -> Bool {
+        natural > 0 && available > 0 && available < natural * readable
+    }
+
     /// The smallest scale the text may take: the readable minimum, or less when even that does not fit (R199).
     static func scale(natural: Double, available: Double, readable: Double) -> Double {
-        guard natural > 0, available > 0, available < natural * readable else { return readable }
+        guard isTooLong(natural: natural, available: available, readable: readable) else { return readable }
         // A little under the exact ratio, so rounding never leaves the last letter to an "…".
         return max(0.01, available / natural * 0.98)
     }

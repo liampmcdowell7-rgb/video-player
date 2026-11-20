@@ -424,6 +424,8 @@ final class ScreenshotTests: XCTestCase {
         settle()
         shot("10-add-source-types")
         hierarchy("10-add-source-types", of: app)
+        // #30: full screen, no tab bar (R228).
+        checkFullScreen(anchor: ControlID.searchYourNetwork, label: "Search Your Network", in: app, name: "10-add-source-types")
         // #25 A2: each type row by its identifier ("sourceKind." + SourceKind raw value), the label as the fallback.
         let kinds = [("11", "WebDAV", "webdav"), ("12", "SMB", "smb"), ("13", "NFS", "nfs"), ("14", "SFTP", "sftp"), ("15", "FTP", "ftp"),
                      ("16", "UPnP/DLNA", "upnp"), ("17", "Jellyfin", "jellyfin"), ("18", "Emby", "emby"), ("19", "Web Link", "directLink")]
@@ -434,6 +436,7 @@ final class ScreenshotTests: XCTestCase {
             _ = waitUntilStill(control(id: ControlID.sourceCancel, label: "Cancel", in: app))
             shot(name)
             checkNoKeyField(in: app, name: name)
+            checkFullScreen(anchor: ControlID.sourceCancel, label: "Cancel", in: app, name: name)
             back()
             _ = waitForScreen(ControlID.searchYourNetwork, in: app, timeout: 5)
         }
@@ -535,6 +538,30 @@ final class ScreenshotTests: XCTestCase {
 
     /// #26 item 9: a source form never asks for an API key or token (the one app-wide key is in Settings > Online Lookup).
     /// Fails, with the fields found, when any text or secure field is labelled with "key" or "token".
+    /// #30 (OPEN_QUESTIONS R228): Add a Source and its forms must be full screen, not a small sheet. In the run of 20 Nov the
+    /// sheet was about a third of the screen wide with the tab bar above it (10, 11, 17, 94). The page's column is two thirds
+    /// of the width (TaskPageLayout.columnFraction), so the `anchor` row (a row of the page, found by identifier) must be
+    /// wider than half the window, and no tab bar may be hittable. Writes "<name>-PRESENTATION" with the numbers and fails
+    /// the test when either check fails. A row that is not found fails too: the page cannot be measured.
+    func checkFullScreen(anchor id: String, label: String, in app: XCUIApplication, name: String) {
+        let row: XCUIElement = control(id: id, label: label, in: app)
+        let window: CGRect = app.windows.firstMatch.frame
+        let rowWidth: CGFloat = row.exists ? row.frame.width : 0
+        var share: CGFloat = 0
+        if window.width > 0 { share = rowWidth / window.width }
+        let tabBar: XCUIElement = app.tabBars.firstMatch
+        let tabBarShown: Bool = tabBar.exists && tabBar.isHittable
+        let wide: Bool = share > 0.5
+        var verdict: String = "FULL SCREEN OK"
+        if !wide || tabBarShown { verdict = "SMALL SHEET OR TAB BAR SHOWN" }
+        let lines: [String] = ["row “\(label)” (\(id)) width \(Int(rowWidth)) of window \(Int(window.width)) (share \(String(format: "%.2f", share)), must be over 0.50)",
+                               "tab bar hittable: \(tabBarShown)",
+                               verdict]
+        note(name + "-PRESENTATION", lines.joined(separator: "\n"))
+        XCTAssertTrue(wide, "\(name): the row “\(label)” is \(Int(rowWidth)) of \(Int(window.width)) wide: Add a Source is not full screen")
+        XCTAssertFalse(tabBarShown, "\(name): the tab bar is shown above Add a Source")
+    }
+
     func checkNoKeyField(in app: XCUIApplication, name: String) {
         let fields = app.textFields.allElementsBoundByIndex + app.secureTextFields.allElementsBoundByIndex
         let labels = fields.map { [$0.label, $0.placeholderValue ?? "", $0.identifier].joined(separator: " | ") }
@@ -759,6 +786,39 @@ final class ScreenshotTests: XCTestCase {
     /// #21 F: the Shows row with Sort, Filter and Saved Views like Movies (07; 35 to 38 are Settings pages), and the card long-press menu with
     /// Go to Movie / Go to Show (and Remove from Continue Watching when the focused card is in that row) and where it leads (08).
     /// Job 4b.
+    /// #31 (OPEN_QUESTIONS R231): the show page of Sample Show 1 must leave the main thread free. In the run of 20 Nov test04
+    /// stopped there: the page was drawn, then nothing changed for 30 s and XCTest reported "main thread busy for 30.0s".
+    /// Every query below needs the app's main run loop; a query that takes longer than 5 s fails the test, and so does a
+    /// page that does not open. The focus is moved down and up between the queries, as test04 does for 55. Writes the times
+    /// to "show-page-responsive" (no pictures).
+    func test15_ShowPageResponsive() {
+        let app = launch("-UITestFixtures", open: "Sample Show 1")
+        guard waitForScreen("screen.series", in: app, timeout: 60) else {
+            note("show-page-responsive", "The show page did not open within 60 s (or the app was busy).")
+            XCTFail("The show page of Sample Show 1 did not open within 60 s.")
+            return
+        }
+        let limit: TimeInterval = 5
+        var worst: TimeInterval = 0
+        var lines: [String] = []
+        let moves: [XCUIRemote.Button?] = [nil, nil, .down, .down, .up, .up, nil]
+        for (round, move) in moves.enumerated() {
+            if let move { XCUIRemote.shared.press(move) }
+            let start: Date = Date()
+            let found: Bool = app.staticTexts["Season 1"].exists
+            let took: TimeInterval = Date().timeIntervalSince(start)
+            if took > worst { worst = took }
+            lines.append("query \(round + 1): \(String(format: "%.2f", took)) s, Season 1 found: \(found)")
+            sleep(1)
+        }
+        var verdict: String = "RESPONSIVE OK"
+        if worst > limit { verdict = "MAIN THREAD BUSY" }
+        lines.append("worst \(String(format: "%.2f", worst)) s, limit \(Int(limit)) s: \(verdict)")
+        note("show-page-responsive", lines.joined(separator: "\n"))
+        XCTAssertLessThanOrEqual(worst, limit, "The show page kept the main thread busy for \(String(format: "%.1f", worst)) s (limit 5 s).")
+        app.terminate()
+    }
+
     func test14_ShowsToolbarAndCardMenu() {
         var app = launch("-UITestFixtures", tab: "shows")
         if waitForScreen("screen.shows", in: app), waitFor("Sample", in: app, timeout: 60) {
@@ -926,9 +986,20 @@ final class ScreenshotTests: XCTestCase {
             guard waitForScreen(ControlID.searchYourNetwork, in: app, timeout: wait) else {
                 return fail(app, "The source type list did not open (no “Search Your Network” row within \(Int(wait)) s).")
             }
-            if key == "add-source" { return app }
+            if key == "add-source" {
+                // #30: full screen at every text size and with Bold Text (93, 99, 110), R228.
+                checkFullScreen(anchor: ControlID.searchYourNetwork, label: "Search Your Network", in: app, name: name)
+                return app
+            }
             guard open("WebDAV", id: ControlID.sourceKind("webdav"), in: app, name: name) else { app.terminate(); return nil }
             _ = waitUntilStill(control(id: ControlID.sourceCancel, label: "Cancel", in: app))
+            // #30: 94, 100, 111. At Larger Text the Cancel row may be below the screen; the page's first field row is not
+            // identified, so the Cancel row is measured only when it exists (it is built lazily).
+            if control(id: ControlID.sourceCancel, label: "Cancel", in: app).exists {
+                checkFullScreen(anchor: ControlID.sourceCancel, label: "Cancel", in: app, name: name)
+            } else {
+                note(name + "-PRESENTATION", "The Cancel row is not on screen at this text size; the page was not measured (R228).")
+            }
             return app
         default:
             XCTFail("Unknown accessibility screen \(key)")

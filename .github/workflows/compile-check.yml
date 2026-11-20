@@ -701,6 +701,7 @@ jobs:
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Run the UI tests, one call per test"
           bash scripts/ci-ui-tests.sh "$GITHUB_WORKSPACE/screenshots" \
+            test15_ShowPageResponsive \
             test04_LibraryScreens
 
       # Runs whatever happened above: copies any picture a cut-off test step left and writes index.md again (never fails).
@@ -710,6 +711,7 @@ jobs:
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Collect the pictures any cut-off test left"
           bash scripts/ci-ui-tests.sh --collect "$GITHUB_WORKSPACE/screenshots" \
+            test15_ShowPageResponsive \
             test04_LibraryScreens
 
       - name: Summarise errors (file, line, message)
