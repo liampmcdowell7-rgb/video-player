@@ -99,6 +99,45 @@ else
   echo "Workflows: manual trigger only, no secrets (testflight.yml: its four named secrets only, R248), standard runners only."
 fi
 
+# --- codemagic.yaml (OPEN_QUESTIONS R266) ---
+# The owner's decision of 20 Nov 2026: Codemagic for the TestFlight upload only. The file passed the scans above already;
+# this section grants no exception, it only holds the file to that one purpose. It must: start by hand only (no
+# `triggering:` key), have exactly one workflow, use exactly one integration (`app_store_connect: asc-testflight`), read no
+# secret (no environment `groups:`, no `api_key:`, no variable whose name looks like a key, token, password or
+# certificate), publish only to App Store Connect with the integration (no e-mail, Slack or other publisher), run on the
+# free `mac_mini_m2`, stop within 30 minutes, and pin an exact Xcode version (not `latest` or `edge`).
+if printf '%s\n' "$LIST" | grep -qx 'codemagic.yaml'; then
+  echo
+  echo "== Codemagic (codemagic.yaml, R266) =="
+  CBAD=0
+  CM="$(grep -vE '^[[:space:]]*#' codemagic.yaml | sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]+$//' | grep -v '^$')"
+  # cm_block KEY: the lines nested under the first `KEY:` line, with their indentation removed relative to it.
+  cm_block() {
+    printf '%s\n' "$CM" | awk -v k="$1" '
+      found && match($0, /^ */) && RLENGTH <= ind { exit }
+      found { print substr($0, ind + 3) }
+      !found && $0 ~ "^ *" k ":$" { found = 1; match($0, /^ */); ind = RLENGTH }'
+  }
+  cm_bad() { echo "!! codemagic.yaml: $1"; CBAD=1; }
+  printf '%s\n' "$CM" | grep -qE '^[[:space:]]*triggering:' && cm_bad "has a triggering: section (builds must start by hand only)"
+  n="$(cm_block workflows | grep -cE '^[A-Za-z0-9_-]+:$')"
+  [ "$n" -eq 1 ] || cm_bad "has $n workflows (exactly one, the TestFlight upload)"
+  [ "$(cm_block integrations)" = "app_store_connect: asc-testflight" ] || cm_bad "integrations must be exactly 'app_store_connect: asc-testflight'"
+  printf '%s\n' "$CM" | grep -qE '^[[:space:]]*groups:' && cm_bad "uses environment groups (secrets); none are allowed"
+  printf '%s\n' "$CM" | grep -qE '^[[:space:]]*(api_key|key_id|issuer_id):' && cm_bad "names an API key directly; only the integration is allowed"
+  cm_block vars | grep -iE '^[A-Za-z0-9_]*(KEY|SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|CERTIFICATE|P12|P8)[A-Za-z0-9_]*:' \
+    && cm_bad "a variable above looks like a secret"
+  pubs="$(cm_block publishing | grep -E '^[A-Za-z0-9_]+:' | tr '\n' ' ')"
+  [ "$pubs" = "app_store_connect: " ] || cm_bad "publishes to '$pubs' (only app_store_connect is allowed)"
+  cm_block app_store_connect | grep -qx 'auth: integration' || cm_bad "app_store_connect publishing must use auth: integration"
+  printf '%s\n' "$CM" | grep -E '^[[:space:]]*instance_type:' | grep -qvE 'instance_type: mac_mini_m2$' && cm_bad "instance_type must be mac_mini_m2"
+  d="$(printf '%s\n' "$CM" | sed -nE 's/^[[:space:]]*max_build_duration:[[:space:]]*([0-9]+)$/\1/p' | head -n 1)"
+  { [ -n "$d" ] && [ "$d" -le 30 ]; } || cm_bad "max_build_duration must be set and at most 30 (is '${d:-unset}')"
+  printf '%s\n' "$CM" | grep -qE '^[[:space:]]*xcode:[[:space:]]*"?[0-9]+\.[0-9]+(\.[0-9]+)?"?$' || cm_bad "xcode must be an exact version (not latest or edge)"
+  if [ "$CBAD" -ne 0 ]; then echo "!! codemagic.yaml problem found above. Do NOT push."; exit 1; fi
+  echo "codemagic.yaml: manual only, one workflow, integration asc-testflight only, no secrets, App Store Connect publishing only, mac_mini_m2, at most 30 minutes, exact Xcode."
+fi
+
 # --- Claude Code files (#28 item 8) ---
 # CLAUDE.md, everything under .claude/ (settings, hooks, skills, agents) and the hook self-test are public. They must hold
 # no secrets, no personal details and no machine paths, and the personal files must never be tracked. The names checked

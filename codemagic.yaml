@@ -1,106 +1,61 @@
-# Codemagic configuration.
-# MANUAL ONLY: there is intentionally no `triggering:` block in any workflow, so
-# nothing runs on push, pull request, tag or schedule. Builds start only when you
-# press "Start new build" in the Codemagic UI.
+# Codemagic: the TestFlight upload ONLY (OPEN_QUESTIONS R266, PROVISIONAL; owner's decision of 20 Nov 2026). Compile
+# checks, package tests and UI tests stay on GitHub Actions (.github/workflows/compile-check.yml). The GitHub TestFlight
+# workflow (.github/workflows/testflight.yml) stays as the fallback; it stops at the archive because automatic signing
+# asks for a Development profile, which needs a registered device (docs/TESTFLIGHT.md).
 #
+# MANUAL ONLY: there is no `triggering:` section. Codemagic's codemagic.yaml reference (read 20 Nov 2026,
+# https://docs.codemagic.io/yaml-basic-configuration/yaml-getting-started/): "If no events are defined, you can start
+# builds only manually", by "clicking Start new build in Codemagic". The pre-push check refuses a `triggering:` key.
 #
-# DO NOT RUN tvos-compile-check ON CODEMAGIC until the free monthly minute total has reset (2026-11-17: about 6 minutes
-# left, less than the 8-minute cap). Compile checks now run on GitHub Actions instead (.github/workflows/compile-check.yml,
-# docs/GITHUB_ACTIONS_RUNBOOK.md). This file and its caps stay for the TestFlight upload later.
+# SECRETS: none in this file and none in the repository. The only name here is the App Store Connect integration
+# `asc-testflight`, which the owner adds in Codemagic (docs/TESTFLIGHT.md, Codemagic route). Codemagic: the integration
+# "will expose necessary environment variables during the build" for the CLI tools. The distribution certificate's
+# private key is made at run time (openssl, mode 600) and deleted after use, so each run makes a NEW Apple Distribution
+# certificate (Codemagic: a new one is created "if there isn't one that already matches this private key"); see R266 for
+# what that means and the alternative.
 #
-# Estimated build minutes (estimates, NOT measured; the first real run will tell):
-#   tvos-compile-check : about 6-8 min  (hard cap 8)
-#   tvos-testflight    : about 9-13 min (hard cap 15)
+# LOGS: every command's output goes to a file on the build machine; the log shows only result lines and, on failure, the
+# error lines, redacted (scripts/cm-testflight.sh redact, then scripts/ci-testflight-log.sh): no key, certificate,
+# profile content, serial number or holder's name. No e-mail, Slack or other publishing.
+#
+# XCODE: Codemagic's macOS spec page for Xcode 27.2 (read 20 Nov 2026, https://docs.codemagic.io/specs-macos/xcode-27-2.md):
+# Xcode 27.2 (27B52) with the tvOS 27.2 SDK on the Mac mini M2. Selected as "27.2" ("Define latest, edge or version (e.g.
+# 11.2)"), the same Xcode as the GitHub runner. Never `latest` or `edge`: `edge` is 27.3 (27C5020n) and may be a beta.
+#
+# MINUTES: max_build_duration 30 (Codemagic: minutes, "min 1, max 120"), so a hang stops at 30 minutes. mac_mini_m2 is the
+# machine of the free plan (mac_mini_m4 needs billing). OPEN_QUESTIONS R105 recorded 494 of 500 free minutes used in
+# November; whether the monthly total has reset is not known here. Estimated run: 15 to 25 minutes (NOT measured).
 
 workflows:
-  tvos-compile-check:
-    name: tvOS compile check (Simulator, no signing)
-    instance_type: mac_mini_m2
-    max_build_duration: 8
-    environment:
-      xcode: "27.2"
-    cache:
-      cache_paths:
-        - $HOME/Library/Caches/org.swift.swiftpm
-        - $HOME/Library/Developer/Xcode/DerivedData
-    scripts:
-      - name: Install XcodeGen
-        script: |
-          export HOMEBREW_NO_AUTO_UPDATE=1
-          brew install xcodegen
-      - name: Generate Xcode project
-        script: xcodegen generate
-      - name: Resolve Swift packages
-        script: |
-          xcodebuild -resolvePackageDependencies \
-            -project VideoPlayer.xcodeproj \
-            -scheme VideoPlayer
-      - name: Build for tvOS Simulator (no code signing)
-        script: |
-          set -o pipefail
-          xcodebuild build \
-            -project VideoPlayer.xcodeproj \
-            -scheme VideoPlayer \
-            -destination 'generic/platform=tvOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            -quiet
-
   tvos-testflight:
-    name: tvOS TestFlight upload (manual)
+    name: tvOS TestFlight (manual)
     instance_type: mac_mini_m2
-    max_build_duration: 15
+    max_build_duration: 30
     integrations:
-      app_store_connect: codemagic-asc   # must match the key name you give in Codemagic
+      app_store_connect: asc-testflight
     environment:
       xcode: "27.2"
-      groups:
-        - signing   # holds CERTIFICATE_PRIVATE_KEY as a Secure variable (never in the repo)
       vars:
-        # Must equal PRODUCT_BUNDLE_IDENTIFIER in project.yml.
-        BUNDLE_ID: com.liamp.videoplayer
-    cache:
-      cache_paths:
-        - $HOME/Library/Caches/org.swift.swiftpm
+        # The same pinned XcodeGen as .github/workflows/compile-check.yml (the self-test checks they are equal).
+        XCODEGEN_VERSION: "2.46.0"
+        XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
     scripts:
-      - name: Install XcodeGen
-        script: |
-          export HOMEBREW_NO_AUTO_UPDATE=1
-          brew install xcodegen
-      - name: Check bundle ID matches project.yml and generate project
-        script: |
-          grep -q "PRODUCT_BUNDLE_IDENTIFIER: $BUNDLE_ID\$" project.yml || { echo "BUNDLE_ID does not match project.yml"; exit 1; }
-          xcodegen generate
-      - name: Set up signing (tvOS App Store profile)
-        script: |
-          keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --platform TVOS \
-            --type TVOS_APP_STORE \
-            --certificate-key "$CERTIFICATE_PRIVATE_KEY" \
-            --create
-          keychain add-certificates
-          xcode-project use-profiles
-      - name: Archive
-        script: |
-          set -o pipefail
-          BUILD_NUMBER=$(date -u +%Y%m%d%H%M)
-          xcodebuild archive \
-            -project VideoPlayer.xcodeproj \
-            -scheme VideoPlayer \
-            -destination 'generic/platform=tvOS' \
-            -archivePath build/VideoPlayer.xcarchive \
-            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-            -quiet
-      - name: Export IPA
-        script: |
-          xcodebuild -exportArchive \
-            -archivePath build/VideoPlayer.xcarchive \
-            -exportPath build/ipa \
-            -exportOptionsPlist "$HOME/export_options.plist"
+      - name: Prepare (check vendored files, pinned XcodeGen, generate, resolve packages)
+        script: bash scripts/cm-testflight.sh prepare
+      - name: Signing files (Apple Distribution certificate, TVOS_APP_STORE profiles for the app and Top Shelf)
+        script: bash scripts/cm-testflight.sh signing
+      - name: Check the profiles' iCloud container and App Group
+        script: bash scripts/cm-testflight.sh check-profiles
+      - name: Archive for tvOS devices (Release, manual signing, one profile per target)
+        script: bash scripts/cm-testflight.sh archive
+      - name: Export the .ipa (method app-store)
+        script: bash scripts/cm-testflight.sh export
     artifacts:
-      - build/ipa/*.ipa
+      # The App Store Connect publisher uploads the .ipa listed here. Nothing else is kept (no logs: they can name the
+      # certificate's holder).
+      - build/ios/ipa/*.ipa
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: false   # upload only; internal testers get it after Apple processing
+        # Upload only. Internal testers need no beta review; the owner adds himself in TestFlight (docs/TESTFLIGHT.md).
+        submit_to_testflight: false

@@ -8,7 +8,8 @@ set -euo pipefail
 mkdir -p "$OUT"
 
 echo "== Select Xcode"
-sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+# R266: Codemagic (scripts/cm-testflight.sh) has already selected its Xcode; switch (with sudo) only when it differs.
+if [ "$(xcode-select -p 2>/dev/null)" != "$XCODE_APP/Contents/Developer" ]; then sudo xcode-select -s "$XCODE_APP/Contents/Developer"; fi
 xcodebuild -version | tee "$OUT/xcode-version.txt"
 xcodebuild -showsdks | tee -a "$OUT/xcode-version.txt"
 xcodebuild -showsdks | grep -q 'appletvsimulator27' || { echo "::error::No tvOS 27 Simulator SDK on this runner"; exit 1; }
