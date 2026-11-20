@@ -100,7 +100,7 @@ printf 'test\tresult\tseconds\tpictures\ntest01_FirstLaunchAndEmptyScreens\tpass
 python3 "$HERE/scripts/ci-ui-index.py" "$D" "$HERE/scripts/screenshot-plan.tsv" "$TMP/ui-tests.tsv" test01_FirstLaunchAndEmptyScreens test02_AddASource test03_Settings > /dev/null
 OUT="$(bash "$CHECK" "$D" main 2>&1)"; RC=$?
 [ "$RC" -eq 0 ] && has "ARTIFACT OK (main): 3 pictures" && grep -qF 'TEST STOPPED BY THE TIME BUDGET: pictures up to 10-add-source-types' "$D/index.md" \
-  && grep -qF 'Planned: 36. Taken: 2. Missing: 33. Failed (not reached): 1.' "$D/index.md" && grep -qE '^- \[02-home-empty\]\(02-home-empty.png\) [0-9]+ KB' "$D/index.md"
+  && grep -qF 'Planned: 38. Taken: 2. Missing: 35. Failed (not reached): 1.' "$D/index.md" && grep -qE '^- \[02-home-empty\]\(02-home-empty.png\) [0-9]+ KB' "$D/index.md"
 check "deadline stop, incomplete bundle: the loose pictures pass the check; index says TEST STOPPED and counts" $?
 
 # #26: the whole synthetic test key in any artifact file fails the check; the masked form passes.

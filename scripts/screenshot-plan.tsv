@@ -18,6 +18,8 @@ test02_AddASource	18-form-emby
 test02_AddASource	19-form-web-link
 test02_AddASource	20-add-source-not-available
 test02_AddASource	21-search-your-network
+test02_AddASource	21-search-your-network-result
+test02_AddASource	21-search-your-network-server-details
 test02_AddASource	10-add-source-learn-more
 test03_Settings	30-settings
 test03_Settings	31-settings-playback
@@ -93,6 +95,8 @@ test04_LibraryScreens	55-show-page
 test04_LibraryScreens	55-show-page-scrolled-1
 test04_LibraryScreens	55-show-page-scrolled-2
 test04_LibraryScreens	56-show-season-2-episode-row
+test04_LibraryScreens	56-show-long-episode-caption
+test04_LibraryScreens	56-show-long-episode-caption-later
 test04_LibraryScreens	57-movie-detail
 test04_LibraryScreens	58-movie-detail-scrolled-1
 test04_LibraryScreens	58-movie-detail-scrolled-2

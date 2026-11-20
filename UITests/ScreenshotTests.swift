@@ -463,6 +463,33 @@ final class ScreenshotTests: XCTestCase {
            open("Search Your Network", id: ControlID.searchYourNetwork, in: network, name: "21-search-your-network") {
             sleep(4); shot("21-search-your-network")
         }
+        network.terminate()
+        // #30 items 2 and 3: the found row and the found server's form, with ONE synthetic server (-UITestFakeServer: the
+        // search lists it without browsing; no network; Debug builds only, the Release-string check covers its texts).
+        let rawName = "Sample NAS 802046173902541866"
+        let fake = launch("-UITestEmpty", extra: ["-UITestFakeServer"])
+        if waitForScreen("screen.home", in: fake), waitFor("Add a Source", in: fake), open("Add a Source", in: fake, name: "21-search-your-network-result"),
+           waitForScreen(ControlID.searchYourNetwork, in: fake, timeout: 15),
+           open("Search Your Network", id: ControlID.searchYourNetwork, in: fake, name: "21-search-your-network-result") {
+            if waitFor("Sample NAS", in: fake, timeout: 10) {
+                settle(); shot("21-search-your-network-result")
+                // The row shows the readable name and the type; the raw identifier is not on the list (item 3).
+                let rawOnList: Bool = fake.staticTexts[rawName].exists
+                note("21-search-your-network-result-ROW", rawOnList ? "RAW ID ON THE LIST ROW" : "RAW ID NOT ON THE LIST ROW OK")
+                XCTAssertFalse(rawOnList, "21-search-your-network-result: the raw server ID is drawn on the list row")
+                if open("Sample NAS", in: fake, name: "21-search-your-network-server-details"),
+                   waitForScreen(ControlID.serverID, in: fake, timeout: 10) {
+                    let row: XCUIElement = control(id: ControlID.serverID, label: "Server ID", in: fake)
+                    if focus(row, in: fake) { settle(); shot("21-search-your-network-server-details") }
+                    else { notReached("21-search-your-network-server-details", "The Server ID row did not take the focus (focus on \(focusedLabel(in: fake))).") }
+                    let value: String = (row.value as? String) ?? ""
+                    note("21-search-your-network-server-details-ROW", "Server ID row value: \(value)\nframe: \(row.frame)\n" + (value == rawName ? "WHOLE ID OK" : "ID NOT WHOLE"))
+                    XCTAssertEqual(value, rawName, "21-search-your-network-server-details: the Server ID row does not carry the whole identifier")
+                }
+            } else {
+                notReached("21-search-your-network-result", "The synthetic server “Sample NAS” was not listed within 10 s.")
+            }
+        }
     }
 
     // MARK: Settings (with the sample library, so Sources and Library show content)
@@ -606,6 +633,14 @@ final class ScreenshotTests: XCTestCase {
             // Seasons are sections of the show page (there is no separate season page); move down to season 2.
             if focus(control("S2", in: app), in: app) || focus(control("Season 2", in: app), in: app) { settle(); shot("56-show-season-2-episode-row") }
             else { notReached("56-show-season-2-episode-row", "Could not move the focus to a season 2 episode row.") }
+            // #30 Part 2 (R229): S2 E3 has the caption too long even at the readable floor. Focused, the system marquee should
+            // scroll it; the two pictures 3 s apart show whether it moves (default text size).
+            if focus(control("S2 E3", in: app), in: app) || focus(control("S2 E3, A very long episode title that is wider than any episode card on the show page", in: app), in: app) {
+                sleep(1); shot("56-show-long-episode-caption")
+                sleep(3); shot("56-show-long-episode-caption-later")
+            } else {
+                notReached("56-show-long-episode-caption", "Could not move the focus to S2 E3 (focus on \(focusedLabel(in: app))).")
+            }
         } else { hierarchy("55-show-page", of: app); notReached("55-show-page", "The show page did not open.") }
         app.terminate()
 
@@ -1016,7 +1051,78 @@ final class ScreenshotTests: XCTestCase {
             settle(); shot(name)
             // #15 item 1.5: "Settings" was cut to "Sett" under Larger Text; the tab bar must read TAB BAR OK here too.
             if key == "home" { tabBarCheck(name, in: app) }
+            recordOrCompareTexts(variant: variant, key: key, name: name, in: app)
             app.terminate()
+        }
+    }
+
+    /// #30 item 5: the app's own texts on screen under each accessibility variant (label to frame), kept by test06 for
+    /// test11. Both run in ONE xcodebuild call of the accessibility job (compile-check.yml), so one runner process, test06
+    /// first (tests run in name order).
+    nonisolated(unsafe) static var variantTexts: [String: (name: String, texts: [String: CGRect])] = [:]
+
+    /// The static texts on screen with a label, outside the tab bar (the system's tab bar keeps the simulator's setting, so it
+    /// never changes here). One snapshot of the tree, so it is quick. The first frame of each label is kept.
+    func visibleTexts(in app: XCUIApplication) -> [String: CGRect] {
+        guard let root: any XCUIElementSnapshot = try? app.snapshot() else { return [:] }
+        let window: CGRect = app.windows.firstMatch.frame
+        var found: [String: CGRect] = [:]
+        var stack: [any XCUIElementSnapshot] = [root]
+        while let node = stack.popLast() {
+            if node.elementType == .tabBar { continue }
+            let frame: CGRect = node.frame
+            let onScreen: Bool = window.isEmpty || window.intersects(frame)
+            if node.elementType == .staticText, !node.label.isEmpty, frame.width > 0, frame.height > 0, onScreen, found[node.label] == nil {
+                found[node.label] = frame
+            }
+            stack.append(contentsOf: node.children)
+        }
+        return found
+    }
+
+    /// #30 item 5: Larger Text and Bold Text must SHOW in their pictures. test06 records the texts of each variant picture;
+    /// test11 (the default pictures) compares them, text by text (same label on the same screen), and fails when:
+    /// - Larger Text: the median height of the matched texts is less than 1.2 times the default (accessibility3 is far
+    ///   larger than the default size; 1.2 leaves room for texts that scale down to fit, R229);
+    /// - Bold Text: no matched text is at least 1 % wider than at the default size (bold glyphs are wider; the height may
+    ///   not change);
+    /// - nothing could be matched (then the test cannot tell, so it fails rather than pass silently).
+    /// A note "<variant picture>-TEXT-APPLIED" gives the numbers. When test06 did not run in this process, the default
+    /// picture notes "NOT COMPARED" and does not fail (test11 run on its own).
+    func recordOrCompareTexts(variant: String, key: String, name: String, in app: XCUIApplication) {
+        let texts: [String: CGRect] = visibleTexts(in: app)
+        if variant == "larger-text" || variant == "bold-text" {
+            Self.variantTexts[variant + "|" + key] = (name, texts)
+            return
+        }
+        guard variant == "default" else { return }
+        for checked in ["larger-text", "bold-text"] {
+            guard let recorded = Self.variantTexts[checked + "|" + key] else {
+                note(name + "-TEXT-APPLIED-" + checked, "NOT COMPARED: no \(checked) picture of \(key) was taken in this test process.")
+                continue
+            }
+            let labels: [String] = recorded.texts.keys.filter { texts[$0] != nil }.sorted()
+            var ratios: [CGFloat] = []
+            for label in labels {
+                guard let base = texts[label], let other = recorded.texts[label] else { continue }
+                let size: CGFloat = checked == "larger-text" ? base.height : base.width
+                let grown: CGFloat = checked == "larger-text" ? other.height : other.width
+                if size > 0 { ratios.append(grown / size) }
+            }
+            let sorted: [CGFloat] = ratios.sorted()
+            var median: CGFloat = 0
+            if !sorted.isEmpty { median = sorted[sorted.count / 2] }
+            let wider: Int = ratios.filter { $0 >= 1.01 }.count
+            var applied: Bool = false
+            if checked == "larger-text" { applied = median >= 1.2 } else { applied = wider > 0 }
+            if ratios.isEmpty { applied = false }
+            let measure: String = checked == "larger-text" ? "height" : "width"
+            let lines: [String] = ["\(recorded.name) against \(name): \(ratios.count) texts matched by label",
+                                   "median \(measure) ratio \(String(format: "%.2f", median)); texts at least 1 % wider: \(wider)",
+                                   "matched: " + labels.prefix(12).joined(separator: " | "),
+                                   applied ? "SETTING APPLIED OK" : "SETTING NOT VISIBLE"]
+            note(recorded.name + "-TEXT-APPLIED", lines.joined(separator: "\n"))
+            XCTAssertTrue(applied, "\(recorded.name): the \(checked) setting does not show in the picture (\(lines[1]); \(ratios.count) texts matched)")
         }
     }
 
