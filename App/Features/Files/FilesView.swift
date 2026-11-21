@@ -24,6 +24,9 @@ struct FilesView: View {
                         }
                         // R345: the focused row grows past the list's edge; the list must not clip it (31, 71 to 73).
                         .scrollClipDisabled()
+                        // R363 (item 11): the Files pages browse a hierarchy, so their lists are plain, said here rather
+                        // than left to the platform's automatic style (Settings pages are grouped; D-DS11, D-DS13).
+                        .listStyle(.plain)
                     }
                 }
             } else {

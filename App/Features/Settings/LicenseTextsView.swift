@@ -13,6 +13,10 @@ struct LicenseTextsView: View {
                     LicenseTextView(item: item)
                 }
             }
+            // R363 (compile run of 21 Nov 2026, item 11): a Settings page, so the Settings list style (grouped, as the
+            // `Form` of every other Settings page; D-DS11). HIG Lists and tables: "Choose a table or list style that
+            // coordinates with your data and platform."
+            .listStyle(.grouped)
             // R345: the focused row grows past the list's edge; the list must not clip it (42, 43).
             .scrollClipDisabled()
             // R346 (item A): the scrolling page is one focus region, so Up scrolls back to its first row before it
