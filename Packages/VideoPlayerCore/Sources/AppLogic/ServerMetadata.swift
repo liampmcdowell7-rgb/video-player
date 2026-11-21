@@ -22,6 +22,13 @@ public protocol ServerMetadataProviding: Sendable {
     func summary(for file: StoredFile) async -> String?
     /// The server's poster (a movie) or still (an episode) for this file, or nil.
     func poster(for file: StoredFile) async -> ServerPicture?
+    /// R371: the server's content rating of the title this file belongs to ("PG-13", "TV-MA"), as the server writes it, or nil.
+    func contentRating(for file: StoredFile) async -> String?
+}
+
+public extension ServerMetadataProviding {
+    /// R371: a server that keeps no rating answers nil.
+    func contentRating(for file: StoredFile) async -> String? { nil }
 }
 
 /// Source kinds whose server metadata is used (R307). Only Plex today: Jellyfin and Emby keep their order (R210).
@@ -51,9 +58,14 @@ public struct ServerDetailsLayer: TitleDetailsSource {
 
     public func details(key: String) async -> TitleDetails? {
         guard case .item(let id)? = ArtworkKey(key), let item = try? await store.item(id: id),
-              let file = await ServerMetadataKinds.file(forItem: item, store: store),
-              let summary = await server.summary(for: file)?.trimmingCharacters(in: .whitespacesAndNewlines), !summary.isEmpty
-        else { return nil }
-        return TitleDetails(overview: summary, cast: [])
+              let file = await ServerMetadataKinds.file(forItem: item, store: store) else { return nil }
+        let text = await server.summary(for: file)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let summary = (text?.isEmpty ?? true) ? nil : text
+        // R371: the server's own rating (Plex `contentRating`) is the first layer of the rating.
+        let rating = ContentRating.clean(await server.contentRating(for: file))
+        guard summary != nil || rating != nil else { return nil }
+        var details = TitleDetails(overview: summary, cast: [])
+        details.contentRating = rating
+        return details
     }
 }

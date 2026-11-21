@@ -350,6 +350,13 @@ Network
 IHDR
 IDAT
 IEND
+# R371: content (age) ratings as the rating systems write them, shown as text in the rating badge (no board logos)
+PG-13
+TV-14
+TV-MA
+TV-PG
+TV-Y7
+NC-17
 ```
 
 ---

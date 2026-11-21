@@ -67,14 +67,19 @@ public struct TMDBArtworkProvider: OnlineArtworkProviding {
     /// #15 6.2: overview and cast come with the same cached title details (`append_to_response=credits`).
     public func details(forItem item: LibraryItem) async -> TitleDetails? {
         guard item.kind == .movie, let id = item.tmdbID, let movie = try? await client.movie(id: id) else { return nil }
-        return TitleDetails(overview: movie.overview, people: movie.credits.cast)
+        var details = TitleDetails(overview: movie.overview, people: movie.credits.cast)
+        // R371: TMDB's certification for the Region setting (the client's region), the rating's second layer.
+        details.contentRating = ContentRating.clean(movie.certification)
+        return details
     }
 
     /// #22 B: the same for a show page, from the cached series details (`append_to_response=credits`, already requested for
     /// the show's poster and pictures).
     public func details(forSeriesID tmdbID: Int) async -> TitleDetails? {
         guard let series = try? await client.series(id: tmdbID) else { return nil }
-        return TitleDetails(overview: series.overview, people: series.credits.cast)
+        var details = TitleDetails(overview: series.overview, people: series.credits.cast)
+        details.contentRating = ContentRating.clean(series.certification)
+        return details
     }
 
     private func poster(kind: TitleKind, id: Int) async -> URL? {

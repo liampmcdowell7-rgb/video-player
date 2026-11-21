@@ -17,6 +17,12 @@ struct PlexServerMetadata: ServerMetadataProviding {
         return (try? await plex.serverItem(at: file.path))??.metadata.summary
     }
 
+    /// R371: Plex's `contentRating` of the item, from the same listing (no extra request).
+    func contentRating(for file: StoredFile) async -> String? {
+        guard let plex = await sourceFor(file.sourceID) as? PlexClient else { return nil }
+        return (try? await plex.serverItem(at: file.path))??.metadata.contentRating
+    }
+
     func poster(for file: StoredFile) async -> ServerPicture? {
         guard let plex = await sourceFor(file.sourceID) as? PlexClient,
               let item = (try? await plex.serverItem(at: file.path)) ?? nil,

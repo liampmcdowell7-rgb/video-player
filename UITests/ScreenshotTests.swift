@@ -706,8 +706,9 @@ final class ScreenshotTests: XCTestCase {
     /// R370 (owner's decision of 21 Nov 2026): the drawn format badges are never cut. Every element whose identifier starts
     /// with "badge." (the full set at the top of Information, each badge its own element) has a size, lies inside the window
     /// from side to side, and overlaps no other badge; the metadata line (one combined element) lies inside the window. The
-    /// note "-BADGES" lists every badge with its frame. Vertical position is not checked: Information is below the fold.
-    func badgesNotCutCheck(_ name: String, expectBadges: Bool, in app: XCUIApplication) {
+    /// note "-BADGES" lists every badge with its frame. R371: with `rating`, the line must say "Rated <rating>" (the sample
+    /// movie and show carry invented ratings, UITestFixtureDetails). Vertical position is not checked: Information is below the fold.
+    func badgesNotCutCheck(_ name: String, expectBadges: Bool, rating: String? = nil, in app: XCUIApplication) {
         let window: CGRect = app.windows.firstMatch.frame
         let found: [XCUIElement] = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "badge.")).allElementsBoundByIndex
         var lines: [String] = ["window \(Int(window.width)) x \(Int(window.height))"]
@@ -729,8 +730,11 @@ final class ScreenshotTests: XCTestCase {
             let f: CGRect = line.frame
             lines.append("metadata line “\(line.label)” x \(Int(f.minX)) w \(Int(f.width))")
             if f.minX < window.minX || f.maxX > window.maxX { problems.append("the metadata line is cut at the side of the window") }
+            // R371: the rating badge is in the line (one combined element), said as "Rated <rating>"; it is never dropped.
+            if let rating, !line.label.contains("Rated \(rating)") { problems.append("the rating “\(rating)” is not in the metadata line") }
         } else {
             lines.append("metadata line: not found by identifier")
+            if rating != nil { problems.append("no metadata line to hold the rating") }
         }
         let verdict: String = problems.isEmpty ? "BADGES NOT CUT" : "BADGES PROBLEM: " + problems.joined(separator: "; ")
         lines.append(verdict)
@@ -1481,7 +1485,7 @@ final class ScreenshotTests: XCTestCase {
             settle(); shot("55-show-page")
             let showTop: String = focusedLabel(in: app)
             productPageCheck("55-show-page", information: false, in: app)
-            badgesNotCutCheck("55-show-page", expectBadges: false, in: app)
+            badgesNotCutCheck("55-show-page", expectBadges: false, rating: "TV-14", in: app)
             // R336: the show page's backdrop, as on the movie page ("55-show-page-CONTRAST", a note).
             textContrast("55-show-page", in: app)
             // #33 E: every episode card the same size (55 of the run of 20 Nov: S2 E3 378 x 566 beside 410 x 615).
@@ -1524,7 +1528,7 @@ final class ScreenshotTests: XCTestCase {
             settle(); shot("57-movie-detail")
             let movieTop: String = focusedLabel(in: app)
             productPageCheck("57-movie-detail", information: true, in: app)
-            badgesNotCutCheck("57-movie-detail", expectBadges: true, in: app)
+            badgesNotCutCheck("57-movie-detail", expectBadges: true, rating: "PG-13", in: app)
             let movieTree: String = app.debugDescription
             note("57-movie-detail-HIERARCHY", movieTree)
             checkGap("57-movie-detail", tree: movieTree, anchors: [ControlID.play, ControlID.more], kinds: ["StaticText"], minimum: 40, what: "buttons to the next heading")

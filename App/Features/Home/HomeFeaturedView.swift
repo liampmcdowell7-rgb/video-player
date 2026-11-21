@@ -10,13 +10,21 @@ import AppLogic
 struct HomeFeaturedView: View {
     let featured: HomeFeatured
     @Environment(AppServices.self) private var services
+    /// R371: the featured title's rating, from the same details layers as its page.
+    @State private var rating: String?
 
     var body: some View {
         VStack(alignment: .leading) {
             // The title logo when there is one (Settings > Accessibility "Title Logos"), the name otherwise (TitleHeader).
             TitleHeader(title: featured.card.title, artworkKey: featured.titleArtworkKey)
-            FittingLine(line: featured.metadata, style: .callout)
-                .foregroundStyle(ReadableSecondary.style)
+            HStack {
+                FittingLine(line: featured.metadata, style: .callout)
+                    .foregroundStyle(ReadableSecondary.style)
+                // R371: the content rating after the metadata, as on the title's page.
+                if let rating {
+                    RatingBadge(rating: rating)
+                }
+            }
             // #25 B5: one height for the row's buttons (ActionRow), the system Label in each (ActionLabel).
             ActionRow {
                 Button {
@@ -41,6 +49,15 @@ struct HomeFeaturedView: View {
         // where it stopped at the safe area. This area only holds the text and buttons, inside the system margins.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(ControlID.featured)
+        .task(id: detailsKey) {
+            rating = await services.online.details(key: detailsKey)?.contentRating
+        }
+    }
+
+    /// The details key of the page More opens: the movie ("item-N") or the show ("series-N").
+    private var detailsKey: String {
+        if featured.card.kind == .episode, let series = featured.card.seriesID { return "series-\(series)" }
+        return "item-\(featured.card.id)"
     }
 
     /// More opens the movie's page, or the show's page for an episode (the TV app's "More" on its Home featured title).

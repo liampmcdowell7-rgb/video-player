@@ -155,6 +155,12 @@ public struct TitleDetails: Equatable, Sendable {
     }
     public var overview: String?
     public var cast: [CastMember]
+    /// R371: the content (age) rating as shown ("PG-13", "TV-MA", "15"), from the first layer in `ContentRating.order`
+    /// that has one; nil when none does (no badge, never invented).
+    public var contentRating: String? = nil
+    /// R372: Wikidata's content descriptors ("Violence", "Language"), only while Free Data Sources is on; empty when
+    /// Wikidata has none.
+    public var contentDescriptors: [String] = []
 
     /// The longest cast shelf. PROVISIONAL (OPEN_QUESTIONS R182).
     public static let castLimit = 15
@@ -175,5 +181,5 @@ public struct TitleDetails: Equatable, Sendable {
         }
     }
 
-    public var isEmpty: Bool { overview == nil && cast.isEmpty }
+    public var isEmpty: Bool { overview == nil && cast.isEmpty && contentRating == nil && contentDescriptors.isEmpty }
 }

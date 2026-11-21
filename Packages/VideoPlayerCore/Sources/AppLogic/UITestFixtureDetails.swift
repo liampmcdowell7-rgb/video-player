@@ -47,15 +47,23 @@ public enum UITestFixtureDetails {
         }
     }
 
+    private static func rated(_ details: TitleDetails, _ rating: String) -> TitleDetails {
+        var d = details
+        d.contentRating = rating
+        return d
+    }
+
     /// The fake details of a sample title, or nil (a page with neither synopsis nor cast).
     public static func details(forTitle title: String) -> TitleDetails? {
+        // R371 (FIXTURE, invented): Sample Movie 1 and Sample Show 1 carry a rating so the UI check sees the badge.
         switch title {
-        case "Sample Movie 1", "Sample Movie 3", "Sample Movie 5": return TitleDetails(overview: short, cast: cast(6))
+        case "Sample Movie 1": return rated(TitleDetails(overview: short, cast: cast(6)), "PG-13")
+        case "Sample Movie 3", "Sample Movie 5": return TitleDetails(overview: short, cast: cast(6))
         case "Sample Movie 2": return TitleDetails(overview: short, cast: cast(TitleDetails.castLimit))
         case "Sample Movie 4": return TitleDetails(overview: long, cast: cast(4))
         // #22 B, the show page: Sample Show 1 has the very long synopsis and a cast, Sample Show 2 (the item with missing
         // data) has neither.
-        case "Sample Show 1": return TitleDetails(overview: long, cast: cast(6))
+        case "Sample Show 1": return rated(TitleDetails(overview: long, cast: cast(6)), "TV-14")
         default: return nil
         }
     }

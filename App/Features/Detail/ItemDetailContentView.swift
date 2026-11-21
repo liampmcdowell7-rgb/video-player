@@ -28,7 +28,7 @@ struct ItemDetailContentView: View {
                     CastShelf(cast: cast)
                 }
                 if !content.mediaInfo.isEmpty {
-                    MediaInfoSection(rows: content.mediaInfo, badges: content.allBadges)
+                    MediaInfoSection(rows: MediaInfo.withRating(content.mediaInfo, details: details), badges: content.allBadges)
                 }
             }
         }
@@ -61,8 +61,8 @@ struct ItemDetailContentView: View {
             // #15 Part 9: a movie's title logo when one is found and the setting is on; otherwise the text title (rule S1).
             TitleHeader(title: content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil)
             // R350: ONE line, the facts then the outlined format badges (dropped from the end when it does not fit).
-            if !content.facts.isEmpty || !content.badges.isEmpty {
-                ProductMetadataLine(facts: content.facts, badges: content.badges)
+            if !content.facts.isEmpty || !content.badges.isEmpty || details?.contentRating != nil {
+                ProductMetadataLine(facts: content.facts, rating: details?.contentRating, badges: content.badges)
             }
             if let overview = details?.overview {
                 SynopsisLink(title: content.title, text: overview)

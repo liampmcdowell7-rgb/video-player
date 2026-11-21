@@ -19,11 +19,17 @@ public struct LayeredDetails: Equatable, Sendable {
     public var details: TitleDetails?
     /// The layers that gave something used, in order. For tests and the coverage count on the device checklist.
     public var used: [DetailsLayer]
+    /// R371: the layer the content rating came from, nil without one.
+    public var ratingLayer: DetailsLayer? = nil
 
     public static func merge(_ layers: [(DetailsLayer, TitleDetails?)]) -> LayeredDetails {
         var overview: String?
         var cast: [TitleDetails.CastMember] = []
         var used: [DetailsLayer] = []
+        // R371: the rating follows its own order (`ContentRating.order`: source, TMDB, Wikidata), whatever order the layers
+        // were asked in. R372: the content descriptors come from the first layer that has any (only Wikidata gives them).
+        let rating = ContentRating.pick(layers.map { ($0.0, $0.1?.contentRating) })
+        var descriptors: [String] = []
         for (layer, found) in layers {
             guard let found else { continue }
             var gave = false
@@ -38,10 +44,15 @@ public struct LayeredDetails: Equatable, Sendable {
                     if cast[index].photo == nil, let photo = match.photo { cast[index].photo = photo; gave = true }
                 }
             }
+            if rating?.layer == layer { gave = true }
+            if descriptors.isEmpty, !found.contentDescriptors.isEmpty { descriptors = found.contentDescriptors; gave = true }
             if gave { used.append(layer) }
         }
-        guard overview != nil || !cast.isEmpty else { return LayeredDetails(details: nil, used: []) }
-        return LayeredDetails(details: TitleDetails(overview: overview, cast: cast), used: used)
+        guard overview != nil || !cast.isEmpty || rating != nil || !descriptors.isEmpty else { return LayeredDetails(details: nil, used: []) }
+        var details = TitleDetails(overview: overview, cast: cast)
+        details.contentRating = rating?.rating
+        details.contentDescriptors = descriptors
+        return LayeredDetails(details: details, used: used, ratingLayer: rating?.layer)
     }
 
     static func sameName(_ a: String, _ b: String) -> Bool {
@@ -77,9 +88,12 @@ public struct LayeredDetailsService: Sendable {
         for (layer, ask) in [(DetailsLayer.source, source), (.wikidata, wikidata), (.tmdb, tmdb)] {
             guard let ask else { continue }
             layers.append((layer, await ask(key)))
-            // Stop early when nothing is left to fill: a synopsis and a cast where everyone has a role.
+            // Stop early when nothing is left to fill: a synopsis, a cast where everyone has a role, and (R371) a rating no
+            // later layer can beat (the source's own), and (R372) no Wikidata layer still to ask for descriptors.
             let merged = LayeredDetails.merge(layers)
-            if let d = merged.details, d.overview != nil, !d.cast.isEmpty, d.cast.allSatisfy({ $0.role != nil }) { return merged }
+            let wikidataPending = wikidata != nil && !layers.contains { $0.0 == .wikidata }
+            if let d = merged.details, d.overview != nil, !d.cast.isEmpty, d.cast.allSatisfy({ $0.role != nil }),
+               merged.ratingLayer == .source, !wikidataPending { return merged }
         }
         return LayeredDetails.merge(layers)
     }

@@ -9,6 +9,8 @@ import AppLogic
 /// page: UNVERIFIED (the facts alone are the last child, and they shrink, so it should always fit).
 struct ProductMetadataLine: View {
     let facts: String
+    /// R371: the content rating, after the facts and before the format badges; never dropped before them.
+    var rating: String? = nil
     let badges: [FormatBadgeItem]
 
     var body: some View {
@@ -26,6 +28,9 @@ struct ProductMetadataLine: View {
             if !facts.isEmpty {
                 FittingText(facts, style: .callout)
                     .foregroundStyle(ReadableSecondary.style)
+            }
+            if let rating {
+                RatingBadge(rating: rating)
             }
             ForEach(shown, id: \.self) { (badge: FormatBadgeItem) in
                 FormatBadge(item: badge)
@@ -118,6 +123,29 @@ struct BadgeFlow: Layout {
         }
         if !current.indices.isEmpty { rows.append(current) }
         return rows
+    }
+}
+
+/// R371 (owner's request of 21 Nov 2026): the content rating as an outlined text badge ("PG-13", "TV-MA", "15"), the
+/// rating spelled out, no rating board's logo. A thin primary outline, the text in primary: told apart from the format
+/// badges, which never use a plain primary outline with regular text. Never cut (`fixedSize`).
+struct RatingBadge: View {
+    let rating: String
+    @ScaledMetric(relativeTo: .caption) private var inset: CGFloat = 8
+    @ScaledMetric(relativeTo: .caption) private var corner: CGFloat = 4
+    @ScaledMetric(relativeTo: .caption) private var line: CGFloat = 1
+
+    var body: some View {
+        Text(rating)
+            .font(.caption)
+            .fixedSize()
+            .padding(.horizontal, inset)
+            .overlay {
+                RoundedRectangle(cornerRadius: corner)
+                    .stroke(.primary, lineWidth: line)
+            }
+            .accessibilityLabel("Rated \(rating)")
+            .accessibilityIdentifier("badge.rating")
     }
 }
 

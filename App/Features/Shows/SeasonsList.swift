@@ -43,7 +43,7 @@ struct SeasonsList: View {
                 VStack(alignment: .leading) {
                     TitleHeader(title: content.seriesTitle, artworkKey: "series-\(seriesID)")
                     // R350: the one metadata line (the seasons; no format badges for a whole show).
-                    ProductMetadataLine(facts: ProductPage.showFacts(seasonCount: content.seasons.count), badges: [])
+                    ProductMetadataLine(facts: ProductPage.showFacts(seasonCount: content.seasons.count), rating: details?.contentRating, badges: [])
                     // As on the movie page: the synopsis above the buttons (three lines, the whole text one press away).
                     if let overview = details?.overview {
                         SynopsisLink(title: content.seriesTitle, text: overview)
