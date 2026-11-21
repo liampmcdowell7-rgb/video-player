@@ -38,11 +38,37 @@ final class ScreenshotTests: XCTestCase {
     }
 
     /// True when this app, not the system Home Screen, is in front: running in the foreground with one of its own screens
-    /// (accessibility identifier "screen.<name>", App/Shell/RootView.swift) or its tab bar present.
+    /// (accessibility identifier "screen.<name>", App/Shell/RootView.swift) or its tab bar or sidebar present.
     func appIsInFront(_ app: XCUIApplication, timeout: TimeInterval = 5) -> Bool {
         guard app.wait(for: .runningForeground, timeout: timeout) else { return false }
         let screen = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "screen.")).firstMatch
-        return screen.waitForExistence(timeout: timeout) || app.tabBars.firstMatch.exists
+        return screen.waitForExistence(timeout: timeout) || navigationChrome(in: app).exists
+    }
+
+    /// R359 (scan finding 3): the app's top-level navigation: the tab bar before R359, the system sidebar since
+    /// (`.tabViewStyle(.sidebarAdaptable)`). How tvOS 27 exposes the sidebar to XCUITest is not on Apple's pages
+    /// (UNVERIFIED): the tab bar when there is one, else the first table, collection view, outline or group that holds an
+    /// item labelled "Home" and one labelled "Settings" and is narrower than half the window (so never the whole page).
+    /// When the sidebar is collapsed and not in the tree, the element returned does not exist.
+    func navigationChrome(in app: XCUIApplication) -> XCUIElement {
+        let bar: XCUIElement = app.tabBars.firstMatch
+        if bar.exists { return bar }
+        let window: CGRect = app.windows.firstMatch.frame
+        let home: NSPredicate = NSPredicate(format: "label == %@", "Home")
+        let settings: NSPredicate = NSPredicate(format: "label == %@", "Settings")
+        for query in [app.tables, app.collectionViews, app.outlines, app.otherElements] {
+            for candidate in query.containing(home).containing(settings).allElementsBoundByIndex.prefix(6)
+            where candidate.exists && candidate.frame.width > 0 && (window.width <= 0 || candidate.frame.width < window.width / 2) {
+                return candidate
+            }
+        }
+        return bar
+    }
+
+    /// R359: true while the app shows a sidebar rather than a tab bar (no tab bar in the tree). Moves towards the navigation
+    /// are then Left, and into the content Right; with a tab bar, Up and Down.
+    func usesSidebar(_ app: XCUIApplication) -> Bool {
+        !app.tabBars.firstMatch.exists
     }
 
     /// Waits for the screen with the accessibility identifier `id` ("screen.home", "screen.item", ...).
@@ -246,7 +272,7 @@ final class ScreenshotTests: XCTestCase {
     /// given and present, otherwise the control labelled `label` as in `control(_:in:)`. Never a tab-bar button. Nothing is
     /// tapped: `open` and `focus` move the focus with the remote.
     func control(id: String?, label: String, in app: XCUIApplication) -> XCUIElement {
-        let tabBar = app.tabBars.firstMatch
+        let tabBar = navigationChrome(in: app)
         let tabFrame = tabBar.exists ? tabBar.frame : .null
         func outsideTabBar(_ element: XCUIElement) -> Bool {
             tabFrame.isNull || !tabFrame.contains(CGPoint(x: element.frame.midX, y: element.frame.midY))
@@ -335,11 +361,12 @@ final class ScreenshotTests: XCTestCase {
     /// #25 A3: moves the focus from the tab bar (where it starts on a tab's root) into the content: Down until the focused
     /// element is outside the tab bar. True when it is.
     func focusContent(in app: XCUIApplication, maxPresses: Int = 4) -> Bool {
-        let tabBar = app.tabBars.firstMatch
         for _ in 0..<maxPresses {
+            // R359: the tab bar or the sidebar; into the content is Down from a tab bar, Right from a sidebar.
+            let tabBar = navigationChrome(in: app)
             let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
             if focused.exists, !(tabBar.exists && tabBar.frame.contains(CGPoint(x: focused.frame.midX, y: focused.frame.midY))) { return true }
-            XCUIRemote.shared.press(.down); usleep(500_000)
+            XCUIRemote.shared.press(usesSidebar(app) ? .right : .down); usleep(500_000)
         }
         return false
     }
@@ -532,7 +559,9 @@ final class ScreenshotTests: XCTestCase {
     func scrollUpCheck(_ name: String, top: String, in app: XCUIApplication, maxPresses: Int = 40) {
         let reachedEnd: Bool = moveFocusToEnd(in: app, maxPresses: maxPresses)
         let down: String = focusPathText()
-        let tabBar: XCUIElement = app.tabBars.firstMatch
+        // R359: with the sidebar, Up at the first row stops there (the sidebar is to the left), so the check ends when the
+        // focus stops moving.
+        let tabBar: XCUIElement = navigationChrome(in: app)
         var path: [String] = []
         var lastContent: String = focusedLabel(in: app)
         var reachedTabBar: Bool = false
@@ -574,11 +603,14 @@ final class ScreenshotTests: XCTestCase {
     /// then Select. PASS when `rootText` is on screen and no element is labelled `pushedHeader`. Writes "<name>-RESELECT" and
     /// the picture "<name>".
     func reselectTabCheck(_ name: String, rootText: String, pushedHeader: String, in app: XCUIApplication) {
-        let tabBar: XCUIElement = app.tabBars.firstMatch
         let focusedInBar: NSPredicate = NSPredicate(format: "hasFocus == true")
+        // R359: the sidebar is reached with Left (it may be collapsed and out of the tree until then), the tab bar with Up.
+        let sidebar: Bool = usesSidebar(app)
         var presses: Int = 0
-        while presses < 40, !(tabBar.exists && tabBar.descendants(matching: .any).matching(focusedInBar).firstMatch.exists) {
-            XCUIRemote.shared.press(.up); usleep(400_000); presses += 1
+        while presses < 40 {
+            let chrome: XCUIElement = navigationChrome(in: app)
+            if chrome.exists && chrome.descendants(matching: .any).matching(focusedInBar).firstMatch.exists { break }
+            XCUIRemote.shared.press(sidebar ? .left : .up); usleep(400_000); presses += 1
         }
         let onTab: String = focusedLabel(in: app)
         XCUIRemote.shared.press(.select); sleep(2)
@@ -587,7 +619,9 @@ final class ScreenshotTests: XCTestCase {
         let passed: Bool = atRoot && !pushedLeft
         var verdict: String = "RESELECT OK: back on the tab's first page"
         if !passed { verdict = "RESELECT FAILED: \(pushedHeader) still in the tree \(pushedLeft), first page text “\(rootText)” shown \(atRoot)" }
-        note(name + "-RESELECT", "Up presses to the tab bar: \(presses)\ntab focused: \(onTab)\n\(verdict)")
+        var way: String = "Up presses to the tab bar"
+        if sidebar { way = "Left presses to the sidebar" }
+        note(name + "-RESELECT", "\(way): \(presses)\ntab focused: \(onTab)\n\(verdict)")
         shot(name)
         XCTAssertTrue(passed, "\(name): " + verdict)
     }
@@ -799,22 +833,37 @@ final class ScreenshotTests: XCTestCase {
     /// Settings, each whole inside the window and not overlapping the next. Written as "NN-name-TABBAR" (in the
     /// screenshots-logs artifact) with every tab's label and frame and a final "TAB BAR OK" or "TAB BAR PROBLEM: ...".
     /// A fade at the bar's edge is drawn, not reported in the tree; the screenshot shows that.
+    /// R359: the same six items in the sidebar, one under the other (`navigationChrome`); the note's first line says which
+    /// the app showed. With the sidebar collapsed on Home, Left opens it first.
     func tabBarCheck(_ name: String, in app: XCUIApplication) {
         let expected = ["Home", "Movies", "Shows", "Files", "Search", "Settings"]
         let window = app.windows.firstMatch.frame
-        let buttons = app.tabBars.firstMatch.buttons.allElementsBoundByIndex
-        var lines = buttons.map { "\($0.label)\t\(String(describing: $0.frame))" }
+        let sidebar: Bool = usesSidebar(app)
+        var opened: String = ""
+        if sidebar, !navigationChrome(in: app).exists {
+            XCUIRemote.shared.press(.left); sleep(1); opened = " (opened with Left)"
+        }
+        let chrome: XCUIElement = navigationChrome(in: app)
+        var kind: String = "tab bar"
+        if sidebar { kind = "sidebar \(chrome.exists ? "\(chrome.elementType.rawValue) \(chrome.frame)" : "NOT FOUND")" + opened }
+        var items: [XCUIElement] = []
+        for label in expected {
+            let item: XCUIElement = chrome.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
+            if item.exists { items.append(item) }
+        }
+        var lines = ["navigation: " + kind] + items.map { "\($0.label)\t\(String(describing: $0.frame))" }
         var problems: [String] = []
-        let labels = buttons.map(\.label)
+        let labels = items.map(\.label)
         if labels != expected { problems.append("tabs are \(labels), expected \(expected)") }
-        for b in buttons where b.frame.isEmpty || !window.contains(b.frame) {
+        for b in items where b.frame.isEmpty || !window.contains(b.frame) {
             problems.append("“\(b.label)” is not whole inside the window \(String(describing: window))")
         }
-        for (a, b) in zip(buttons, buttons.dropFirst()) where a.frame.maxX > b.frame.minX + 1 {
+        for (a, b) in zip(items, items.dropFirst()) where (sidebar ? a.frame.maxY > b.frame.minY + 1 : a.frame.maxX > b.frame.minX + 1) {
             problems.append("“\(a.label)” overlaps “\(b.label)”")
         }
         lines.append(problems.isEmpty ? "TAB BAR OK" : "TAB BAR PROBLEM: " + problems.joined(separator: "; "))
         note(name + "-TABBAR", lines.joined(separator: "\n"))
+        if sidebar, !opened.isEmpty { XCUIRemote.shared.press(.right); sleep(1) }
     }
 
     func back() { XCUIRemote.shared.press(.menu); sleep(1) }
@@ -1137,7 +1186,7 @@ final class ScreenshotTests: XCTestCase {
         take("cover layout (A)", ScreenRules.coverLayout(in: dump, scrolled: scrolledReason))
         // #36 S-C (R255): buttons side by side are the same size and at least 66 pt high.
         if let cover = dump.coverRoot { take("buttons side by side (#36 S-C)", ScreenRules.sideBySideButtons(in: dump, root: cover)) }
-        let tabBar: XCUIElement = app.tabBars.firstMatch
+        let tabBar: XCUIElement = navigationChrome(in: app)
         let hittable: Bool = tabBar.exists && tabBar.isHittable
         var tabBarVerdict: String = "TAB BAR NOT HITTABLE OK"
         if hittable { tabBarVerdict = "TAB BAR HITTABLE" }

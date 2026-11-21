@@ -68,6 +68,13 @@ struct RootView: View {
                     .accessibilityHidden(coverPresence.isCovered)
             }
         }
+        // R359 (owner's scan of ec27d52, 21 Nov 2026, finding 3; R167 option (f)): the system sidebar instead of the top tab
+        // bar, as Apple's sample "Creating a tvOS media catalog app in SwiftUI" ("the new sidebar adaptive tab view style
+        // that provides a sidebar in tvOS"). Apple, `sidebarAdaptable`: "macOS and tvOS always show a sidebar". The same
+        // `Tab`s, values and selection binding (R348's re-selection) are kept; only the style changes. How the sidebar
+        // collapses while the content has the focus, and whether re-selecting the selected item calls the binding's
+        // setter, are not on Apple's pages: UNVERIFIED until a run (notes -TABBAR, -RESELECT).
+        .tabViewStyle(.sidebarAdaptable)
         // #33 B (2): while a task cover is open, the tabs and the page under it are hidden from VoiceOver (HIG Modality: a
         // modal view "prevents interaction with the parent view"). The cover is presented in its own window subtree, so it
         // stays (notes 10-add-source-types-HIERARCHY, 74-file-details-HIERARCHY of the run of 20 Nov).
