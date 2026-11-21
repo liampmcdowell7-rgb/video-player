@@ -24,9 +24,11 @@ struct TextEntryRow: View {
         NavigationLink {
             TextEntryPage(title: title, summary: summary, example: example, entry: entry, value: $value, onDone: onDone)
         } label: {
+            // R351 (compile run of 21 Nov 2026): the value is no longer forced to `.secondary`, which stayed light grey on the
+            // white focused row. `LabeledContent` gives the value the system's own value style in a Form, and the system
+            // changes it with the focus (UNVERIFIED on tvOS 27 until the next -CONTRAST notes of 11 to 19, 36, 66).
             LabeledContent {
                 FittingText(TextEntryRules.rowValue(value, isSecret: entry.isSecret))
-                    .foregroundStyle(.secondary)
             } label: {
                 FittingText(title)
             }

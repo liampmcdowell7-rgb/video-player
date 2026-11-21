@@ -227,8 +227,10 @@ private struct CastPhoto: View {
             Circle()
                 .fill(.quaternary)
                 .overlay {
+                    // R351: `.secondary` on the quaternary fill measured 3.53 to 3.56:1 (S2, S4, S6 in the run of 21 Nov);
+                    // the initials take the primary label colour, as a monogram's initials are the circle's only content.
                     FittingText(initials, style: .title2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(HierarchicalShapeStyle.primary)
                 }
         }
     }

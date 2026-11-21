@@ -111,9 +111,12 @@ struct StatusText: View {
     init(_ text: String) { self.text = text }
 
     var body: some View {
+        // R351: the run of 21 Nov measured `.secondary` here at 4.31 to 4.43:1 on the Settings backdrop (34 "Sample data:
+        // not tested", 36 "Online lookup is off", "Free Data Sources are off", 37 the iCloud lines). The page summary beside
+        // it, in `ReadableSecondary` (R240), passed on the same backdrop, so the status lines take the same level.
         Text(text)
             .font(.callout)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(ReadableSecondary.style)
             .fixedSize(horizontal: false, vertical: true)
     }
 }

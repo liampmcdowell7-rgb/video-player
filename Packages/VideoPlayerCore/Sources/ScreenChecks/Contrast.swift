@@ -6,8 +6,12 @@ import Foundation
 /// 1. The pixels inside the text's frame (points × scale) are read.
 /// 2. Background: the most frequent colour, after grouping the pixels in bins of 16 per channel; its value is the average of
 ///    the pixels in that bin.
-/// 3. Foreground: the pixels farthest in luminance from the background (the top `inkFraction`, the glyph cores); its value is
-///    their median luminance.
+/// 3. Foreground: the pixels that are NOT background (a channel more than `backgroundTolerance` from it), and of those the
+///    farthest in luminance (the top `coreFraction`, the glyph cores); its value is their median luminance. R351 (compile
+///    run of 21 Nov 2026): before, the cores were the top `inkFraction` of ALL the frame's pixels; on a row whose frame is
+///    the whole row (1133 pt) and whose text is one short word, 3 % of the frame was more than the word's glyphs, so the
+///    median fell on the row platter's own shading (12-form-smb "Port" read 1.22:1, #292929 on #181818, for white text).
+///    A frame with no pixel off the background falls back to the old rule.
 /// 4. The ratio is WCAG 2's (L1 + 0.05) / (L2 + 0.05), with the relative luminance of sRGB colours.
 ///
 /// Limits (why it is a measurement, not proof):
@@ -15,11 +19,15 @@ import Foundation
 ///   no full-colour core reads lower than its real colour.
 /// - The screenshot is the composited picture: translucent material, vibrancy and gradients behind the text are measured as
 ///   they were drawn at that moment, not as the colours the code asked for.
-/// - It assumes the glyphs cover at least `inkFraction` of the frame; a frame much wider than its text lowers the result
+/// - Without R351 it assumed the glyphs cover at least `inkFraction` of the frame; a frame much wider than its text lowered the result
 ///   (fewer ink pixels in the top fraction).
 /// - It does not know the text's size or weight, so the target (4.5:1 or 3:1 in the HIG's table) is chosen by the caller.
 public enum Contrast {
     public static let inkFraction: Double = 0.03
+    /// R351: a pixel within this many levels of the background in every channel is background (platter shading, gradients).
+    public static let backgroundTolerance: Int = 24
+    /// R351: the share of the non-background pixels taken as glyph cores.
+    public static let coreFraction: Double = 0.25
 
     public struct Measurement: Equatable, Sendable, CustomStringConvertible {
         public var foreground: RGB
@@ -63,8 +71,17 @@ public enum Contrast {
         let background: RGB = average(biggest)
         let lb: Double = luminance(background)
 
-        let sorted: [RGB] = pixels.sorted { abs(luminance($0) - lb) > abs(luminance($1) - lb) }
-        let ink: [RGB] = Array(sorted.prefix(max(1, Int(Double(sorted.count) * inkFraction))))
+        let off: [RGB] = pixels.filter { $0.distance(to: background) > backgroundTolerance }
+        let sorted: [RGB]
+        let take: Int
+        if off.isEmpty {
+            sorted = pixels.sorted { abs(luminance($0) - lb) > abs(luminance($1) - lb) }
+            take = max(1, Int(Double(sorted.count) * inkFraction))
+        } else {
+            sorted = off.sorted { abs(luminance($0) - lb) > abs(luminance($1) - lb) }
+            take = max(1, Int(Double(sorted.count) * coreFraction))
+        }
+        let ink: [RGB] = Array(sorted.prefix(take))
         let foreground: RGB = ink.sorted { luminance($0) < luminance($1) }[ink.count / 2]
         return Measurement(foreground: foreground, background: background, ratio: ratio(foreground, background))
     }
