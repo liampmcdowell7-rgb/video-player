@@ -105,7 +105,9 @@ fi
 # `triggering:` key), have exactly one workflow, use exactly one integration (`app_store_connect: asc-testflight`), read no
 # secret (no environment `groups:`, no `api_key:`, no variable whose name looks like a key, token, password or
 # certificate), publish only to App Store Connect with the integration (no e-mail, Slack or other publisher), run on the
-# free `mac_mini_m2`, stop within 30 minutes, and pin an exact Xcode version (not `latest` or `edge`).
+# free `mac_mini_m2`, stop within 30 minutes, and pin an exact Xcode version (not `latest` or `edge`). Signing: its
+# `ios_signing` names only the owner's one stored certificate ("Balance Ahead distribution"), and neither it nor
+# scripts/cm-* contains a command that makes, revokes or deletes a key or a certificate.
 if printf '%s\n' "$LIST" | grep -qx 'codemagic.yaml'; then
   echo
   echo "== Codemagic (codemagic.yaml, R266) =="
@@ -134,8 +136,20 @@ if printf '%s\n' "$LIST" | grep -qx 'codemagic.yaml'; then
   d="$(printf '%s\n' "$CM" | sed -nE 's/^[[:space:]]*max_build_duration:[[:space:]]*([0-9]+)$/\1/p' | head -n 1)"
   { [ -n "$d" ] && [ "$d" -le 30 ]; } || cm_bad "max_build_duration must be set and at most 30 (is '${d:-unset}')"
   printf '%s\n' "$CM" | grep -qE '^[[:space:]]*xcode:[[:space:]]*"?[0-9]+\.[0-9]+(\.[0-9]+)?"?$' || cm_bad "xcode must be an exact version (not latest or edge)"
+  # Signing (R266): ios_signing must name exactly the owner's one stored certificate, by reference, and nothing else
+  # (no profile references, no distribution_type / bundle_identifier, no second certificate, no file-path variable).
+  [ "$(printf '%s\n' "$CM" | grep -cE '^[[:space:]]*ios_signing:$')" -eq 1 ] || cm_bad "needs exactly one ios_signing: section"
+  [ "$(cm_block ios_signing)" = "$(printf 'certificates:\n  - "Balance Ahead distribution"')" ] \
+    || cm_bad "ios_signing must be exactly 'certificates: - \"Balance Ahead distribution\"' (the one stored certificate)"
+  # Neither the workflow nor its scripts may make, revoke or delete a key or a certificate (comment lines ignored).
+  CMS="$(printf '%s\n' "$LIST" | grep -E '^scripts/cm-[^/]+$' || true)"
+  KEYGEN='genrsa|genpkey|ecparam|ssh-keygen|openssl[[:space:]]+req|-newkey|certificates[[:space:]]+(create|delete|revoke)|fetch-signing-files|--certificate-key|CERTIFICATE_PRIVATE_KEY|--create|--delete-stale-profiles|profiles[[:space:]]+delete|keychain[[:space:]]+add-certificates|security[[:space:]]+(delete|import|create-keychain)'
+  for f in codemagic.yaml $CMS; do
+    hits="$(grep -vE '^[[:space:]]*#' "$f" | grep -nE "$KEYGEN" | cut -c1-120)"
+    [ -z "$hits" ] || cm_bad "$f could make, revoke or delete a key or certificate: $hits"
+  done
   if [ "$CBAD" -ne 0 ]; then echo "!! codemagic.yaml problem found above. Do NOT push."; exit 1; fi
-  echo "codemagic.yaml: manual only, one workflow, integration asc-testflight only, no secrets, App Store Connect publishing only, mac_mini_m2, at most 30 minutes, exact Xcode."
+  echo "codemagic.yaml: manual only, one workflow, integration asc-testflight only, no secrets, App Store Connect publishing only, mac_mini_m2, at most 30 minutes, exact Xcode, the one stored certificate only, no key or certificate made."
 fi
 
 # --- Claude Code files (#28 item 8) ---

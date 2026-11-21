@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Self-test for the Codemagic TestFlight route (OPEN_QUESTIONS R266): codemagic.yaml's shape, scripts/cm-build-number.sh,
-# scripts/cm-profile-check.py (against the hand-written sample plists in scripts/codemagic-fixtures/, decoded and as
+# scripts/cm-signing.py (synthetic CLI output and throwaway certificates; the negative checks that nothing can make,
+# revoke or delete a key or a certificate), scripts/cm-profile-check.py (against the hand-written sample plists in scripts/codemagic-fixtures/, decoded and as
 # signed profiles made here with a throwaway key), the redaction in scripts/cm-testflight.sh, and the codemagic.yaml
 # section of scripts/pre-push-check.sh. Runs on Linux with bash, python3 (PyYAML for the YAML parse) and openssl;
 # contacts nothing. Every name and ID below is synthetic.
@@ -32,6 +33,8 @@ c("xcode is exactly 27.2 (a string)", wf.get("environment", {}).get("xcode") == 
 c("the only integration is app_store_connect: asc-testflight", wf.get("integrations") == {"app_store_connect": "asc-testflight"})
 env = wf.get("environment", {})
 c("no environment groups (no secrets)", "groups" not in env)
+c("ios_signing names exactly the one stored certificate 'Balance Ahead distribution' and nothing else",
+  env.get("ios_signing") == {"certificates": ["Balance Ahead distribution"]})
 pub = wf.get("publishing", {})
 c("publishing: only app_store_connect", list(pub.keys()) == ["app_store_connect"])
 c("publishing: auth integration, submit_to_testflight false, nothing else",
@@ -55,6 +58,13 @@ else
 fi
 grep -qE '^[[:space:]]*(api_key|key_id|issuer_id|groups):' "$Y" && bad "codemagic.yaml names a key or a group" || ok "codemagic.yaml names no API key and no environment group"
 grep -q 'ITSAppUsesNonExemptEncryption: false' project.yml && ok "project.yml keeps ITSAppUsesNonExemptEncryption false (R261)" || bad "R261 value changed"
+
+# --- NEGATIVE: nothing in the workflow or its scripts can make, revoke or delete a key or a certificate (R266) ---
+KEYGEN='genrsa|genpkey|ecparam|ssh-keygen|openssl[[:space:]]+req|-newkey|certificates[[:space:]]+(create|delete|revoke)|fetch-signing-files|--certificate-key|CERTIFICATE_PRIVATE_KEY|--create|--delete-stale-profiles|profiles[[:space:]]+delete|keychain[[:space:]]+add-certificates|security[[:space:]]+(delete|import|create-keychain)'
+hits=""; for f in "$Y" scripts/cm-*; do h="$(grep -vE '^[[:space:]]*#' "$f" | grep -nE "$KEYGEN")" && hits="$hits $f:$h"; done
+[ -z "$hits" ] && ok "no key generation, certificate create/revoke/delete, fetch-signing-files, --create or key option in codemagic.yaml or scripts/cm-*" || bad "key or certificate command found:$hits"
+grep -q 'app-store-connect profiles create' scripts/cm-testflight.sh && ! grep -qE 'app-store-connect certificates[[:space:]]+[^l]' scripts/cm-testflight.sh \
+  && ok "the only App Store Connect write is 'profiles create'; certificates are only listed" || bad "unexpected certificates command in cm-testflight.sh"
 
 # --- build number ---
 n="$(bash scripts/cm-build-number.sh)"
@@ -97,6 +107,61 @@ if openssl req -x509 -newkey rsa:2048 -nodes -subj "/CN=Throwaway test signer" -
   out="$(HOME="$home" PATH="/usr/bin:/bin" python3 "$PC" installed)"; rc=$?
   [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'MISSING CAPABILITY: iCloud container' \
     && ok "installed profiles: an installed profile without the capabilities stops the build" || bad "installed missing case: $rc $out"
+  out="$(HOME="$home" PATH="/usr/bin:/bin" python3 "$PC" dir "$d1")"; rc=$?
+  [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'no App Store profile for com.liamp.videoplayer.topshelf' \
+    && ok "dir mode: only the given folder is read (the Top Shelf profile in the other folder is not taken)" || bad "dir mode: $rc $out"
+
+  # --- cm-signing.py: the stored certificate is found by SHA-1, profiles are chosen by certificate, never made here ---
+  SG=scripts/cm-signing.py
+  openssl req -x509 -newkey rsa:2048 -nodes -subj "/CN=Throwaway other signer" -days 1 -keyout "$t/k2.pem" -out "$t/c2.pem" > /dev/null 2>&1
+  python3 - "$t" <<'EOF'
+import base64, datetime, hashlib, json, plistlib, ssl, sys
+t = sys.argv[1]
+der = {n: ssl.PEM_cert_to_DER_cert(open("%s/%s.pem" % (t, n)).read()) for n in ("c", "c2")}
+sha = {n: hashlib.sha1(d).hexdigest().upper() for n, d in der.items()}
+later = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=300)).strftime("%Y-%m-%dT%H:%M:%S.000+00:00")
+gone = "2020-01-01T00:00:00.000+00:00"
+json.dump({"data": [{"id": "CERTOTHER1", "attributes": {"certificateContent": base64.b64encode(der["c2"]).decode(), "expirationDate": later}},
+                    {"id": "CERTSTORED1", "attributes": {"certificateContent": base64.b64encode(der["c"]).decode(), "expirationDate": later}}]},
+          open(t + "/certs.json", "w"))
+open(t + "/identities.txt", "w").write('  1) %s "Apple Distribution: Sample Person (ZZ00000000)"\n     1 valid identities found\n' % sha["c"])
+open(t + "/identities-none.txt", "w").write("     0 valid identities found\n")
+json.dump([{"id": "BUNDLEAPP1", "attributes": {"identifier": "com.liamp.videoplayer"}},
+           {"id": "BUNDLETOP1", "attributes": {"identifier": "com.liamp.videoplayer.topshelf"}}], open(t + "/bundles.json", "w"))
+json.dump({"data": [{"id": "PROF1"}, {"id": "PROF2"}]}, open(t + "/profiles.json", "w"))
+base = plistlib.load(open("scripts/codemagic-fixtures/app-ok.plist", "rb"))
+def prof(name, cert, expires, uuid, platform=("tvOS",)):
+    p = dict(base); p["DeveloperCertificates"] = [der[cert]]; p["Platform"] = list(platform); p["UUID"] = uuid
+    p["ExpirationDate"] = expires; plistlib.dump(p, open("%s/%s.plist" % (t, name), "wb"))
+soon = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+prof("p-other", "c2", soon + datetime.timedelta(days=300), "00000000-0000-4000-8000-0000000000a1")
+prof("p-expiring", "c", soon + datetime.timedelta(hours=5), "00000000-0000-4000-8000-0000000000a2")
+prof("p-ios", "c", soon + datetime.timedelta(days=300), "00000000-0000-4000-8000-0000000000a3", ("iOS",))
+prof("p-good", "c", soon + datetime.timedelta(days=200), "00000000-0000-4000-8000-0000000000a4")
+EOF
+  out="$(python3 "$SG" cert-id "$t/certs.json" "$t/identities.txt" "$t/cid" "$t/csha")"; rc=$?
+  [ "$rc" -eq 0 ] && [ "$(cat "$t/cid")" = CERTSTORED1 ] && ! printf '%s' "$out" | grep -qE 'CERT|Sample|ZZ0' \
+    && ok "cert-id: picks the App Store Connect certificate whose SHA-1 is the keychain identity; prints no ID or name" || bad "cert-id: $rc $out"
+  out="$(python3 "$SG" cert-id "$t/certs.json" "$t/identities-none.txt" "$t/x" "$t/y")"; rc=$?
+  [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'Balance Ahead distribution' && ok "cert-id: no identity in the keychain stops the build and names the ios_signing reference" || bad "cert-id none: $rc $out"
+  python3 - "$t" <<'EOF'
+import json, sys; t = sys.argv[1]; d = json.load(open(t + "/certs.json")); d["data"] = d["data"][:1]; json.dump(d, open(t + "/certs-other.json", "w"))
+EOF
+  out="$(python3 "$SG" cert-id "$t/certs-other.json" "$t/identities.txt" "$t/x" "$t/y")"; rc=$?
+  [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'never makes a certificate' && ok "cert-id: no matching certificate stops the build (it never makes one)" || bad "cert-id other: $rc $out"
+  python3 "$SG" bundle-rid "$t/bundles.json" com.liamp.videoplayer.topshelf "$t/rid" > /dev/null && [ "$(cat "$t/rid")" = BUNDLETOP1 ] \
+    && ok "bundle-rid: the exact identifier's resource ID (not the app's for the extension)" || bad "bundle-rid"
+  python3 "$SG" bundle-rid "$t/bundles.json" com.liamp.other "$t/rid" > /dev/null; [ $? -eq 1 ] && ok "bundle-rid: an unregistered identifier stops the build" || bad "bundle-rid unknown"
+  python3 "$SG" profile-ids "$t/profiles.json" "$t/pids" > /dev/null && [ "$(tr '\n' ' ' < "$t/pids")" = "PROF1 PROF2 " ] && ok "profile-ids: one ID per line" || bad "profile-ids"
+  mkdir -p "$t/ex" "$t/chosen"
+  for n in p-other p-expiring p-ios; do openssl cms -sign -binary -nodetach -outform DER -in "$t/$n.plist" -signer "$t/c.pem" -inkey "$t/k.pem" -out "$t/ex/$n" 2>/dev/null; done
+  python3 "$SG" pick "$t/ex" com.liamp.videoplayer "$t/csha" "$t/chosen" > /dev/null; rc=$?
+  [ "$rc" -eq 3 ] && [ -z "$(ls "$t/chosen")" ] && ok "pick: other certificate, expiring within a day, iOS platform: none taken (exit 3, a profile is then made)" || bad "pick none: $rc"
+  openssl cms -sign -binary -nodetach -outform DER -in "$t/p-good.plist" -signer "$t/c.pem" -inkey "$t/k.pem" -out "$t/ex/p-good" 2>/dev/null
+  out="$(python3 "$SG" pick "$t/ex" com.liamp.videoplayer "$t/csha" "$t/chosen")"; rc=$?
+  [ "$rc" -eq 0 ] && [ "$(ls "$t/chosen")" = "00000000-0000-4000-8000-0000000000a4.mobileprovision" ] && ! printf '%s' "$out" | grep -q 00000000 \
+    && ok "pick: the existing valid tvOS App Store profile with the stored certificate is reused (no UUID printed)" || bad "pick good: $rc $out $(ls "$t/chosen")"
+  python3 "$SG" pick "$t/ex" com.liamp.videoplayer.topshelf "$t/csha" "$t/chosen2" > /dev/null; [ $? -eq 3 ] && ok "pick: a profile for another bundle ID is not taken" || bad "pick other bundle"
 else
   echo "SKIP  signed-profile checks (openssl could not make a throwaway certificate)"; skip=$((skip + 1))
 fi
@@ -142,6 +207,25 @@ sed 's/xcode: "27.2"/xcode: latest/' "$Y" | refused "xcode: latest" "exact versi
 sed 's/instance_type: mac_mini_m2/instance_type: mac_mini_m4/' "$Y" | refused "mac_mini_m4 (billed)" "mac_mini_m2"
 { cat "$Y"; printf '  second:\n    name: x\n'; } | refused "a second workflow" "workflows"
 sed 's/        auth: integration/        api_key: $X/' "$Y" | refused "an API key instead of the integration" "names an API key"
+sed 's/"Balance Ahead distribution"/"Another certificate"/' "$Y" | refused "another certificate reference" "ios_signing must be exactly"
+sed 's/^          - "Balance Ahead distribution"/          - "Balance Ahead distribution"\n          - "Second certificate"/' "$Y" | refused "a second certificate" "ios_signing must be exactly"
+sed 's/^        certificates:/        provisioning_profiles:\n          - some_profile\n        certificates:/' "$Y" | refused "a provisioning profile reference" "ios_signing must be exactly"
+sed 's/^        certificates:/        distribution_type: app_store\n        certificates:/' "$Y" | refused "distribution_type in ios_signing" "ios_signing must be exactly"
+sed '/^      ios_signing:/,/Balance Ahead distribution/d' "$Y" | refused "a missing ios_signing section" "exactly one ios_signing"
+sed 's/^          - "Balance Ahead distribution"/          - certificate: "Balance Ahead distribution"\n            environment_variable: CERT_PATH/' "$Y" | refused "a certificate file-path variable" "ios_signing must be exactly"
+scan_script() { # $1 = description, stdin = a scripts/cm-extra.sh body
+  local r="$t/repo-$RANDOM" o; mkdir -p "$r/scripts"; cp scripts/pre-push-check.sh "$r/scripts/"; cp "$Y" "$r/codemagic.yaml"
+  cat > "$r/scripts/cm-extra.sh"; git -C "$r" init -q 2>/dev/null; o="$(cd "$r" && bash scripts/pre-push-check.sh 2>&1)"
+  printf '%s' "$o" | grep -q '!! codemagic.yaml: scripts/cm-extra.sh could make' && ok "pre-push refuses a cm script that $1" || bad "pre-push missed a cm script that $1"
+}
+echo 'openssl genrsa -out k.pem 2048' | scan_script "generates a key (openssl genrsa)"
+echo 'app-store-connect certificates create --certificate-key @file:k.pem' | scan_script "creates a certificate"
+echo 'app-store-connect certificates revoke X' | scan_script "revokes a certificate"
+echo 'app-store-connect fetch-signing-files "$id" --type TVOS_APP_STORE --create' | scan_script "runs fetch-signing-files --create"
+echo 'app-store-connect profiles delete X' | scan_script "deletes a profile"
+printf '# openssl genrsa is never run here\necho ok\n' > "$t/c.sh"
+r="$t/repo-c"; mkdir -p "$r/scripts"; cp scripts/pre-push-check.sh "$r/scripts/"; cp "$Y" "$r/codemagic.yaml"; cp "$t/c.sh" "$r/scripts/cm-extra.sh"; git -C "$r" init -q
+(cd "$r" && bash scripts/pre-push-check.sh 2>&1) | grep -q 'could make' && bad "pre-push refused a comment line" || ok "pre-push ignores the commands in comment lines"
 
 echo "codemagic tests: passed $pass, failed $fail, skipped $skip"
 [ "$fail" -eq 0 ]

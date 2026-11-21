@@ -39,19 +39,27 @@ Names from Codemagic's pages read on 20 Nov 2026 (listed under Sources at the en
   `asc-testflight`, **Issuer ID** and **Key ID** (from step 14), and in **API key** upload the `.p8` file. Click
   **Save**. (To change it later: **Manage keys** next to Developer Portal.) The key stays in Codemagic, encrypted; it is
   never in the repository.
+  **Certificate (nothing to add):** the build signs with your ONE existing Apple Distribution certificate, stored in
+  Codemagic as **Balance Ahead distribution** (team settings > **codemagic.yaml settings** > **Code signing
+  identities** > **iOS certificates**; team admin needed to see it). `codemagic.yaml` names it by that reference name, so
+  keep the name exactly as it is. The build never makes, revokes or deletes a certificate or a key, and it does not touch
+  your other apps.
 - **C5. YOU (Codemagic website)** — start the build: open the app and click **Start new build**. In **Specify build
   configuration** choose the branch `main` and the workflow **tvOS TestFlight (manual)**, then start it *(unverified:
   the name of the final button)*. Nothing starts by itself: the file has no trigger. It stops itself at 30 minutes. An
-  estimate: 15 to 25 minutes (never measured). Free minutes: OPEN_QUESTIONS R105 recorded 494 of 500 free minutes used in
-  November; check the minutes left on Codemagic before you start *(unverified where Codemagic shows them)*.
+  estimate: 15 to 25 minutes (never measured). **Minutes cost money now:** on 20 November 2026 the Codemagic Billing
+  page showed 506 of 500 free macOS minutes used, current balance $6.75, next invoice 1 December 2026, so builds bill as
+  overage until the reset (OPEN_QUESTIONS R105). You decide when to start a build.
 - **C6. CODE** — what the workflow does (`codemagic.yaml`, `scripts/cm-testflight.sh`), on a Mac mini M2 with Xcode 27.2
   (the tvOS 27.2 SDK, the same Xcode as the GitHub runner):
   1. Prepare exactly as the GitHub compile check does (`scripts/ci-prepare.sh`): check the committed vendored packages,
      install the pinned XcodeGen 2.46.0 (SHA-256 checked), generate the project, resolve the packages.
-  2. Signing: makes a private key for this build, then for `com.liamp.videoplayer` and `com.liamp.videoplayer.topshelf`
-     asks Apple, through the integration, for an **Apple Distribution** certificate and a **tvOS App Store** profile
-     (`app-store-connect fetch-signing-files --type TVOS_APP_STORE --create`), and adds the certificate to the build
-     keychain. No devices. The key file is deleted at the end of the step.
+  2. Signing: Codemagic installs the stored certificate **Balance Ahead distribution** (`ios_signing` in
+     `codemagic.yaml`). The step finds that same certificate in App Store Connect (by comparing fingerprints, through the
+     integration), then for `com.liamp.videoplayer` and `com.liamp.videoplayer.topshelf` reuses an existing active
+     **tvOS App Store** profile that carries it; only if there is none does it make a new profile with it
+     (`app-store-connect profiles create --type TVOS_APP_STORE`). No devices. It never makes a key or a certificate and
+     never revokes or deletes anything (the pre-push check and its self-test refuse such commands).
   3. Checks the two profiles: the app's must carry the iCloud container `iCloud.com.liamp.videoplayer` and the App Group
      `group.com.liamp.videoplayer`; the Top Shelf's the App Group. A missing one stops the build (see C7).
   4. Points each target at its own profile (`xcode-project use-profiles`), checks both now sign manually, sets the build
@@ -66,12 +74,11 @@ Names from Codemagic's pages read on 20 Nov 2026 (listed under Sources at the en
   - **"MISSING CAPABILITY: ... on the App ID ..."**: the line names the capability and the App ID. On
     developer.apple.com > **Certificates, IDs & Profiles** > **Identifiers**, click that App ID, tick the capability,
     click **Configure** and tick the named container or group, **Save** (steps 8 and 9 below) *(unverified)*. Then start a
-    new build (C5): it makes new profiles that include the change.
-  - **Too many certificates**: each build makes a new Apple Distribution certificate, because the private key is made
-    fresh each time and Codemagic creates a new certificate when none matches the key (R266). When Apple refuses another
-    one, revoke the oldest "Apple Distribution" certificates on developer.apple.com > **Certificates** *(unverified)*.
-    Apple's certificates page: builds uploaded but not yet submitted for review "may be marked as Invalid Binary" when
-    their certificate is revoked, so revoke only certificates of builds you no longer need.
+    new build (C5). The build reuses only *active* profiles; whether Apple marks the old profile inactive after the
+    change is *(unverified)*: if the same line comes back, tell me rather than deleting anything.
+  - **"no code signing identity in this machine's keychain"** or **"0 App Store Connect certificate(s) match"**: the
+    stored certificate was not installed or not found. Check that **Balance Ahead distribution** is still listed under
+    **iOS certificates** (C4) with exactly that name, then send me the lines. Do not make a new certificate for this.
 - **C8. YOU (Apple website and Apple TV)** — steps 23 to 26 below: wait for Processing, add yourself as an **internal
   tester** (Internal Testing group, automatic distribution), install TestFlight on the Apple TV and the build.
 - **C9. YOU** — for every later build: C5 only (and C8 if you want it on the Apple TV).
@@ -241,12 +248,15 @@ screenshot or a chat. They go only into GitHub's encrypted secrets (step 16).
 - Codemagic, native iOS quick start: https://docs.codemagic.io/yaml-quick-start/building-a-native-ios-app (**Add
   application**, **Finish: Add application**, **Check for configuration file**, `xcode-project use-profiles`).
 - Codemagic, signing iOS apps and alternative code signing methods: https://docs.codemagic.io/yaml-code-signing/signing-ios/
-  and https://docs.codemagic.io/yaml-code-signing/alternative-code-signing-methods.md (`fetch-signing-files ... --create`
-  with a certificate private key; a new certificate "if there isn't one that already matches this private key"; the
-  integration "will expose necessary environment variables during the build").
-- Codemagic CLI tools: https://github.com/codemagic-ci-cd/cli-tools/tree/master/docs (`fetch-signing-files`: `--type`
-  includes `TVOS_APP_STORE`, `--platform` is IOS, MAC_OS, UNIVERSAL or SERVICES, `--strict-match-identifier`,
-  `--create`, `--certificate-key`; `keychain initialize`, `keychain add-certificates`; `xcode-project use-profiles`
-  writes `$HOME/export_options.plist`).
+  and https://docs.codemagic.io/yaml-code-signing/alternative-code-signing-methods.md (`ios_signing` lists "the
+  references of the uploaded files under the `provisioning_profiles` and `certificates` fields"; keychain steps "are not
+  required"; **Code signing identities**, **iOS certificates**, **Reference name**, team admin needed; with the
+  integration "the certificate private key has to be exported too" for `fetch-signing-files`, which this route therefore
+  does not use; the integration "will expose necessary environment variables during the build").
+- Codemagic CLI tools: https://github.com/codemagic-ci-cd/cli-tools/tree/master/docs (`certificates list` with `--json`;
+  `bundle-ids list --bundle-id-identifier --strict-match-identifier`; `bundle-ids profiles --bundle-ids --type
+  TVOS_APP_STORE --state ACTIVE`; `profiles get --save`; `profiles create BUNDLE_ID_RESOURCE_ID --certificate-ids --type
+  TVOS_APP_STORE --save` with no key option; common `--profiles-dir`; `xcode-project use-profiles --profile` takes a glob
+  and writes `$HOME/export_options.plist`).
 - Apple, "Certificates" support page: https://developer.apple.com/support/certificates/ (builds uploaded but not yet
   submitted for App Review "may be marked as Invalid Binary" when signed with a revoked certificate).
