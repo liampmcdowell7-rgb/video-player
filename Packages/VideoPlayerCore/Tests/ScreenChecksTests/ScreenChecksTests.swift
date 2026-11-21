@@ -535,7 +535,7 @@ final class ScreenChecksTests: XCTestCase {
     }
 
     /// #36 group 4 (R264): the lockup caption shrinks to the floor, then wraps (never the marquee, never the hidden spacer
-    /// line of R259); both rows of lockup cards reserve one caption height; the artwork's height is fixed in both cards.
+    /// line of R259; R354: in steps, chosen by `ViewThatFits`); both rows of lockup cards reserve one caption height; the artwork's height is fixed in both cards.
     /// Structure only: the pictures 50, 52, 55 and 56 of the next run show the result.
     func testLockupCaptionsWrapInsteadOfBeingCutAndEveryRowReservesOneHeight() throws {
         guard let poster = try appSource("App/Shared/PosterCard.swift"),
@@ -546,7 +546,11 @@ final class ScreenChecksTests: XCTestCase {
         XCTAssertFalse(caption.contains("fadesAtRest"), "CardCaption still uses the marquee:\n\(caption)")
         XCTAssertFalse(caption.contains("MarqueeText"), "CardCaption still uses the marquee:\n\(caption)")
         XCTAssertFalse(caption.contains("Text(verbatim: \" \")"), "the hidden spacer line is still there:\n\(caption)")
-        XCTAssertTrue(caption.contains(".minimumScaleFactor(readable)"), "the caption does not shrink to the floor first")
+        // R354 (item 5): the system chooses in one layout pass: one Caption line, one floor line, then the wrap.
+        XCTAssertTrue(caption.contains("ViewThatFits(in: .horizontal)"), "the caption is not chosen by ViewThatFits (R354)")
+        XCTAssertTrue(caption.contains("oneLine(TVTextStyle.caption)"), "the caption does not try one Caption line first")
+        XCTAssertTrue(caption.contains("oneLine(TVTextStyle.caption2)"), "the caption does not try one line at the floor next")
+        XCTAssertFalse(caption.contains("@State private var natural"), "the caption still switches on a measured state (R354)")
         XCTAssertTrue(caption.contains("TVTextStyle.caption2.font"), "the wrapped caption is not at the floor size (Caption 2)")
         XCTAssertTrue(caption.contains(".frame(minHeight: reserved"), "the caption does not take the row's reserved height")
         XCTAssertTrue(caption.contains(".preference(key: CaptionHeightKey.self"), "the caption does not report its height")
