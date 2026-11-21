@@ -8,3 +8,7 @@ Sources/SourcePlex/PlexModels.swift (section `Directory`/`Location`, `viewOffset
 (scripts/record-mediaserver-fixtures.sh would need a Plex mode, with tokens redacted).
 
 Tokens in these files are placeholders (`account-token-placeholder`, `server-token-placeholder`), not real values.
+
+`media-providers.json` (added 21 Nov 2026, R308) is written by hand from the example of `GET /media/providers` in the
+OpenAPI file of the PMS reference (read 21 Nov 2026), trimmed to the library provider and its `timeline` feature
+(`key`, `scrobbleKey`, `unscrobbleKey`). Also not recorded.

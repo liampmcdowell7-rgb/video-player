@@ -4,7 +4,7 @@ import VideoPlayerCore
 
 /// A stand-in for plex.tv and for one Plex Media Server, answering from the HAND-WRITTEN fixtures in Fixtures/ (see its
 /// README). It is an `HTTPTransport`, so nothing touches the network. It records every request, so tests can check headers,
-/// that no token leaks, and that no write ever reaches the server (R305).
+/// that no token leaks, and exactly which writes reach the server (none unless a test turns two-way watch state on, R308).
 final class FakePlexServer: HTTPTransport, @unchecked Sendable {
     struct NetworkDown: Error, CustomStringConvertible {
         var url: String
@@ -36,8 +36,14 @@ final class FakePlexServer: HTTPTransport, @unchecked Sendable {
     /// Every Part's bytes: (offset * 7 + 3) mod 251, `partSize` long.
     var partSize: Int64 = 1000
     var rangesSupported = true
+    /// `GET /media/providers` (R308); nil answers 404, so the writer falls back to the documented paths.
+    var providers: Data?
+    /// The paths that accept a write (timeline POST, scrobble and unscrobble PUT) and the status they answer with.
+    var writePaths: Set<String> = ["/:/timeline", "/:/scrobble", "/:/unscrobble"]
+    var writeStatus = 200
 
     init() throws {
+        providers = try Fixture.data("media-providers.json")
         resourcesData = try Fixture.data("resources.json")
         sections = try Fixture.data("sections.json")
         lists["/library/sections/1/all"] = try Fixture.metadata("section-1-all.json")
@@ -60,8 +66,17 @@ final class FakePlexServer: HTTPTransport, @unchecked Sendable {
         let host = request.url.host ?? ""
         if Self.isPlexTV(request.url) { return plexTV(request) }
         guard reachableHosts.contains(host) else { throw NetworkDown(url: request.url.absoluteString) }
-        if request.method != "GET" && request.method != "HEAD" { return HTTPResponse(statusCode: 400) }
+        if request.method != "GET" && request.method != "HEAD" { return write(request) }
         return server(request)
+    }
+
+    /// Writes (R308): the timeline as POST, scrobble and unscrobble as PUT, with the server token. Anything else: 400.
+    private func write(_ request: HTTPRequest) -> HTTPResponse {
+        let path = request.url.path
+        guard request.headers["X-Plex-Token"] == serverToken else { return HTTPResponse(statusCode: 401) }
+        guard writePaths.contains(path) else { return HTTPResponse(statusCode: 400) }
+        let expected = path.hasSuffix("timeline") ? "POST" : "PUT"
+        return HTTPResponse(statusCode: request.method == expected ? writeStatus : 400)
     }
 
     // MARK: plex.tv
@@ -98,6 +113,10 @@ final class FakePlexServer: HTTPTransport, @unchecked Sendable {
             return HTTPResponse(statusCode: 200, headers: ["Content-Type": "text/xml"], body: Data("<MediaContainer size=\"0\"/>".utf8))
         }
         if path == "/library/sections" { return HTTPResponse(statusCode: 200, headers: ["Content-Type": "application/json"], body: sections) }
+        if path == "/media/providers" {
+            guard let providers else { return HTTPResponse(statusCode: 404) }
+            return HTTPResponse(statusCode: 200, headers: ["Content-Type": "application/json"], body: providers)
+        }
         if let list = lists[path] { return page(list, request: request) }
         if path.hasPrefix("/library/parts/") { return part(request) }
         // A picture (thumb or art): invented bytes, the same length as a Part (no real image is needed).

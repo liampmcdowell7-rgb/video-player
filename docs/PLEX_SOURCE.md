@@ -314,6 +314,10 @@ per-source switch "Sync Watched Status with Plex", off by default; (3) newer cha
 the app's own change time) and a queue for writes made while the server cannot be reached, replayed with `offline=1` and
 `updated`. With the switch off the stage 6 behaviour above stays exactly as it is. Stage 4 is the owner's device check.
 
+**Built, two-way stage 1 (R308):** `PlexWatchWriter` (SourcePlex) behind the protocol `ServerWatchWriting`
+(VideoPlayerCore): the three calls exactly as quoted above, paths from `/media/providers` (documented fallback), the token
+in a header only; `ServerTimelineRhythm` decides when a report is due (every state change, otherwise every 10 seconds).
+
 ## 7. Test plan per stage (no real server, no network)
 
 The pattern already used for Jellyfin and Emby (`Tests/SourceJellyfinTests/`: a fake server, JSON fixtures, client

@@ -1,0 +1,10 @@
+{"MediaContainer": {"size": 1, "friendlyName": "Test Server", "machineIdentifier": "machine0001",
+  "MediaProvider": [
+    {"identifier": "com.plexapp.plugins.library", "title": "Library", "types": "video,audio,photo", "protocols": "stream,download",
+     "Feature": [
+       {"key": "/library/sections", "type": "content"},
+       {"key": "/hubs/search", "type": "search"},
+       {"scrobbleKey": "/:/scrobble", "unscrobbleKey": "/:/unscrobble", "key": "/:/timeline", "type": "timeline"},
+       {"type": "manage"}
+     ]}
+  ]}}
