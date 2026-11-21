@@ -364,6 +364,17 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(result.passed, "\(name): " + result.text)
     }
 
+    /// R341: "<name>-TITLES": the person page lists Sample Actor 1's six sample titles (five movies, one show) as cards.
+    func personPageCheck(_ name: String, in app: XCUIApplication) {
+        let wanted: [String] = (1...5).map { "Sample Movie \($0)" } + ["Sample Show 1"]
+        let labels: [String] = app.buttons.allElementsBoundByIndex.map(\.label)
+        let missing: [String] = wanted.filter { title in !labels.contains { $0.hasPrefix(title) } }
+        let extra: Bool = labels.contains { $0.hasPrefix("Sample Movie 6") || $0.hasPrefix("Sample Show 2") }
+        let ok: Bool = missing.isEmpty && !extra
+        note("\(name)-TITLES", (ok ? "PERSON TITLES OK" : "PERSON TITLES WRONG") + "\nmissing: \(missing)\nother titles listed: \(extra)")
+        XCTAssertTrue(ok, "\(name): missing \(missing), other titles \(extra)")
+    }
+
     /// R335 (docs/HIG_AUDIT.md T1, T2): Down from the tab bar onto the first portrait card, its picture
     /// ("<name>", the system lift on a borderless lockup), and the "-LOCKUP" note: the caption (the StaticText with the
     /// focused card's title) must be inside the focused card (`ScreenRules.captionInLockup`). A caption that is not exposed
@@ -1331,6 +1342,16 @@ final class ScreenshotTests: XCTestCase {
             settle(); shot("77-movie-long-synopsis")
             if open("Sample synopsis", in: app, name: "77-movie-long-synopsis-page") { settle(); shot("77-movie-long-synopsis-page"); back() }
             for _ in 0..<4 { XCUIRemote.shared.press(.down) }; sleep(1); shot("77-movie-long-synopsis-cast")
+            // R341 (docs/HIG_AUDIT.md T8): Select on a cast entry opens that person's page, the library's titles with them in
+            // the same poster grid. Sample Actor 1 is in Sample Movie 1 to 5 and Sample Show 1 (UITestFixtureDetails).
+            let actor: XCUIElement = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Sample Actor 1,")).firstMatch
+            if focus(actor.exists ? actor : control("Sample Actor 1", in: app), in: app) {
+                XCUIRemote.shared.press(.select)
+                if waitForScreen("screen.person", in: app, timeout: 20), waitFor("Sample Movie 5", in: app, timeout: 20) {
+                    settle(); shot("79-person-page")
+                    personPageCheck("79-person-page", in: app)
+                } else { hierarchy("79-person-page", of: app); notReached("79-person-page", "Select on Sample Actor 1 did not open the person page.") }
+            } else { notReached("79-person-page", "Could not move the focus to Sample Actor 1 (focus on \(focusedLabel(in: app))).") }
         } else { hierarchy("77-movie-long-synopsis", of: app); notReached("77-movie-long-synopsis", "The page or its fake synopsis did not appear.") }
         app.terminate()
 

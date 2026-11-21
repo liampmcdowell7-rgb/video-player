@@ -110,11 +110,17 @@ final class OnlineServices {
         #endif
         // #29: typed steps instead of a ternary between a client and nil.
         guard freeSourcesOn else { wikidata = nil; return }
+        let cache = JSONFileMetadataCache(directory: ArtworkFolders.metadata)
+        let client = WikidataClient(transport: URLSessionTransport(), cache: cache, userAgent: Self.userAgent, language: Self.wikidataLanguage)
+        wikidata = client
+    }
+
+    /// The language Wikidata answers in: the device's first preferred language, two letters. The stored-only client of the
+    /// person page (R341) uses the same, so it reads the same stored answers.
+    static var wikidataLanguage: String {
         var language = "en"
         if let preferred: String = Locale.preferredLanguages.first { language = String(preferred.prefix(2)) }
-        let cache = JSONFileMetadataCache(directory: ArtworkFolders.metadata)
-        let client = WikidataClient(transport: URLSessionTransport(), cache: cache, userAgent: Self.userAgent, language: language)
-        wikidata = client
+        return language
     }
 
     private func rebuildSegmentLookup() {
@@ -167,6 +173,40 @@ final class OnlineServices {
         let service: LayeredDetailsService = LayeredDetailsService.online(store: store, wikidata: wikidata, tmdb: tmdbSource, server: server)
         let layered: LayeredDetails = await service.details(key: key)
         return layered.details
+    }
+
+    /// R341 (Decided by the owner, 21 Nov 2026): a title's synopsis and cast from what is already stored on this Apple TV,
+    /// for the person page. The same layers as `details(key:)`, Wikidata while Free Data Sources is on and TMDB while a key
+    /// is set, but built on `NoNetworkTransport`: an answer that is not stored is missing, and nothing is sent. The media
+    /// server's layer is left out, since asking it would be a request.
+    func storedDetails() -> PersonTitles.Details {
+        #if DEBUG
+        // #21 D: the screenshot job's fake cast, as on the movie and show pages.
+        if UITestMode.current == .fixtures {
+            let fixtureStore: SQLiteLibraryStore = store
+            let fixtures: PersonTitles.Details = { @Sendable (key: String) async -> TitleDetails? in
+                await UITestFixtureDetails.details(key: key, store: fixtureStore)
+            }
+            return fixtures
+        }
+        #endif
+        // #29: typed steps, no ternaries between a client and nil.
+        let cache = JSONFileMetadataCache(directory: ArtworkFolders.metadata)
+        var tmdb: (any TitleDetailsSource)? = nil
+        if let key = keys.key(.tmdb), !Self.isUITestLaunch {
+            let client: TMDBClient = PersonTitles.storedClient(credentials: OnlineKeyStore.tmdbCredentials(key), cache: cache, region: region)
+            tmdb = StoredTMDBDetails(store: store, client: client)
+        }
+        var wikidata: WikidataClient? = nil
+        if freeSourcesOn, !Self.isUITestLaunch {
+            wikidata = PersonTitles.storedWikidata(cache: cache, userAgent: Self.userAgent, language: Self.wikidataLanguage)
+        }
+        let service: LayeredDetailsService = LayeredDetailsService.online(store: store, wikidata: wikidata, tmdb: tmdb, server: nil)
+        let details: PersonTitles.Details = { @Sendable (key: String) async -> TitleDetails? in
+            let layered: LayeredDetails = await service.details(key: key)
+            return layered.details
+        }
+        return details
     }
 
     /// Bytes of one picture for the Top Shelf folder (a cached file, or a download of the matched poster). Nil when there is none.

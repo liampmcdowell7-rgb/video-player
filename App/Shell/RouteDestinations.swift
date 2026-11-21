@@ -13,6 +13,8 @@ struct RouteDestinations: ViewModifier {
                 FilesFolderView(sourceID: sourceID, sourceName: sourceName, path: path).screenIdentifier("screen.folder")
             case .needsReview:
                 NeedsReviewView().screenIdentifier("screen.needsReview")
+            case .person(let name):
+                PersonView(name: name).screenIdentifier("screen.person")
             }
         }
     }

@@ -127,9 +127,10 @@ struct SynopsisLink: View {
     }
 }
 
-/// The cast, in billing order, as a horizontal shelf of photo, name and role (#15 6.2). Each entry takes focus so the remote
-/// can move along the shelf; there is no person page, so selecting does nothing (OPEN_QUESTIONS R182). Shared by the movie
-/// page and the show page (#22 B).
+/// The cast, in billing order, as a horizontal shelf of photo, name and role (#15 6.2). Shared by the movie page and the show
+/// page (#22 B). R341 (Decided by the owner, 21 Nov 2026; replaces "selecting does nothing", R182): each entry is a
+/// borderless lockup that opens the person's page (`PersonView`), the titles in this library with that person, as the
+/// Apple TV app's cast row opens a person. The circle takes the system highlight, as on the poster cards.
 ///
 /// #25 B7 (OPEN_QUESTIONS R201): every entry has the same circle on top: the person's photo when there is one (today only the
 /// generated test photos of the sample library; online photos are not requested), otherwise the system person symbol.
@@ -146,17 +147,21 @@ struct CastShelf: View {
             ScrollView(.horizontal) {
                 LazyHStack(alignment: .top) {
                     ForEach(cast) { person in
-                        VStack {
-                            CastPhoto(url: person.photo, name: person.name)
-                                .frame(width: photoSize, height: photoSize) // design-lint:allow #25 B7: one text-scaled circle for every cast photo or placeholder, so the shelf entries line up (not a fixed card)
-                            FittingText(person.name, style: .callout)
-                            FittingText(person.role ?? " ", style: .caption)
-                                .foregroundStyle(.secondary)
+                        NavigationLink(value: Route.person(person.name)) {
+                            VStack {
+                                CastPhoto(url: person.photo, name: person.name)
+                                    .frame(width: photoSize, height: photoSize) // design-lint:allow #25 B7: one text-scaled circle for every cast photo or placeholder, so the shelf entries line up (not a fixed card)
+                                    // design-lint:allow R341: Apple's tvOS media catalog sample attaches the borderless lockup's highlight by hand to a custom artwork view; the system effect, not our own
+                                    .hoverEffect(.highlight)
+                                FittingText(person.name, style: .callout)
+                                FittingText(person.role ?? " ", style: .caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding()
                         }
-                        .padding()
-                        // design-lint:allow a cast entry has no action (no person page), but it must take focus so the remote can move along the shelf
-                        .focusable()
+                        .buttonStyle(.borderless)
                         .accessibilityElement(children: .combine)
+                        .accessibilityHint("Shows the titles with \(person.name) in your library")
                     }
                 }
             }

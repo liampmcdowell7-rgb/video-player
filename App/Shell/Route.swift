@@ -7,4 +7,6 @@ enum Route: Hashable {
     case folder(sourceID: String, sourceName: String, path: String)
     /// Files that could not be sorted (docs/SORTING.md), from the Movies and Shows controls.
     case needsReview
+    /// R341: a cast member's titles in the library, by the name the cast shelf shows.
+    case person(String)
 }
