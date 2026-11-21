@@ -52,7 +52,6 @@ public extension SourceKind {
         switch self {
         case .dropbox: return .platformLimited      // no TV sign-in exists; use Links or a WebDAV bridge
         case .googleDrive: return .platformLimited  // TV sign-in cannot browse a Drive; shared links only
-        case .plex: return .vendorAccountBlocked    // unless the server allows the local network without a token
         case .oneDrive: return .vendorAccountBlocked // client written; needs an app registration (nothing registered)
         default: return .none
         }

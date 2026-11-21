@@ -29,7 +29,7 @@ public enum SourceSetupText {
         case .jellyfin: return "Jellyfin media server"
         case .emby: return "Emby media server"
         case .directLink: return "Link to one video file"
-        case .plex: return "Needs a Plex sign-in"
+        case .plex: return "Plex media server"
         case .oneDrive: return "Needs an app registration"
         case .dropbox, .googleDrive: return "No sign-in for TVs"
         }

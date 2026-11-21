@@ -13,6 +13,7 @@ import SourceSFTP
 import SourceSFTPCitadel
 import SourceFTP
 import SourceOneDrive
+import SourcePlex
 
 /// Turns one saved definition (plus its secret and the approved fingerprint) into the object that talks to the server.
 /// The setup flow and the saved-source code both go through here, so a source behaves the same while it is being added and afterwards.
@@ -138,7 +139,14 @@ struct SourceBuilder {
             return OneDriveSource(configuration: OneDriveConfiguration(clientID: clientID),
                                   tokenStore: tokenStore(definition.id), transport: URLSessionTransport())
 
-        case .plex, .dropbox, .googleDrive:
+        case .plex:
+            // The address that answered when the server was chosen, and the server's token as the secret (R303, R304).
+            // The *.plex.direct certificate is checked by the system as usual (no pin, no exception; UNVERIFIED on tvOS).
+            let url = try requireURL()
+            guard !password.isEmpty else { throw ConnectorError(kindTitle: title, reason: .incomplete("the Plex sign-in")) }
+            return PlexClient(baseURL: url, token: password, identity: PlexClientIdentity(clientIdentifier: deviceID))
+
+        case .dropbox, .googleDrive:
             throw ConnectorError(kindTitle: title, reason: .notIncluded(SourceCatalog.info(for: kind).unavailableNote ?? "This type is not available."))
         }
     }

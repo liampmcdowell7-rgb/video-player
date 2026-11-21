@@ -31,7 +31,7 @@ No public release until every source type that is technically possible has passe
 | Dropbox | (Links, WebDAV bridge) | Platform-limited | n/a |
 | Jellyfin | `SourceJellyfin` | Written; real server 12.4.0 in WSL | 26 unit (recorded responses) + 11 live |
 | Emby | `SourceEmby` | Written; real server 4.10.2.0 in WSL | 26 unit (recorded responses) + 11 live |
-| Plex | `SourcePlex` | Local no-token mode only; no test server | none |
+| Plex | `SourcePlex` | plex.tv code sign-in, server list, browse and index (R300 to R304); hand-written fixtures only, no test server | none |
 
 ---
 

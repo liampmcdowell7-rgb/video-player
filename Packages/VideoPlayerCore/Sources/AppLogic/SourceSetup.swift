@@ -80,6 +80,8 @@ public enum SourceCatalog {
             return "Plain FTP was tested against a real server. Encrypted FTP (FTPS), explicit and implicit, has not been."
         case .upnp:
             return "Finding servers by themselves has not been tested on a device. If none appears, type the device address."
+        case .plex:
+            return "Plays files the Apple TV can play itself; the server never converts a file. Nothing on the server is changed."
         case .sftp:
             return "Only password sign-in is offered here. The server’s host key is shown once for you to approve and is checked on every connection."
         default:
@@ -123,8 +125,8 @@ public enum SourceCatalog {
             title = "Web Link"; summary = "A direct link to one video file, including Dropbox, Google Drive and OneDrive file links. An iCloud Drive sharing page cannot be played."
             fields = [name, f(.address, "Link", "https://nas.local/a.mkv")]
         case .plex:
-            title = "Plex"; summary = "A Plex media server."
-            note = "blocked: Plex needs a Plex account sign-in, which this app does not offer yet. Use the Plex server’s media folder through SMB or WebDAV instead."
+            // No form fields: Plex has its own page (a code to enter at plex.tv/link, then the server list; R302, R303, R304).
+            title = "Plex"; summary = "A Plex media server, signed in with a code shown on this Apple TV."
         case .oneDrive:
             title = "OneDrive"; summary = "A OneDrive folder."
             if (oneDriveClientID ?? "").isEmpty { note = oneDriveBlockedNote } else { fields = [name] }

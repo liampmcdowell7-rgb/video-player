@@ -23,9 +23,9 @@ final class SourceStatusTests: XCTestCase {
     func testLimitsMatchTheDocumentedDecisions() {
         XCTAssertEqual(SourceKind.dropbox.limit, .platformLimited)
         XCTAssertEqual(SourceKind.googleDrive.limit, .platformLimited)
-        XCTAssertEqual(SourceKind.plex.limit, .vendorAccountBlocked)
+        XCTAssertEqual(SourceKind.plex.limit, .none, "R304: Plex is built; it counts toward the release gate")
         XCTAssertEqual(SourceKind.oneDrive.limit, .vendorAccountBlocked)
-        let limited: Set<SourceKind> = [.dropbox, .googleDrive, .plex, .oneDrive]
+        let limited: Set<SourceKind> = [.dropbox, .googleDrive, .oneDrive]
         for kind in SourceKind.allCases where !limited.contains(kind) {
             XCTAssertEqual(kind.limit, .none, "\(kind)")
             XCTAssertTrue(kind.gatesPublicRelease)

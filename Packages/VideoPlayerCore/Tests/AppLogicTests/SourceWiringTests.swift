@@ -60,12 +60,12 @@ final class SourceWiringTests: XCTestCase {
         XCTAssertEqual(Set(SourceCatalog.all.map(\.title)).count, SourceKind.allCases.count, "no two kinds share a title")
     }
 
-    func testTheKindsTheUserListedAreAvailableAndPlexDropboxDriveAndOneDriveAreNot() {
+    func testTheKindsTheUserListedAreAvailableAndDropboxDriveAndOneDriveAreNot() {
         for kind in [SourceKind.smb, .nfs, .sftp, .ftp, .upnp, .jellyfin, .emby, .directLink, .webdav] {
             XCTAssertTrue(SourceCatalog.info(for: kind).isAvailable, "\(kind)")
             XCTAssertFalse(SourceCatalog.info(for: kind).fields.isEmpty, "\(kind) has fields to fill in")
         }
-        for kind in [SourceKind.plex, .oneDrive, .dropbox, .googleDrive] {
+        for kind in [SourceKind.oneDrive, .dropbox, .googleDrive] {
             XCTAssertFalse(SourceCatalog.info(for: kind).isAvailable, "\(kind)")
             XCTAssertTrue(SourceCatalog.info(for: kind).fields.isEmpty)
         }
@@ -83,9 +83,16 @@ final class SourceWiringTests: XCTestCase {
         XCTAssertEqual(SourceCatalog.catalog().filter { $0.kind == .oneDrive }.count, 1)
     }
 
-    func testPlexNoteNamesPlexAndSaysWhatIsMissing() {
-        XCTAssertEqual(SourceCatalog.info(for: .plex).unavailableNote,
-                       "blocked: Plex needs a Plex account sign-in, which this app does not offer yet. Use the Plex server’s media folder through SMB or WebDAV instead.")
+    /// R304: Plex is available. It has no form fields because its own page asks for a code and lists the servers.
+    func testPlexIsAvailableWithItsOwnSignInPageAndNoFormFields() {
+        let plex = SourceCatalog.info(for: .plex)
+        XCTAssertTrue(plex.isAvailable)
+        XCTAssertNil(plex.unavailableNote)
+        XCTAssertTrue(plex.fields.isEmpty)
+        XCTAssertEqual(SourceSetupText.rowLine(.plex), "Plex media server")
+        XCTAssertEqual(plex.statusLine, "Not yet verified against a real server", "hand-written replies only; no real server")
+        let available = SourceCatalog.catalog().prefix { $0.isAvailable }.map(\.kind)
+        XCTAssertTrue(available.contains(.plex), "listed with the available kinds")
     }
 
     /// docs/NAMES.md: every source type is listed by its real name, and every blocked one says "blocked:" and names the

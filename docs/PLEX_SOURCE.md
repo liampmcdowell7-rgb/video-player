@@ -1,7 +1,8 @@
 # Plex as a source type: research, plan and build status
 
 **Build status (owner's request of 20 Nov 2026 to build Plex; R300 onwards).** Stage 1 (client, models, fake server; R300),
-stage 2 (the sign-in code page; R302) and stage 3 (server list and connection order; R303) are built and tested offline with hand-written fixtures; later stages are listed
+stage 2 (the sign-in code page; R302), stage 3 (server list and connection order; R303) and stage 4 (browse and index;
+Plex is available in Add a Source; R304) are built and tested offline with hand-written fixtures; later stages are listed
 in section 8. Nothing was compiled for tvOS and no Plex server or plex.tv was contacted. Section 10 names, per screen,
 the Apple screen it follows (R301).
 

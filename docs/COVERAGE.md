@@ -279,7 +279,7 @@ stray-folder guard 1, playback-status doc table 1 (474 rows).
 | G26 | Restore the full player from Picture in Picture | not started | PiP itself is on (D3) | R92 |
 | G27 | HDR10+ | partly built | Apple TV 4K (3rd generation) and later support HDR10+ (earlier reading was wrong); HDR10+ in the video stream is kept and stated; the Matroska HDR10+ field is not copied yet (R136) | docs/SPECS.md platform decision 7 |
 | G28 | On-device AI subtitles (backlog 30) | not started | research item | |
-| G29 | OneDrive and Plex sources | blocked (account) | OneDrive needs an app registration, Plex a vendor account (your R30) | docs/SOURCES.md |
+| G29 | OneDrive and Plex sources | OneDrive blocked (account); Plex built, not verified | OneDrive needs an app registration (your R30); Plex signs in through plex.tv (R267, R300 to R304), tested only with hand-written fixtures | docs/SOURCES.md, docs/PLEX_SOURCE.md |
 | G30 | Provider logo next to the attribution | not done, your decision | The data provider's terms say its logo "must" be used; no logo is added (docs/ARTWORK_DISCOVER.md section 5a) | |
 
 ## 2. Full table: docs/FEATURE_BACKLOG.md
@@ -314,7 +314,7 @@ stray-folder guard 1, playback-status doc table 1 (474 rows).
 | 24 Deinterlacing | not started | G7 | |
 | 25 Subtitle search and download | not started | G8 | |
 | 26 "Are you still watching?" | not started | G9 | |
-| 27 All source types | partly | all clients written and tested; OneDrive and Plex blocked (G29); SMB/NFS verified only against stand-ins (R23) | docs/SOURCES.md, docs/SOURCES_WIRING.md |
+| 27 All source types | partly | all clients written and tested; OneDrive blocked, Plex built but never run against a real server (G29); SMB/NFS verified only against stand-ins (R23) | docs/SOURCES.md, docs/SOURCES_WIRING.md |
 | 28 Disc structures | not started | G24 | |
 | 29 Prefetch to cache (was offline downloads) | partly | next-episode prefetch timing in PlaybackLogic; no title prefetch | R57 |
 | 30 On-device AI subtitles | not started | G28 | |

@@ -17,7 +17,7 @@ been compiled for tvOS or run on a device (see the never-compiled list in the re
 | Emby | address, user, password | EmbyClient + PinnedTransport | TLS (https only) | URL (or loopback when pinned) | Tested against a real server |
 | Web Link | link | LinksSource | none | URL | same as SMB |
 | OneDrive | none yet | OneDriveSource | none | URL | blocked: needs an app registration (no client ID exists; SourceConfiguration.oneDriveClientID is nil) |
-| Plex | none | none | none | none | blocked, existing note kept |
+| Plex | `PlexSetupView` (code, then server list) | none (no form fields) | `SourceBuilder` `.plex` → `PlexClient` (address that answered, server token as the secret) | none | available since R304; fixtures only |
 | Dropbox, Google Drive | none | none | none | none | blocked, existing notes kept |
 
 The label text comes from one function, `SourceCatalog.statusLine`, and is shown in three places: the type list (SourceKindRow),
