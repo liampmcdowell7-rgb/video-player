@@ -318,6 +318,23 @@ final class EmbyClientTests: XCTestCase {
             if name == "authenticate.json" { XCTAssertTrue(text.contains("REDACTED-TOKEN")) }
         }
     }
+
+    // R374 (FIXTURE: hand-written items in the API's shape, invented paths and ratings): the item's `OfficialRating` is
+    // kept with each of its files; an item without one gives nil.
+    func testTheOfficialRatingIsKeptWithEachFile() async throws {
+        var rated = makeItem(id: "r1", sources: [(id: "r1", path: "/media/Movies/Rated Film/Rated Film.mkv", size: 10),
+                                                 (id: "r2", path: "/media/Movies/Rated Film/Rated Film - 4K.mkv", size: 40)])
+        rated["OfficialRating"] = "PG-13"
+        let plain = makeItem(id: "p1", sources: [(id: "p1", path: "/media/Movies/Plain Film/Plain Film.mkv", size: 10)])
+        let server = try FakeEmbyServer(items: [rated, plain], folders: folders([("Movies", ["/media/Movies"])]))
+        let source = client(server)
+        let first = try await source.officialRating(at: "/Movies/Rated Film/Rated Film.mkv")
+        let second = try await source.officialRating(at: "/Movies/Rated Film/Rated Film - 4K.mkv")
+        let none = try await source.officialRating(at: "/Movies/Plain Film/Plain Film.mkv")
+        XCTAssertEqual(first, "PG-13")
+        XCTAssertEqual(second, "PG-13")
+        XCTAssertNil(none)
+    }
 }
 
 /// Wraps a transport and answers a ranged GET with the whole file (status 200).

@@ -129,6 +129,9 @@ public struct LibraryItem: Equatable, Sendable, Identifiable {
     public var containers: Set<ContainerFormat>
     public var runtime: Double?
     public var watch: WatchState
+    /// R374: the content rating from the title's own NFO file, as written ("PG-13", "Rated R"). Nil: not read yet; "":
+    /// read, and the file has none.
+    public var contentRating: String? = nil
 }
 
 public struct ItemMetadata: Equatable, Sendable {
@@ -137,13 +140,17 @@ public struct ItemMetadata: Equatable, Sendable {
     public var rating: Double?
     public var genres: [String]?
     public var tmdbID: Int?
+    /// R374: the content rating read from the title's NFO file ("" records that the file has none).
+    public var contentRating: String?
 
-    public init(title: String? = nil, year: Int? = nil, rating: Double? = nil, genres: [String]? = nil, tmdbID: Int? = nil) {
+    public init(title: String? = nil, year: Int? = nil, rating: Double? = nil, genres: [String]? = nil, tmdbID: Int? = nil,
+                contentRating: String? = nil) {
         self.title = title
         self.year = year
         self.rating = rating
         self.genres = genres
         self.tmdbID = tmdbID
+        self.contentRating = contentRating
     }
 }
 

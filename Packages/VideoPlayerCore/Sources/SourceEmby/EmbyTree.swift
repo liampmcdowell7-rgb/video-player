@@ -15,6 +15,8 @@ struct EMTree: Sendable {
         var entry: SourceEntry
         var itemID: String?
         var mediaSourceID: String?
+        /// R374: the item's `OfficialRating`, as the server writes it.
+        var officialRating: String? = nil
     }
 
     private(set) var nodes: [String: Node] = [
@@ -78,7 +80,7 @@ struct EMTree: Sendable {
                     path: full, name: relative[relative.count - 1], itemID: item.id, mediaSourceID: file.id,
                     size: (file.size ?? 0) > 0 ? file.size : nil,   // 0 means "not measured yet" on some servers
                     contentType: file.container.flatMap(contentType(forContainer:)), token: file.etag,
-                    serverType: serverItemType(item.type))
+                    serverType: serverItemType(item.type), officialRating: item.officialRating)
             }
         }
         return tree
@@ -111,14 +113,14 @@ struct EMTree: Sendable {
 
     private mutating func addFile(
         path: String, name: String, itemID: String, mediaSourceID: String?,
-        size: Int64?, contentType: String?, token: String?, serverType: ServerItemType? = nil
+        size: Int64?, contentType: String?, token: String?, serverType: ServerItemType? = nil, officialRating: String? = nil
     ) {
         if nodes[path] != nil { return }   // two items claiming one path: the first one stays
         let parent = EMTree.dirname(path)
         addDirectory(parent)
         nodes[path] = Node(
             entry: SourceEntry(path: path, name: name, isDirectory: false, size: size, contentType: contentType, serverToken: token, serverItemType: serverType),
-            itemID: itemID, mediaSourceID: mediaSourceID)
+            itemID: itemID, mediaSourceID: mediaSourceID, officialRating: officialRating)
         childPaths[parent, default: []].insert(path)
     }
 

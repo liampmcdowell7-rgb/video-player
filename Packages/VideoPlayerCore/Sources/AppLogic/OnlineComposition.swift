@@ -31,7 +31,7 @@ extension LayeredDetailsService {
     /// (`tmdb` not nil). For every other source the server layer answers nothing, so their order is unchanged.
     public static func online(store: any LibraryStore, wikidata: WikidataClient?,
                               tmdb: (any TitleDetailsSource)?, server: (any ServerMetadataProviding)? = nil,
-                              region: String? = nil) -> LayeredDetailsService {
+                              region: String? = nil, reader: (any SidecarReading)? = nil) -> LayeredDetailsService {
         var wikidataSource: (any TitleDetailsSource)? = nil
         if let wikidata {
             // R372: the Region setting picks Wikidata's rating system.
@@ -40,8 +40,9 @@ extension LayeredDetailsService {
         let wikidataLayer: Layer? = layer(wikidataSource)
         let tmdbLayer: Layer? = layer(tmdb)
         var serverSource: (any TitleDetailsSource)? = nil
-        if let server {
-            serverSource = ServerDetailsLayer(store: store, server: server)
+        if server != nil || reader != nil {
+            // R374: the server's synopsis and rating, then the title's own NFO rating (read once, kept in the library).
+            serverSource = SourceDetailsLayer(store: store, server: server, reader: reader)
         }
         let sourceLayer: Layer? = layer(serverSource)
         return LayeredDetailsService(source: sourceLayer, wikidata: wikidataLayer, tmdb: tmdbLayer)

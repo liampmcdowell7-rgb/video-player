@@ -160,17 +160,26 @@ Synopsis and cast: the source's own details first (Jellyfin, Emby, Plex servers,
 (Free Data Sources on), then TMDB (key set). A later layer fills only gaps: synopsis, cast list, a cast member's role or
 photo by name. Alternative: TMDB first.
 
-Content (age) rating (R371, R372): its own order, first found wins: the source's own rating (Plex `contentRating`), then
+Content (age) rating (R371, R372, R374): its own order, first found wins: the source's own rating, then
 TMDB's certification for the Region setting (key set), then Wikidata's official rating (Free Data Sources on), the Region
 setting's system first. Wikidata properties read on Wikidata's property pages (21 Nov 2026): P1657 MPA film rating, P2629
 BBFC rating, P1981 FSK film rating, P3156 Australian Classification, P3216 ClassInd rating, and P7367 content descriptor
 (a qualifier on those rating statements); they are asked in the same request as the title's other facts. No Wikidata
 property for the US TV Parental Guidelines was found. Content descriptors are shown only with Wikidata's own rating.
+The source's own rating (R374) is, in order: the media server's field, Plex `contentRating`, Jellyfin `OfficialRating`
+(API page https://api.jellyfin.org, BaseItemDto) and Emby `OfficialRating` (https://dev.emby.media, ItemsService getItems,
+BaseItemDto), read from the item list the client already holds; then the title's own NFO file (`<mpaa>`, else
+`<certification>`, in the `<movie>` or `<episodedetails>` document), the `.nfo` next to the video with the same name,
+read once when the page is first opened and kept in the library (`items.content_rating`, schema 7; "" records a file
+without a rating). UNVERIFIED: whether Jellyfin and Emby send `OfficialRating` in the items list without it being asked
+for in `Fields` (it is not a `Fields` value; no server here), and that the JSON key is spelled exactly so on a live
+server. Limits: a folder-wide `movie.nfo` or `tvshow.nfo` is not read, and a changed NFO file is not read again.
 Rejected: Common Sense Media (its API needs a partnership agreement, its reviews are copyrighted, and it would be a new
 outside contact).
 
 Honest coverage today: layer 1 is filled **for Plex files only** (the server's synopsis, read from the listing the source
-already holds; R307). For every other source it stays empty (the NFO reader, Jellyfin and Emby do not keep a synopsis or
+already holds; R307); only its content rating also comes from Jellyfin, Emby and NFO files (R374). For every other
+source its synopsis stays empty (the NFO reader, Jellyfin and Emby do not keep a synopsis or
 cast), so their order is unchanged; and the IMDb id from an NFO or a server is not stored either
 (IntroDB then needs TMDB or Wikidata to find it). How much of a real library each layer covers can only be measured on a
 device with real sources: checklist item K8 records it. `LayeredDetails.used` says which layers gave something.

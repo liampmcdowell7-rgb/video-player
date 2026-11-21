@@ -243,7 +243,7 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
     static let itemColumns = """
     i.id, i.kind, i.title, i.year, i.rating, i.series_id, i.series_title, i.season, i.episode, i.episode_end, i.tmdb_id, i.added_at,
     i.version_count, i.effective_file_id, i.max_res, i.hdr_mask, i.dv_mask, i.max_channels, i.atmos, i.container_mask, i.runtime,
-    i.position, i.wduration, i.watched, i.play_count, i.last_played, i.favorite, i.hidden
+    i.position, i.wduration, i.watched, i.play_count, i.last_played, i.favorite, i.hidden, i.content_rating
     """
 
     static func mapItem(_ s: SQLiteStatement) -> LibraryItem {
@@ -258,7 +258,8 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
             watch: WatchState(
                 position: s.double(21), duration: s.optDouble(22), watched: s.bool(23), playCount: s.int(24),
                 lastPlayed: lastPlayed > 0 ? Date(timeIntervalSince1970: lastPlayed) : nil, favorite: s.bool(26), hiddenFromContinue: s.bool(27)
-            )
+            ),
+            contentRating: s.optText(28)
         )
     }
 
@@ -285,6 +286,7 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
             if let y = m.year { try db.run("UPDATE items SET year = ? WHERE id = ?", [.int(Int64(max(0, y))), .int(itemID)]) }
             if let r = m.rating { try db.run("UPDATE items SET rating = ? WHERE id = ?", [.double(max(0, r)), .int(itemID)]) }
             if let t = m.tmdbID { try db.run("UPDATE items SET tmdb_id = ? WHERE id = ?", [.int(Int64(t)), .int(itemID)]) }
+            if let c = m.contentRating { try db.run("UPDATE items SET content_rating = ? WHERE id = ?", [.text(c), .int(itemID)]) }
             if let genres = m.genres {
                 try db.run("DELETE FROM item_genres WHERE item_id = ?", [.int(itemID)])
                 for g in Set(genres.map { $0.trimmingCharacters(in: .whitespaces) }) where !g.isEmpty {

@@ -3,7 +3,7 @@ import Foundation
 /// The database layout. `PRAGMA user_version` holds the schema number; each step in `migrations` upgrades by one.
 /// A database written by a newer app is refused (`LibraryIndexError.newerSchema`), never modified.
 enum LibrarySchema {
-    static let currentVersion = 6
+    static let currentVersion = 7
 
     static let pragmas = """
     PRAGMA journal_mode = WAL;
@@ -221,6 +221,11 @@ enum LibrarySchema {
                 read_at REAL NOT NULL
             )
             """,
+        ],
+        // 6 -> 7: the title's content (age) rating as its own NFO file writes it (R374): NULL until the file is read, "" when
+        // it was read and says none.
+        [
+            "ALTER TABLE items ADD COLUMN content_rating TEXT",
         ],
     ]
 }

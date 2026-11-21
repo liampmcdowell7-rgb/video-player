@@ -201,11 +201,12 @@ extension SQLiteLibraryStore {
         try db.run(
             """
             INSERT INTO items (key, kind, title, sort_title, letter, search, year, series_id, series_title, season, episode, episode_end,
-                               tmdb_id, added_at, review, position, wduration, watched, play_count, last_played, favorite, hidden)
+                               tmdb_id, added_at, review, position, wduration, watched, play_count, last_played, favorite, hidden,
+                               content_rating)
             SELECT ?, kind, title, ?, ?, ?, COALESCE(?, year), ?, ?, season, episode, episode_end, tmdb_id, added_at, review,
                    CASE WHEN ? THEN position ELSE 0 END, CASE WHEN ? THEN wduration ELSE NULL END, CASE WHEN ? THEN watched ELSE 0 END,
                    CASE WHEN ? THEN play_count ELSE 0 END, CASE WHEN ? THEN last_played ELSE 0 END, CASE WHEN ? THEN favorite ELSE 0 END,
-                   CASE WHEN ? THEN hidden ELSE 0 END
+                   CASE WHEN ? THEN hidden ELSE 0 END, content_rating
             FROM items WHERE id = ?
             """,
             [.text(key), .text(sortValue), .text(base.letter), .text(search), SQLValue(year), SQLValue(seriesID), .text(seriesTitle)]

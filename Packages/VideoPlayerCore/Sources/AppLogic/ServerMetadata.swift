@@ -23,6 +23,7 @@ public protocol ServerMetadataProviding: Sendable {
     /// The server's poster (a movie) or still (an episode) for this file, or nil.
     func poster(for file: StoredFile) async -> ServerPicture?
     /// R371: the server's content rating of the title this file belongs to ("PG-13", "TV-MA"), as the server writes it, or nil.
+    /// R374: Plex `contentRating`, Jellyfin and Emby `OfficialRating`.
     func contentRating(for file: StoredFile) async -> String?
 }
 
@@ -34,12 +35,15 @@ public extension ServerMetadataProviding {
 /// Source kinds whose server metadata is used (R307). Only Plex today: Jellyfin and Emby keep their order (R210).
 public enum ServerMetadataKinds {
     public static let used: Set<SourceKind> = [.plex]
+    /// R374: kinds whose server's own content rating is used (the rating's source layer). Only the rating: Jellyfin and
+    /// Emby keep their synopsis and artwork order (R210).
+    public static let rating: Set<SourceKind> = [.plex, .jellyfin, .emby]
 
     /// The file of an item to ask the server about, when that file comes from a source of a used kind.
-    static func file(forItem item: LibraryItem, store: any LibraryStore) async -> StoredFile? {
+    static func file(forItem item: LibraryItem, store: any LibraryStore, kinds: Set<SourceKind> = used) async -> StoredFile? {
         guard let versions = try? await store.versions(of: item.id), !versions.isEmpty,
               let sources = try? await store.sources() else { return nil }
-        let used = Set(sources.filter { Self.used.contains($0.kind) }.map(\.id))
+        let used = Set(sources.filter { kinds.contains($0.kind) }.map(\.id))
         let ordered = versions.filter { $0.id == item.preferredFileID } + versions.filter { $0.id != item.preferredFileID }
         return ordered.first { used.contains($0.sourceID) }
     }
@@ -57,12 +61,18 @@ public struct ServerDetailsLayer: TitleDetailsSource {
     }
 
     public func details(key: String) async -> TitleDetails? {
-        guard case .item(let id)? = ArtworkKey(key), let item = try? await store.item(id: id),
-              let file = await ServerMetadataKinds.file(forItem: item, store: store) else { return nil }
-        let text = await server.summary(for: file)?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let summary = (text?.isEmpty ?? true) ? nil : text
-        // R371: the server's own rating (Plex `contentRating`) is the first layer of the rating.
-        let rating = ContentRating.clean(await server.contentRating(for: file))
+        guard case .item(let id)? = ArtworkKey(key), let item = try? await store.item(id: id) else { return nil }
+        var summary: String?
+        if let file = await ServerMetadataKinds.file(forItem: item, store: store) {
+            let text = await server.summary(for: file)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            summary = (text?.isEmpty ?? true) ? nil : text
+        }
+        // R371, R374: the server's own rating (Plex `contentRating`, Jellyfin and Emby `OfficialRating`) is the first layer
+        // of the rating.
+        var rating: String?
+        if let file = await ServerMetadataKinds.file(forItem: item, store: store, kinds: ServerMetadataKinds.rating) {
+            rating = ContentRating.clean(await server.contentRating(for: file))
+        }
         guard summary != nil || rating != nil else { return nil }
         var details = TitleDetails(overview: summary, cast: [])
         details.contentRating = rating

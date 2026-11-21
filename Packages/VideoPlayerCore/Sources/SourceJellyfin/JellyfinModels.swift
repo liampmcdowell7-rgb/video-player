@@ -47,8 +47,13 @@ struct JFItem: Decodable {
     var mediaSources: [JFMediaSource]?
     /// "Movie", "Episode", "Video"...: what the server\'s own library calls the item (docs/SORTING.md).
     var type: String?
+    /// R374: the item's official content rating ("PG-13", "TV-MA"), the API's `OfficialRating` field (https://api.jellyfin.org/openapi/jellyfin-openapi-stable.json, BaseItemDto, read
+    /// 21 Nov 2026: "The official rating", a string). It is not one of the `Fields` values, so it is not asked for by
+    /// name; whether the server sends it with the items list without being asked is UNVERIFIED (no server here).
+    var officialRating: String?
     enum CodingKeys: String, CodingKey {
         case id = "Id", path = "Path", etag = "Etag", mediaSources = "MediaSources", type = "Type"
+        case officialRating = "OfficialRating"
     }
 }
 

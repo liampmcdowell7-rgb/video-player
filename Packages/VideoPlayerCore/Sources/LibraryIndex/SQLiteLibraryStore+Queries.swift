@@ -96,7 +96,7 @@ extension SQLiteLibraryStore {
         args.append(.int(Int64(limit + 1)))
         var rows: [(LibraryItem, ItemCursor)] = try db.rows(sql, args, cached: false) { s in
             let item = Self.mapItem(s)
-            let cursor = isText ? ItemCursor(text: s.text(28), number: nil, id: item.id) : ItemCursor(text: nil, number: s.double(28), id: item.id)
+            let cursor = isText ? ItemCursor(text: s.text(29), number: nil, id: item.id) : ItemCursor(text: nil, number: s.double(29), id: item.id)
             return (item, cursor)
         }
         var next: ItemCursor?

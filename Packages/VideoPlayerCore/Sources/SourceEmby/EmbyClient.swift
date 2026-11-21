@@ -166,6 +166,12 @@ public actor EmbyClient: MediaSource {
         }
     }
 
+    /// R374: the server's official content rating of the item this file belongs to (its `OfficialRating`), from the item
+    /// list the client already holds; nil when the server gave none. No extra request.
+    public func officialRating(at path: String) async throws -> String? {
+        try await file(at: path).officialRating
+    }
+
     private func file(at path: String) async throws -> EMTree.Node {
         let tree = try await currentTree()
         guard let node = tree.node(at: path) else { throw SourceError.notFound }
