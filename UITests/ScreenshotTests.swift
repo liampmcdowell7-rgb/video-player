@@ -486,6 +486,13 @@ final class ScreenshotTests: XCTestCase {
                     path.append("no key \u{201C}\(label)\u{201D} among \(keys.count) keys"); return false
                 }
                 guard let here = ScreenRules.focusedKey(keys) else {
+                    // R296: fourth run of 20 Nov, 76-search-results-HIERARCHY: the focus was still on the tab bar's Search
+                    // item (y 61, "Focused") above the keyboard row (y 262), so no key was enlarged. Down moves the focus
+                    // into the keyboard; at most three presses, each one in the note.
+                    if press < 3 {
+                        path.append("no enlarged key among \(keys.count) keys (focus on \u{201C}\(focusedLabel(in: app))\u{201D}): Down")
+                        XCUIRemote.shared.press(.down); usleep(400_000); continue
+                    }
                     path.append("no enlarged key among \(keys.count) keys: the focused key is not known"); return false
                 }
                 path.append("\u{201C}\(label)\u{201D}: focus on \u{201C}\(keys[here].label)\u{201D} \(keys[here].frame) after \(press) presses")
