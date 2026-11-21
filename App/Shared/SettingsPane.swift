@@ -127,7 +127,11 @@ extension View {
 /// #33 A and B (2): what every task cover gets (`taskCover`). The background is the system's `background` shape style, not a
 /// colour of ours (system colours only, docs/DESIGN_SYSTEM.md).
 struct TaskCoverChrome: ViewModifier {
-    @Environment(CoverPresence.self) private var presence: CoverPresence?
+    /// Fourth run of 20 Nov 2026 (R273 push): the page was still in the tree under all 30 covers. Every hiding modifier
+    /// reads `isCovered`, and the count was handed to the cover through the SwiftUI environment of a view presented by
+    /// `fullScreenCover`; if that environment does not reach the presented content on tvOS (not on any Apple page read:
+    /// UNVERIFIED), the count never rises and nothing is hidden. The cover now uses the ONE shared counter directly.
+    private var presence: CoverPresence? { CoverPresence.shared }
 
     func body(content: Content) -> some View {
         content
@@ -158,6 +162,9 @@ extension EnvironmentValues {
 /// interaction with the parent view".
 @MainActor @Observable
 final class CoverPresence {
+    /// The one counter of the app (R292): RootView, every task cover and every page screen read this same instance.
+    static let shared: CoverPresence = CoverPresence()
+
     private(set) var openCovers: Int = 0
 
     var isCovered: Bool { openCovers > 0 }

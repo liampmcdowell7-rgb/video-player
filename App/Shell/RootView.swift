@@ -24,7 +24,7 @@ struct RootView: View {
     @State private var filesPath: [Route] = []
     @State private var searchPath: [Route] = []
     /// #33 B (2): open task covers (`taskCover`, App/Shared/SettingsPane.swift).
-    @State private var coverPresence: CoverPresence = CoverPresence()
+    @State private var coverPresence: CoverPresence = CoverPresence.shared
 
     var body: some View {
         @Bindable var services = services
@@ -199,7 +199,8 @@ extension View {
 /// on SwiftUI passing the flag through a UIKit container (whether it does is not on any Apple page read: unverified). A
 /// screen inside the cover itself is never hidden (`isInTaskCover`, set by TaskCoverChrome).
 struct HiddenUnderTaskCover: ViewModifier {
-    @Environment(CoverPresence.self) private var presence: CoverPresence?
+    /// R292: the shared counter, not the environment (see TaskCoverChrome).
+    private var presence: CoverPresence? { CoverPresence.shared }
     @Environment(\.isInTaskCover) private var isInTaskCover: Bool
 
     func body(content: Content) -> some View {

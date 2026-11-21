@@ -109,6 +109,8 @@ public enum CoverPixels {
         let background: RGB = background(of: image, scale: scale)
         var lines: [String] = ["cover background \(background) (most common colour of the four corners), tolerance \(channelTolerance) per channel"]
         var passed: Bool = true
+        var measuredTexts: Int = 0
+        var unmeasuredTexts: Int = 0
         for (name, region) in regions {
             var sampled: Int = 0
             var stray: Int = 0
@@ -123,12 +125,26 @@ public enum CoverPixels {
                 }
             }
             let limit: Int = max(minimumStray, Int(Double(sampled) * strayFraction))
+            // R292: a region with no pixel left to sample proves nothing (fourth run of 20 Nov, 21-search-your-network-
+            // server-details: "0 of 0 pixels" in all four page texts, the scrolled form's rows over them, and the check
+            // passed). One such region is reported NOT MEASURED (the cover's own text often sits where a page text was);
+            // when EVERY page-text region is unmeasured, the check fails (below).
+            if sampled == 0 {
+                lines.append("\(name) \(region): 0 pixels sampled (all under the cover's own elements): NOT MEASURED")
+                if name.hasPrefix("page text") { unmeasuredTexts += 1 }
+                continue
+            }
+            if name.hasPrefix("page text") { measuredTexts += 1 }
             let ok: Bool = stray <= limit
             if !ok { passed = false }
             let at: String = firstStray.map { " (first at \($0.0), \($0.1))" } ?? ""
             lines.append("\(name) \(region): \(stray) of \(sampled) pixels differ from the background, limit \(limit)\(at): \(ok ? "clear" : "SOMETHING SHOWS THROUGH")")
         }
-        lines.append(passed ? "COVER OPAQUE OK" : "PAGE OR TAB BAR VISIBLE THROUGH THE COVER")
+        if unmeasuredTexts > 0 && measuredTexts == 0 {
+            passed = false
+            lines.append("none of the \(unmeasuredTexts) page-text regions could be sampled: PAGE TEXT NOT MEASURED")
+        }
+        lines.append(passed ? "COVER OPAQUE OK" : "PAGE OR TAB BAR VISIBLE THROUGH THE COVER, OR NOT MEASURED")
         return CheckResult(passed: passed, lines: lines)
     }
 
@@ -151,6 +167,10 @@ public enum CoverPixels {
         return dump.descendants(of: cover).compactMap { (index: Int) -> AXRect? in
             let node: AXNode = dump.nodes[index]
             guard let frame = node.frame, !frame.isEmpty, kinds.contains(node.type) else { return nil }
+            // R292: a row (Cell) is excluded only while it has the focus (its lifted white platter). An unfocused row is
+            // measured: its system platter is within the tolerance of the cover background, and page text behind a
+            // see-through row would show up as stray pixels instead of being skipped.
+            if node.type == "Cell" && !node.isFocused { return nil }
             // Full-window containers would exclude everything: only elements smaller than half the window count.
             if let window = dump.window, let full = dump.nodes[window].frame, frame.width * frame.height > full.width * full.height / 2 { return nil }
             return frame.padded(by: node.isFocused ? 40 : 4)

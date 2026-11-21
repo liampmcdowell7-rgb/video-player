@@ -1120,4 +1120,34 @@ final class ScreenChecksTests: XCTestCase {
         let result: CheckResult = ScreenRules.sideBySideButtons(in: dump, root: try XCTUnwrap(dump.coverRoot))
         XCTAssertTrue(result.passed, result.text)
     }
+
+    // MARK: Fourth run of 20 Nov (R292, R293)
+
+    /// R292: when every page-text region lies wholly under the cover's own elements (picture 21 of the fourth run: "0 of 0"
+    /// four times, with the tab bar band measured), nothing about the page was proved: a failure. One unmeasured region
+    /// beside a measured one is reported and does not fail on its own.
+    func testPageTextRegionsWithNoPixelToSampleFailOnlyWhenNoneIsMeasured() {
+        let image = RGBImage(width: 400, height: 300, fill: RGB(r: 0, g: 0, b: 0))
+        let a = AXRect(x: 100, y: 100, width: 100, height: 50), b = AXRect(x: 100, y: 200, width: 100, height: 50)
+        let band = AXRect(x: 0, y: 0, width: 400, height: 40)
+        let none: CheckResult = CoverPixels.check(image, scale: 1, regions: [("tab bar band", band), ("page text 1", a), ("page text 2", b)],
+                                                  exclude: [a.padded(by: 4), b.padded(by: 4)])
+        XCTAssertFalse(none.passed, none.text)
+        XCTAssertTrue(none.text.contains("PAGE TEXT NOT MEASURED"), none.text)
+        let one: CheckResult = CoverPixels.check(image, scale: 1, regions: [("tab bar band", band), ("page text 1", a), ("page text 2", b)],
+                                                 exclude: [a.padded(by: 4)])
+        XCTAssertTrue(one.passed, one.text)
+        XCTAssertTrue(one.text.contains("NOT MEASURED"), one.text)
+    }
+
+    /// R292: the same region, half free, with page text showing through the free half: still caught.
+    func testPageTextThroughTheFreePartOfARegionStillFails() {
+        var image = RGBImage(width: 400, height: 300, fill: RGB(r: 0, g: 0, b: 0))
+        image.fill(AXRect(x: 160, y: 110, width: 30, height: 30), scale: 1, with: RGB(r: 200, g: 200, b: 205))
+        let result: CheckResult = CoverPixels.check(image, scale: 1, regions: [("page text 1", AXRect(x: 100, y: 100, width: 100, height: 50))],
+                                                    exclude: [AXRect(x: 96, y: 96, width: 54, height: 58)])
+        XCTAssertFalse(result.passed, result.text)
+        XCTAssertTrue(result.text.contains("SOMETHING SHOWS THROUGH"), result.text)
+    }
+
 }
