@@ -1,6 +1,7 @@
 import XCTest
 import VideoPlayerCore
 import LibraryIndex
+import MetadataOnline
 @testable import AppLogic
 
 // FIXTURE: invented ratings and synopses; nothing is contacted.
@@ -78,5 +79,47 @@ final class ContentRatingTests: XCTestCase {
         XCTAssertEqual(UITestFixtureDetails.details(forTitle: "Sample Movie 1")?.contentRating, "PG-13")
         XCTAssertEqual(UITestFixtureDetails.details(forTitle: "Sample Show 1")?.contentRating, "TV-14")
         XCTAssertNil(UITestFixtureDetails.details(forTitle: "Sample Movie 2")?.contentRating)
+    }
+}
+
+// FIXTURE: invented Wikidata titles. R372: Wikidata's rating is the last layer of the rating; its descriptors are shown.
+final class WikidataContentRatingTests: XCTestCase {
+    let film = WikidataTitle(qid: "Q900001", label: "Sample Rated Film", cast: ["First Actor"],
+                             ratings: [WikidataRating(system: "MPA", label: "R", descriptors: ["Violence", "Strong Language"]),
+                                       WikidataRating(system: "BBFC", label: "15")])
+
+    func testTheRegionPicksTheSystemElseTheFixedOrder() {
+        XCTAssertEqual(LayeredDetails.details(from: film, region: "GB")?.contentRating, "15")
+        XCTAssertEqual(LayeredDetails.details(from: film, region: "GB")?.contentDescriptors, [])
+        XCTAssertEqual(LayeredDetails.details(from: film, region: "US")?.contentRating, "R")
+        XCTAssertEqual(LayeredDetails.details(from: film, region: "FR")?.contentRating, "R", "no French system: MPA first")
+        XCTAssertEqual(LayeredDetails.details(from: film, region: nil)?.contentDescriptors, ["Violence", "Strong Language"])
+    }
+
+    func testARatingOnlyAndNeither() {
+        let ratingOnly = WikidataTitle(qid: "Q900002", ratings: [WikidataRating(system: "FSK", label: "FSK 12")])
+        let d = LayeredDetails.details(from: ratingOnly)
+        XCTAssertEqual(d?.contentRating, "FSK 12")
+        XCTAssertEqual(d?.contentDescriptors, [])
+        XCTAssertTrue(d?.cast.isEmpty ?? false)
+        XCTAssertNil(LayeredDetails.details(from: WikidataTitle(qid: "Q900003")), "neither cast nor rating: nothing")
+    }
+
+    /// The layering order: source, then TMDB, then Wikidata. Wikidata's descriptors belong to its rating, so they are shown
+    /// only when its rating is the one shown.
+    func testTheLayeringOrderSourceTMDBWikidata() {
+        let wiki = LayeredDetails.details(from: film, region: "US")
+        var tmdb = TitleDetails(overview: "Text.", cast: [])
+        tmdb.contentRating = "PG-13"
+        var source = TitleDetails(overview: nil, cast: [])
+        source.contentRating = "TV-MA"
+        XCTAssertEqual(LayeredDetails.merge([(.source, source), (.wikidata, wiki), (.tmdb, tmdb)]).details?.contentRating, "TV-MA")
+        XCTAssertEqual(LayeredDetails.merge([(.source, nil), (.wikidata, wiki), (.tmdb, tmdb)]).details?.contentRating, "PG-13")
+        XCTAssertEqual(LayeredDetails.merge([(.source, nil), (.wikidata, wiki), (.tmdb, tmdb)]).details?.contentDescriptors, [],
+                       "no descriptors next to another layer's rating")
+        let onlyWiki = LayeredDetails.merge([(.source, nil), (.wikidata, wiki), (.tmdb, TitleDetails(overview: "Text.", cast: []))])
+        XCTAssertEqual(onlyWiki.details?.contentRating, "R")
+        XCTAssertEqual(onlyWiki.details?.contentDescriptors, ["Violence", "Strong Language"])
+        XCTAssertEqual(MediaInfo.withRating([], details: onlyWiki.details).map(\.value), ["R", "Violence · Strong Language"])
     }
 }

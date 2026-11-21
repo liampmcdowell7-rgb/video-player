@@ -20,7 +20,8 @@ enum Attribution {
     static let aboutNote = "Pictures, matches, Discover and where-to-watch information come from TMDB, and only after you enter your own TMDB key in Settings > Online Lookup."
     // #26 item 7: text-only credits for the key-free sources (no logos), each with a short Learn More. Wikidata's facts are
     // CC0 (no credit required; given anyway). IntroDB's terms make credit optional for API use (docs/DATA_SOURCES.md).
-    static let wikidataCredit = "Cast names and title numbers can come from Wikidata, when Free Data Sources is on."
+    // R372: Wikidata's age ratings and content advice are named with the other facts it gives (CC0).
+    static let wikidataCredit = "Cast names, title numbers, age ratings and content advice can come from Wikidata, when Free Data Sources is on."
     static let wikidataLearnMoreTitle = "About Wikidata"
     static let wikidataLearnMore = "Wikidata is a free knowledge base run by the Wikimedia Foundation and edited by volunteers. Its structured data is released into the public domain (CC0). The app reads only facts from it, never pictures, and asks only while Free Data Sources is on in Settings > Online Lookup. Website: www.wikidata.org"
     static let introDBCredit = "Intro and recap times can come from IntroDB, when Free Data Sources is on and a video has no markers of its own."

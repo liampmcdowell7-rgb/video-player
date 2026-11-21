@@ -126,6 +126,21 @@ struct BadgeFlow: Layout {
     }
 }
 
+/// R372 (owner's request of 21 Nov 2026): Wikidata's content advice ("Violence · Strong Language") as ONE short secondary
+/// line right under the metadata line that holds the rating badge. Rule S1: the descriptors are dropped from the end when
+/// the line is too long (`FittingLine`); Information lists them all ("Content Advice"). Nothing when there are none.
+struct ContentAdviceLine: View {
+    let descriptors: [String]
+
+    var body: some View {
+        if !descriptors.isEmpty {
+            FittingLine(line: ShortLine(ordered: descriptors), style: .caption2)
+                .foregroundStyle(ReadableSecondary.style)
+                .accessibilityLabel("Content advice: " + descriptors.joined(separator: ", "))
+        }
+    }
+}
+
 /// R371 (owner's request of 21 Nov 2026): the content rating as an outlined text badge ("PG-13", "TV-MA", "15"), the
 /// rating spelled out, no rating board's logo. A thin primary outline, the text in primary: told apart from the format
 /// badges, which never use a plain primary outline with regular text. Never cut (`fixedSize`).

@@ -160,6 +160,15 @@ Synopsis and cast: the source's own details first (Jellyfin, Emby, Plex servers,
 (Free Data Sources on), then TMDB (key set). A later layer fills only gaps: synopsis, cast list, a cast member's role or
 photo by name. Alternative: TMDB first.
 
+Content (age) rating (R371, R372): its own order, first found wins: the source's own rating (Plex `contentRating`), then
+TMDB's certification for the Region setting (key set), then Wikidata's official rating (Free Data Sources on), the Region
+setting's system first. Wikidata properties read on Wikidata's property pages (21 Nov 2026): P1657 MPA film rating, P2629
+BBFC rating, P1981 FSK film rating, P3156 Australian Classification, P3216 ClassInd rating, and P7367 content descriptor
+(a qualifier on those rating statements); they are asked in the same request as the title's other facts. No Wikidata
+property for the US TV Parental Guidelines was found. Content descriptors are shown only with Wikidata's own rating.
+Rejected: Common Sense Media (its API needs a partnership agreement, its reviews are copyrighted, and it would be a new
+outside contact).
+
 Honest coverage today: layer 1 is filled **for Plex files only** (the server's synopsis, read from the listing the source
 already holds; R307). For every other source it stays empty (the NFO reader, Jellyfin and Emby do not keep a synopsis or
 cast), so their order is unchanged; and the IMDb id from an NFO or a server is not stored either

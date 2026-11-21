@@ -30,10 +30,12 @@ extension LayeredDetailsService {
     /// R270, R307), then Wikidata while Free Data Sources is on (`wikidata` not nil), then TMDB when the user's key is set
     /// (`tmdb` not nil). For every other source the server layer answers nothing, so their order is unchanged.
     public static func online(store: any LibraryStore, wikidata: WikidataClient?,
-                              tmdb: (any TitleDetailsSource)?, server: (any ServerMetadataProviding)? = nil) -> LayeredDetailsService {
+                              tmdb: (any TitleDetailsSource)?, server: (any ServerMetadataProviding)? = nil,
+                              region: String? = nil) -> LayeredDetailsService {
         var wikidataSource: (any TitleDetailsSource)? = nil
         if let wikidata {
-            wikidataSource = WikidataDetailsLayer(store: store, client: wikidata)
+            // R372: the Region setting picks Wikidata's rating system.
+            wikidataSource = WikidataDetailsLayer(store: store, client: wikidata, region: region)
         }
         let wikidataLayer: Layer? = layer(wikidataSource)
         let tmdbLayer: Layer? = layer(tmdb)

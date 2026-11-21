@@ -64,6 +64,7 @@ struct ItemDetailContentView: View {
             if !content.facts.isEmpty || !content.badges.isEmpty || details?.contentRating != nil {
                 ProductMetadataLine(facts: content.facts, rating: details?.contentRating, badges: content.badges)
             }
+            ContentAdviceLine(descriptors: details?.contentDescriptors ?? [])
             if let overview = details?.overview {
                 SynopsisLink(title: content.title, text: overview)
             } else if content.kind == .movie, !services.online.hasCatalogueKey {

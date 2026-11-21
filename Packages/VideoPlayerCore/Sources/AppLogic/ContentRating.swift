@@ -1,4 +1,5 @@
 import Foundation
+import MetadataOnline
 
 /// R371 (owner's request of 21 Nov 2026): a title's content (age) rating, shown as an outlined text badge ("PG-13", "R",
 /// "TV-MA", "TV-14", "12", "15"), never a rating board's logo. Where it comes from, first found wins:
@@ -28,6 +29,17 @@ public enum ContentRating {
         return text
     }
 
+    /// R372: Wikidata's rating to use: the Region setting's system first ("GB" picks BBFC), else the first found in
+    /// `WikidataClient.ratingSystems` order (MPA, BBFC, FSK, ACB, ClassInd). Nil without any.
+    public static func wikidata(_ ratings: [WikidataRating], region: String?) -> WikidataRating? {
+        let regional = WikidataClient.ratingSystems.first { $0.region == region?.uppercased() }?.system
+        if let regional, let match = ratings.first(where: { $0.system == regional }) { return match }
+        for system in WikidataClient.ratingSystems.map(\.system) {
+            if let match = ratings.first(where: { $0.system == system }) { return match }
+        }
+        return nil
+    }
+
     /// The rating to show from what each layer gave, in `order`; nil when none gave one.
     public static func pick(_ found: [(DetailsLayer, String?)]) -> (rating: String, layer: DetailsLayer)? {
         for layer in order {
@@ -41,8 +53,13 @@ public enum ContentRating {
 
 public extension MediaInfo {
     /// R371: Information starts with the title's rating ("Rating: PG-13") when a layer gave one; nothing is added without.
+    /// R372: then the content advice in full ("Content Advice: Violence · Strong Language") when Wikidata gave any.
     static func withRating(_ rows: [MediaInfoRow], details: TitleDetails?) -> [MediaInfoRow] {
-        guard let rating = details?.contentRating else { return rows }
-        return [MediaInfoRow(label: "Rating", value: rating)] + rows
+        var top: [MediaInfoRow] = []
+        if let rating = details?.contentRating { top.append(MediaInfoRow(label: "Rating", value: rating)) }
+        if let advice = details?.contentDescriptors, !advice.isEmpty {
+            top.append(MediaInfoRow(label: "Content Advice", value: advice.joined(separator: ShortLine.separator)))
+        }
+        return top + rows
     }
 }

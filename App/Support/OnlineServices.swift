@@ -170,7 +170,7 @@ final class OnlineServices {
         // #29: typed steps; the closures are built in AppLogic (OnlineComposition.swift), where the package tests cover them.
         var tmdbSource: (any TitleDetailsSource)? = nil
         if hasCatalogueKey { tmdbSource = resolver }
-        let service: LayeredDetailsService = LayeredDetailsService.online(store: store, wikidata: wikidata, tmdb: tmdbSource, server: server)
+        let service: LayeredDetailsService = LayeredDetailsService.online(store: store, wikidata: wikidata, tmdb: tmdbSource, server: server, region: region)
         let layered: LayeredDetails = await service.details(key: key)
         return layered.details
     }
@@ -201,7 +201,7 @@ final class OnlineServices {
         if freeSourcesOn, !Self.isUITestLaunch {
             wikidata = PersonTitles.storedWikidata(cache: cache, userAgent: Self.userAgent, language: Self.wikidataLanguage)
         }
-        let service: LayeredDetailsService = LayeredDetailsService.online(store: store, wikidata: wikidata, tmdb: tmdb, server: nil)
+        let service: LayeredDetailsService = LayeredDetailsService.online(store: store, wikidata: wikidata, tmdb: tmdb, server: nil, region: region)
         let details: PersonTitles.Details = { @Sendable (key: String) async -> TitleDetails? in
             let layered: LayeredDetails = await service.details(key: key)
             return layered.details

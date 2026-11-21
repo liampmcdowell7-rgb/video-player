@@ -5,6 +5,27 @@ import VideoPlayerCore
 /// IMDb and TMDB ids. Used as the fallback when no TMDB key is set, and to find an IMDb id for IntroDB. No images (no
 /// Wikimedia Commons). Etiquette read 2026-11-19 (docs/DATA_SOURCES.md): a descriptive User-Agent, honour 429 Retry-After
 /// (ProviderQueue does), keep requests few. maxlag belongs to the Action API (w/api.php), which this client does not use.
+/// R372 (owner's request of 21 Nov 2026): one official rating of a title on Wikidata, with the content descriptors that
+/// qualify it. Property ids read on Wikidata's property pages on 21 Nov 2026: P1657 "MPA film rating", P2629 "BBFC
+/// rating", P1981 "FSK film rating", P3156 "Australian Classification", P3216 "ClassInd rating" (all of data type Item);
+/// P7367 "content descriptor" (Item; its scope is "as qualifier", so it qualifies a rating statement). No property for the
+/// US TV Parental Guidelines was found on Wikidata (property search, 21 Nov 2026), so TV ratings come from the source or
+/// TMDB only.
+public struct WikidataRating: Codable, Equatable, Sendable {
+    /// The rating system: "MPA", "BBFC", "FSK", "ACB", "ClassInd" (`WikidataClient.ratingSystems`).
+    public var system: String
+    /// The rating item's label in the app's language ("R", "PG-13", "15").
+    public var label: String
+    /// The labels of its content descriptors (P7367), in Wikidata's order ("Violence", "Strong Language").
+    public var descriptors: [String]
+
+    public init(system: String, label: String, descriptors: [String] = []) {
+        self.system = system
+        self.label = label
+        self.descriptors = descriptors
+    }
+}
+
 public struct WikidataTitle: Codable, Equatable, Sendable {
     public var qid: String
     public var label: String?
@@ -13,14 +34,18 @@ public struct WikidataTitle: Codable, Equatable, Sendable {
     public var tmdbID: Int?
     /// Cast member names in Wikidata's order (series ordinal when given), at most `WikidataClient.castLimit`.
     public var cast: [String]
+    /// R372: the official ratings found (nil when none; optional so entries cached before R372 still decode).
+    public var ratings: [WikidataRating]?
 
-    public init(qid: String, label: String? = nil, year: Int? = nil, imdbID: String? = nil, tmdbID: Int? = nil, cast: [String] = []) {
+    public init(qid: String, label: String? = nil, year: Int? = nil, imdbID: String? = nil, tmdbID: Int? = nil, cast: [String] = [],
+                ratings: [WikidataRating]? = nil) {
         self.qid = qid
         self.label = label
         self.year = year
         self.imdbID = imdbID
         self.tmdbID = tmdbID
         self.cast = cast
+        self.ratings = ratings
     }
 }
 
@@ -35,6 +60,12 @@ public final class WikidataClient: Sendable {
     public static let foundTTL: Double = 30 * 86_400
     public static let missingTTL: Double = 7 * 86_400
     public static let castLimit = 20
+    /// R372: the rating properties read, with the region each system belongs to (for the Region setting).
+    public static let ratingSystems: [(system: String, property: String, region: String)] = [
+        ("MPA", "P1657", "US"), ("BBFC", "P2629", "GB"), ("FSK", "P1981", "DE"), ("ACB", "P3156", "AU"), ("ClassInd", "P3216", "BR"),
+    ]
+    /// R372: the cache variant changed when the query gained the ratings, so a title cached before is asked once more.
+    static let cacheVersion = "ratings1"
 
     private let queue: ProviderQueue
     private let cache: any MetadataCache
@@ -88,7 +119,7 @@ public final class WikidataClient: Sendable {
     // MARK: Query
 
     private func lookup(pattern: String, kind: TitleKind?, cacheID: String, year: Int? = nil) async throws -> WikidataTitle? {
-        let key = CacheKey(provider: "wikidata", kind: "title", id: cacheID, variant: language)
+        let key = CacheKey(provider: "wikidata", kind: "title", id: cacheID, variant: language + "|" + Self.cacheVersion)
         let cached = await cache.entry(for: key)
         if let cached, cached.isFresh(at: clock.now()) { return Self.decodeCached(cached.data) }
 
@@ -119,17 +150,25 @@ public final class WikidataClient: Sendable {
         data.isEmpty ? nil : try? JSONDecoder().decode(WikidataTitle.self, from: data)
     }
 
-    /// One query returns each candidate title with its facts; cast rows repeat the title (one row per cast member).
+    /// One query returns each candidate title with its facts; cast rows repeat the title (one row per cast member). R372:
+    /// the same query also returns one row per official rating and content descriptor, in a UNION with the cast so the two
+    /// never multiply each other's rows. Same request, same endpoint: nothing else is sent.
     static func query(pattern: String, language: String) -> String {
-        """
-        SELECT ?item ?itemLabel ?imdb ?tmdbMovie ?tmdbSeries ?date ?start ?castLabel ?order WHERE {
+        let systems = ratingSystems.map { "(p:\($0.property) ps:\($0.property) \"\($0.system)\")" }.joined(separator: " ")
+        return """
+        SELECT ?item ?itemLabel ?imdb ?tmdbMovie ?tmdbSeries ?date ?start ?castLabel ?order ?board ?ratingLabel ?descriptorLabel WHERE {
           \(pattern)
           OPTIONAL { ?item wdt:P345 ?imdb . }
           OPTIONAL { ?item wdt:P4947 ?tmdbMovie . }
           OPTIONAL { ?item wdt:P4983 ?tmdbSeries . }
           OPTIONAL { ?item wdt:P577 ?date . }
           OPTIONAL { ?item wdt:P580 ?start . }
-          OPTIONAL { ?item p:P161 ?st . ?st ps:P161 ?cast . OPTIONAL { ?st pq:P1545 ?order . } }
+          OPTIONAL {
+            { ?item p:P161 ?st . ?st ps:P161 ?cast . OPTIONAL { ?st pq:P1545 ?order . } }
+            UNION
+            { VALUES (?rp ?rps ?board) { \(systems) }
+              ?item ?rp ?rst . ?rst ?rps ?rating . OPTIONAL { ?rst pq:P7367 ?descriptor . } }
+          }
           SERVICE wikibase:label { bd:serviceParam wikibase:language "\(language),mul,en" . }
         } LIMIT 400
         """
@@ -166,7 +205,7 @@ public final class WikidataClient: Sendable {
 
     static func decode(_ body: Data, preferringYear year: Int?) throws -> WikidataTitle? {
         guard let json = try? JSON(data: body), json.isObject else { throw MetadataError.decoding("Wikidata response is not an object") }
-        struct Building { var title: WikidataTitle; var cast: [(name: String, order: Int)] = [] }
+        struct Building { var title: WikidataTitle; var cast: [(name: String, order: Int)] = []; var ratings: [WikidataRating] = [] }
         var byQID: [String: Building] = [:]
         var order: [String] = []
         for row in json["results"]["bindings"].array {
@@ -187,12 +226,24 @@ public final class WikidataClient: Sendable {
                byQID[qid]?.cast.contains(where: { $0.name == name }) == false {
                 byQID[qid]?.cast.append((name, row["order"]["value"].text.flatMap(Int.init) ?? Int.max))
             }
+            // R372: a rating row: its system, the rating's label and (when the statement has one) a descriptor's label.
+            if let board = row["board"]["value"].text, let rating = row["ratingLabel"]["value"].text, Self.isLabel(rating) {
+                let descriptor = row["descriptorLabel"]["value"].text.flatMap { Self.isLabel($0) ? $0 : nil }
+                if let i = byQID[qid]?.ratings.firstIndex(where: { $0.system == board && $0.label == rating }) {
+                    if let descriptor, byQID[qid]?.ratings[i].descriptors.contains(descriptor) == false {
+                        byQID[qid]?.ratings[i].descriptors.append(descriptor)
+                    }
+                } else {
+                    byQID[qid]?.ratings.append(WikidataRating(system: board, label: rating, descriptors: descriptor.map { [$0] } ?? []))
+                }
+            }
         }
         var titles: [WikidataTitle] = order.compactMap { qid in
             guard var b = byQID[qid] else { return nil }
             b.title.cast = b.cast.enumerated()
                 .sorted { ($0.element.order, $0.offset) < ($1.element.order, $1.offset) }
                 .prefix(castLimit).map(\.element.name)
+            b.title.ratings = b.ratings.isEmpty ? nil : b.ratings
             return b.title
         }
         if let year {
@@ -201,6 +252,11 @@ public final class WikidataClient: Sendable {
             if let first = titles.first, let y = first.year, abs(y - year) > 1 { return nil }
         }
         return titles.first
+    }
+
+    /// A label, not an address or a bare item id (the label service answers the id when an item has no label).
+    static func isLabel(_ text: String) -> Bool {
+        !text.isEmpty && !text.hasPrefix("http") && !(text.first == "Q" && text.dropFirst().allSatisfy(\.isNumber))
     }
 
     static func year(_ isoDate: String) -> Int? {

@@ -27,7 +27,8 @@ public struct LayeredDetails: Equatable, Sendable {
         var cast: [TitleDetails.CastMember] = []
         var used: [DetailsLayer] = []
         // R371: the rating follows its own order (`ContentRating.order`: source, TMDB, Wikidata), whatever order the layers
-        // were asked in. R372: the content descriptors come from the first layer that has any (only Wikidata gives them).
+        // were asked in. R372: the content descriptors belong to a rating, so they come only from the layer whose rating is
+        // shown (only Wikidata gives them): none next to TMDB's or the source's rating.
         let rating = ContentRating.pick(layers.map { ($0.0, $0.1?.contentRating) })
         var descriptors: [String] = []
         for (layer, found) in layers {
@@ -45,7 +46,7 @@ public struct LayeredDetails: Equatable, Sendable {
                 }
             }
             if rating?.layer == layer { gave = true }
-            if descriptors.isEmpty, !found.contentDescriptors.isEmpty { descriptors = found.contentDescriptors; gave = true }
+            if rating?.layer == layer, !found.contentDescriptors.isEmpty { descriptors = found.contentDescriptors }
             if gave { used.append(layer) }
         }
         guard overview != nil || !cast.isEmpty || rating != nil || !descriptors.isEmpty else { return LayeredDetails(details: nil, used: []) }
@@ -59,13 +60,19 @@ public struct LayeredDetails: Equatable, Sendable {
         a.compare(b, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
     }
 
-    /// Wikidata's facts as details: names only (no synopsis, no roles, no photos: Commons images are not used).
-    public static func details(from title: WikidataTitle) -> TitleDetails? {
-        guard !title.cast.isEmpty else { return nil }
+    /// Wikidata's facts as details: names only (no synopsis, no roles, no photos: Commons images are not used). R372: also
+    /// the official rating for the Region setting (`ContentRating.wikidata`) and that rating's content descriptors.
+    public static func details(from title: WikidataTitle, region: String? = nil) -> TitleDetails? {
         let cast = title.cast.prefix(TitleDetails.castLimit).enumerated().map { index, name in
             TitleDetails.CastMember(id: 1_000_000 + index, name: name, role: nil)
         }
-        return TitleDetails(overview: nil, cast: Array(cast))
+        let rating = ContentRating.wikidata(title.ratings ?? [], region: region)
+        let shown = rating.flatMap { ContentRating.clean($0.label) }
+        guard !cast.isEmpty || shown != nil else { return nil }
+        var details = TitleDetails(overview: nil, cast: Array(cast))
+        details.contentRating = shown
+        details.contentDescriptors = shown == nil ? [] : (rating?.descriptors ?? [])
+        return details
     }
 }
 
@@ -103,10 +110,13 @@ public struct LayeredDetailsService: Sendable {
 public struct WikidataDetailsLayer: Sendable {
     private let store: any LibraryStore
     private let client: WikidataClient
+    /// R372: the Region setting, to pick that region's rating system first.
+    private let region: String?
 
-    public init(store: any LibraryStore, client: WikidataClient) {
+    public init(store: any LibraryStore, client: WikidataClient, region: String? = nil) {
         self.store = store
         self.client = client
+        self.region = region
     }
 
     public func details(key: String) async -> TitleDetails? {
@@ -119,7 +129,7 @@ public struct WikidataDetailsLayer: Sendable {
             } else {
                 found = try? await client.title(named: item.title, year: item.year, kind: .movie)
             }
-            return found.flatMap(LayeredDetails.details(from:))
+            return found.flatMap { LayeredDetails.details(from: $0, region: region) }
         case .series(let seriesID)?:
             guard let episodes = try? await store.episodes(ofSeries: seriesID), let first = episodes.first else { return nil }
             let ids = episodes.compactMap(\.tmdbID)
@@ -132,7 +142,7 @@ public struct WikidataDetailsLayer: Sendable {
             } else {
                 found = nil
             }
-            return found.flatMap(LayeredDetails.details(from:))
+            return found.flatMap { LayeredDetails.details(from: $0, region: region) }
         default:
             return nil
         }
