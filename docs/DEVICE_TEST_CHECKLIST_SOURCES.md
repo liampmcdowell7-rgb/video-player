@@ -20,6 +20,16 @@ Each line is a thing only a real tvOS device and a real server can show.
 - [ ] Plex watch state (R306): after adding the server, films watched in Plex show as watched and a film stopped halfway in Plex shows its resume point; watching something in this app does not change what Plex shows as watched on another device.
 - [ ] Plex metadata (R307): a Plex film's page shows the synopsis as written in Plex and its card shows the Plex poster (a custom poster chosen in Plex shows here too); with a TMDB key the cast still appears; a film found only on WebDAV shows the online synopsis and poster as before (a film on both Plex and WebDAV is one item and shows the Plex synopsis).
 - [ ] Plex resume and server off: stop a film halfway, play it again and it resumes there; switch the server off and play: one plain message (the server could not be reached, or the file could not be opened; which one is UNVERIFIED), no endless spinner.
+
+Source setup screens (docs/SOURCE_SETUP_DESIGN.md; R320 to R331):
+
+- [ ] Each form: rows look like tvOS Settings (value trailing, chevron); Select opens the entry page; the keyboard heading says the field name; Done fills the row.
+- [ ] The URL keyboard on Address, the number pad on Port, dots on Password.
+- [ ] With an iPhone nearby: the iPhone offers to type into the field; paste from the iPhone works.
+- [ ] Back on a form returns to the type list; Cancel on Add a Source closes it.
+- [ ] Search Your Network on a WebDAV form fills the rows from a found server.
+- [ ] Larger Text: every row and Connect reachable with Down.
+
 - [ ] Web Link: add a direct video link, play it.
 - [ ] Bonjour: each advertised type appears; the form is filled with an IPv4 address (not name.local) when resolution worked, and with name.local when not.
 - [ ] Info.plist: NSBonjourServices and NSLocalNetworkUsageDescription are honoured on tvOS (the pages checked do not state tvOS applicability); a local-network prompt appears.
