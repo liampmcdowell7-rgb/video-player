@@ -1255,6 +1255,10 @@ final class ScreenshotTests: XCTestCase {
         let keyFields: Int = app.textFields.matching(NSPredicate(format: "label CONTAINS[c] %@", "key")).count
         let drawnFields: Int = keyFields + app.secureTextFields.count
         if drawnFields > 0 { failures.append("\(drawnFields) key field(s) drawn on the page (a field inside a row, R333)") }
+        // R364 (item 12): Done on the entry page saves the key, so the page has no Save Key button (Remove Key stays).
+        if app.buttons.matching(NSPredicate(format: "label == %@", "Save Key")).firstMatch.exists {
+            failures.append("a Save Key button is on the page (R364: Done on the entry page saves)")
+        }
         let value: String = (row.value as? String) ?? ""
         if !value.allSatisfy({ $0 == "\u{2022}" }) && value != "Entered" { failures.append("the row value \u{201C}\(value)\u{201D} is not empty or dots") }
         var lines: [String] = ["row \u{201C}\(row.label)\u{201D} value \u{201C}\(value)\u{201D}", "key fields drawn on the page: \(drawnFields)"]

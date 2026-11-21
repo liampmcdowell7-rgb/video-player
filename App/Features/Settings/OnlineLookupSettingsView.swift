@@ -89,7 +89,8 @@ struct OnlineLookupSettingsView: View {
     }
 }
 
-/// One keyed service: its name and status, the key masked when saved, Remove Key, and the native secure entry.
+/// One keyed service: its name and status, the key masked when saved, Remove Key, and the native secure entry (Done on
+/// its entry page saves the key, R364).
 private struct KeyRow: View {
     let kind: OnlineKeyKind
     let label: String
@@ -121,12 +122,14 @@ private struct KeyRow: View {
             // R333 (PROVISIONAL): Enter Key / Replace Key is one tvOS Settings value row (eight dots once typed, never the
             // key); Select opens its entry page with a secure field (`TextEntryRow`). Before: `FieldRow` (R256), a field
             // inside the row platter.
+            // R364 (compile run of 21 Nov 2026, item 12): Done on the entry page saves the key; there is no Save Key button.
+            // The entry page's Done already confirms the key, so a second button after it asked for the same thing twice.
+            // Back without Done saves nothing (TextEntryPage).
             TextEntryRow(title: saved == nil ? OnlineLookupText.enterKey : OnlineLookupText.replaceKey, value: $entry,
                          entry: TextEntryRules.keyEntry, summary: TextEntryRules.keySummary(label),
-                         identifier: ControlID.keyEntry(kind.rawValue))
-            TaskButtonRow {
-                TaskButton("Save Key", prominent: true) { Task { await save() } }
-                    .disabled(entry.isEmpty || working)
+                         identifier: ControlID.keyEntry(kind.rawValue)) { _, after in
+                guard !after.isEmpty, !working else { return }
+                Task { await save() }
             }
         } footer: {
             // L3: the result of Save or Remove is footer text, not a row.

@@ -157,7 +157,7 @@ enum ReadableSecondary {
 }
 
 /// #36 S-C (OPEN_QUESTIONS R255, PROVISIONAL): the action buttons of a task cover or a Settings page (Connect, Cancel,
-/// Save, Move to Shows, Done, Check Connection, Remove Source, Save Key, Remove Key, Back Up Now, Scan Now, Sync Now).
+/// Save, Move to Shows, Done, Check Connection, Remove Source, Remove Key, Back Up Now, Scan Now, Sync Now).
 /// Before: full-width Form rows (about 1174 or 850 pt wide) with the label at the left, which look like the rows that open
 /// a page. Now: a system bezeled button, its label centred, at least the tvOS default control height (HIG Accessibility:
 /// "tvOS | 66x66 pt | 56x56 pt", default and minimum control size); the most likely action `.borderedProminent`, every
