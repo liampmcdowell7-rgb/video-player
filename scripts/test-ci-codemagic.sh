@@ -66,6 +66,22 @@ hits=""; for f in "$Y" scripts/cm-*; do h="$(grep -vE '^[[:space:]]*#' "$f" | gr
 grep -q 'app-store-connect profiles create' scripts/cm-testflight.sh && ! grep -qE 'app-store-connect certificates[[:space:]]+[^l]' scripts/cm-testflight.sh \
   && ok "the only App Store Connect write is 'profiles create'; certificates are only listed" || bad "unexpected certificates command in cm-testflight.sh"
 
+# --- entitlements in project.yml (XcodeGen writes App/VideoPlayer.entitlements and TopShelf/TopShelf.entitlements from it) ---
+if python3 -c 'import yaml' 2>/dev/null; then
+  out="$(python3 - <<'EOF'
+import yaml
+t = yaml.safe_load(open("project.yml"))["targets"]
+app = t["VideoPlayer"]["entitlements"]["properties"]
+top = t["TopShelf"]["entitlements"]["properties"]
+print("APP=%s TOP=%s" % (app.get("aps-environment"), "aps-environment" in top))
+EOF
+)"
+  [ "$out" = "APP=production TOP=False" ] && ok "project.yml: the app's entitlements have aps-environment production; the Top Shelf's have none" || bad "aps-environment in project.yml: $out"
+else
+  echo "SKIP  project.yml entitlements parse (PyYAML not installed)"; skip=$((skip + 1))
+fi
+grep -q 'aps-environment' TopShelf/TopShelf.entitlements && bad "TopShelf/TopShelf.entitlements has aps-environment" || ok "TopShelf/TopShelf.entitlements has no aps-environment"
+
 # --- build number ---
 n="$(bash scripts/cm-build-number.sh)"
 printf '%s' "$n" | grep -Eq '^[0-9]{12}$' && ok "build number has 12 digits ($n)" || bad "build number '$n'"
@@ -76,8 +92,13 @@ r=0; for v in 202613011200 202611321200 202611202460 2026112012 abc ""; do bash 
 
 # --- profile check, decoded plists (hand-written samples) ---
 out="$(python3 "$PC" plists "$F/app-ok.plist" "$F/topshelf-ok.plist")"; rc=$?
-[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '^PROFILE CHECK: com.liamp.videoplayer has iCloud.com.liamp.videoplayer and group.com.liamp.videoplayer; com.liamp.videoplayer.topshelf has group.com.liamp.videoplayer$' \
-  && ok "profile check: both sample profiles complete, exit 0 and one result line" || bad "profile check ok case: $rc $out"
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '^PROFILE CHECK: com.liamp.videoplayer has iCloud.com.liamp.videoplayer, group.com.liamp.videoplayer and aps-environment production; com.liamp.videoplayer.topshelf has group.com.liamp.videoplayer$' \
+  && ok "profile check: both sample profiles complete (the Top Shelf's has no aps-environment and needs none), exit 0" || bad "profile check ok case: $rc $out"
+out="$(python3 "$PC" plists "$F/app-no-aps.plist" "$F/topshelf-ok.plist")"; rc=$?
+[ "$rc" -eq 1 ] && [ "$(printf '%s\n' "$out" | grep -c 'MISSING CAPABILITY')" -eq 1 ] \
+  && printf '%s' "$out" | grep -q 'MISSING CAPABILITY: Push Notifications (aps-environment production) is missing on the App ID com.liamp.videoplayer;' \
+  && printf '%s' "$out" | grep -q 'error 90575' \
+  && ok "profile check: an app profile without aps-environment (build 3's case, error 90575) stops the build, exit 1" || bad "no-aps case: $rc $out"
 out="$(python3 "$PC" plists "$F/app-no-capabilities.plist" "$F/topshelf-ok.plist")"; rc=$?
 [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'MISSING CAPABILITY: iCloud container iCloud.com.liamp.videoplayer is missing on the App ID com.liamp.videoplayer ' \
   && printf '%s' "$out" | grep -q 'MISSING CAPABILITY: App Group group.com.liamp.videoplayer is missing on the App ID com.liamp.videoplayer ' \

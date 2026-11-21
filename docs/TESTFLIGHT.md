@@ -45,6 +45,12 @@ Names from Codemagic's pages read on 20 Nov 2026 (listed under Sources at the en
   and bundle identifier (`distribution_type: app_store`, `bundle_identifier: com.liamp.videoplayer`); the signing step
   then checks that exactly one App Store Connect certificate matches it, otherwise it stops. The build never makes,
   revokes or deletes a certificate or a key, and it does not touch your other apps.
+  **tvOS profile (upload it):** with `distribution_type` and `bundle_identifier`, Codemagic fetches the uploaded
+  certificates *and profiles* for that bundle identifier, so the app's **tvOS App Store** profile must be uploaded in
+  the same place, tab **iOS provisioning profiles** (yours: reference `video_player_tvos_3`). After ANY capability change
+  on the App ID (for example Push Notifications), make that profile again on developer.apple.com and upload the new file
+  to Codemagic *(unverified: the button names)*, or the build may sign with the old one. The Top Shelf extension has no
+  iCloud and needs no Push Notifications.
 - **C5. YOU (Codemagic website)** — start the build: open the app and click **Start new build**. In **Specify build
   configuration** choose the branch `main` and the workflow **tvOS TestFlight (manual)**, then start it *(unverified:
   the name of the final button)*. Nothing starts by itself: the file has no trigger. It stops itself at 30 minutes. An
@@ -62,8 +68,9 @@ Names from Codemagic's pages read on 20 Nov 2026 (listed under Sources at the en
      that carries it; only if there is none does it make a new profile with it
      (`app-store-connect profiles create --type TVOS_APP_STORE`). No devices. It never makes a key or a certificate and
      never revokes or deletes anything (the pre-push check and its self-test refuse such commands).
-  2. Checks the two profiles: the app's must carry the iCloud container `iCloud.com.liamp.videoplayer` and the App Group
-     `group.com.liamp.videoplayer`; the Top Shelf's the App Group. A missing one stops the build (see C7).
+  2. Checks the two profiles: the app's must carry the iCloud container `iCloud.com.liamp.videoplayer`, the App Group
+     `group.com.liamp.videoplayer` and `aps-environment` `production` (Push Notifications); the Top Shelf's the App Group.
+     A missing one stops the build (see C7) before Apple refuses the upload.
   3. Prepare exactly as the GitHub compile check does (`scripts/ci-prepare.sh`): check the committed vendored packages,
      install the pinned XcodeGen 2.46.0 (SHA-256 checked), generate the project, resolve the packages.
   4. Points each target at its own profile (`xcode-project use-profiles`), checks both now sign manually, sets the build
@@ -79,10 +86,17 @@ Names from Codemagic's pages read on 20 Nov 2026 (listed under Sources at the en
     developer.apple.com > **Certificates, IDs & Profiles** > **Identifiers**, click that App ID, tick the capability,
     click **Configure** and tick the named container or group, **Save** (steps 8 and 9 below) *(unverified)*. Then start a
     new build (C5). The build reuses only *active* profiles; whether Apple marks the old profile inactive after the
-    change is *(unverified)*: if the same line comes back, tell me rather than deleting anything.
+    change is *(unverified)*: if the same line comes back, tell me rather than deleting anything. For **Push
+    Notifications** there is nothing to configure: tick it and **Save**, then make the app's profile again and upload it
+    to Codemagic (C4).
   - **"no code signing identity in this machine's keychain"** or **"0 App Store Connect certificate(s) match"**: the
     stored certificate was not installed or not found. Check that your distribution certificate is still listed under
     **iOS certificates** (C4), then send me the lines. Do not make a new certificate for this.
+- **Build history.** Build 3 (20 Nov 2026): signing, archive and export passed; the upload failed with App Store
+  Connect error 90575, "Missing Entitlement. Your app is missing the 'aps-environment' entitlement, which is required by
+  tvOS apps that contain the 'com.apple.developer.icloud-services' entitlement." Fixed by: Push Notifications on the App
+  ID `com.liamp.videoplayer`, the app's profile made again and uploaded (`video_player_tvos_3`), and `aps-environment`
+  `production` in the app's entitlements in `project.yml` (entitlement only; the app sends no notifications). R266.
 - **C8. YOU (Apple website and Apple TV)** — steps 23 to 26 below: wait for Processing, add yourself as an **internal
   tester** (Internal Testing group, automatic distribution), install TestFlight on the Apple TV and the build.
 - **C9. YOU** — for every later build: C5 only (and C8 if you want it on the Apple TV).
@@ -128,7 +142,8 @@ screenshot or a chat. They go only into GitHub's encrypted secrets (step 16).
    `Video Player shared`. **Identifier**: `group.com.liamp.videoplayer`. **Continue**, **Register** *(unverified)*.
 8. **YOU (Apple website)** — switch on the app's capabilities. Same page, filter (top right) **App IDs**, click
    `com.liamp.videoplayer`. Tick **iCloud**, choose CloudKit, click its **Configure** (or **Edit**) button and tick
-   `iCloud.com.liamp.videoplayer`. Tick **App Groups**, **Configure**, tick `group.com.liamp.videoplayer`. Click **Save**
+   `iCloud.com.liamp.videoplayer`. Tick **App Groups**, **Configure**, tick `group.com.liamp.videoplayer`. Tick **Push
+   Notifications** (nothing to configure: Apple requires it for a tvOS app with iCloud, error 90575). Click **Save**
    (and **Confirm** if asked) *(unverified)*. The app already asks for exactly these in `project.yml`; this makes Apple's
    side match (R252).
 9. **YOU (Apple website)** — the same for the extension: click `com.liamp.videoplayer.topshelf`, tick **App Groups**,
@@ -251,6 +266,11 @@ screenshot or a chat. They go only into GitHub's encrypted secrets (step 16).
   keys**).
 - Codemagic, native iOS quick start: https://docs.codemagic.io/yaml-quick-start/building-a-native-ios-app (**Add
   application**, **Finish: Add application**, **Check for configuration file**, `xcode-project use-profiles`).
+- Apple, "APS Environment Entitlement": https://developer.apple.com/documentation/bundleresources/entitlements/aps-environment
+  (key `aps-environment`, tvOS 10.0+, values `development` and `production`; production profiles and TestFlight use
+  `production`; "enable the Push Notifications capability"). Apple, "Enabling CloudKit in Your App":
+  https://developer.apple.com/documentation/cloudkit/enabling-cloudkit-in-your-app (the CloudKit checkbox "adds the Push
+  Notifications capability").
 - Codemagic, signing iOS apps and alternative code signing methods: https://docs.codemagic.io/yaml-code-signing/signing-ios/
   and https://docs.codemagic.io/yaml-code-signing/alternative-code-signing-methods.md (`ios_signing` with
   `distribution_type` and `bundle_identifier` fetches "all uploaded signing files matching a specific distribution type

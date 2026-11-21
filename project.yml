@@ -123,6 +123,13 @@ targets:
           - iCloud.com.liamp.videoplayer
         com.apple.developer.icloud-services:
           - CloudKit
+        # Push Notifications environment, ENTITLEMENT ONLY (no push code, no registration; OPEN_QUESTIONS R266). App Store
+        # Connect refused Codemagic build 3 (error 90575): "Your app is missing the 'aps-environment' entitlement, which is
+        # required by tvOS apps that contain the 'com.apple.developer.icloud-services' entitlement." Apple: aps-environment,
+        # tvOS 10.0+, "production" for production profiles and TestFlight; enabling CloudKit in Xcode "adds the Push
+        # Notifications capability". Needs Push Notifications on the App ID com.liamp.videoplayer and a profile made after
+        # that. The app only, NOT the Top Shelf extension (it has no iCloud).
+        aps-environment: production
         # Keychain Sharing: one group, so the Top Shelf extension can read what it needs later. On tvOS Keychain items are
         # NOT synchronised through iCloud (docs/STORAGE_MODEL.md), so this is local sharing only.
         keychain-access-groups:

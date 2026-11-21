@@ -7,8 +7,9 @@ capabilities project.yml asks for, or the archive fails later with a less clear 
   cm-profile-check.py dir DIR               the same for the profiles in DIR (the two the signing step chose)
   cm-profile-check.py plists APP TOPSHELF   checks two decoded profile plists (the Linux self-test)
 
-Checked: the app's profile has the iCloud container iCloud.com.liamp.videoplayer and the App Group
-group.com.liamp.videoplayer; the Top Shelf profile has the App Group. A missing one stops the build with one line per
+Checked: the app's profile has the iCloud container iCloud.com.liamp.videoplayer, the App Group
+group.com.liamp.videoplayer and aps-environment "production" (App Store Connect error 90575: tvOS apps with iCloud
+services need it); the Top Shelf profile has the App Group (it needs no aps-environment: no iCloud). A missing one stops the build with one line per
 capability, naming the App ID and where to fix it on developer.apple.com. Prints only result lines: never the profile's
 content, certificates, serial numbers or names. Standard library only (python3 is on Codemagic's macOS image).
 """
@@ -25,6 +26,7 @@ ICLOUD_CONTAINER = "iCloud.com.liamp.videoplayer"
 APP_GROUP = "group.com.liamp.videoplayer"
 ICLOUD_KEY = "com.apple.developer.icloud-container-identifiers"
 GROUP_KEY = "com.apple.security.application-groups"
+APS_KEY = "aps-environment"
 PROFILE_DIRS = ("Library/MobileDevice/Provisioning Profiles", "Library/Developer/Xcode/UserData/Provisioning Profiles")
 
 
@@ -39,6 +41,11 @@ def missing_capabilities(app_plist, topshelf_plist):
     if APP_GROUP not in (app.get(GROUP_KEY) or []):
         out.append("App Group %s is missing on the App ID %s (developer.apple.com > Identifiers > %s > App Groups > "
                    "Configure: tick %s, Save)" % (APP_GROUP, APP_ID, APP_ID, APP_GROUP))
+    if app.get(APS_KEY) != "production":
+        out.append("Push Notifications (%s %s) is missing on the App ID %s; App Store Connect refuses a tvOS app with "
+                   "iCloud services without it (error 90575) (developer.apple.com > Identifiers > %s > Push "
+                   "Notifications: tick, Save; then make the App Store profile again and upload it to Codemagic)"
+                   % (APS_KEY, "production", APP_ID, APP_ID))
     if APP_GROUP not in (top.get(GROUP_KEY) or []):
         out.append("App Group %s is missing on the App ID %s (developer.apple.com > Identifiers > %s > App Groups > "
                    "Configure: tick %s, Save)" % (APP_GROUP, TOPSHELF_ID, TOPSHELF_ID, APP_GROUP))
@@ -96,7 +103,8 @@ def report(app_plist, topshelf_plist):
         print("PROFILE CHECK ERROR: %d capability(ies) missing; fix them on developer.apple.com, then start a new build "
               "(docs/TESTFLIGHT.md, Codemagic route)" % len(missing))
         return 1
-    print("PROFILE CHECK: %s has %s and %s; %s has %s" % (APP_ID, ICLOUD_CONTAINER, APP_GROUP, TOPSHELF_ID, APP_GROUP))
+    print("PROFILE CHECK: %s has %s, %s and %s production; %s has %s"
+          % (APP_ID, ICLOUD_CONTAINER, APP_GROUP, APS_KEY, TOPSHELF_ID, APP_GROUP))
     return 0
 
 

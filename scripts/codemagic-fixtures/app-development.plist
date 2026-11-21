@@ -14,6 +14,7 @@
     <key>get-task-allow</key><true/>
     <key>com.apple.developer.icloud-container-identifiers</key><array><string>iCloud.com.liamp.videoplayer</string></array>
     <key>com.apple.security.application-groups</key><array><string>group.com.liamp.videoplayer</string></array>
+    <key>aps-environment</key><string>development</string>
   </dict>
 </dict>
 </plist>
