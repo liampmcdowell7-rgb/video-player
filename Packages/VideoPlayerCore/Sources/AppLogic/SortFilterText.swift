@@ -18,4 +18,14 @@ public enum SortFilterText {
         }
         return order + "; " + filters
     }
+
+    /// R375 (owner's review of R375, 21 Nov 2026): the toolbar symbol shows when a filter is on, with the SF Symbol's own
+    /// filled form, as Apple's apps show an active filter; no circle of our own. HIG SF Symbols: "use the fill variant to
+    /// indicate selection". With no filter on, the outline symbol without a border (HIG Toolbars: "Prefer system-provided
+    /// symbols without borders"). The filled form of this filter symbol is its enclosed one (`.circle.fill`, drawn by SF
+    /// Symbols); that no unenclosed `.fill` form exists is from the SF Symbols catalog as remembered, not read here: UNVERIFIED.
+    public static let symbol = "line.3.horizontal.decrease"
+    public static let filledSymbol = "line.3.horizontal.decrease.circle.fill"
+
+    public static func symbolName(filtersOn: Int) -> String { filtersOn > 0 ? filledSymbol : symbol }
 }

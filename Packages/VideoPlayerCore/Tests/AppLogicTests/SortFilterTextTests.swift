@@ -15,4 +15,14 @@ final class SortFilterTextTests: XCTestCase {
         XCTAssertEqual(SortFilterText.spokenValue(order: "Title, A to Z", filtersOn: 1), "Title, A to Z; 1 filter on")
         XCTAssertEqual(SortFilterText.spokenValue(order: "Title, A to Z", filtersOn: 3), "Title, A to Z; 3 filters on")
     }
+
+    /// R375 (owner's review): the filled form while at least one filter is on, the outline symbol otherwise.
+    func testTheSymbolIsFilledWhileAFilterIsOn() {
+        XCTAssertEqual(SortFilterText.symbolName(filtersOn: 0), "line.3.horizontal.decrease")
+        XCTAssertEqual(SortFilterText.symbolName(filtersOn: 1), "line.3.horizontal.decrease.circle.fill")
+        XCTAssertEqual(SortFilterText.symbolName(filtersOn: 4), "line.3.horizontal.decrease.circle.fill")
+        XCTAssertFalse(SortFilterText.symbol.contains("circle"), "no border while no filter is on")
+        XCTAssertTrue(SortFilterText.filledSymbol.hasSuffix(".fill"))
+        XCTAssertTrue(SortFilterText.filledSymbol.hasPrefix(SortFilterText.symbol), "the same filter symbol, filled")
+    }
 }
