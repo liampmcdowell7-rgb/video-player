@@ -1367,16 +1367,16 @@ final class ScreenshotTests: XCTestCase {
             // R339: seasons are tabs above one episode list. Focus on the Season 2 tab selects it (HIG Segmented controls, tvOS);
             // then the list holds season 2's episodes only.
             let seasonTwo: XCUIElement = app.segmentedControls[ControlID.seasonTabs].buttons["Season 2"]
-            if focus(seasonTwo.exists ? seasonTwo : control("Season 2", in: app), in: app), waitFor("S2 E1", in: app, timeout: 10) {
+            if focus(seasonTwo.exists ? seasonTwo : control("Season 2", in: app), in: app), waitFor("S2, E1", in: app, timeout: 10) {
                 settle(); seasonTabsCheck("56-show-season-2-tab", in: app)
-                if focus(control("S2 E1", in: app), in: app) { settle(); shot("56-show-season-2-episode-row", endOfScroll: "moving the focus to the season 2 row") }
+                if focus(control("S2, E1", in: app), in: app) { settle(); shot("56-show-season-2-episode-row", endOfScroll: "moving the focus to the season 2 row") }
                 else { notReached("56-show-season-2-episode-row", "Could not move the focus to a season 2 episode (focus on \(focusedLabel(in: app))).") }
             } else { notReached("56-show-season-2-episode-row", "The Season 2 tab did not show season 2's episodes (focus on \(focusedLabel(in: app))).") }
             // #30 Part 2 / #36 group 4 (R264): S2 E3 has the longest caption. It wraps at the readable floor instead of being
             // cut; the two pictures 3 s apart must be identical with the caption whole (default text size).
-            if focus(control("S2 E3", in: app), in: app) || focus(control("S2 E3, A very long episode title that is wider than any episode card on the show page", in: app), in: app) {
+            if focus(control("S2, E3", in: app), in: app) || focus(control("S2, E3, A very long episode title that is wider than any episode card on the show page", in: app), in: app) {
                 // #36 8 T4: S2 E3 is the long title; the focus is asserted before the wait and written to the -FOCUS note.
-                laterPictures("56-show-long-episode-caption", expected: "S2 E3", caption: "A very long episode title",
+                laterPictures("56-show-long-episode-caption", expected: "S2, E3", caption: "A very long episode title",
                               step: "3 s of focus on S2 E3", in: app,
                               firstLine: "focused \(focusedLabel(in: app)) after moving to S2 E3")
             } else {
@@ -1505,9 +1505,9 @@ final class ScreenshotTests: XCTestCase {
             notReached("22-player-skip-intro", "The show page did not open."); app.terminate(); return
         }
         checkResponsive("test12-show-page-responsive", text: "Season 1", in: app)
-        // #36 8 T5: the S1 E1 card by its full spoken label (the button's label is "S1 E1, A quiet beginning"), so no other
+        // #36 8 T5: the S1 E1 card by its full spoken label (the button's label is "S1, E1, A quiet beginning" since R358), so no other
         // control can match; the focus is checked on that card before Select, and the path goes into the note.
-        let episodeLabel: String = "S1 E1, A quiet beginning"
+        let episodeLabel: String = "S1, E1, A quiet beginning"
         // R339: one season's episodes under the season tabs; S1 E1 is under Season 1 (focus selects a tab).
         if !app.buttons[episodeLabel].exists {
             let seasonOne: XCUIElement = app.segmentedControls[ControlID.seasonTabs].buttons["Season 1"]

@@ -117,7 +117,7 @@ final class PlayerOverlayTests: XCTestCase {
         let p = try? XCTUnwrap(r.up.presented.first)
         XCTAssertEqual(p?.heading, "Up Next")
         XCTAssertEqual(p?.episodeTitle, "The Return")
-        XCTAssertEqual(p?.episodeCode, "S1 E2")
+        XCTAssertEqual(p?.episodeCode, "S1, E2")
         XCTAssertEqual(p?.previewKey, "still-f2")
         XCTAssertEqual(p?.acceptTitle, "Play Now")
         XCTAssertEqual(p?.dismissTitle, "Cancel")

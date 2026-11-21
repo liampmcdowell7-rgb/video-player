@@ -99,7 +99,8 @@ public struct MissingEpisode: Equatable, Sendable, Identifiable {
     public var name: String
     public var airDate: CalendarDate?
     public var id: String { "\(season)x\(episode)" }
-    public var code: String { "S\(season) E\(episode)" }
+    /// R358: the app's one form, "S1, E2" (`PlayerEpisodeText.code`).
+    public var code: String { PlayerEpisodeText.code(season: season, episode: episode) ?? "" }
     public init(season: Int, episode: Int, name: String, airDate: CalendarDate? = nil) {
         self.season = season; self.episode = episode; self.name = name; self.airDate = airDate
     }

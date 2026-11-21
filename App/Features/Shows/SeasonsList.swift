@@ -215,7 +215,7 @@ private struct EpisodeCard: View {
 
     private var captions: some View {
         VStack(alignment: .leading) {
-            // #25 B7: always "S2 E1 · Title" (the title is "Episode 1" when the file names none, never the code again).
+            // #25 B7: always "S2, E1 · Title" (R358: the player's form) (the title is "Episode 1" when the file names none, never the code again).
             // #36 group 4 (R264): shrinks to the floor, then wraps, never cut; the row's tallest caption height.
             CardCaption(text: episode.code + " · " + episode.title)
             HStack {

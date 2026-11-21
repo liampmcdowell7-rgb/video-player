@@ -60,7 +60,7 @@ final class LibraryScreenTests: XCTestCase {
         XCTAssertEqual(next.kind, .episode)
         // Screenshot review item 3b: an episode card is titled with its show, the second line names the episode.
         XCTAssertEqual(next.title, "Show One")
-        XCTAssertTrue(next.subtitle?.hasPrefix("S1 E2") == true, next.subtitle ?? "nil")
+        XCTAssertTrue(next.subtitle?.hasPrefix("S1, E2") == true, next.subtitle ?? "nil")
         XCTAssertFalse(next.subtitle?.contains("Show One") == true, "the show name is not repeated")
         XCTAssertNil(next.progress)
     }
@@ -92,8 +92,11 @@ final class LibraryScreenTests: XCTestCase {
         XCTAssertEqual(DisplayText.remaining(7_200), "2 h left")
         XCTAssertEqual(DisplayText.runtime(6_720), "1 h 52 min")
         XCTAssertEqual(DisplayText.runtime(10), "1 min")
-        XCTAssertEqual(DisplayText.episodeCode(season: 2, episode: 5), "S2 E5")
-        XCTAssertEqual(DisplayText.episodeCode(season: 1, episode: 1, episodeEnd: 2), "S1 E1-E2")
+        // R358: the player's form (R313), one form in the app.
+        XCTAssertEqual(DisplayText.episodeCode(season: 2, episode: 5), "S2, E5")
+        XCTAssertEqual(DisplayText.episodeCode(season: 1, episode: 1, episodeEnd: 2), "S1, E1–E2")
+        XCTAssertNil(DisplayText.episodeCode(season: nil, episode: 5))
+        XCTAssertEqual(DisplayText.episodeCode(season: 2, episode: 5), PlayerEpisodeText.code(season: 2, episode: 5))
         XCTAssertNil(DisplayText.episodeCode(season: nil, episode: 1))
         XCTAssertEqual(DisplayText.fileSize(999), "999 bytes")
         XCTAssertEqual(DisplayText.fileSize(12_400_000), "12.4 MB")
@@ -325,7 +328,7 @@ final class LibraryScreenTests: XCTestCase {
         var c = try XCTUnwrap(vm.state.content)
         XCTAssertEqual(c.seriesTitle, "Show One")
         XCTAssertEqual(c.seasons.map(\.title), ["Season 1", "Season 2", "Specials"])
-        XCTAssertEqual(c.seasons[0].episodes.map(\.code), ["S1 E1", "S1 E2", "S1 E3"])
+        XCTAssertEqual(c.seasons[0].episodes.map(\.code), ["S1, E1", "S1, E2", "S1, E3"])
         XCTAssertEqual(c.playTitle, "Play")
         let first = try XCTUnwrap(c.seasons[0].episodes.first)
         XCTAssertEqual(c.resumeEpisodeID, first.id)

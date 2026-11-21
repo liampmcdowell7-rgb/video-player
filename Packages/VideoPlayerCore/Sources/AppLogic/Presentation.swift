@@ -89,11 +89,13 @@ public enum DisplayText {
         return m == 0 ? "\(h) h" : "\(h) h \(m) min"
     }
 
-    /// "S2 E5", or "S1 E1-E2" for a double episode.
+    /// "S2, E5", or "S1, E1–E2" for a double episode; nil unless both numbers are known.
+    /// R358 (owner's scan of ec27d52, finding 2; decided by the owner's standing rule R312, Apple's TV app form): ONE form
+    /// for a season and episode named together, the player's (`PlayerEpisodeText.code`, R313), on Home, the cards, the show
+    /// page and Discover. Before: "S2 E5" here while the player said "S2, E5".
     public static func episodeCode(season: Int?, episode: Int?, episodeEnd: Int? = nil) -> String? {
         guard let season, let episode else { return nil }
-        if let end = episodeEnd, end > episode { return "S\(season) E\(episode)-E\(end)" }
-        return "S\(season) E\(episode)"
+        return PlayerEpisodeText.code(season: season, episode: episode, episodeEnd: episodeEnd)
     }
 
     /// "12.4 MB", "3.1 GB". Decimal units, like Finder and the Apple TV settings.

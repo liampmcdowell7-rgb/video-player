@@ -5,7 +5,7 @@ import XCTest
 final class SeasonTabsTests: XCTestCase {
     private func season(_ n: Int, ids: [Int64]) -> SeasonSection {
         SeasonSection(season: n, title: "Season \(n)",
-                      episodes: ids.map { EpisodeRow(id: $0, title: "E", code: "S\(n) E1", runtimeText: nil, progress: nil, isWatched: false, artworkKey: "k") },
+                      episodes: ids.map { EpisodeRow(id: $0, title: "E", code: "S\(n), E1", runtimeText: nil, progress: nil, isWatched: false, artworkKey: "k") },
                       watchedCount: 0)
     }
 

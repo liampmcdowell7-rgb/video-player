@@ -336,10 +336,11 @@ public enum ScreenRules {
 
     // MARK: E: equal episode cards
 
-    /// #33 E: every episode card ("S2 E3, Title", a Button or Cell) has the same size, within 1 pt. Picture 55 of the run of
+    /// #33 E: every episode card ("S2, E3, Title" since R358, "S2 E3, Title" before; a Button or Cell) has the same size,
+    /// within 1 pt. Picture 55 of the run of
     /// 20 Nov had S2 E3 at 378 x 566 beside 410 x 615 cards.
     public static func equalEpisodeCards(in dump: AccessibilityDump) -> CheckResult {
-        let pattern: NSRegularExpression = try! NSRegularExpression(pattern: "^S[0-9]+ E[0-9]+, ")
+        let pattern: NSRegularExpression = episodeCardPattern
         let cards: [(String, AXRect)] = dump.nodes.compactMap { (node: AXNode) -> (String, AXRect)? in
             guard ["Button", "Cell"].contains(node.type), let frame = node.frame, !frame.isEmpty,
                   pattern.firstMatch(in: node.label, range: NSRange(node.label.startIndex..., in: node.label)) != nil else { return nil }

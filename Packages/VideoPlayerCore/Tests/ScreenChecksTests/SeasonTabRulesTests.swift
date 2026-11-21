@@ -18,4 +18,12 @@ final class SeasonTabRulesTests: XCTestCase {
     func testNoCardsFails() {
         XCTAssertFalse(ScreenRules.oneSeasonListed(cardLabels: ["Season 1", "Sample Show 1"]).passed)
     }
+
+    // R358: the app's one form, "S2, E3, Title", is read as well as the older "S2 E3, Title".
+    func testTheAppsEpisodeCodeFormIsRead() {
+        XCTAssertTrue(ScreenRules.oneSeasonListed(cardLabels: ["S1, E1, Pilot", "S1, E2, Second", "Season 1", "More"]).passed)
+        XCTAssertFalse(ScreenRules.oneSeasonListed(cardLabels: ["S1, E1, Pilot", "S2, E1, Return"]).passed)
+        XCTAssertEqual(ScreenRules.episodeCardSeason("S12, E3\u{2013}E4, Two parts"), "S12")
+        XCTAssertNil(ScreenRules.episodeCardSeason("Season 2"))
+    }
 }

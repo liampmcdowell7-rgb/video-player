@@ -75,7 +75,7 @@ final class DiscoverEngineTests: XCTestCase {
         let groups = await engine(src).missingEpisodes(library, &problems)
         XCTAssertEqual(groups.count, 1)
         XCTAssertEqual(groups[0].seriesTitle, "Fixture Show")
-        XCTAssertEqual(groups[0].episodes.map(\.code), ["S1 E2", "S1 E3"], "episode 4 is unaired, 5 has no date, season 2 is not owned at all")
+        XCTAssertEqual(groups[0].episodes.map(\.code), ["S1, E2", "S1, E3"], "episode 4 is unaired, 5 has no date, season 2 is not owned at all")
         XCTAssertFalse(src.calls.contains("season:10:2"), "a season the user never collected is not even asked for")
         XCTAssertTrue(problems.sentences.isEmpty)
     }

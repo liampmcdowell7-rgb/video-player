@@ -74,7 +74,7 @@ VERIFY = [
                                                                                     "60-movie-detail-two-versions", "61-movie-detail-two-versions-scrolled"]),
     ("#25 B7: show page order and cast",
      "the cast after the episode shelves, a person symbol in a circle where there is no photo, a role under every name; "
-     "episode labels \"S2 E1 · Second chances\"", ["55-show-page", "56-show-season-2-episode-row", "77-show-long-synopsis-cast"]),
+     "episode labels \"S2, E1 · Second chances\" (R358)", ["55-show-page", "56-show-season-2-episode-row", "77-show-long-synopsis-cast"]),
     ("#25 B9: File Details and the Files title",
      "File Details has no empty button: name, size, date, location and Done; Files shows its title", ["70-files-sources", "74-file-details"]),
     ("#25 B10: the movie page opens with Play focused",

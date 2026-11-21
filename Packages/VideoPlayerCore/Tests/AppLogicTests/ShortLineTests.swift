@@ -62,14 +62,14 @@ final class CardTextTests: XCTestCase {
     func testAnEpisodeCardIsTitledWithItsShowAndNamesTheEpisodeOnce() async throws {
         let card = CardBuilder.card(try await episode(title: "Return"))
         XCTAssertEqual(card.title, "Show One")
-        XCTAssertEqual(card.subtitle, "S2 E1 · Return")
+        XCTAssertEqual(card.subtitle, "S2, E1 · Return")
     }
 
     func testAnEpisodeWithoutARealTitleShowsOnlyTheCode() async throws {
         for placeholder in ["", "S02E01", "s2e1", "S02 E01", "2x01", "Episode 1", "Show One"] {
             let card = CardBuilder.card(try await episode(title: placeholder))
             XCTAssertEqual(card.title, "Show One", placeholder)
-            XCTAssertEqual(card.subtitle, "S2 E1", "title \(placeholder.debugDescription) is not a real episode title")
+            XCTAssertEqual(card.subtitle, "S2, E1", "title \(placeholder.debugDescription) is not a real episode title")
         }
     }
 
@@ -80,8 +80,8 @@ final class CardTextTests: XCTestCase {
         e.watch.position = 600
         e.watch.duration = 3_000
         let card = CardBuilder.card(e, style: .continueWatching)
-        XCTAssertEqual(card.subtitleLine.candidates, ["S2 E1 · Return · 40 min left", "S2 E1 · 40 min left", "S2 E1"])
-        XCTAssertEqual(card.subtitleLine.full, "S2 E1 · Return · 40 min left", "display order is unchanged")
+        XCTAssertEqual(card.subtitleLine.candidates, ["S2, E1 · Return · 40 min left", "S2, E1 · 40 min left", "S2, E1"])
+        XCTAssertEqual(card.subtitleLine.full, "S2, E1 · Return · 40 min left", "display order is unchanged")
     }
 
     /// #17 C drop order of the badge line, lowest priority first: audio (Dolby Atmos), then HDR, then resolution.
