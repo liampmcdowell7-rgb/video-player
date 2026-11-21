@@ -396,6 +396,29 @@ final class ScreenshotTests: XCTestCase {
         captionOverlapCheck(name, caption: caption, in: app)
     }
 
+    /// R355 (item 6): a long name in a Files row is whole: its text is on screen, inside the screen's width, and it does not
+    /// run over its second line (`detail`). Picture 72 of the run of 21 Nov cut it at rest ("… Card Is W"). "-NAME" note;
+    /// a failure fails the test. The row's combined text ("name, 3 items") is skipped; the frames cannot show a clip inside
+    /// the text's own frame: the picture shows that.
+    func longNameCheck(_ name: String, name text: String, detail: String, in app: XCUIApplication) {
+        let label: XCUIElement = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ AND NOT (label CONTAINS %@)", text, detail)).firstMatch
+        let second: XCUIElement = app.staticTexts.matching(NSPredicate(format: "label == %@", detail)).firstMatch
+        guard label.waitForExistence(timeout: 5), second.exists else {
+            note(name + "-NAME", "the long name or its \u{201C}\(detail)\u{201D} line was not found: NOT CHECKED")
+            XCTFail("\(name): the long name \u{201C}\(text)\u{201D} or \u{201C}\(detail)\u{201D} was not found")
+            return
+        }
+        let box: CGRect = label.frame
+        let screen: CGRect = app.windows.firstMatch.frame
+        var failures: [String] = []
+        if box.maxX > screen.maxX { failures.append("the name runs past the screen's right edge") }
+        if box.intersects(second.frame) { failures.append("the name runs over \u{201C}\(detail)\u{201D}") }
+        var lines: [String] = ["name \u{201C}\(label.label)\u{201D} \(box)", "\u{201C}\(detail)\u{201D} \(second.frame)"]
+        lines.append(failures.isEmpty ? "LONG NAME OK" : "FAILED: " + failures.joined(separator: "; "))
+        note(name + "-NAME", lines.joined(separator: "\n"))
+        for failure in failures { XCTFail("\(name): \(failure) (R355)") }
+    }
+
     /// R354 (item 5): the long caption does not run over the lines under it. The run of 21 Nov drew S2 E3's three-line
     /// caption (88 pt) over its "43 min" line. Every other text of the card that holds `caption` must start below the
     /// caption's frame or end above it. "-OVERLAP" note; an overlap fails the test.
@@ -1854,6 +1877,8 @@ final class ScreenshotTests: XCTestCase {
                         notReached("72-files-folder", "After opening the Movies folder: folder screen shown \(onFolder), Movies tab screen shown \(onMovies). Accessibility tree (first 60 lines):\n\(trimmedHierarchy(app))")
                     }
                     // R346 (item A): Up from the last file of the folder reaches the first file before the tab bar.
+                    // R355 (item 6): the long folder name is whole (it wraps at the floor) and clear of its "3 items" line.
+                    if onFolder { longNameCheck("72-files-folder", name: "Sample Movie 7 With A Much Longer", detail: "3 items", in: app) }
                     if onFolder { scrollUpCheck("72-files-folder", top: folderTop, in: app) }
                     if open("Sample Movie 1 (2021)", in: app, name: "73-files-movie-folder") {
                         settle(); shot("73-files-movie-folder")

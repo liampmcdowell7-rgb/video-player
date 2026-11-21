@@ -11,12 +11,12 @@ struct FileRowView: View {
     var body: some View {
         if row.isDirectory {
             NavigationLink(value: Route.folder(sourceID: sourceID, sourceName: sourceName, path: row.id)) {
-                RowLabel(row.name, systemImage: "folder", detail: row.detail, fadesAtRest: true)
+                RowLabel(row.name, systemImage: "folder", detail: row.detail, wrapsAtFloor: true)
             }
         } else {
             Button(action: onSelectFile) {
                 // #15 7.3: the size and format as the second line (R187), replacing the size in the value column.
-                RowLabel(row.name, systemImage: symbol, detail: row.detail ?? row.sizeText, fadesAtRest: true)
+                RowLabel(row.name, systemImage: symbol, detail: row.detail ?? row.sizeText, wrapsAtFloor: true)
             }
         }
     }

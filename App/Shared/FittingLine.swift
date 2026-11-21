@@ -70,21 +70,50 @@ extension TVTextStyle {
 struct FittingText: View {
     let text: String
     var style: TVTextStyle = .body
-    /// #33 E (R229 option (c), PROVISIONAL): below the floor, fade the clipped line at rest and run the marquee on focus.
-    var fadesAtRest: Bool = false
+    /// R355 (compile run of 21 Nov 2026, item 6; PROVISIONAL, the owner's decision on S1 against R264 is open): a text that
+    /// does not fit at the floor WRAPS at the floor size instead of being cut. Replaces the fade at rest with the marquee on
+    /// focus of R229 (c): picture 72 showed the long folder name cut at rest ("… Card Is W"). Only the Files list row asks.
+    var wrapsAtFloor: Bool = false
     @State private var natural: Double = 0
     @State private var available: Double = 0
-    /// Whether the nearest focusable ancestor (the row or lockup button) has focus.
-    // design-lint:allow read only, to lift the rest fade while the system marquee runs; focus visuals stay the system's (#33 E, R229 (c))
-    @Environment(\.isFocused) private var isFocused: Bool
 
-    init(_ text: String, style: TVTextStyle = .body, fadesAtRest: Bool = false) {
+    init(_ text: String, style: TVTextStyle = .body, wrapsAtFloor: Bool = false) {
         self.text = text
         self.style = style
-        self.fadesAtRest = fadesAtRest
+        self.wrapsAtFloor = wrapsAtFloor
     }
 
     var body: some View {
+        if wrapsAtFloor {
+            wrapping
+        } else {
+            fitting
+        }
+    }
+
+    /// R355: the line in its style when it fits, else one line at the 23 pt floor (Caption 2), else the floor size wrapped
+    /// onto as many lines as it needs. The system `ViewThatFits` chooses in one layout pass, with no measured state (as
+    /// `CardCaption`, R354), so the row takes the wrapped height in the same pass.
+    private var wrapping: some View {
+        ViewThatFits(in: .horizontal) {
+            oneLine(style)
+            oneLine(.caption2)
+            Text(text)
+                .font(TVTextStyle.caption2.font)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// One line in `style`; `ViewThatFits` uses it only when its natural width fits, so it is never cut (rule S1).
+    private func oneLine(_ lineStyle: TVTextStyle) -> some View {
+        Text(text)
+            .font(lineStyle.font)
+            .lineLimit(1) // design-lint:allow R355: offered to ViewThatFits only at its natural width, so it is never cut (rule S1)
+    }
+
+    @ViewBuilder
+    private var fitting: some View {
         let readable: Double = ShortLine.minimumScale(forPointSize: style.pointSize)
         let tooLong: Bool = Self.isTooLong(natural: natural, available: available, readable: readable)
         line(tooLong: tooLong, readable: readable)
@@ -110,10 +139,7 @@ struct FittingText: View {
     /// long (R229).
     @ViewBuilder
     private func line(tooLong: Bool, readable: Double) -> some View {
-        if tooLong && fadesAtRest {
-            MarqueeText(text: text, fadesAtRest: true)
-                .mask { RestFade(active: !isFocused) }
-        } else if tooLong {
+        if tooLong {
             MarqueeText(text: text)
         } else {
             Text(text)
@@ -136,21 +162,3 @@ struct FittingText: View {
     }
 }
 
-/// #33 E (OPEN_QUESTIONS R229, option (c), PROVISIONAL): the mask of a clipped line at rest: opaque, then a fade over the
-/// trailing tenth, so the cut reads as "more follows" instead of "…" (rule S1). Fully opaque while focused, where the system
-/// marquee scrolls the line. A mask uses only the alpha of its colours (system `.primary`, `.clear`), so no colour is drawn.
-private struct RestFade: View {
-    let active: Bool
-
-    var body: some View {
-        if active {
-            // #34 1: the stops typed on their own (the #29 pattern: no generic inference inside one long expression).
-            let stops: [Gradient.Stop] = [Gradient.Stop(color: Color.primary, location: 0),
-                                          Gradient.Stop(color: Color.primary, location: 0.9),
-                                          Gradient.Stop(color: Color.clear, location: 1)]
-            LinearGradient(stops: stops, startPoint: .leading, endPoint: .trailing)
-        } else {
-            Rectangle()
-        }
-    }
-}

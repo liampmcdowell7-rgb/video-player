@@ -14,17 +14,18 @@ struct RowLabel: View {
     let systemImage: String
     /// #15 7.3: an optional secondary line.
     var detail: String? = nil
-    /// #33 E: passed to `SlotLabel`; the Files list row asks for the fade at rest and the marquee on focus (R229 (c)).
-    var fadesAtRest: Bool = false
+    /// R355 (item 6): passed to `SlotLabel`; the Files list row asks for a name that wraps at the floor instead of being
+    /// cut (replaces the fade at rest of R229 (c)).
+    var wrapsAtFloor: Bool = false
 
-    init(_ title: String, systemImage: String, detail: String? = nil, fadesAtRest: Bool = false) {
+    init(_ title: String, systemImage: String, detail: String? = nil, wrapsAtFloor: Bool = false) {
         self.title = title
         self.systemImage = systemImage
         self.detail = detail
-        self.fadesAtRest = fadesAtRest
+        self.wrapsAtFloor = wrapsAtFloor
     }
 
     var body: some View {
-        SlotLabel(title, systemImage: systemImage, detail: detail, fadesAtRest: fadesAtRest)
+        SlotLabel(title, systemImage: systemImage, detail: detail, wrapsAtFloor: wrapsAtFloor)
     }
 }
