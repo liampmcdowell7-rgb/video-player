@@ -1099,6 +1099,8 @@ final class ScreenshotTests: XCTestCase {
         app = launch("-UITestFixtures", open: "Sample Show 1")
         if waitForScreen("screen.series", in: app, timeout: 60), waitFor("Season 1", in: app, timeout: 20) {
             settle(); shot("55-show-page")
+            // R336: the show page's backdrop, as on the movie page ("55-show-page-CONTRAST", a note).
+            textContrast("55-show-page", in: app)
             // #33 E: every episode card the same size (55 of the run of 20 Nov: S2 E3 378 x 566 beside 410 x 615).
             let pageTree: String = app.debugDescription
             note("55-show-page-HIERARCHY", pageTree)
@@ -1132,6 +1134,9 @@ final class ScreenshotTests: XCTestCase {
             note("57-movie-detail-HIERARCHY", movieTree)
             checkGap("57-movie-detail", tree: movieTree, anchors: [ControlID.play, ControlID.more], kinds: ["StaticText"], minimum: 40, what: "buttons to the next heading")
             focusCheck("57-movie-detail", expected: ControlID.play, in: app)
+            // R336 (docs/HIG_AUDIT.md T6): the backdrop is at full strength under the system material; every text's
+            // contrast against it in "57-movie-detail-CONTRAST" (a note, not a failure; targets PROVISIONAL, R240).
+            textContrast("57-movie-detail", in: app)
             for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); let mustChange: String? = step == 1 ? "Down on the movie page" : nil; shot("58-movie-detail-scrolled-\(step)", mustChangeAfter: mustChange, endOfScroll: step == 1 ? nil : "Down on the movie page") }
             // Fix Match is in the More menu (ItemDetailContentView.moreMenu), not a button on the page: the old test looked for
             // it on the page and never found it (#15 item 1.3). Up to the action row first: the focus is below it after 58.

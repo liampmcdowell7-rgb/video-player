@@ -1,7 +1,7 @@
 import SwiftUI
 import AppLogic
 
-/// The loaded detail page (#15 6.2): backdrop with scrim; title or title logo; "year · duration · rating"; the format line;
+/// The loaded detail page (#15 6.2): backdrop under the system material (R336); title or title logo; "year · duration · rating"; the format line;
 /// the synopsis; the buttons; the cast; then "Media Info", always fully shown. Everything reachable is a button, a menu or
 /// a focusable block, so the remote can scroll to all of it.
 struct ItemDetailContentView: View {
@@ -147,7 +147,7 @@ struct CastShelf: View {
                 LazyHStack(alignment: .top) {
                     ForEach(cast) { person in
                         VStack {
-                            CastPhoto(url: person.photo)
+                            CastPhoto(url: person.photo, name: person.name)
                                 .frame(width: photoSize, height: photoSize) // design-lint:allow #25 B7: one text-scaled circle for every cast photo or placeholder, so the shelf entries line up (not a fixed card)
                             FittingText(person.name, style: .callout)
                             FittingText(person.role ?? " ", style: .caption)
@@ -165,9 +165,14 @@ struct CastShelf: View {
     }
 }
 
-/// #25 B7: a cast photo in a circle, or the system person symbol in the same circle while there is none (or it fails to load).
+/// #25 B7: a cast photo in a circle. R336 (PROVISIONAL, docs/HIG_AUDIT.md T8): with no photo (or while it fails to load)
+/// the person's initials in the same circle, HIG Lockups, Monograms: "If an image isn't available, the person's initials
+/// appear in place of an image." The system person symbol only when the name gives no initials. SwiftUI has no monogram
+/// view (the HIG names TVUIKit's `TVMonogramContentView`); the circle is the system quaternary fill and the initials system
+/// text: how close this is to `TVMonogramContentView` on tvOS 27 is UNVERIFIED.
 private struct CastPhoto: View {
     let url: URL?
+    let name: String
 
     var body: some View {
         Group {
@@ -187,11 +192,22 @@ private struct CastPhoto: View {
         .accessibilityHidden(true)
     }
 
+    @ViewBuilder
     private var placeholder: some View {
-        Image(systemName: "person.crop.circle.fill")
-            .resizable()
-            .aspectRatio(contentMode: .fit)
-            .foregroundStyle(.secondary)
+        let initials: String = Monogram.initials(name)
+        if initials.isEmpty {
+            Image(systemName: "person.crop.circle.fill")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .foregroundStyle(.secondary)
+        } else {
+            Circle()
+                .fill(.quaternary)
+                .overlay {
+                    FittingText(initials, style: .title2)
+                        .foregroundStyle(.secondary)
+                }
+        }
     }
 }
 

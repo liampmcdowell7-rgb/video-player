@@ -245,3 +245,8 @@ SwiftUI" (the SwiftUI page `/documentation/swiftui/lockups` still does not load:
 | T1 | Built (R335): portrait cards are one `.borderless` lockup with the title inside the button. Titles stay visible at rest (Apple's SwiftUI sample shows them; rule S1); hiding them until focus is R335 alternative (a). |
 | T2 | Matches Apple's sample (`.borderless`, `hoverEffect(.highlight)` on a custom artwork view): no change. The caption-height key stays (R264). |
 | T3 | Matches Apple's sample (40 pt, `containerRelativeFrame(count: 6, spacing: 40)`): no change. 100 pt between grid rows: UNVERIFIED. |
+| T6 | Built (R336): the backdrop at full strength under the system `regularMaterial` (Apple's sample, product page). The 35 % dimming-layer citation above is withdrawn: on the Materials page it is for components with clear Liquid Glass. |
+| T7 | Not changed: the second focus request fixes a measured run (#25 B10, the tab bar kept the focus on a page pushed at launch). Removing it would need a run that proves `defaultFocus` alone is enough (R338). |
+| T8 | Built (R336): initials in place of a missing photo (HIG Lockups, Monograms). Selecting a person still does nothing (no person page; R338). |
+| T9 | Not changed: Media Info is already text in two columns, not a collection; the `LabeledContent` form was replaced for a measured reason (#25 B6). |
+| T10 | Not built: a season picker changes the show page's structure; the TV app's pattern is not on any Apple page read (R338). |

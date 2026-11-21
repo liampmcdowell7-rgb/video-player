@@ -3,17 +3,21 @@ import AppLogic
 
 /// The wide picture behind a movie or show page (#15 6.2 and 5.2). Fan art next to the media first, then the matched
 /// online backdrop (`ArtworkEngine.backdrop`); with none, the page keeps the system background. Decorative: hidden from
-/// VoiceOver. No scrim layer: docs/DESIGN_SYSTEM.md (detail page row, from the HIG Layout page) keeps hero artwork behind
-/// controls to the system scroll edge effect, so the picture itself is drawn dimmed over the system background to keep
-/// the text readable (OPEN_QUESTIONS R182, PROVISIONAL strengths). Fixed in code, verify in next screenshots.
+/// VoiceOver.
+///
+/// R336 (PROVISIONAL, docs/HIG_AUDIT.md T6; supersedes the strengths of R182): the picture is drawn at FULL strength
+/// ("Deliver beautiful, edge-to-edge artwork", HIG Designing for tvOS) under the system `regularMaterial`, as Apple's sample
+/// "Creating a tvOS media catalog app in SwiftUI" builds a product page ("keep the content's showcase image, with a
+/// suitable blur, as a background for the view when scrolling below"; "its defining artwork tinting the content"). The
+/// page's text starts at the top, so the material covers the whole picture (the sample's below-the-fold state); the
+/// sample's above-the-fold layout (text at the bottom, the top of the picture clear) would move the page's content: R336
+/// alternative (b), for the owner. Before: the picture alone at 40 % (15 % with Reduce Transparency) over the system
+/// background. The material follows Reduce Transparency and Increase Contrast itself (HIG Materials: "system settings can
+/// change its appearance"); its exact look on tvOS 27 is UNVERIFIED.
 struct BackdropView: View {
     let artworkKey: String
     @Environment(AppServices.self) private var services
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var result: ArtworkResult = .none
-
-    /// How much of the picture shows through. PROVISIONAL (R182).
-    private var strength: Double { reduceTransparency ? 0.15 : 0.4 }
 
     var body: some View {
         Color.clear
@@ -33,7 +37,11 @@ struct BackdropView: View {
         case .file(let url), .remote(let url):
             AsyncImage(url: url) { phase in
                 if case .success(let image) = phase {
-                    image.resizable().aspectRatio(contentMode: .fill).opacity(strength)
+                    image.resizable().aspectRatio(contentMode: .fill)
+                        .overlay {
+                            // design-lint:allow R336: the system regular material over the full-strength backdrop, Apple's tvOS media catalog sample's product page (a standard material in the content layer, HIG Materials; not glass)
+                            Rectangle().fill(.regularMaterial)
+                        }
                 }
             }
         case .none:
