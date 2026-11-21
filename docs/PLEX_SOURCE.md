@@ -1,10 +1,21 @@
 # Plex as a source type: research and plan (not built)
 
 Status: **PLAN ONLY, nothing built.** No app code, no test server, no Plex account was used. Every decision below is
-PROVISIONAL and listed in OPEN_QUESTIONS.md (R267 to R272) for the owner to confirm or change. This plan changes earlier
-decided rows only if the owner says so: R12 (B7) "no plex.tv sign-in", R19 "local-only mode if it works, otherwise
-blocked", R30 "account-blocked", S12, S21 and the media-server rule in docs/SOURCES.md ("Your Library Only, direct play
-only, our metadata authoritative"). Where this plan differs from them it says so.
+PROVISIONAL and listed in OPEN_QUESTIONS.md (R267 to R272) for the owner to confirm or change. Owner answers of 20 Nov
+2026: sign-in (R267) follows the owner's wording, and R12 (B7) "no plex.tv sign-in", R19 "local-only mode if it works,
+otherwise blocked" and the Plex part of R30 "account-blocked" are marked SUPERSEDED (kept as history). Metadata (R270) was
+not answered and follows a stated assumption. S12 (plex.tv sign-in allowed for Plex only) already fits. S21 and the
+media-server rule in docs/SOURCES.md ("Your Library Only, direct play only, our metadata authoritative") still stand
+except where this plan says otherwise (R270 for metadata; R271 for the server-transcode fallback).
+
+## Owner context (as stated by the owner, 20 Nov 2026)
+
+- The owner has used Plex for their entire life and prefers it. **Plex is the primary source type for this app.**
+- The owner's media library is on a portable SSD. At home, Plex Media Server on the owner's PC streams that library to the
+  Apple TV over the home network. This is the path this plan serves.
+- Away from home, the owner plugs the SSD into an iPad and plays it directly over USB-C with another app. That is a
+  separate path and **not part of this app** (a possible later iPad version is a separate long-term plan).
+- WebDAV stays working and untouched.
 
 The owner's goal: add a Plex server in the same Add a Source flow as WebDAV, browse movies and shows, and play items in
 the existing player with the same quality, metadata, artwork and Continue Watching behaviour as WebDAV items. WebDAV
@@ -28,8 +39,14 @@ server the owner provides) before the stage that uses it is built.
 
 ## 1. Sign-in on an Apple TV
 
-**Recommended (R267): the plex.tv PIN flow ("link" code).** The TV shows a short code and a link; the owner enters the
-code on a phone or computer where the owner is already signed in to Plex; the TV polls until the token arrives.
+**Owner's answer (R267, PROVISIONAL): "however Infuse does it right now"** (the owner's words; that app signs in with
+the owner's Plex account through plex.tv). Recorded as: **plex.tv account sign-in with a PIN or link code, then a server
+chosen from the account's server list** (section 2). PROVISIONAL because it follows the owner's wording; the exact flow of
+the app the owner named has not been verified (nothing of it was read). A manual server-address-plus-token path is **not**
+the primary flow (it stays only as alternative (a) below).
+
+The flow: the TV shows a short code and a link; the owner enters the code on a phone or computer where the owner is
+already signed in to Plex; the TV polls until the token arrives.
 
 Steps, from the developer home page (read):
 1. `POST https://plex.tv/api/v2/pins?strong=true` with `Accept: application/json`, `X-Plex-Product` and
@@ -56,15 +73,17 @@ needs a device key pair in the Keychain and a refresh path. Choice in R267: star
 flow as the planned follow-up stage (it fits the existing `AuthMethod.pinLink`).
 
 Why the PIN flow: no typing of a long token with the Siri Remote; the owner never handles the token; it is the flow Plex
-documents for devices; it finds the owner's servers by itself (section 2). Against it: it contacts plex.tv, which R12
-(B7) decided against. **The owner must decide whether R267 replaces R12.**
+documents for devices; it finds the owner's servers by itself (section 2). It contacts plex.tv, which R12 (B7) had
+decided against; R12 is now marked SUPERSEDED by the owner's statement (20 Nov 2026), and S12 already allowed a plex.tv
+sign-in for Plex only.
 
-Alternatives (in R267):
+Alternatives (kept in R267, none is the primary flow):
 - (a) Server address plus a token pasted by the owner (from the Plex account on a computer). No plex.tv call from the
   app, but typing a ~20-character token with the remote, and the owner has to find the token without help.
 - (b) R12's local no-auth mode (server setting "allowed without auth", typed address, no token). Plex grants listed
   networks "full administrative access" and forum reports call it inconsistent (docs/SOURCES.md, from summaries).
-- (c) Keep Plex blocked (R19, R30 as they are).
+- (c) The JWT PIN flow from the start.
+- (d) Keep Plex blocked (R19, R30 as first written; now against the owner's statement, kept only so it is not lost).
 
 ## 2. Finding and choosing a server
 
@@ -130,11 +149,11 @@ with `key`, `file`, `size`, `container`):
 
 | Plex field | App field | Use |
 |---|---|---|
-| `Guid` `tmdb://…` | `LibraryItem.tmdbID` | Exact match for our metadata lookup (better than filename matching) |
-| `title`, `year` | title, year | Only as a hint when there is no TMDB id (our metadata rule) |
+| `Guid` `tmdb://…` | `LibraryItem.tmdbID` | Exact match for the TMDB lookup that fills gaps (better than filename matching) |
+| `title`, `year` | title, year | Shown first (R270 assumption); TMDB only when Plex has none |
 | `duration` (ms) | runtime | Yes (seconds) |
 | `Media`/`Part` codecs, container, size, width, height | technical facts | Yes, decides the playback route before opening the file |
-| `summary`, `thumb`, `art`, `contentRating`, `rating` | details and artwork | **Owner decision (R270)**: today "our metadata authoritative" and "Titles from the server are never used" apply to Jellyfin and Emby. Recommended: keep TMDB as the source of truth and use Plex's summary and artwork only when TMDB has none (a fallback layer; `DetailsLayers.swift` already names "a Jellyfin, Emby or Plex server" as layer 1) |
+| `summary`, `thumb`, `art`, `contentRating`, `rating` | details and artwork | **R270, PROVISIONAL (the owner did not answer; assumption)**: Plex's matched metadata and artwork first, TMDB only to fill gaps (`DetailsLayers.swift` already names "a Jellyfin, Emby or Plex server" as layer 1). For Plex this differs from "our metadata authoritative" and "Titles from the server are never used", which stay as they are for Jellyfin and Emby. Alternative kept visible: TMDB first, Plex as fallback (the earlier choice) |
 | `viewOffset`, `viewCount`, `lastViewedAt` | resume, watched | **UNVERIFIED** names (not in the text read); section 6 |
 | `Stream` (audio and subtitle tracks, language, codec) | track menus | **UNVERIFIED** (not in the text read); the system player draws the menus as today |
 | `addedAt`, `updatedAt`, `Rating` image ids, `tvdb://`, collections, extras, chapters, markers (intro) | not used yet | Listed for later; markers could feed the existing segment (skip-intro) data |
@@ -217,7 +236,8 @@ docs/DEVICE_TEST_CHECKLIST_SOURCES.md when the stage is built.
 
 ## 8. Stages, each small enough to review
 
-0. **Owner decisions** R267 to R272 (and whether they replace R12, R19, R30).
+0. **Owner decisions** R267 to R272. Answered 20 Nov 2026: R267 (PROVISIONAL, owner's wording) and the SUPERSEDED marks
+   on R12, R19 and the Plex part of R30. Still open: R268, R269, R270 (assumption only), R271, R272.
 1. `SourcePlex` target and client skeleton: headers, client identifier, JSON decoding of the models read on the PMS page;
    fake server; no UI. Plex stays blocked in the app.
 2. PIN sign-in in `LiveSourceConnector` (the existing device-code `SignInSession` used by OneDrive is the model) and
@@ -226,7 +246,26 @@ docs/DEVICE_TEST_CHECKLIST_SOURCES.md when the stage is built.
 4. Browse and index: sections, items, seasons, episodes into the existing scanner; Plex unblocked in Add a Source.
 5. Direct play and remux routes.
 6. Watch-state seed (read once).
-7. Later, each after its own decision: Plex artwork/summary fallback layer, external subtitle streams, the HLS
-   transcode fallback, two-way watch state, the JWT sign-in.
+7. Later, each after its own decision: the Plex-first metadata layer with TMDB filling gaps (R270; or the TMDB-first
+   alternative), external subtitle streams, the HLS transcode fallback, two-way watch state, the JWT sign-in.
 
 Every stage keeps WebDAV untouched: no change to `SourceWebDAV`, and the WebDAV tests must pass unchanged in each commit.
+
+## 9. Unverified items and where to verify each
+
+Every item below stays UNVERIFIED until a later stage reads the named page (or records a fixture from the owner's
+server) before building on it. "Checked 20 Nov 2026" says what that page gave this time; nothing here is a claim beyond it.
+
+| Item | Page that should answer it | Checked 20 Nov 2026 |
+|---|---|---|
+| Library endpoints and field names (`/library/sections`, `/library/sections/{id}/all`, `viewOffset`, `viewCount`, `lastViewedAt`, `Stream`/`streamType`) | https://developer.plex.tv/pms/#tag/Library (and its "Get a stream" operation); https://developer.plex.tv/pms/#section/API-Info/Media-Queries | Section loads ("Library endpoints which are outside of the Media Provider API"); `/library/sections` appears only as a sample URL; the other names were not in the text returned; "Get a stream" body not returned |
+| Transcoder endpoint and parameters (`/video/:/transcode/universal/start.m3u8`, decision, Direct Stream) | https://developer.plex.tv/pms/ Transcoder group ("Make a decision on media playback", "Start A Transcoding Session"); https://developer.plex.tv/pms/#section/API-Info/Profile-Augmentations; Plex Support "Streaming Media: Direct Play and Direct Stream", https://support.plex.tv/articles/200250387-streaming-media-direct-play-and-direct-stream/ | Operation names only, bodies not returned; Profile-Augmentations read (`X-Plex-Client-Profile-Extra`); the support article returned HTTP 403 earlier and was not fetched again |
+| Timeline and scrobble (`/:/timeline`, `/:/scrobble`, `/:/unscrobble`) | https://developer.plex.tv/pms/ Media Provider > Timeline ("Report media timeline", "Mark an item as played", "Mark an item as unplayed"); https://developer.plex.tv/pms/#section/API-Info/Media-Providers | Names only; Media-Providers says the timeline feature "may additionally specify the scrobbleKey and unscrobbleKey attributes"; paths not found |
+| Server-list identification (telling servers apart from other resources, e.g. `provides`) | https://developer.plex.tv/pms/#section/API-Info/Authenticating-with-Plex ("Talking to PMS"); https://developer.plex.tv/pms/#tag/General/operation/securityGetResources | `provides=server` not found; connections carry `local` and `relay`; the `clientIdentifier` sample is from the server's own `/security/resources`, not the plex.tv list |
+| HTTPS certificate validation on tvOS (`*.plex.direct`) | Plex Support "How to Use Secure Server Connections", https://support.plex.tv/articles/206225077-how-to-use-secure-server-connections/; https://developer.plex.tv/pms/#tag/General/operation/getSlash (`"certificate": true`); Apple's side only on a device | Plex: certificates via Let's Encrypt, server setting defaults to "Preferred". That tvOS accepts them: needs a device run |
+| Remote access and connection choice | Plex Support "Remote Access", https://support.plex.tv/articles/200289506-remote-access/; "Troubleshooting Remote Access", https://support.plex.tv/articles/200931138-troubleshooting-remote-access/; "Accessing a Server through Relay", https://support.plex.tv/articles/216766168-accessing-a-server-through-relay/ | First two read: setup and port forwarding only, no client connection-choice rule; relay article not fetched |
+| Token as header or URL parameter | https://developer.plex.tv/pms/#section/API-Info/Headers | Read: "all `X-Plex-` headers can also be sent as query string arguments". Which form AVPlayer needs for ranged reads: device run |
+| PIN lifetime | https://developer.plex.tv/pms/#section/API-Info/Authenticating-with-Plex (Legacy, step 4 "Generate a PIN") | Read: short PIN has "a much shorter lifetime", no number; the 7-day figure is for JWTs |
+| Local no-auth networks (alternative (b) only) | Plex Support "Authentication for Local Network Access", https://support.plex.tv/articles/200890058-authentication-for-local-network-access/ | HTTP 403, not read |
+| tvOS codec limits | Apple, HLS Authoring Specification for Apple Devices, https://developer.apple.com/documentation/http-live-streaming/hls-authoring-specification-for-apple-devices (tvOS section) | Read only as a summary earlier; not re-read |
+| Token storage (Keychain) | Apple, Keychain services, https://developer.apple.com/documentation/security/keychain-services | The link as given (`.../security/keychain_services`) did not load through the documentation reader (page not found); the hyphenated address loaded: "Securely store small chunks of data on behalf of the user." Nothing more was needed from it for this plan |
