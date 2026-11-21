@@ -1006,11 +1006,17 @@ final class ScreenshotTests: XCTestCase {
             // Network search last: it may ask for local-network permission, which a test cannot answer reliably.
             end.terminate()
         }
-        let network = launch("-UITestEmpty")
+        // R366 (compile run of 21 Nov 2026, item 14): with the real search, picture 21 listed the machine the run was on (a
+        // real name in a public picture). The fake server makes the search list only the synthetic "Sample NAS" and
+        // browse nothing.
+        let network = launch("-UITestEmpty", extra: ["-UITestFakeServer"])
         if waitForScreen("screen.home", in: network), waitFor("Add a Source", in: network), open("Add a Source", in: network, name: "21-search-your-network"),
            waitForScreen(ControlID.searchYourNetwork, in: network, timeout: 15),
            open("Search Your Network", id: ControlID.searchYourNetwork, in: network, name: "21-search-your-network") {
             sleep(4); shot("21-search-your-network"); checkCover("21-search-your-network", in: network)
+            // R366: the list shows the synthetic server (a record that the fake search, not the real one, ran).
+            let sample: Bool = network.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Sample NAS")).firstMatch.exists
+            note("21-search-your-network-NAMES", sample ? "FAKE SEARCH OK: Sample NAS listed" : "Sample NAS NOT LISTED: check the picture for a real name before publishing it")
         }
         network.terminate()
         // #30 items 2 and 3: the found row and the found server's form, with ONE synthetic server (-UITestFakeServer: the
