@@ -144,7 +144,7 @@ struct SourceBuilder {
             // The *.plex.direct certificate is checked by the system as usual (no pin, no exception; UNVERIFIED on tvOS).
             let url = try requireURL()
             guard !password.isEmpty else { throw ConnectorError(kindTitle: title, reason: .incomplete("the Plex sign-in")) }
-            return PlexClient(baseURL: url, token: password, identity: PlexClientIdentity(clientIdentifier: deviceID))
+            return PlexClient.shared(baseURL: url, token: password, identity: PlexClientIdentity(clientIdentifier: deviceID))
 
         case .dropbox, .googleDrive:
             throw ConnectorError(kindTitle: title, reason: .notIncluded(SourceCatalog.info(for: kind).unavailableNote ?? "This type is not available."))

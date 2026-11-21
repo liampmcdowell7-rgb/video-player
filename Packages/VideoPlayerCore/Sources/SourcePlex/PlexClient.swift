@@ -17,6 +17,11 @@ public actor PlexClient: MediaSource {
     private let http: PlexHTTP
     private let pageSize: Int
     private var treeTask: Task<PlexTree, Error>?
+    private var treeStarted: Date?
+    /// How long a listing of the server is reused before it is read again (R305): browsing, scanning and starting
+    /// playback within this time cost no new library requests; a file added on the server shows up after it.
+    private let treeLifetime: TimeInterval
+    private let now: @Sendable () -> Date
 
     /// Parts skipped because their file is outside every section folder (shown nowhere; counted for the status line).
     public private(set) var skippedParts = 0
@@ -25,11 +30,29 @@ public actor PlexClient: MediaSource {
     ///   - baseURL: the connection that answered (R303), for example `https://192-168-1-20.<id>.plex.direct:32400`.
     ///   - token: the server's access token (the source secret).
     public init(baseURL: URL, token: String, identity: PlexClientIdentity, transport: HTTPTransport = URLSessionTransport(),
-                pageSize: Int = 200) {
+                pageSize: Int = 200, treeLifetime: TimeInterval = 300, now: @escaping @Sendable () -> Date = { Date() }) {
         self.baseURL = baseURL
         self.token = token
         self.http = PlexHTTP(identity: identity, transport: transport)
         self.pageSize = max(1, pageSize)
+        self.treeLifetime = treeLifetime
+        self.now = now
+    }
+
+    private static let sharedLock = NSLock()
+    nonisolated(unsafe) private static var shared: [String: PlexClient] = [:]
+
+    /// One client per server address and token for the whole app (R305). The app builds a new source object for every
+    /// scan, browse and play; sharing the client keeps one listing of the server instead of reading the whole library
+    /// again each time. Kept in memory only.
+    public static func shared(baseURL: URL, token: String, identity: PlexClientIdentity) -> PlexClient {
+        let key = [baseURL.absoluteString, identity.clientIdentifier, token].joined(separator: " ")
+        return sharedLock.withLock {
+            if let client = shared[key] { return client }
+            let client = PlexClient(baseURL: baseURL, token: token, identity: identity)
+            shared[key] = client
+            return client
+        }
     }
 
     // MARK: MediaSource
@@ -83,6 +106,16 @@ public actor PlexClient: MediaSource {
         _ = try await currentTree()
     }
 
+    // MARK: Playback (stage 5)
+
+    /// The name of the video format when the Apple TV cannot play this file without the server converting it, else nil
+    /// (R305). The app shows "cannot play this file" for it instead of starting the player; the server's transcoder is
+    /// never asked.
+    public func conversionNeeded(at path: String) async throws -> String? {
+        guard let node = try await currentTree().node(at: path), !node.entry.isDirectory else { throw SourceError.notFound }
+        return PlexPlayability.refusal(for: node.media)
+    }
+
     // MARK: Server watch state and metadata (stages 6 and 7)
 
     /// What the server knew about a file when the tree was read: the item, its Media and Part, its watch state.
@@ -114,9 +147,12 @@ public actor PlexClient: MediaSource {
     // MARK: Tree
 
     private func currentTree() async throws -> PlexTree {
-        if let running = treeTask { return try await running.value }
+        if let running = treeTask, let started = treeStarted, now().timeIntervalSince(started) < treeLifetime {
+            return try await running.value
+        }
         let task = Task { try await self.buildTree() }
         treeTask = task
+        treeStarted = now()
         do {
             let tree = try await task.value
             skippedParts = tree.skippedParts

@@ -1,8 +1,9 @@
 # Plex as a source type: research, plan and build status
 
 **Build status (owner's request of 20 Nov 2026 to build Plex; R300 onwards).** Stage 1 (client, models, fake server; R300),
-stage 2 (the sign-in code page; R302), stage 3 (server list and connection order; R303) and stage 4 (browse and index;
-Plex is available in Add a Source; R304) are built and tested offline with hand-written fixtures; later stages are listed
+stage 2 (the sign-in code page; R302), stage 3 (server list and connection order; R303) stage 4 (browse and index;
+Plex is available in Add a Source; R304) and stage 5 (playback: direct play and the app's own remux, no server
+conversion; R305) are built and tested offline with hand-written fixtures; later stages are listed
 in section 8. Nothing was compiled for tvOS and no Plex server or plex.tv was contacted. Section 10 names, per screen,
 the Apple screen it follows (R301).
 
@@ -205,6 +206,11 @@ Subtitles and audio: in routes 1 and 2 the tracks come from the file itself, as 
 through the existing remux menu). External subtitle files that Plex lists as separate streams (`.srt` next to the film)
 need the `Stream` data (UNVERIFIED) and are a later stage. In route 3 the transcoder decides; burned-in subtitles are
 avoided by asking for WebVTT where the API allows it (UNVERIFIED).
+
+**Built in stage 5 (R305):** routes 1 and 2 only. Route 3 is NOT built: a file whose video format is on the refused list
+(MPEG-2, VC-1, older Windows formats, Theora, RealVideo) shows "The Apple TV cannot play this file ..." before the player
+starts, and no request ever goes to a transcode or decision path (a test checks it). One client per server address is
+shared by the app and its listing is reused for five minutes, so starting playback does not read the whole library again.
 
 ## 6. Watched state and resume position
 

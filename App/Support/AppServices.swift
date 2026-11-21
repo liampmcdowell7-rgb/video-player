@@ -6,6 +6,7 @@ import LibraryIndex
 import UserData
 import AppLogic
 import LibraryBackup
+import SourcePlex
 
 /// What the player is asked to start (an item, from the beginning or from its saved place).
 struct PlayRequest: Identifiable, Equatable {
@@ -386,6 +387,10 @@ final class AppServices {
         // MKV and the other containers the converting player opens go through it (PLAYBACK); the rest is refused with the reason.
         let route = PlaybackRoute.route(fileName: file.name)
         if clip == nil, case .unsupported(let failure) = route { throw failure }
+        // R305: a Plex file the Apple TV cannot decode is refused here with one sentence; the server never converts.
+        if clip == nil, let format = await plexConversionNeeded(file) {
+            throw PlaybackFailures.needsServerConversion(formatName: format)
+        }
         let location: URL
         var headers: [String: String] = [:]
         var remux: RemuxPlayback?
@@ -414,6 +419,14 @@ final class AppServices {
         resolved.segments = segments
         resolved.remux = remux
         return resolved
+    }
+
+    /// The video format a Plex file would need converted, from what the server said about it (nil for every other source,
+    /// and when the server cannot be asked: the player then reports its own error).
+    private func plexConversionNeeded(_ file: StoredFile) async -> String? {
+        guard let definition = definitions.first(where: { $0.id == file.sourceID }), definition.sourceKind == .plex,
+              let plex = makeSource(definition) as? PlexClient else { return nil }
+        return (try? await plex.conversionNeeded(at: file.path)) ?? nil
     }
 }
 

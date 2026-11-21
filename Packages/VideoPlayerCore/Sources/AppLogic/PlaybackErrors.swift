@@ -184,6 +184,14 @@ public enum PlaybackFailures {
                                advice: "Convert the file to MKV or MP4 without re-encoding the video, then scan the source again.")
     }
 
+    /// R305: a Plex file whose video the Apple TV cannot decode. The server could convert it, but this version never asks
+    /// the server to convert (R271), so the file is refused before the player starts.
+    public static func needsServerConversion(formatName: String) -> PlaybackFailure {
+        PlaybackFailure(kind: .unsupportedVideo,
+                        message: "The Apple TV cannot play this file: its video is \(formatName), and this version does not ask the Plex server to convert it.",
+                        advice: "Convert the video to H.264 or HEVC without changing anything else, then scan the source again.")
+    }
+
     // MARK: Containers
 
     /// Extensions the converting player opens (Matroska family). Anything else is refused up front with `unsupportedContainer`.
