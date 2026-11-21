@@ -66,6 +66,14 @@ public enum UITestLaunch: Equatable, Sendable {
         mode != .off && arguments.contains(fakeTMDBKeyArgument)
     }
 
+    /// R342: `-UITestFakeDiscover` gives Discover the invented suggestions of `UITestFixtureDiscover`, so the Discover card,
+    /// its context menu and the title's page can be photographed. No key and no network; Debug builds only.
+    public static let fakeDiscoverArgument = "-UITestFakeDiscover"
+
+    public static func usesFakeDiscover(arguments: [String], mode: UITestLaunch) -> Bool {
+        mode != .off && arguments.contains(fakeDiscoverArgument)
+    }
+
     /// #30 item 2: `-UITestFakeServer` makes the network search list one synthetic server (`UITestFixtures.discoveredServer`)
     /// instead of browsing, so the found row and its form can be photographed. No network is used; Debug builds only.
     public static let fakeServerArgument = "-UITestFakeServer"

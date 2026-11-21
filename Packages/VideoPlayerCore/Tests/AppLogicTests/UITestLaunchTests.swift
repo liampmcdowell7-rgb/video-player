@@ -74,6 +74,7 @@ final class UITestLaunchTests: XCTestCase {
             package.appendingPathComponent("Sources/AppLogic/UITestFixtures.swift"),
             package.appendingPathComponent("Sources/AppLogic/UITestLaunch.swift"),
             package.appendingPathComponent("Sources/AppLogic/UITestFixtureDetails.swift"),
+            package.appendingPathComponent("Sources/AppLogic/UITestFixtureDiscover.swift"),
             repo.appendingPathComponent("App/Support/UITestClip.swift"),
             repo.appendingPathComponent("App/Support/UITestMode.swift"),
         ]

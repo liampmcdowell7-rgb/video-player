@@ -337,6 +337,8 @@ Sample
 Movie
 Show
 Season
+# R342: the invented Discover suggestions of the screenshot job (UITestFixtureDiscover, Debug only)
+Suggestion
 # The setting name "Show Title Logos" (#15 Part 9), quoted in the What Is Sent text
 Title
 Logos

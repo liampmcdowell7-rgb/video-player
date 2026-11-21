@@ -15,7 +15,7 @@ struct DiscoverView: View {
     var body: some View {
         if let model = loader.model {
             ScreenStateView(state: model.screen.state, onRetry: { Task { await loader.reload() } }) { content in
-                DiscoverContentView(content: content, onToggle: { title in
+                DiscoverContentView(content: content, loader: loader, onToggle: { title in
                     Task { await model.run { $0.toggleWatchlist(title) } }
                 })
             }
@@ -44,7 +44,16 @@ final class DiscoverLoader {
 
     func reload() async {
         guard let services else { return }
-        let screen = DiscoverViewModel(source: services.online.discoverSource, library: StoreDiscoverLibrary(store: services.store),
+        var source: (any DiscoverDataSource)? = services.online.discoverSource
+        var library: any DiscoverLibraryProviding = StoreDiscoverLibrary(store: services.store)
+        #if DEBUG
+        // R342: the screenshot job's invented Discover (`-UITestFakeDiscover`; no key, no network). Not in Release.
+        if UITestLaunch.usesFakeDiscover(arguments: ProcessInfo.processInfo.arguments, mode: UITestMode.current) {
+            source = UITestFixtureDiscover.Source()
+            library = UITestFixtureDiscover.Library()
+        }
+        #endif
+        let screen = DiscoverViewModel(source: source, library: library,
                                        watchlist: LedgerWatchlist(ledger: services.ledger), region: services.online.region)
         if model == nil { model = ScreenModel(screen) }
         await model?.run { $0 = screen; await $0.load() }
@@ -53,6 +62,7 @@ final class DiscoverLoader {
 
 private struct DiscoverContentView: View {
     let content: DiscoverContent
+    let loader: DiscoverLoader
     let onToggle: (DiscoverTitle) -> Void
 
     var body: some View {
@@ -100,7 +110,7 @@ private struct DiscoverContentView: View {
                 // design-lint:allow HIG Layout, 40 pt horizontal spacing between posters (docs/DESIGN_SYSTEM.md section 4)
                 LazyHStack(alignment: .top, spacing: 40) {
                     ForEach(titles) { item in
-                        DiscoverCard(title: item, region: content.region, onToggle: { onToggle(item) })
+                        DiscoverCard(title: item, region: content.region, loader: loader, onToggle: { onToggle(item) })
                             // design-lint:allow HIG Layout, six columns of the grid so shelf posters line up with grid posters
                             .containerRelativeFrame(.horizontal, count: 6, spacing: 40)
                     }
@@ -111,24 +121,34 @@ private struct DiscoverContentView: View {
     }
 }
 
-/// One suggested title. Choosing the poster adds it to the watchlist or removes it; the line below says where to watch.
+/// One suggested title; the line below says where to watch. R342 (Decided by the owner, 21 Nov 2026; docs/HIG_AUDIT.md
+/// T12): Select on the poster opens the title's page (`DiscoverTitlePage`), as a poster does everywhere else; adding to
+/// or removing from the watchlist is in the card's context menu (press and hold; SwiftUI `contextMenu(menuItems:)`; HIG
+/// Context menus, read 21 Nov 2026: "functionality that's directly related to an item", and "Always make context menu items
+/// available in the main interface, too", which the page's button does).
 private struct DiscoverCard: View {
     let title: DiscoverTitle
     let region: String
+    let loader: DiscoverLoader
     let onToggle: () -> Void
 
     var body: some View {
         VStack(alignment: .leading) {
-            Button(action: onToggle) {
+            NavigationLink {
+                DiscoverTitlePage(loader: loader, shown: title, region: region)
+            } label: {
                 ArtworkView(key: title.artworkKey, symbol: title.kind == .movie ? "film" : "tv")
             }
             .buttonStyle(.card)
             .accessibilityLabel(title.title)
-            .accessibilityHint(title.onWatchlist ? "Removes it from your watchlist" : "Adds it to your watchlist")
+            .accessibilityHint(DiscoverCardText.cardHint)
+            .contextMenu {
+                let action = DiscoverCardText.watchlistAction(title)
+                Button(action.label, systemImage: action.symbol, action: onToggle)
+            }
             FittingText(title.title, style: .caption)
             // Rule S1: "2021 · Because you watched …" on one line; the year goes first when it does not fit.
-            FittingLine(line: ShortLine([.init(title.year.map(String.init) ?? "", priority: 1), .init(title.reason, priority: 2)]),
-                        style: .caption2)
+            FittingLine(line: DiscoverCardText.detailLine(title), style: .caption2)
                 .foregroundStyle(.secondary)
             if title.onWatchlist {
                 Label("On Your Watchlist", systemImage: "checkmark")

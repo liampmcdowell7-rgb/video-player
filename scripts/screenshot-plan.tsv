@@ -87,6 +87,9 @@ test05_FilesSearchDiscover	73-files-movie-folder
 test05_FilesSearchDiscover	74-file-details
 test05_FilesSearchDiscover	75-search-discover-no-key
 test05_FilesSearchDiscover	76-search-results
+test05_FilesSearchDiscover	75-search-discover-cards
+test05_FilesSearchDiscover	75-discover-card-menu
+test05_FilesSearchDiscover	75-discover-title-page
 test13_MovieSynopsisAndCast	77-movie-long-synopsis
 test13_MovieSynopsisAndCast	77-movie-long-synopsis-page
 test13_MovieSynopsisAndCast	77-movie-long-synopsis-cast

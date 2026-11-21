@@ -12,7 +12,7 @@
 # Release binary. #15 3.6 added "UI-test mode" (the iCloud-off reason) and the sample sources' "not tested" status.
 # #21 D added the fake synopsis and cast of the sample movies (UITestFixtureDetails.swift, also #if DEBUG).
 # #21 E added the generated player clip (App/Support/UITestClip.swift, #if DEBUG) and the sample subtitle lines.
-VP_RELEASE_FORBIDDEN_RE='Sample Movie|Sample Show|Sample Library|Sample Clip|Sample Unsorted|Sample Server|uitest-sample-library|uitest-sample-server|sample\.invalid|-UITestEmpty|-UITestFixtures|-UITestTab|-UITestOpen|-UITestTextSize|-UITestBoldText|UITestFixtures|UITestLaunch|UITestMode|UI-test mode|Sample data: not tested|Sample synopsis|Sample Actor|Sample Role|UITestFixtureDetails|UITestClip|uitest-sample-clip|Sample subtitle line|-UITestFakeServer|Sample NAS'
+VP_RELEASE_FORBIDDEN_RE='Sample Movie|Sample Show|Sample Library|Sample Clip|Sample Unsorted|Sample Server|uitest-sample-library|uitest-sample-server|sample\.invalid|-UITestEmpty|-UITestFixtures|-UITestTab|-UITestOpen|-UITestTextSize|-UITestBoldText|UITestFixtures|UITestLaunch|UITestMode|UI-test mode|Sample data: not tested|Sample synopsis|Sample Actor|Sample Role|UITestFixtureDetails|UITestClip|uitest-sample-clip|Sample subtitle line|-UITestFakeServer|Sample NAS|Sample Suggest|UITestFixtureDiscover|-UITestFakeDiscover'
 
 # Process-spawning C functions (#23 C). An `nm -um` line of an imported one ends in the name, e.g.
 # "                 (undefined) external _posix_spawnp (from libSystem)".

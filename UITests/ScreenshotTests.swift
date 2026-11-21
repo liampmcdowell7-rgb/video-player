@@ -1675,6 +1675,32 @@ final class ScreenshotTests: XCTestCase {
             notReached("76-search-results", "No on-screen keyboard appeared (search field found: \(field != nil)).")
         }
         app.terminate()
+        // R342 (docs/HIG_AUDIT.md T12): the invented Discover (-UITestFakeDiscover, `UITestFixtureDiscover`; no key, no
+        // network): the cards; press and hold on a card shows the context menu with the watchlist action; Select opens the
+        // title's page, which has the same action as a button (HIG Context menus: also in the main interface).
+        app = launch("-UITestFixtures", tab: "search", extra: ["-UITestFakeDiscover"])
+        if waitForScreen("screen.search", in: app), waitFor("Sample Suggestion 1", in: app, timeout: 30) {
+            settle(); shot("75-search-discover-cards")
+            let card: XCUIElement = app.buttons["Sample Suggestion 1"]
+            if focus(card, in: app) {
+                XCUIRemote.shared.press(.select, forDuration: 1.5)
+                if waitFor("Add to Watchlist", in: app, timeout: 10) { sleep(1); shot("75-discover-card-menu") }
+                else { notReached("75-discover-card-menu", "Press and hold on the card showed no “Add to Watchlist” (focus on \(focusedLabel(in: app))).\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))") }
+                XCUIRemote.shared.press(.menu); sleep(1)
+                if focus(card, in: app) {
+                    XCUIRemote.shared.press(.select)
+                    if waitFor("Where to watch", in: app, timeout: 10) {
+                        settle(); shot("75-discover-title-page")
+                        let button: Bool = app.buttons[ControlID.discoverWatchlist].exists
+                        let notInSearch: Bool = !app.buttons["Sample Suggestion 2"].exists
+                        note("75-discover-title-page-PAGE", (button && notInSearch ? "TITLE PAGE OK" : "TITLE PAGE WRONG")
+                             + "\nwatchlist button: \(button)\nDiscover shelf gone (a page was pushed): \(notInSearch)")
+                        XCTAssertTrue(button && notInSearch, "75-discover-title-page: button \(button), page pushed \(notInSearch)")
+                    } else { notReached("75-discover-title-page", "Select on the card did not open the title's page (focus on \(focusedLabel(in: app))).") }
+                } else { notReached("75-discover-title-page", "The focus did not return to the card after the menu closed.") }
+            } else { notReached("75-discover-card-menu", "Could not move the focus to Sample Suggestion 1 (focus on \(focusedLabel(in: app))).") }
+        } else { hierarchy("75-search-discover-cards", of: app); notReached("75-search-discover-cards", "The invented Discover suggestions did not appear.") }
+        app.terminate()
         // 77 and 78 (the old Discover tab) are gone: Discover is part of Search (screen 75, OPEN_QUESTIONS R167 (c)). 79 (Top
         // Shelf) is part of the system Home Screen, not this app, so a UI test cannot open it: it is checked on a device
         // (docs/DEVICE_TEST_CHECKLIST_VISUAL.md, V-TS1). #15 item 1.3.
