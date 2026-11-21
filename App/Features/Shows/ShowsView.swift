@@ -9,6 +9,8 @@ struct ShowsView: View {
     @State private var showSetup = false
     @State private var showSaveView = false
     @State private var reviewCount = 0
+    /// R375: the first show of the letter picked in the toolbar's Jump to Letter; the grid scrolls to it and clears it.
+    @State private var jumpTo: Int64?
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -16,17 +18,20 @@ struct ShowsView: View {
                 if !showsControls(model) {
                     // An empty Shows screen still says where unsorted files are (addendum #18 C).
                     NeedsReviewButton(count: reviewCount)
-                } else if model.screen.state.content == nil {
-                    // "No Matches": keep the menus above the message, as on Movies, so one filter can be changed.
-                    ShowsControls(model: model, targets: [], reviewCount: reviewCount, onSave: { showSaveView = true }, onJump: { _ in })
+                } else {
+                    // R375: the controls are the system toolbar (below), also over "No Matches" so one filter can be
+                    // changed; only the count stays above the grid.
+                    GridCountLine(count: model.screen.countText)
                 }
                 ScreenStateView(state: model.screen.state, onEmptyAction: { emptyAction(model) }, onRetry: { Task { await reload() } }) { series in
-                    ShowsGrid(model: model, series: series, reviewCount: reviewCount, onSave: { showSaveView = true })
+                    ShowsGrid(series: series, jumpTo: $jumpTo)
                 }
             } else {
                 LoadingView()
             }
         }
+        .modifier(ShowsToolbar(model: model, shown: model.map(showsControls) ?? false, reviewCount: reviewCount,
+                               onSave: { showSaveView = true }, onJump: { jumpTo = $0.firstID }))
         .task(id: services.libraryRevision) { await reload() }
         .addSourceCover(isPresented: $showSetup)
         .taskCover(isPresented: $showSaveView) {
@@ -59,63 +64,49 @@ struct ShowsView: View {
     }
 }
 
-/// The row above the Shows grid, in the Movies order (`GridControls`).
-private struct ShowsControls: View {
-    let model: ScreenModel<ShowsViewModel>
-    let targets: [JumpTarget]
+/// R375: the Shows controls as the system toolbar, in the Movies order (`MoviesToolbar`).
+private struct ShowsToolbar: ViewModifier {
+    let model: ScreenModel<ShowsViewModel>?
+    let shown: Bool
     let reviewCount: Int
     var onSave: () -> Void
     var onJump: (JumpTarget) -> Void
 
-    var body: some View {
-        VStack(alignment: .leading) {
-            // #25 B2: the same one-line row as Movies, with the same More menu when it does not fit.
-            // #32 D (R233): Sort, Filter and Saved Views as one group of symbols, Needs Review and Jump to Letter as the second.
-            // R344 (docs/HIG_AUDIT.md T5): Sort and Filter are one menu; no filter chips under the row.
-            GridToolbar(count: model.screen.countText) {
-                SortFilterMenu(model: model)
-            } savedViews: {
-                SavedViewsMenu(model: model, onSave: onSave)
-            } tools: {
-                NeedsReviewButton(count: reviewCount)
-                jumpMenu
-            } collapsed: {
-                SavedViewsMenu(model: model, onSave: onSave)
-                NeedsReviewMenuItem(count: reviewCount)
-                jumpMenu
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var jumpMenu: some View {
-        if !targets.isEmpty {
-            AlphabetJumpMenu(letters: targets.map { AlphabetJumpEntry(letter: $0.letter, count: $0.count) }) { letter in
-                if let target = targets.first(where: { $0.letter == letter }) { onJump(target) }
+    func body(content: Content) -> some View {
+        let targets: [JumpTarget] = model?.screen.jumpTargets ?? []
+        return content.libraryToolbar(shown: shown && model != nil, hasMore: reviewCount > 0 || !targets.isEmpty) {
+            if let model { SortFilterMenu(model: model) }
+        } savedViews: {
+            if let model { SavedViewsMenu(model: model, onSave: onSave) }
+        } more: {
+            NeedsReviewMenuItem(count: reviewCount)
+            if !targets.isEmpty {
+                AlphabetJumpMenu(letters: targets.map { AlphabetJumpEntry(letter: $0.letter, count: $0.count) }) { letter in
+                    if let target = targets.first(where: { $0.letter == letter }) { onJump(target) }
+                }
             }
         }
     }
 }
 
-/// The poster grid and its controls. The jump list is offered only for the title sort, where a letter is one scroll target.
+/// The poster grid. The jump list is offered only for the title sort, where a letter is one scroll target; R375: the
+/// letter comes from the toolbar's More menu (`jumpTo`).
 private struct ShowsGrid: View {
-    let model: ScreenModel<ShowsViewModel>
     let series: [SeriesSummary]
-    let reviewCount: Int
-    var onSave: () -> Void
+    @Binding var jumpTo: Int64?
 
     var body: some View {
         ScrollViewReader { proxy in
-            VStack(alignment: .leading) {
-                ShowsControls(model: model, targets: model.screen.jumpTargets, reviewCount: reviewCount, onSave: onSave) { target in
-                    proxy.scrollTo(target.firstID, anchor: .top)
+            PosterGridLayout {
+                ForEach(series) { show in
+                    SeriesCard(series: show)
+                        .id(show.id)
                 }
-                PosterGridLayout {
-                    ForEach(series) { show in
-                        SeriesCard(series: show)
-                            .id(show.id)
-                    }
-                }
+            }
+            .onChange(of: jumpTo) { _, target in
+                guard let target else { return }
+                proxy.scrollTo(target, anchor: .top)
+                jumpTo = nil
             }
         }
     }

@@ -13,7 +13,8 @@ struct MoviesView: View {
         VStack(alignment: .leading) {
             if let model {
                 if showsControls(model) {
-                    GridControls(model: model, onSave: { showSaveView = true }, reviewCount: reviewCount)
+                    // R375: the controls are the system toolbar (below); only the count stays above the grid.
+                    GridCountLine(count: model.screen.countText)
                 } else {
                     // An empty Movies screen still says where unsorted files are (addendum #18 C).
                     NeedsReviewButton(count: reviewCount)
@@ -27,6 +28,8 @@ struct MoviesView: View {
                 LoadingView()
             }
         }
+        .modifier(MoviesToolbar(model: model, shown: model.map(showsControls) ?? false, onSave: { showSaveView = true },
+                                reviewCount: reviewCount))
         .task(id: services.libraryRevision) { await reload() }
         .addSourceCover(isPresented: $showSetup)
         .taskCover(isPresented: $showSaveView) {

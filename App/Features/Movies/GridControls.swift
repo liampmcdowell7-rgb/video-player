@@ -2,41 +2,35 @@ import SwiftUI
 import AppLogic
 import LibraryIndex
 
-/// The row above a grid: the Sort and Filter menu, the saved-view menu and the count. R344 (Decided by the owner, 21 Nov
-/// 2026; docs/HIG_AUDIT.md T5): no row of filter chips any more; active filters show in the menu (`SortFilterMenu`).
-struct GridControls: View {
-    let model: ScreenModel<ItemGridViewModel>
+/// The Movies controls. R344 (Decided by the owner, 21 Nov 2026; docs/HIG_AUDIT.md T5): one Sort and Filter menu, no row
+/// of filter chips; active filters show in the menu (`SortFilterMenu`). R375 (decided by the owner's standing rule R312):
+/// the controls are the system toolbar (`libraryToolbar`, App/Shared/GridToolbar.swift), not a row in the content; the
+/// count stays above the grid as one line of text (`GridCountLine`).
+struct MoviesToolbar: ViewModifier {
+    let model: ScreenModel<ItemGridViewModel>?
+    let shown: Bool
     var onSave: () -> Void
-    /// Files waiting in Needs Review (docs/SORTING.md); the button shows only above 0.
+    /// Files waiting in Needs Review (docs/SORTING.md); the More menu item shows only above 0.
     var reviewCount = 0
 
-    var body: some View {
-        VStack(alignment: .leading) {
-            // #15 4.5: the same row as on Shows (`GridToolbar`), so both grids start at the same height.
-            // #25 B2: one line; when it does not fit, Saved Views, Needs Review and Jump to Letter go into one More menu.
-            // #32 D (R233): the view controls and Saved Views as one group of symbols, Needs Review and Jump to Letter as the
-            // second. R344: Sort and Filter are one menu.
-            GridToolbar(count: model.screen.countText) {
-                SortFilterMenu(model: model)
-            } savedViews: {
-                SavedViewsMenu(model: model, onSave: onSave)
-            } tools: {
-                NeedsReviewButton(count: reviewCount)
-                jumpMenu
-            } collapsed: {
-                SavedViewsMenu(model: model, onSave: onSave)
-                NeedsReviewMenuItem(count: reviewCount)
-                jumpMenu
+    func body(content: Content) -> some View {
+        content.libraryToolbar(shown: shown && model != nil, hasMore: reviewCount > 0 || !letters.isEmpty) {
+            if let model { SortFilterMenu(model: model) }
+        } savedViews: {
+            if let model { SavedViewsMenu(model: model, onSave: onSave) }
+        } more: {
+            NeedsReviewMenuItem(count: reviewCount)
+            if let model, !letters.isEmpty {
+                AlphabetJumpMenu(letters: letters) { letter in
+                    Task { await model.run { await $0.jump(to: letter) } }
+                }
             }
         }
     }
 
-    @ViewBuilder
-    private var jumpMenu: some View {
-        if case .loaded(let grid) = model.screen.state, !grid.alphabet.isEmpty {
-            AlphabetJumpMenu(letters: grid.alphabet.map { AlphabetJumpEntry(letter: $0.letter, count: $0.count) }) { letter in
-                Task { await model.run { await $0.jump(to: letter) } }
-            }
-        }
+    /// The jump list is offered only when the grid has letters (the title sort).
+    private var letters: [AlphabetJumpEntry] {
+        guard let model, case .loaded(let grid) = model.screen.state else { return [] }
+        return grid.alphabet.map { AlphabetJumpEntry(letter: $0.letter, count: $0.count) }
     }
 }

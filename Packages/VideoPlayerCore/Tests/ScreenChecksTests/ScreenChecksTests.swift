@@ -423,31 +423,6 @@ final class ScreenChecksTests: XCTestCase {
         }
     }
 
-    /// A `static let name: CGFloat = N` of App/Shared/GridToolbar.swift, so this test follows the app's numbers.
-    func toolbarConstant(_ name: String) throws -> Double {
-        // As AttributionNoticeTests: VP_PROJECT_ROOT (scripts/test-core.sh copies only the package), else up from this file.
-        var candidates: [URL] = []
-        if let root = ProcessInfo.processInfo.environment["VP_PROJECT_ROOT"], !root.isEmpty {
-            candidates.append(URL(fileURLWithPath: root).appendingPathComponent("App/Shared/GridToolbar.swift"))
-        }
-        let up: URL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        candidates.append(up.appendingPathComponent("App/Shared/GridToolbar.swift"))
-        guard let found = candidates.first(where: { (url: URL) -> Bool in FileManager.default.fileExists(atPath: url.path) }) else {
-            #if os(Linux)
-            XCTFail("App/Shared/GridToolbar.swift not found (tried \(candidates.map(\.path))). Set VP_PROJECT_ROOT.")
-            return 0
-            #else
-            throw XCTSkip("App/Shared/GridToolbar.swift is not readable from this test host (tried \(candidates.map(\.path))).")
-            #endif
-        }
-        let source: String = try String(contentsOf: found, encoding: .utf8)
-        let marker: String = "static let \(name): CGFloat = "
-        let line: Substring = try XCTUnwrap(source.split(separator: "\n").first { (l: Substring) -> Bool in l.contains(marker) }, name)
-        let value: Substring = try XCTUnwrap(line.components(separatedBy: marker).last.map { Substring($0) }, name)
-        return try XCTUnwrap(Double(value.trimmingCharacters(in: .whitespaces)), name)
-    }
-
     /// #34 5a: an app source file (VP_PROJECT_ROOT, else up from this file), as `toolbarConstant`.
     func appSource(_ relative: String) throws -> String? {
         var candidates: [URL] = []
@@ -560,44 +535,45 @@ final class ScreenChecksTests: XCTestCase {
         XCTAssertTrue(poster.contains(".fixedSize(horizontal: false, vertical: true)"), "the Continue Watching artwork's height is not fixed")
     }
 
-    /// #34 3: the full toolbar row at Larger Text, from the run's notes. #36 6: every symbol control as wide as the widest
-    /// (the row the app now lays out). The count's width is not in the notes: its glyphs
-    /// were measured on the pictures (07-movies-toolbar-larger-text: x 1666 to 1836, 171 pt; shows 1677 to 1835, 159 pt;
-    /// default size 1726 to 1837 and 1735 to 1837), plus 8 pt for the text's side bearings.
-    func testTheToolbarRowFitsAtLargerTextWithTheseGaps() throws {
-        let inGroup: Double = try toolbarConstant("inGroup")
-        let groupGap: Double = try toolbarConstant("groupGap")
-        let countGap: Double = try toolbarConstant("countGap")
-        let cases: [(String, Double)] = [("07-movies-toolbar-larger-text-GROUPS", 171 + 8), ("07-shows-toolbar-larger-text-GROUPS", 159 + 8),
-                                         ("07-movies-toolbar-GROUPS", 112 + 8), ("07-shows-toolbar-GROUPS", 103 + 8)]
-        for (note, count) in cases {
-            let frames: [AXRect] = try groupsNote(note).map { (item: (String, AXRect)) -> AXRect in item.1 }
-            XCTAssertEqual(frames.count, 5, note)
-            // #36 6 (R258): equal symbol controls, each the widest of the note's three.
-            let widest: Double = frames.prefix(3).map { (rect: AXRect) -> Double in rect.width }.max() ?? 0
-            let first: [AXRect] = frames.prefix(3).map { (rect: AXRect) -> AXRect in AXRect(x: rect.x, y: rect.y, width: widest, height: rect.height) }
-            let second: [AXRect] = Array(frames.suffix(2))
-            // #33's numbers (60 inside, 140 between) plus the system's space before the count, which is not known: between
-            // 0 and the 60 pt the run shows between Jump to Letter and the count. Movies does not fit even at 0.
-            let old: CheckResult = ScreenRules.toolbarRowWidth(first: first, second: second, count: count, inGroup: 60, groupGap: 140, countGap: 0)
-            let new: CheckResult = ScreenRules.toolbarRowWidth(first: first, second: second, count: count, inGroup: inGroup, groupGap: groupGap, countGap: countGap)
-            print("TOOLBAR \(note) #33: \(old.lines[0]) | #34: \(new.lines[0]) \(new.lines[1])")
-            if note == "07-movies-toolbar-larger-text-GROUPS" {
-                XCTAssertFalse(old.passed, "\(note): \(old.text)")
-                // #34's 48 inside a group no longer fits with equal symbols: 1,762 of 1,760 pt.
-                let was: CheckResult = ScreenRules.toolbarRowWidth(first: first, second: second, count: count, inGroup: 48, groupGap: 100, countGap: 40)
-                XCTAssertFalse(was.passed, "\(note): \(was.text)")
-                XCTAssertTrue(was.lines[0].contains("= 1762 of 1760"), was.lines[0])
+    /// R375: the system toolbar check. FIXTURE: invented frames of three controls in the navigation bar, at whatever spacing
+    /// the system gives (two different spacings both pass: the spacing is recorded, not judged).
+    func testTheSystemToolbarPassesAtAnySpacingWhenAllControlsAreOnOneLine() {
+        let window: AXRect = AXRect(x: 0, y: 0, width: 1920, height: 1080)
+        let names: [String] = ["Sort and Filter", "Saved Views", "More"]
+        for gap in [12.0, 37.0] {
+            var x: Double = 1500
+            let items: [(String, AXRect)] = names.map { (name: String) -> (String, AXRect) in
+                defer { x += 90 + gap }
+                return (name, AXRect(x: x, y: 60, width: 90, height: 66))
             }
-            XCTAssertTrue(new.passed, "\(note): \(new.text)")
-            // With 60 inside a group, a 120 pt gap (twice 60) fits at Larger Text only if the system's space before the count
-            // is under 12 pt (Movies: 1,749 + that space of 1,760); unproven, so the row's spacings are now explicit.
-            if note.contains("larger-text") {
-                let twice: CheckResult = ScreenRules.toolbarRowWidth(first: first, second: second, count: count, inGroup: 60, groupGap: 120, countGap: 12)
-                if note.contains("movies") { XCTAssertFalse(twice.passed, "\(note): \(twice.text)") }
-            }
+            let result: CheckResult = ScreenRules.systemToolbar(items: items, expected: names, window: window, firstContentY: 200)
+            XCTAssertTrue(result.passed, result.text)
+            XCTAssertTrue(result.text.contains("recorded, not judged"), result.text)
         }
-        XCTAssertGreaterThanOrEqual(groupGap / inGroup, 2)
+    }
+
+    /// R375: a missing control, a control off the line, an overlap, a control past the window and a bar reaching into the
+    /// first card row each fail.
+    func testTheSystemToolbarFailsWhenAControlIsMissingOffTheLineOverlappingOrOverTheCards() {
+        let window: AXRect = AXRect(x: 0, y: 0, width: 1920, height: 1080)
+        let names: [String] = ["Sort and Filter", "Saved Views", "More"]
+        let good: [(String, AXRect)] = [("Sort and Filter", AXRect(x: 1500, y: 60, width: 90, height: 66)),
+                                        ("Saved Views", AXRect(x: 1610, y: 60, width: 90, height: 66)),
+                                        ("More", AXRect(x: 1720, y: 60, width: 90, height: 66))]
+        let missing: CheckResult = ScreenRules.systemToolbar(items: Array(good.prefix(2)), expected: names, window: window, firstContentY: 200)
+        XCTAssertTrue(missing.text.contains("missing from the toolbar: More"), missing.text)
+        var off: [(String, AXRect)] = good
+        off[2].1 = AXRect(x: 1720, y: 90, width: 90, height: 66)
+        XCTAssertTrue(ScreenRules.systemToolbar(items: off, expected: names, window: window, firstContentY: 200).text.contains("not on one line"))
+        var overlap: [(String, AXRect)] = good
+        overlap[1].1 = AXRect(x: 1580, y: 60, width: 90, height: 66)
+        XCTAssertTrue(ScreenRules.systemToolbar(items: overlap, expected: names, window: window, firstContentY: 200).text.contains("overlaps"))
+        var past: [(String, AXRect)] = good
+        past[2].1 = AXRect(x: 1880, y: 60, width: 90, height: 66)
+        XCTAssertTrue(ScreenRules.systemToolbar(items: past, expected: names, window: window, firstContentY: 200).text.contains("not whole inside the window"))
+        let cards: CheckResult = ScreenRules.systemToolbar(items: good, expected: names, window: window, firstContentY: 110)
+        XCTAssertFalse(cards.passed, cards.text)
+        XCTAssertTrue(cards.text.contains("reaches into the first content row"), cards.text)
     }
 
     /// #36 8 T5: the frames of 55-show-page-HIERARCHY (second run of 20 Nov). With the focus on More, the old rule said the

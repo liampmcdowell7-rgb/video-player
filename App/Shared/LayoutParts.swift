@@ -76,7 +76,8 @@ struct ActionLabel: View {
 
 /// #25 B5: a row of action buttons of one height (L10): each button hugs its content, the tallest sets the row's height.
 struct ActionRow<Content: View>: View {
-    /// #34 3: nil (the system spacing). The library toolbar no longer uses `ActionRow` (#36 6: `ToolbarIconGroup`).
+    /// #34 3: nil (the system spacing). R375 audit: the row is a system `HStack` at the system spacing; `fixedSize` only
+    /// keeps the buttons at one height (D2). The library controls are the system toolbar (R375), not an `ActionRow`.
     var spacing: CGFloat? = nil
     @ViewBuilder var content: Content
 

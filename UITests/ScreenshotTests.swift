@@ -888,12 +888,20 @@ final class ScreenshotTests: XCTestCase {
         return true
     }
 
-    /// #25 B2: a toolbar control of Movies or Shows. #34 3: no longer through the More menu: the full row fits at both sizes
-    /// (GridToolbarLayout, OPEN_QUESTIONS R233), so a control that is not on the line is a failure of `checkToolbarGroups`
-    /// and a NOT-REACHED note here, never a detour through More.
+    /// #25 B2: a toolbar control of Movies or Shows. R375: the toolbar is the system's (OPEN_QUESTIONS R375); Needs Review
+    /// and Jump to Letter are items of its More menu (text-labelled actions apart from the symbols; tvOS has no
+    /// `ToolbarSpacer`), so they are opened through More. Sort and Filter, Saved Views and More are on the bar.
     func openToolbarControl(_ text: String, id: String, in app: XCUIApplication, name: String) -> Bool {
-        open(text, id: id, in: app, name: name)
+        if Self.moreMenuIDs.contains(id) {
+            guard open("More", id: ControlID.moreControls, in: app, name: name) else { return false }
+            sleep(1)
+            return open(text, in: app, name: name)
+        }
+        return open(text, id: id, in: app, name: name)
     }
+
+    /// R375: the controls that live in the library toolbar's More menu.
+    static let moreMenuIDs: Set<String> = [ControlID.needsReview, ControlID.jumpToLetter]
 
     /// The tab bar from the accessibility tree (OPEN_QUESTIONS R167 (c)): six tabs Home, Movies, Shows, Files, Search,
     /// Settings, each whole inside the window and not overlapping the next. Written as "NN-name-TABBAR" (in the
@@ -1874,9 +1882,10 @@ final class ScreenshotTests: XCTestCase {
     // MARK: Library toolbars and menus (#32)
 
     /// #32 F: the Movies and Shows toolbars and each of their menus, at the default size and at Larger Text, with checks that
-    /// FAIL the test when the toolbar groups are not clear or a menu is wrong (OPEN_QUESTIONS R233 to R236):
-    /// - `checkToolbarGroups`: the gaps inside the view-control group (Sort, Filter, Saved Views) differ by more than 2 pt,
-    ///   or the gap to the second group (Needs Review, Jump to Letter) is not at least 2 times the in-group gap (#33 G, was 1.5);
+    /// FAIL the test when the toolbar is wrong or a menu is wrong (OPEN_QUESTIONS R233 to R236, R375):
+    /// - `checkToolbarGroups` (R375; was #33 G's gap ratio of our own row): the system toolbar's controls (Sort and Filter,
+    ///   Saved Views, More) are all there, on one line, whole inside the window, not overlapping, above the first card row;
+    ///   their spacing is the system's and is only recorded (`ScreenRules.systemToolbar`);
     /// - `checkMenu`: an open menu with fewer than three items, or an item that ends below the window (a menu cut at the
     ///   bottom); for the Filter menu also each group submenu.
     /// Moved here from test14 (part 1, the job the time budget stopped) into part 2 (R232). Files has no toolbar (its folders
@@ -1927,21 +1936,20 @@ final class ScreenshotTests: XCTestCase {
         app.terminate()
     }
 
-    /// #32 F / #33 G: the toolbar's groups. Writes "<name>-GROUPS" with every control's frame, the two gaps and the verdict
-    /// (`ScreenRules.toolbarGroups`, ratio 2: the gap between the groups at least twice the gap inside the first group, at
-    /// the default size and at Larger Text; proven in ScreenChecksTests on the run's frames, 76 vs 60, which fail). When the
-    /// row is collapsed (the More menu, R200) only the first group is checked.
+    /// R375: the system toolbar (`ScreenRules.systemToolbar`). Writes "<name>-GROUPS" (the note's old name, so the run's
+    /// notes stay comparable) with every control's frame, the system's gaps (recorded, not judged) and the verdict.
+    /// History: #32 F / #33 G / #36 6 judged our own row's gaps (ratio 2) and equal sizes (`ScreenRules.toolbarGroups`).
     func checkToolbarGroups(_ name: String, in app: XCUIApplication) {
-        let first: [(String, String)] = [("Sort and Filter", ControlID.sortAndFilter), ("Saved Views", ControlID.savedViews), ("More", ControlID.moreControls)]
-        let second: [(String, String)] = [("Needs Review", ControlID.needsReview), ("Jump to Letter", ControlID.jumpToLetter)]
-        func frames(_ list: [(String, String)]) -> [(String, AXRect)] {
-            list.compactMap { (label: String, id: String) -> (String, AXRect)? in
-                let element: XCUIElement = app.descendants(matching: .any).matching(identifier: id).firstMatch
-                guard element.exists, !element.frame.isEmpty else { return nil }
-                return (label, AXRect(element.frame))
-            }.sorted { (a: (String, AXRect), b: (String, AXRect)) -> Bool in a.1.x < b.1.x }
-        }
-        let result: CheckResult = ScreenRules.toolbarGroups(first: frames(first), second: frames(second), ratio: 2)
+        let bar: [(String, String)] = [("Sort and Filter", ControlID.sortAndFilter), ("Saved Views", ControlID.savedViews), ("More", ControlID.moreControls)]
+        let items: [(String, AXRect)] = bar.compactMap { (label: String, id: String) -> (String, AXRect)? in
+            let element: XCUIElement = app.descendants(matching: .any).matching(identifier: id).firstMatch
+            guard element.exists, !element.frame.isEmpty else { return nil }
+            return (label, AXRect(element.frame))
+        }.sorted { (a: (String, AXRect), b: (String, AXRect)) -> Bool in a.1.x < b.1.x }
+        let card: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Sample")).firstMatch
+        let window: CGRect = app.windows.firstMatch.frame
+        let result: CheckResult = ScreenRules.systemToolbar(items: items, expected: bar.map { $0.0 },
+                                                            window: AXRect(window), firstContentY: card.exists ? Double(card.frame.minY) : nil)
         note(name + "-GROUPS", result.text)
         XCTAssertTrue(result.passed, "\(name): " + result.verdict)
     }

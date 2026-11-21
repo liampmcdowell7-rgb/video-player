@@ -165,6 +165,7 @@ public enum ScreenRules {
 
     /// #34 3: the width the full toolbar row needs, from the controls' frames in order (first group, then second group),
     /// the explicit gaps of `GridToolbarLayout` and the count's width, against the width between the side margins.
+    /// R375: kept as history; the UI tests use `systemToolbar` since the row became the system toolbar.
     public static func toolbarRowWidth(first: [AXRect], second: [AXRect], count: Double, inGroup: Double, groupGap: Double,
                                        countGap: Double, window: Double = 1920, margin: Double = 80) -> CheckResult {
         let controls: Double = (first + second).reduce(0) { (sum: Double, rect: AXRect) -> Double in sum + rect.width }
@@ -179,6 +180,40 @@ public enum ScreenRules {
             "controls \(Int(controls)) + gaps inside groups \(Int(innerGaps)) + between groups \(Int(groupGap)) + before the count \(Int(countGap)) + count \(Int(count)) = \(Int(needed)) of \(Int(available)) between the \(Int(margin)) pt margins (slack \(Int(available - needed)))",
             "ratio between groups / inside a group: " + String(format: "%.2f", ratio),
             verdict])
+    }
+
+    /// R375 (decided by the owner's standing rule R312): the SYSTEM toolbar of Movies and Shows. Its spacing and grouping are
+    /// the system's, so they are recorded, never judged (no ratio, no equal widths). It passes when every `expected` control
+    /// is there, all on one line (centres within 4 pt), each whole inside the window, none overlapping another, and all
+    /// above the first row of content (`firstContentY`, when known).
+    public static func systemToolbar(items: [(String, AXRect)], expected: [String], window: AXRect,
+                                     firstContentY: Double?) -> CheckResult {
+        var lines: [String] = items.map { "\($0.0)\t\($0.1)" }
+        var problems: [String] = []
+        let found: Set<String> = Set(items.map { $0.0 })
+        let missing: [String] = expected.filter { !found.contains($0) }
+        if !missing.isEmpty { problems.append("missing from the toolbar: " + missing.joined(separator: ", ")) }
+        let centres: [Double] = items.map { (item: (String, AXRect)) -> Double in item.1.y + item.1.height / 2 }
+        if let low = centres.min(), let high = centres.max(), high - low > 4 {
+            problems.append("not on one line: centres \(centres.map { Int($0) })")
+        }
+        for item in items where !isNested(item.1, in: window) {
+            problems.append("“\(item.0)” \(item.1) is not whole inside the window")
+        }
+        for (i, a) in items.enumerated() {
+            for b in items.dropFirst(i + 1) where !a.1.intersection(b.1).isEmpty {
+                problems.append("“\(a.0)” overlaps “\(b.0)”")
+            }
+        }
+        if let top = firstContentY, let low = items.map({ (item: (String, AXRect)) -> Double in item.1.maxY }).max(), low > top {
+            problems.append("the toolbar reaches into the first content row (\(Int(low)) below \(Int(top)))")
+        }
+        let gaps: [Int] = zip(items, items.dropFirst()).map { (pair: ((String, AXRect), (String, AXRect))) -> Int in
+            Int(pair.1.1.x - pair.0.1.maxX)
+        }
+        lines.append("system gaps between the controls (recorded, not judged): \(gaps)")
+        lines.append(problems.isEmpty ? "SYSTEM TOOLBAR OK" : "SYSTEM TOOLBAR PROBLEM: " + problems.joined(separator: "; "))
+        return CheckResult(passed: problems.isEmpty, lines: lines)
     }
 
     // MARK: C: menus (test16)

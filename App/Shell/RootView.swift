@@ -38,13 +38,13 @@ struct RootView: View {
                     .accessibilityHidden(coverPresence.isCovered)
             }
             Tab("Movies", systemImage: "film", value: AppTab.movies) {
-                NavigationStack(path: $moviesPath) { MoviesView().tabRootScreen("Movies", identifier: "screen.movies").routeDestinations() }
+                NavigationStack(path: $moviesPath) { MoviesView().tabRootScreen("Movies", identifier: "screen.movies", toolbar: true).routeDestinations() }
                     .id(roots.generation(of: .movies))
                     .uiTestAccessibilityOverrides()
                     .accessibilityHidden(coverPresence.isCovered)
             }
             Tab("Shows", systemImage: "tv", value: AppTab.shows) {
-                NavigationStack(path: $showsPath) { ShowsView().tabRootScreen("Shows", identifier: "screen.shows").routeDestinations() }
+                NavigationStack(path: $showsPath) { ShowsView().tabRootScreen("Shows", identifier: "screen.shows", toolbar: true).routeDestinations() }
                     .id(roots.generation(of: .shows))
                     .uiTestAccessibilityOverrides()
                     .accessibilityHidden(coverPresence.isCovered)
@@ -197,9 +197,15 @@ extension View {
     /// VoiceOver. `toolbarVisibility(_:for:)` with `.navigationBar`: tvOS 18.0+
     /// (https://developer.apple.com/documentation/swiftui/view/toolbarvisibility(_:for:)). Not used on Search: its system
     /// search field may live in that bar.
-    func tabRootScreen(_ title: String, identifier: String) -> some View {
-        navigationTitle(title)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+    ///
+    /// R375 (decided by the owner's standing rule R312): `toolbar` is true on Movies and Shows, whose controls are the system
+    /// toolbar (`libraryToolbar`): the navigation bar stays visible to hold them, and its title is left empty so R166 holds
+    /// (HIG Toolbars: "If titling a toolbar seems redundant, you can leave the title area empty"); the container still
+    /// carries the screen's name for VoiceOver (`screenHeader`). How tvOS 27 draws that bar under the tab bar or beside the
+    /// sidebar: UNVERIFIED.
+    func tabRootScreen(_ title: String, identifier: String, toolbar: Bool = false) -> some View {
+        navigationTitle(toolbar ? "" : title)
+            .toolbarVisibility(toolbar ? .visible : .hidden, for: .navigationBar)
             .screenIdentifier(identifier)
             .screenHeader(title)
     }

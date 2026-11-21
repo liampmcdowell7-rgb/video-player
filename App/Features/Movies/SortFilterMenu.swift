@@ -50,8 +50,10 @@ struct SortFilterMenu<Screen: QueryGridScreen>: View {
             }
             .disabled(!model.screen.isFiltered)
         } label: {
-            // #32 D (R233): a symbol-only view control; VoiceOver speaks its name (accessibilityLabel below).
-            ToolbarSymbol(SortFilterText.title, systemImage: model.screen.isFiltered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+            // #32 D (R233): a symbol-only view control; VoiceOver speaks its name (accessibilityLabel below). R375: HIG Toolbars,
+            // "Prefer system-provided symbols without borders" (the circled form is gone); whether filters are on is spoken
+            // (accessibilityValue) and shown by the checked items and the enabled Clear All Filters in the menu.
+            ToolbarSymbol(SortFilterText.title, systemImage: "line.3.horizontal.decrease")
         }
         // #25 A2: named once on the control; VoiceOver hears the order and how many filters are on.
         .accessibilityLabel(SortFilterText.title)
