@@ -1675,6 +1675,23 @@ final class ScreenshotTests: XCTestCase {
             notReached("76-search-results", "No on-screen keyboard appeared (search field found: \(field != nil)).")
         }
         app.terminate()
+        // R343 (docs/HIG_AUDIT.md T11): recent searches under the empty search field, with Clear Recent Searches. Two searches
+        // are given through the launch arguments' UserDefaults domain (`-search.recentSearches`), so the picture does not depend
+        // on an earlier run; the argument domain cannot be cleared by the app, so Clear itself is not exercised here.
+        app = launch("-UITestFixtures", tab: "search", extra: ["-" + "search.recentSearches", "Sample Movie 2\nSample Show"])
+        if waitForScreen("screen.search", in: app) {
+            let field = [app.searchFields.firstMatch, app.textFields.firstMatch].first { $0.waitForExistence(timeout: 5) }
+            if let field, !app.keyboards.firstMatch.exists { _ = focus(field, in: app); XCUIRemote.shared.press(.select) }
+            if waitFor("Recent Searches", in: app, timeout: 10) || waitFor("Sample Movie 2", in: app, timeout: 2) {
+                settle(); shot("76-search-recent")
+                let listed: Bool = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Sample Show")).firstMatch.exists
+                let clear: Bool = app.buttons[ControlID.clearRecentSearches].exists || app.buttons["Clear Recent Searches"].exists
+                note("76-search-recent-RECENT", (listed && clear ? "RECENT SEARCHES OK" : "RECENT SEARCHES WRONG")
+                     + "\nrecent search listed: \(listed)\nClear Recent Searches shown: \(clear)")
+                XCTAssertTrue(listed && clear, "76-search-recent: listed \(listed), clear \(clear)")
+            } else { hierarchy("76-search-recent", of: app); notReached("76-search-recent", "No recent searches under the empty field (keyboard up: \(app.keyboards.firstMatch.exists)).") }
+        } else { notReached("76-search-recent", "The Search screen did not appear.") }
+        app.terminate()
         // R342 (docs/HIG_AUDIT.md T12): the invented Discover (-UITestFakeDiscover, `UITestFixtureDiscover`; no key, no
         // network): the cards; press and hold on a card shows the context menu with the watchlist action; Select opens the
         // title's page, which has the same action as a button (HIG Context menus: also in the main interface).

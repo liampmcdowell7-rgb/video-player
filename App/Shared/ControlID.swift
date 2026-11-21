@@ -63,4 +63,6 @@ enum ControlID {
     static func sourceAbout(_ rawValue: String) -> String { "sourceAbout." + rawValue }
     /// R342: the watchlist button on a Discover title's page.
     static let discoverWatchlist = "control.discoverWatchlist"
+    /// R343: Clear Recent Searches under the search field.
+    static let clearRecentSearches = "control.clearRecentSearches"
 }

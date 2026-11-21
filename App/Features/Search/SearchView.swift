@@ -10,6 +10,11 @@ import AppLogic
 /// R337 (PROVISIONAL, docs/HIG_AUDIT.md T11): while something is typed, the system `searchSuggestions` lists up to five of the
 /// titles found (AppLogic `SearchSuggestions`); HIG Searching: "offer predictive search suggestions". Nothing new is requested
 /// or stored. Their exact look under the tvOS 27 keyboard is UNVERIFIED until a run.
+/// R343 (Decided by the owner, 21 Nov 2026; T11): while the field is empty, the same system suggestions list the recent
+/// searches (HIG Searching: "display a person's recent searches before they start typing"), with Clear Recent Searches.
+/// A search is kept when it is submitted, or when the screen is left (a result opened, another tab) with results on it.
+/// Kept on this Apple TV only (AppLogic `RecentSearches`: one UserDefaults value, never synced, backed up or sent). How the
+/// tvOS 27 keyboard shows suggestions for an empty field, and a button among them, is UNVERIFIED.
 struct SearchView: View {
     @Environment(AppServices.self) private var services
     /// Settings > Home Screen > Show Discover. When off, Discover is not shown and no discovery requests are made.
@@ -17,6 +22,8 @@ struct SearchView: View {
     @State private var model: ScreenModel<SearchViewModel>?
     @State private var discover = DiscoverLoader()
     @State private var query = ""
+    /// R343: the recent searches, newest first, one per line (`RecentSearches`).
+    @AppStorage(RecentSearches.defaultsKey) private var recentStored = ""
 
     private var content: SearchTabContent { .forQuery(query, showDiscover: showDiscover) }
 
@@ -31,10 +38,23 @@ struct SearchView: View {
         }
         .searchable(text: $query)
         .searchSuggestions {
-            ForEach(suggestions, id: \.self) { title in
-                Text(title).searchCompletion(title)
+            let recent: [String] = RecentSearches.shown(RecentSearches.decode(recentStored), query: query)
+            if recent.isEmpty {
+                ForEach(suggestions, id: \.self) { title in
+                    Text(title).searchCompletion(title)
+                }
+            } else {
+                Section(RecentSearches.heading) {
+                    ForEach(recent, id: \.self) { text in
+                        Text(text).searchCompletion(text)
+                    }
+                }
+                Button(RecentSearches.clearTitle, systemImage: "xmark.circle", role: .destructive) { recentStored = "" }
+                    .accessibilityIdentifier(ControlID.clearRecentSearches)
             }
         }
+        .onSubmit(of: .search) { remember() }
+        .onDisappear { if hasResults { remember() } }
         .task(id: query) { await search() }
         .task(id: services.libraryRevision) { await search() }
         .task(id: "\(content.loadsDiscover)|\(services.libraryRevision)|\(services.online.keyRevision)") {
@@ -46,6 +66,17 @@ struct SearchView: View {
     private var suggestions: [String] {
         guard case .libraryResults = content, case .loaded(let cards)? = model?.screen.state else { return [] }
         return SearchSuggestions.titles(cards.map(\.title), query: query)
+    }
+
+    /// R343: true while library results are on screen for the typed text.
+    private var hasResults: Bool {
+        guard case .libraryResults = content, case .loaded(let cards)? = model?.screen.state else { return false }
+        return !cards.isEmpty
+    }
+
+    /// R343: keeps the typed text as a recent search, on this Apple TV only.
+    private func remember() {
+        recentStored = RecentSearches.encode(RecentSearches.recording(query, in: RecentSearches.decode(recentStored)))
     }
 
     @ViewBuilder private var results: some View {
