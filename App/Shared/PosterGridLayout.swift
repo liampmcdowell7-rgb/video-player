@@ -17,5 +17,10 @@ struct PosterGridLayout<Content: View>: View {
             }
         }
         .scrollClipDisabled()
+        // R361 (compile run of 21 Nov 2026, item 8): the whole grid is one focus section. Picture 54: two show cards on the
+        // left, "Jump to Letter" right of them; Down searched straight below the button, found no card and stayed. Apple,
+        // `focusSection()`: "Indicates that the view's frame and cohort of focusable descendants should be used to guide
+        // focus movement." A move toward the grid's frame now lands on its nearest card, whatever the column.
+        .focusSection()
     }
 }

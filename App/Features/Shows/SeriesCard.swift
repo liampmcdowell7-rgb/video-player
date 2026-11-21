@@ -8,19 +8,19 @@ struct SeriesCard: View {
     var body: some View {
         // R335 (PROVISIONAL): one `.borderless` lockup, the artwork and its text inside the button (as `PosterCard`).
         NavigationLink(value: Route.series(series.id)) {
+            // R360/R361: the artwork and the text are SIBLINGS in the label, as Apple's sample writes a lockup and as
+            // `PosterCard`, so the borderless style moves the text out of the way of the lifted artwork.
+            ArtworkView(key: series.artworkKey, symbol: "tv")
+                // design-lint:allow R335: Apple's tvOS media catalog sample attaches the borderless lockup's highlight by hand to a custom artwork view; the system effect, not our own
+                .hoverEffect(.highlight)
+            // The same side padding as PosterCard (#17 C): the text never touches the card's edge.
             VStack(alignment: .leading) {
-                ArtworkView(key: series.artworkKey, symbol: "tv")
-                    // design-lint:allow R335: Apple's tvOS media catalog sample attaches the borderless lockup's highlight by hand to a custom artwork view; the system effect, not our own
-                    .hoverEffect(.highlight)
-                // The same side padding as PosterCard (#17 C): the text never touches the card's edge.
-                VStack(alignment: .leading) {
-                    FittingText(series.title, style: .caption)
-                    // "3 seasons · 4 unwatched": the unwatched count goes first when the line is too long.
-                    FittingLine(line: detail, style: .caption2)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal)
+                FittingText(series.title, style: .caption)
+                // "3 seasons · 4 unwatched": the unwatched count goes first when the line is too long.
+                FittingLine(line: detail, style: .caption2)
+                    .foregroundStyle(.secondary)
             }
+            .padding(.horizontal)
         }
         .buttonStyle(.borderless)
         .accessibilityLabel(series.title)

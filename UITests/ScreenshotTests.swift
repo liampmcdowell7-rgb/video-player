@@ -507,7 +507,9 @@ final class ScreenshotTests: XCTestCase {
             focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
         }
         guard focused.exists, focused.label.hasPrefix("Sample") else {
-            return notReached(name, "No sample card took the focus after Down (focus on \(focusedLabel(in: app))).")
+            // R361 (item 8): picture 54 stopped on "Jump to Letter", right of the only two show cards. The grid is now a
+            // focus section, so Down from any control above it should land on a card.
+            return notReached(name, "No sample card took the focus after Down (focus on \(focusedLabel(in: app))). R361: the grid is a focus section, so this is a failure of that fix.")
         }
         settle(); shot(name)
         let title: String = focused.label
