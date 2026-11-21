@@ -213,46 +213,49 @@ struct TaskButtonRow<Content: View>: View {
     }
 }
 
-/// #36 S-D (OPEN_QUESTIONS R256, PROVISIONAL): one text or secure field as ONE rounded shape; the row draws no background
-/// of its own.
-/// #36 group 3 (OPEN_QUESTIONS R265, PROVISIONAL): the field has the native field shape AT REST. The third run of 20 Nov
-/// (11 to 19, 94) drew no shape at all for a field without the focus (the automatic style draws its white pill only when
-/// focused), so the form read as a list of labels. Now, at every text size:
-/// - the label above the field (one line, rule S1), so the field can use the row's full width;
-/// - the field in the system `bordered` text field style (Apple, BorderedTextFieldStyle: "A text field style with a
-///   system-defined border", tvOS 27.0+) with the `roundedRectangle` border shape (`textInputBorderShape(_:)`, tvOS 27.0+);
-///   what fill the system gives that border on tvOS is not on the page read: "secondary fill" is UNVERIFIED until a run;
-/// - every field the same height, the tvOS default control size (`TaskButtonLayout.minimumHeight`, 66 pt);
+/// One text or secure field of a form: the label above the field, the hint inside it as its prompt.
+/// History: #36 S-D (R256) drew the field as ONE rounded shape with no row background; #36 group 3 (R265) gave the field
+/// the system `bordered` style with a `roundedRectangle` border and still no row background. On a real Apple TV (owner's
+/// TestFlight build of 20 Nov 2026, main at 8e347e0) the WebDAV form then showed NO field shapes at all (R273).
+/// #36 R273 (OPEN_QUESTIONS R273, PROVISIONAL, the owner's choice of 20 Nov 2026):
+/// - the row keeps the system Form row background (no `listRowBackground`), so every field row has a visible shape at rest
+///   and the system focus look when focused;
+/// - the field has the automatic text field style (Apple, TextFieldStyle `automatic`: "The default text field style, based on
+///   the text field's context"); no `bordered`, no `textInputBorderShape`, no custom fill (R165). What the automatic style
+///   draws inside a Form row on tvOS 27 is not on Apple's pages: UNVERIFIED until the screenshot check
+///   11-form-webdav-FIELDS-AT-REST of the next run (fallback in R273: alternative (e), a value row with a one-field page);
+/// - the label above the field at every text size (one line, rule S1, unchanged from R265); every field at least the tvOS
+///   default control height (`TaskButtonLayout.minimumHeight`, 66 pt);
 /// - the hint ("Living Room", "Optional", the address example) inside the field as its prompt (HIG Text fields: "Show a
-///   hint in a text field … placeholder text"; "it can also be useful to include a separate label"). The hint line under
-///   the label is gone. Risk kept in R265: the system draws the prompt in its own grey (R256 measured a focused
-///   placeholder at 1.66:1); that is the system's look, not restyled.
+///   hint in a text field"; "it can also be useful to include a separate label").
+/// `focus`: when given, the field is bound to it (`focused(_:)`), so a form can put its first focus on this field
+/// (`SourceFormView`, R273).
 /// R262 (the keyboard screen's heading): the field's TITLE stays empty and the spoken label stays the title, exactly as
-/// before; only the prompt is new. Whether tvOS shows the prompt as the keyboard screen's heading is not on Apple's pages:
-/// UNVERIFIED until the keyboard picture (11-form-webdav-keyboard-name) of the next run.
+/// before. Whether tvOS shows the prompt as the keyboard screen's heading is not on Apple's pages: UNVERIFIED until the
+/// keyboard picture (11-form-webdav-keyboard-name) of the next run.
 struct FieldRow: View {
     let title: String
     var hint: String? = nil
     @Binding var text: String
     var isSecret: Bool = false
+    var focus: FocusState<Bool>.Binding? = nil
 
-    init(_ title: String, hint: String? = nil, text: Binding<String>, isSecret: Bool = false) {
+    init(_ title: String, hint: String? = nil, text: Binding<String>, isSecret: Bool = false,
+         focus: FocusState<Bool>.Binding? = nil) {
         self.title = title
         self.hint = hint
         self._text = text
         self.isSecret = isSecret
+        self.focus = focus
     }
 
     var body: some View {
         VStack(alignment: .leading) {
             FittingText(title)
             field
-                .textFieldStyle(.bordered)
-                .textInputBorderShape(.roundedRectangle)
+                .modifier(OptionalFocus(focus: focus))
                 .frame(maxWidth: .infinity, minHeight: TaskButtonLayout.minimumHeight)
         }
-        // design-lint:allow #36 S-D (R256): the row around a system text field has no background of its own; the field's own shape is the only one
-        .listRowBackground(Color.clear)
     }
 
     /// The hint as the field's prompt, when there is one.
@@ -271,6 +274,19 @@ struct FieldRow: View {
             TextField("", text: $text, prompt: prompt)
                 .autocorrectionDisabled()
                 .accessibilityLabel(title)
+        }
+    }
+}
+
+/// R273: binds a view to a focus state only when one is given (the first field of a source form); otherwise unchanged.
+struct OptionalFocus: ViewModifier {
+    let focus: FocusState<Bool>.Binding?
+
+    func body(content: Content) -> some View {
+        if let focus {
+            content.focused(focus)
+        } else {
+            content
         }
     }
 }

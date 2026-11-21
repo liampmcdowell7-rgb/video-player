@@ -46,7 +46,7 @@ Needs a build signed with the real team and a provisioning profile (a developmen
 
 ## Text entry and setup
 - P28. Add a server by Bonjour pick: count remote presses. Add by typing: type the host with the iPhone keyboard (Continuity) and with paste. Pass: both work in the standard field; a pasted full URL is split correctly.
-- P29. Text fields on tvOS 27: `.bordered` style, focus, Larger Text at the largest size. Pass: nothing clipped.
+- P29. Text fields on tvOS 27 (R273: default style on the system row background): every field of Add Source > WebDAV shows a shape before it is focused, the form opens with the focus on Name, Select opens the keyboard, Larger Text at the largest size. Pass: all four fields visible at rest, nothing clipped.
 
 ## Accessibility
 - P30. VoiceOver on: navigate every screen; every poster, button and track has a spoken label.

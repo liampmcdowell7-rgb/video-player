@@ -1,13 +1,17 @@
 import Foundation
 
 /// OPEN_QUESTIONS R273 (PROVISIONAL): a text or secure field that does not have the focus must still show a shape, so a
-/// form never reads as a list of labels. The owner's TestFlight build of 21 Nov 2026 (main at 8e347e0) showed the WebDAV
+/// form never reads as a list of labels. The owner's TestFlight build of 20 Nov 2026 (main at 8e347e0) showed the WebDAV
 /// form with no text entry fields at all; no screenshot run had drawn the R265 field style before, so nothing caught it.
 ///
 /// What counts as a shape (pixels only, no knowledge of the style that drew it): EITHER the field's fill differs from the
-/// page right outside it (the dominant colour of two strips inside the field, near its top and bottom edges, against the
-/// dominant colour of two strips just above and below it), OR at least half of a thin ring along the field's own edge
-/// differs from that outside colour (an outline without a fill). "Differs" is a WCAG contrast ratio of at least
+/// page (the dominant colour of two strips inside the field, near its top and bottom edges, against the dominant colour of
+/// the page), OR at least half of a thin ring along the field's own edge differs from the page (an outline without a fill).
+/// The page colour: when the field's ROW frame is known (the Form cell around label and field), strips just left and right
+/// of the row (then above and below it if those are off the picture), so a field drawn on the system row platter compares
+/// against the page and not against the platter (R273 build: the row background is back, and a strip just outside the
+/// field would be platter colour); the platter itself counts as the field's shape. Without a row frame, strips just above
+/// and below the field (the first R273 form). "Differs" is a WCAG contrast ratio of at least
 /// `fieldShapeMinimumRatio`. The strips stay clear of the field's middle, so a prompt or typed text alone never counts as a
 /// shape. A field with the focus is skipped (the system draws its focused look); a field with no frame fails.
 public extension ScreenRules {
@@ -22,11 +26,14 @@ public extension ScreenRules {
         public var name: String
         public var frame: AXRect?
         public var isFocused: Bool
+        /// The row (Form cell) that holds the field, when known; the page colour is then sampled outside the row.
+        public var row: AXRect?
 
-        public init(name: String, frame: AXRect?, isFocused: Bool) {
+        public init(name: String, frame: AXRect?, isFocused: Bool, row: AXRect? = nil) {
             self.name = name
             self.frame = frame
             self.isFocused = isFocused
+            self.row = row
         }
     }
 
@@ -51,11 +58,7 @@ public extension ScreenRules {
                 AXRect(x: frame.x + 12, y: frame.y + 4, width: frame.width - 24, height: 6),
                 AXRect(x: frame.x + 12, y: frame.maxY - 10, width: frame.width - 24, height: 6),
             ]
-            let outside: [AXRect] = [
-                AXRect(x: frame.x + 12, y: frame.y - 10, width: frame.width - 24, height: 6),
-                AXRect(x: frame.x + 12, y: frame.maxY + 4, width: frame.width - 24, height: 6),
-            ]
-            guard let fill = dominant(image, inside, scale: scale), let page = dominant(image, outside, scale: scale) else {
+            guard let fill = dominant(image, inside, scale: scale), let page = pageColour(image, field: frame, row: field.row, scale: scale) else {
                 lines.append("\u{201C}\(field.name)\u{201D} \(frame): outside the picture")
                 invisible.append("\u{201C}\(field.name)\u{201D} outside the picture")
                 continue
@@ -74,6 +77,28 @@ public extension ScreenRules {
         }
         lines.append(invisible.isEmpty ? "FIELDS VISIBLE AT REST OK" : "FIELD WITHOUT A VISIBLE SHAPE AT REST: " + invisible.joined(separator: "; "))
         return CheckResult(passed: invisible.isEmpty, lines: lines)
+    }
+
+    /// The page colour around a field: outside its row when the row frame is known and larger than the field (left and right
+    /// of the row first, then above and below), otherwise just above and below the field. Nil if nothing is on the picture.
+    internal static func pageColour(_ image: RGBImage, field frame: AXRect, row: AXRect?, scale: Double) -> RGB? {
+        if let row, row.width >= frame.width, row.height >= frame.height, row.height > frame.height || row.width > frame.width {
+            let sides: [AXRect] = [
+                AXRect(x: row.x - 10, y: row.y + 4, width: 6, height: max(1, row.height - 8)),
+                AXRect(x: row.maxX + 4, y: row.y + 4, width: 6, height: max(1, row.height - 8)),
+            ]
+            if let colour = dominant(image, sides, scale: scale) { return colour }
+            let ends: [AXRect] = [
+                AXRect(x: row.x + 12, y: row.y - 10, width: max(1, row.width - 24), height: 6),
+                AXRect(x: row.x + 12, y: row.maxY + 4, width: max(1, row.width - 24), height: 6),
+            ]
+            if let colour = dominant(image, ends, scale: scale) { return colour }
+        }
+        let outside: [AXRect] = [
+            AXRect(x: frame.x + 12, y: frame.y - 10, width: frame.width - 24, height: 6),
+            AXRect(x: frame.x + 12, y: frame.maxY + 4, width: frame.width - 24, height: 6),
+        ]
+        return dominant(image, outside, scale: scale)
     }
 
     /// The most common colour (16-level bins, averaged) of the pixels inside `rects` (points); nil if none is on the picture.

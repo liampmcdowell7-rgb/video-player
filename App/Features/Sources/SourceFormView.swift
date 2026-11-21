@@ -11,6 +11,8 @@ struct SourceFormView: View {
     @Environment(AppServices.self) private var services
     @State private var model: ScreenModel<SourceSetupViewModel>?
     @State private var attempted = false
+    /// R273 (PROVISIONAL): the form opens with the focus on its first field (Name), not on Connect below the fields.
+    @FocusState private var firstFieldFocused: Bool
 
     private var info: SourceKindInfo { SourceCatalog.info(for: draft.kind, oneDriveClientID: SourceConfiguration.oneDriveClientID) }
     private var problems: [FieldProblem] { attempted ? SourceDraftValidator.problems(draft) : [] }
@@ -37,7 +39,8 @@ struct SourceFormView: View {
         TaskPage(title: info.title, summary: info.summary) {
             Section {
                 ForEach(info.fields) { spec in
-                    SourceFieldRow(spec: spec, text: binding(spec.kind))
+                    SourceFieldRow(spec: spec, text: binding(spec.kind),
+                                   focus: spec.id == info.fields.first?.id ? $firstFieldFocused : nil)
                 }
             } footer: {
                 if !problems.isEmpty {
@@ -75,6 +78,10 @@ struct SourceFormView: View {
                     .accessibilityIdentifier(ControlID.learnMore)
             }
         }
+        // R273: the first focus goes to the first field when the form appears (Apple, defaultFocus(_:_:priority:): "focus
+        // automatically goes to" the given field "when the view is first presented"; tvOS 16.0+). Priority automatic: the
+        // user's own moves are not redirected.
+        .defaultFocus($firstFieldFocused, true)
         .onChange(of: phase) { _, newPhase in
             if case .saved = newPhase {
                 services.sourceAdded()

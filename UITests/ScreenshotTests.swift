@@ -610,7 +610,7 @@ final class ScreenshotTests: XCTestCase {
             _ = waitUntilStill(control(id: ControlID.sourceCancel, label: "Cancel", in: app))
             shot(name)
             // R273: every field on screen without the focus has a visible shape; on the WebDAV form all four fields,
-            // Connect and Cancel are inside the 60 pt safe area as the form opens (the owner's TestFlight report of 21 Nov:
+            // Connect and Cancel are inside the 60 pt safe area as the form opens (the owner's TestFlight report of 20 Nov 2026:
             // no text entry fields at all on the WebDAV form).
             fieldsAtRest(name, in: app, mustHaveField: n == "11")
             if n == "11" { formSafeArea(name, in: app) }
@@ -1585,11 +1585,17 @@ final class ScreenshotTests: XCTestCase {
     func fieldsAtRest(_ name: String, in app: XCUIApplication, mustHaveField: Bool) {
         let window: CGRect = app.windows.firstMatch.frame
         let fields: [XCUIElement] = app.textFields.allElementsBoundByIndex + app.secureTextFields.allElementsBoundByIndex
+        // R273 build: each field's row (the smallest Form cell around it), so the page colour is sampled outside the row
+        // platter and the platter counts as the field's shape.
+        let cells: [CGRect] = app.cells.allElementsBoundByIndex.map { (cell: XCUIElement) -> CGRect in cell.frame }
         var atRest: [ScreenRules.FieldAtRest] = []
         var skipped: [String] = []
         for field in fields where field.exists {
             if window.width > 0, !window.contains(field.frame) { skipped.append("\u{201C}\(field.label)\u{201D} \(field.frame)"); continue }
-            atRest.append(ScreenRules.FieldAtRest(name: field.label, frame: AXRect(field.frame), isFocused: field.hasFocus))
+            let row: CGRect? = cells.filter { (cell: CGRect) -> Bool in cell.contains(field.frame) && cell != field.frame }
+                .min { (a: CGRect, b: CGRect) -> Bool in a.width * a.height < b.width * b.height }
+            atRest.append(ScreenRules.FieldAtRest(name: field.label, frame: AXRect(field.frame), isFocused: field.hasFocus,
+                                                  row: row.map { (r: CGRect) -> AXRect in AXRect(r) }))
         }
         if atRest.isEmpty && !mustHaveField {
             note(name + "-FIELDS-AT-REST", "no text or secure field on screen (\(fields.count) in the tree); nothing to measure")

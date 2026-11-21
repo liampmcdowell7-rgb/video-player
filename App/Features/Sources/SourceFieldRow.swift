@@ -15,9 +15,12 @@ import AppLogic
 /// background). #36 group 3 (R265, PROVISIONAL): for text and secure fields the label is now above the field at every text
 /// size, the field has the system bordered shape at rest, and the former placeholder ("Living Room", "Optional") is the
 /// field's prompt again (FieldRow); the paragraphs above still describe the picker rows.
+/// R273 (PROVISIONAL): text and secure fields keep the system row background and the automatic field style (FieldRow);
+/// `focus`, when given, binds this row's control (field or picker) so the form can open on it.
 struct SourceFieldRow: View {
     let spec: SourceFieldSpec
     @Binding var text: String
+    var focus: FocusState<Bool>.Binding? = nil
 
     var body: some View {
         if !spec.choices.isEmpty {
@@ -29,8 +32,9 @@ struct SourceFieldRow: View {
                 FittingText(spec.title)
             }
             .accessibilityLabel(spec.title)
+            .modifier(OptionalFocus(focus: focus))
         } else {
-            FieldRow(spec.title, hint: spec.prompt, text: $text, isSecret: spec.isSecret)
+            FieldRow(spec.title, hint: spec.prompt, text: $text, isSecret: spec.isSecret, focus: focus)
         }
     }
 
