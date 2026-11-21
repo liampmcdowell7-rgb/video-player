@@ -8,8 +8,9 @@ import AppLogic
 /// that used it (PROVISIONAL; alternative: a button that makes one request on an explicit press).
 ///
 /// Layout: one row per keyed service, the name as text only with its status (On / Not set) and one short footer line; the key
-/// is shown masked as text (never in a picture); a native `SecureField` takes the key, so the system text entry (and any
-/// keyboard the system offers) is used. Key-free sources have no key row: they are one switch, Free Data Sources.
+/// is shown masked as text (never in a picture); the key is typed on its own entry page in a native `SecureField` (R333), so
+/// the system text entry (and any keyboard the system offers) is used. Region is a system picker (R334). Key-free sources
+/// have no key row: they are one switch, Free Data Sources.
 struct OnlineLookupSettingsView: View {
     @Environment(AppServices.self) private var services
     @AppStorage(OnlineLookupPrefs.regionKey) private var region = OnlineLookupPrefs.defaultRegion
@@ -36,8 +37,16 @@ struct OnlineLookupSettingsView: View {
                 Text(OnlineLookupText.freeSourcesFooter)
             }
             Section {
-                TextField(OnlineLookupText.regionLabel, text: $region)
-                    .autocorrectionDisabled()
+                // R334 (PROVISIONAL): Region has a fixed list of answers (ISO 3166-1 alpha-2 country codes, the key of
+                // TMDB's `iso_3166_1` answers), so it is a system `Picker` row with the country trailing, not a typed field.
+                Picker(selection: regionChoice) {
+                    ForEach(regionOptions) { (option: RegionOption) in
+                        Text(option.title).tag(option.code)
+                    }
+                } label: {
+                    FittingText(OnlineLookupText.regionLabel)
+                }
+                .accessibilityIdentifier(ControlID.regionPicker)
             } footer: {
                 Text(OnlineLookupText.regionHelp)
             }
@@ -46,12 +55,22 @@ struct OnlineLookupSettingsView: View {
             }
             // #26 item 7: the data providers' notices and the TMDB logo are only in Settings > About > Data Sources.
         }
-        .onChange(of: region) {
-            let clean = OnlineLookupPrefs.normalizedRegion(region)
-            if region.count == 2 && clean != region { region = clean }
-            if region.count == 2 { services.online.rebuild() }
-        }
+        .onChange(of: region) { services.online.rebuild() }
         .onChange(of: freeSources) { services.online.rebuild() }
+    }
+
+    /// R334: the stored code as the picker's selection; a stored value that is not two letters shows as the default (US).
+    private var regionChoice: Binding<String> {
+        Binding(get: { OnlineLookupPrefs.normalizedRegion(region) }, set: { region = $0 })
+    }
+
+    /// R334: the system's list of territories (`Locale.Region.isoRegions(ofCategory:)`, tvOS 26.0+) with their names in the
+    /// device language, sorted by name (`RegionChoices`).
+    private var regionOptions: [RegionOption] {
+        let codes: [String] = Locale.Region.isoRegions(ofCategory: .territory).map(\.identifier)
+        return RegionChoices.options(codes: codes, current: region) { (code: String) -> String? in
+            Locale.current.localizedString(forRegionCode: code)
+        }
     }
 }
 

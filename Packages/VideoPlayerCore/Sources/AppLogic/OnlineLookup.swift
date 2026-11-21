@@ -51,8 +51,9 @@ public enum OnlineLookupText {
     public static let freeSourcesFooter = "Wikidata cast and IntroDB intro times, no key needed. Off: nothing is sent to them."
     public static let freeSourcesTitle = "About Free Data Sources"
     public static let freeSourcesAbout = "Wikidata is a free, open knowledge base; the app takes only facts from it (title, year, cast names and the IMDb number), never pictures. It is used for cast lists when no TMDB key is set, and to find the IMDb number IntroDB needs.\n\nIntroDB is a free, community-made list of where intros, recaps and credits start. The app asks it only for the video you play, and only when the video and its server give no markers of their own. Times it finds for credits are not used, because they cannot be checked against your file’s length.\n\nAnswers are kept on this device (Wikidata 30 days, IntroDB 7 days) so the same question is not asked twice. Neither service gets a key."
-    public static let regionLabel = "Where-to-watch region"
-    public static let regionHelp = "A two-letter country code, such as US. Only used on this device to pick which region’s services are listed; it is not sent."
+    /// R334: the Region picker's row title (the footer says what it is for).
+    public static let regionLabel = "Region"
+    public static let regionHelp = "The country whose where-to-watch services and age ratings are shown. Only used on this device to pick from the answers; it is not sent."
 
     public static let discoverNeedsKeyTitle = "Discover Needs a Key"
     /// #26 item 4: one short line per feature that needs the key, pointing to Settings > Online Lookup.

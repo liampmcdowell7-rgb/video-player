@@ -47,6 +47,8 @@ enum ControlID {
     static func keyEntry(_ service: String) -> String { "control.keyEntry." + service }
     /// R333: one field row of the Move cover: "moveField.title", "moveField.year", ... (`TextEntryRules.MoveField.rawValue`).
     static func moveField(_ rawValue: String) -> String { "moveField." + rawValue }
+    /// R334: Settings > Online Lookup's Region picker row.
+    static let regionPicker = "control.regionPicker"
     static let freeDataSources = "control.freeDataSources"
     static let dataSources = "control.dataSources"
 

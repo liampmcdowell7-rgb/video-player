@@ -796,6 +796,7 @@ final class ScreenshotTests: XCTestCase {
             }
             shot("36-settings-online-lookup-key-set")
             keyEntryRow(in: keyed)
+            regionPicker(in: keyed)
             for _ in 0..<6 { XCUIRemote.shared.press(.down); usleep(400_000) }
             sleep(1)
             shot("36-settings-online-lookup-key-set-scrolled")
@@ -937,6 +938,36 @@ final class ScreenshotTests: XCTestCase {
             notReached(name, "The Replace Key row could not be focused (focus on \(focusedLabel(in: app))).\n" + focusPathText())
         }
         note("36-settings-online-lookup-KEY-ENTRY", (lines + [failures.isEmpty ? "KEY ENTRY OK" : "FAILED: " + failures.joined(separator: "; ")]).joined(separator: "\n"))
+        for failure in failures { XCTFail("\(name): \(failure)") }
+    }
+
+    /// R334: Online Lookup's Region is a system picker row, not a typed field: no text field labelled "Region" is drawn on the
+    /// page, the row shows the country trailing (the fixtures keep the default, US), and Select opens the system's list of
+    /// countries ("36-settings-online-lookup-region"). "-REGION" note; a failure fails the test. Back returns to the page.
+    func regionPicker(in app: XCUIApplication) {
+        let name: String = "36-settings-online-lookup-region"
+        var failures: [String] = []
+        let typed: Int = app.textFields.matching(NSPredicate(format: "label CONTAINS[c] %@", "region")).count
+        if typed > 0 { failures.append("\(typed) text field(s) labelled Region drawn on the page (R334: a picker)") }
+        let row: XCUIElement = control(id: ControlID.regionPicker, label: "Region", in: app)
+        var lines: [String] = ["Region text fields drawn on the page: \(typed)"]
+        if row.waitForExistence(timeout: 5), focus(row, in: app, maxPresses: 30) {
+            let value: String = (row.value as? String) ?? ""
+            lines.append("row \u{201C}\(row.label)\u{201D} value \u{201C}\(value)\u{201D}")
+            XCUIRemote.shared.press(.select)
+            if waitFor("Germany", in: app, timeout: 10) {
+                settle(); shot(name)
+                lines.append("the list of countries opened (\u{201C}Germany\u{201D} found)")
+                hierarchy(name, of: app)
+            } else {
+                failures.append("Select on Region did not open a list of countries")
+                notReached(name, "Select on Region did not open a list of countries.\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
+            }
+            back()
+        } else {
+            notReached(name, "The Region row could not be focused (focus on \(focusedLabel(in: app))).\n" + focusPathText())
+        }
+        note("36-settings-online-lookup-REGION", (lines + [failures.isEmpty ? "REGION OK" : "FAILED: " + failures.joined(separator: "; ")]).joined(separator: "\n"))
         for failure in failures { XCTFail("\(name): \(failure)") }
     }
 
