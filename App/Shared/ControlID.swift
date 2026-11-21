@@ -31,8 +31,8 @@ enum ControlID {
     static let sourceCancel = "control.sourceCancel"
     /// R324: a source form's one action.
     static let sourceConnect = "control.sourceConnect"
-    /// R321: the one text field of a field's entry page.
-    static let sourceEntryField = "control.sourceEntryField"
+    /// R321, R333: the one text field of an entry page (`TextEntryPage`: source fields, the lookup key, the Move cover).
+    static let entryField = "control.entryField"
     /// R320: one field row of a source form: "sourceField.address", "sourceField.password", ... (`SourceFieldKind.rawValue`).
     static func sourceField(_ rawValue: String) -> String { "sourceField." + rawValue }
     static let learnMore = "control.learnMore"
@@ -43,6 +43,10 @@ enum ControlID {
     /// #26: Settings > Online Lookup (the TMDB key row, its masked value, Free Data Sources) and About > Data Sources.
     static func keyRow(_ service: String) -> String { "control.keyRow." + service }
     static func keyValue(_ service: String) -> String { "control.keyValue." + service }
+    /// R333: the Enter Key / Replace Key row (a value row that opens the key's entry page).
+    static func keyEntry(_ service: String) -> String { "control.keyEntry." + service }
+    /// R333: one field row of the Move cover: "moveField.title", "moveField.year", ... (`TextEntryRules.MoveField.rawValue`).
+    static func moveField(_ rawValue: String) -> String { "moveField." + rawValue }
     static let freeDataSources = "control.freeDataSources"
     static let dataSources = "control.dataSources"
 

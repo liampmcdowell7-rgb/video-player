@@ -795,6 +795,7 @@ final class ScreenshotTests: XCTestCase {
                 notReached("36-settings-online-lookup-key-set", "No masked key row (identifier “\(ControlID.keyValue("tmdb"))”).\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(keyed, lines: 80))")
             }
             shot("36-settings-online-lookup-key-set")
+            keyEntryRow(in: keyed)
             for _ in 0..<6 { XCUIRemote.shared.press(.down); usleep(400_000) }
             sleep(1)
             shot("36-settings-online-lookup-key-set-scrolled")
@@ -896,6 +897,86 @@ final class ScreenshotTests: XCTestCase {
         // #36 8 T2/T3: the tree of every cover, so the next run's notes give the frames of any overlap and the page's
         // elements in the tree (the run of 20 Nov had no tree of 66, 94 or the Saved View cover).
         hierarchy(name, of: app)
+        for failure in failures { XCTFail("\(name): \(failure)") }
+    }
+
+    /// R333: Settings > Online Lookup's Replace Key is ONE value row (no text or secure field drawn on the page), its value is
+    /// empty or dots, never the key; Select opens the key's entry page, headed "Replace Key", with ONE secure field
+    /// ("36-settings-online-lookup-key-entry"). "-KEY-ENTRY" note; a failure fails the test. Back returns to the page.
+    func keyEntryRow(in app: XCUIApplication) {
+        let name: String = "36-settings-online-lookup-key-entry"
+        let row: XCUIElement = control(id: ControlID.keyEntry("tmdb"), label: "Replace Key", in: app)
+        guard row.waitForExistence(timeout: 5) else {
+            return notReached(name, "No Replace Key row (identifier \u{201C}\(ControlID.keyEntry("tmdb"))\u{201D}).\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
+        }
+        var failures: [String] = []
+        // The Region field (an in-place system text field, not part of R333) is not counted: only a secure field or a field
+        // labelled with "key".
+        let keyFields: Int = app.textFields.matching(NSPredicate(format: "label CONTAINS[c] %@", "key")).count
+        let drawnFields: Int = keyFields + app.secureTextFields.count
+        if drawnFields > 0 { failures.append("\(drawnFields) key field(s) drawn on the page (a field inside a row, R333)") }
+        let value: String = (row.value as? String) ?? ""
+        if !value.allSatisfy({ $0 == "\u{2022}" }) && value != "Entered" { failures.append("the row value \u{201C}\(value)\u{201D} is not empty or dots") }
+        var lines: [String] = ["row \u{201C}\(row.label)\u{201D} value \u{201C}\(value)\u{201D}", "key fields drawn on the page: \(drawnFields)"]
+        if focus(row, in: app, maxPresses: 20) {
+            XCUIRemote.shared.press(.select)
+            let field: XCUIElement = app.descendants(matching: .any).matching(identifier: ControlID.entryField).firstMatch
+            if field.waitForExistence(timeout: 10) {
+                settle(); shot(name)
+                let heading: Bool = app.staticTexts.matching(NSPredicate(format: "label == %@", "Replace Key")).firstMatch.exists
+                lines.append("entry page heading \u{201C}Replace Key\u{201D}: " + (heading ? "shown" : "NOT SHOWN"))
+                lines.append("secure fields: \(app.secureTextFields.count), text fields: \(app.textFields.count)")
+                if !heading { failures.append("the entry page has no \u{201C}Replace Key\u{201D} heading") }
+                if app.secureTextFields.count != 1 || app.textFields.count != 0 { failures.append("the entry page does not have exactly one secure field") }
+                hierarchy(name, of: app)
+                back()
+            } else {
+                notReached(name, "Select on Replace Key did not open its entry page.\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
+            }
+        } else {
+            notReached(name, "The Replace Key row could not be focused (focus on \(focusedLabel(in: app))).\n" + focusPathText())
+        }
+        note("36-settings-online-lookup-KEY-ENTRY", (lines + [failures.isEmpty ? "KEY ENTRY OK" : "FAILED: " + failures.joined(separator: "; ")]).joined(separator: "\n"))
+        for failure in failures { XCTFail("\(name): \(failure)") }
+    }
+
+    /// R333: the Move to Shows cover has one value row per field (Show, Year, Season, Episode, Last Episode) and no text field
+    /// drawn in a row; at the default size, Select on Show opens its entry page headed "Show" with ONE text field
+    /// ("66-move-sheet-entry-show"). "-MOVE-ROWS" note; a failure fails the test. Back returns to the cover.
+    func moveRows(in app: XCUIApplication, suffix: String) {
+        let name: String = "66-move-sheet\(suffix)"
+        var failures: [String] = []
+        var lines: [String] = []
+        for (raw, label) in [("title", "Show"), ("year", "Year"), ("season", "Season"), ("episode", "Episode"), ("episodeEnd", "Last Episode")] {
+            let row: XCUIElement = control(id: ControlID.moveField(raw), label: label, in: app)
+            let found: Bool = row.exists
+            lines.append("row \u{201C}\(label)\u{201D}: " + (found ? "value \u{201C}\((row.value as? String) ?? "")\u{201D}" : "MISSING"))
+            if !found { failures.append("no \u{201C}\(label)\u{201D} row") }
+        }
+        let drawnFields: Int = app.textFields.count + app.secureTextFields.count
+        lines.append("fields drawn on the cover: \(drawnFields)")
+        if drawnFields > 0 { failures.append("\(drawnFields) text field(s) drawn on the cover (a field inside a row, R333)") }
+        if suffix.isEmpty {
+            let row: XCUIElement = control(id: ControlID.moveField("title"), label: "Show", in: app)
+            if row.exists, focus(row, in: app, maxPresses: 20) {
+                XCUIRemote.shared.press(.select)
+                let field: XCUIElement = app.descendants(matching: .any).matching(identifier: ControlID.entryField).firstMatch
+                if field.waitForExistence(timeout: 10) {
+                    settle(); shot("66-move-sheet-entry-show")
+                    let heading: Bool = app.staticTexts.matching(NSPredicate(format: "label == %@", "Show")).firstMatch.exists
+                    lines.append("entry page heading \u{201C}Show\u{201D}: " + (heading ? "shown" : "NOT SHOWN") + ", text fields: \(app.textFields.count)")
+                    if !heading { failures.append("the Show entry page has no \u{201C}Show\u{201D} heading") }
+                    if app.textFields.count != 1 { failures.append("the Show entry page does not have exactly one text field") }
+                    hierarchy("66-move-sheet-entry-show", of: app)
+                    back()
+                } else {
+                    notReached("66-move-sheet-entry-show", "Select on the Show row did not open its entry page.\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
+                }
+            } else {
+                notReached("66-move-sheet-entry-show", "The Show row could not be focused (focus on \(focusedLabel(in: app))).\n" + focusPathText())
+            }
+        }
+        note(name + "-MOVE-ROWS", (lines + [failures.isEmpty ? "MOVE ROWS OK" : "FAILED: " + failures.joined(separator: "; ")]).joined(separator: "\n"))
         for failure in failures { XCTFail("\(name): \(failure)") }
     }
 
@@ -1586,7 +1667,7 @@ final class ScreenshotTests: XCTestCase {
             return notReached(name, "The Name row could not be focused (focus on \(focusedLabel(in: app))).\n" + focusPathText())
         }
         XCUIRemote.shared.press(.select)
-        let field: XCUIElement = app.descendants(matching: .any).matching(identifier: ControlID.sourceEntryField).firstMatch
+        let field: XCUIElement = app.descendants(matching: .any).matching(identifier: ControlID.entryField).firstMatch
         guard field.waitForExistence(timeout: 10) else {
             return notReached(name, "Select on the Name row did not open its entry page.\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
         }
@@ -1849,7 +1930,10 @@ final class ScreenshotTests: XCTestCase {
                 rememberPage(app)
                 if open("Move to Shows", in: app, name: "66-move-sheet\(suffix)") {
                     // #25 A3: retaken after the sheet's animation: wait for its last element (Cancel) to stand still.
-                    if waitUntilStill(control(id: nil, label: "Cancel", in: app)) { shot("66-move-sheet\(suffix)"); checkCover("66-move-sheet\(suffix)", in: app) }
+                    if waitUntilStill(control(id: nil, label: "Cancel", in: app)) {
+                        shot("66-move-sheet\(suffix)"); checkCover("66-move-sheet\(suffix)", in: app)
+                        moveRows(in: app, suffix: suffix)
+                    }
                     else { notReached("66-move-sheet\(suffix)", "The move sheet's Cancel button did not appear or kept moving.\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))") }
                     back()
                 }

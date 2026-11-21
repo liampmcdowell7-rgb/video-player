@@ -24,7 +24,7 @@ enum SortMoveTarget: Identifiable, Equatable {
     static func == (a: SortMoveTarget, b: SortMoveTarget) -> Bool { a.id == b.id }
 }
 
-/// Move to Movies / Move to Shows (docs/SORTING.md): system form fields, filled from the file name. The choice is a synced
+/// Move to Movies / Move to Shows (docs/SORTING.md): one value row per field (R333), filled from the file name. The choice is a synced
 /// user-data record, so it survives rescans and reaches the other Apple TVs; the next scan files the item. Layout:
 /// `TaskPage`, the one task-cover layout (#36 S-B, OPEN_QUESTIONS R254, PROVISIONAL; it was `SettingsPane`'s two columns);
 /// the main action is the first button under the fields (L7).
@@ -37,35 +37,60 @@ struct SortMoveSheet: View {
     @State private var problem: String?
 
     var body: some View {
-        TaskPage(title: SortTexts.moveTitle(target.kind), summary: SortTexts.moveSummary(target.kind)) {
-            if let binding = Binding($draft) {
-                // #36 S-D (R256): one rounded shape per field row, the label beside the field, no placeholder inside it
-                // (66: the title was the placeholder, #585858 on #111111, 2.65:1).
-                Section {
-                    FieldRow(binding.wrappedValue.titleLabel, text: binding.title)
-                    FieldRow("Year (Optional)", text: binding.year)
-                }
-                if target.kind == .episode {
-                    Section("Episode") {
-                        FieldRow("Season", text: binding.season)
-                        FieldRow("Episode", text: binding.episode)
-                        FieldRow("Last Episode (Optional)", text: binding.episodeEnd)
+        // R333: the field rows open entry pages, so the cover has its own navigation stack (as Add a Source); `TaskPage`
+        // hides the navigation bar.
+        NavigationStack {
+            TaskPage(title: SortTexts.moveTitle(target.kind), summary: SortTexts.moveSummary(target.kind)) {
+                if let binding = Binding($draft) {
+                    // R333 (PROVISIONAL): each field is one tvOS Settings value row; Select opens its entry page with the
+                    // right keyboard (`TextEntryRow`). Before: `FieldRow`, a field inside the row platter (R256).
+                    let fields: [TextEntryRules.MoveField] = TextEntryRules.moveFields(target.kind)
+                    Section {
+                        ForEach(fields.filter { $0 == .title || $0 == .year }, id: \.self) { row($0, binding) }
+                    } footer: {
+                        if target.kind == .movie { Text(TextEntryRules.moveOptionalLine(target.kind)) }
                     }
-                }
-                Section {
-                    // #36 S-C (R255): the Move button prominent, Cancel beside it, the same size.
-                    TaskButtonRow {
-                        TaskButton(binding.wrappedValue.sheetTitle, prominent: true) { Task { await save() } }
-                        TaskButton("Cancel", role: .cancel) { dismiss() }
+                    if target.kind == .episode {
+                        Section {
+                            ForEach(fields.filter { $0 != .title && $0 != .year }, id: \.self) { row($0, binding) }
+                        } header: {
+                            Text("Episode")
+                        } footer: {
+                            Text(TextEntryRules.moveOptionalLine(target.kind))
+                        }
                     }
-                } footer: {
-                    if let problem { Text(problem) }
+                    Section {
+                        // #36 S-C (R255): the Move button prominent, Cancel beside it, the same size.
+                        TaskButtonRow {
+                            TaskButton(binding.wrappedValue.sheetTitle, prominent: true) { Task { await save() } }
+                            TaskButton("Cancel", role: .cancel) { dismiss() }
+                        }
+                    } footer: {
+                        if let problem { Text(problem) }
+                    }
+                } else {
+                    ProgressView()
                 }
-            } else {
-                ProgressView()
             }
         }
         .task { await load() }
+    }
+
+    /// R333: one field as a value row; the name is the row title and the entry page heading ("Optional" is in the footer).
+    private func row(_ field: TextEntryRules.MoveField, _ draft: Binding<SortMoveDraft>) -> some View {
+        let title: String = TextEntryRules.moveTitle(field, kind: target.kind)
+        return TextEntryRow(title: title, value: draft[dynamicMember: Self.path(field)], entry: TextEntryRules.moveEntry(field),
+                            summary: TextEntryRules.summary(title), identifier: ControlID.moveField(field.rawValue))
+    }
+
+    private static func path(_ field: TextEntryRules.MoveField) -> WritableKeyPath<SortMoveDraft, String> {
+        switch field {
+        case .title: return \.title
+        case .year: return \.year
+        case .season: return \.season
+        case .episode: return \.episode
+        case .episodeEnd: return \.episodeEnd
+        }
     }
 
     private func load() async {

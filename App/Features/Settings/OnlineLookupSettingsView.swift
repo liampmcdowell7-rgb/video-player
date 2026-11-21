@@ -84,8 +84,12 @@ private struct KeyRow: View {
                     TaskButton("Remove Key", role: .destructive) { confirmRemove = true }
                 }
             }
-            // #36 S-D (R256): Enter Key / Replace Key as one rounded shape, the label beside the field.
-            FieldRow(saved == nil ? OnlineLookupText.enterKey : OnlineLookupText.replaceKey, text: $entry, isSecret: true)
+            // R333 (PROVISIONAL): Enter Key / Replace Key is one tvOS Settings value row (eight dots once typed, never the
+            // key); Select opens its entry page with a secure field (`TextEntryRow`). Before: `FieldRow` (R256), a field
+            // inside the row platter.
+            TextEntryRow(title: saved == nil ? OnlineLookupText.enterKey : OnlineLookupText.replaceKey, value: $entry,
+                         entry: TextEntryRules.keyEntry, summary: TextEntryRules.keySummary(label),
+                         identifier: ControlID.keyEntry(kind.rawValue))
             TaskButtonRow {
                 TaskButton("Save Key", prominent: true) { Task { await save() } }
                     .disabled(entry.isEmpty || working)

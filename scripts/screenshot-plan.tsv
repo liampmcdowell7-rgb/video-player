@@ -48,12 +48,14 @@ test03_Settings	43-licence-texts-scrolled-1
 test03_Settings	43-licence-texts-scrolled-2
 test03_Settings	36-settings-online-lookup-key-set
 test03_Settings	36-settings-online-lookup-key-set-scrolled
+test03_Settings	36-settings-online-lookup-key-entry
 test10_SortingScreens	63-movies-needs-review-button
 test10_SortingScreens	64-needs-review
 test10_SortingScreens	64-needs-review-scrolled-1
 test10_SortingScreens	64-needs-review-scrolled-2
 test10_SortingScreens	65-needs-review-choice
 test10_SortingScreens	66-move-sheet
+test10_SortingScreens	66-move-sheet-entry-show
 test10_SortingScreens	67-sorted-how
 test10_SortingScreens	68-card-long-press-move
 test10_SortingScreens	69-source-sort-by-filename
