@@ -1,7 +1,7 @@
 # Plex as a source type: research, plan and build status
 
-**Build status (owner's request of 20 Nov 2026 to build Plex; R300 onwards).** Stage 1 (client, models, fake server; R300)
-and stage 2 (the sign-in code page; R302) are built and tested offline with hand-written fixtures; later stages are listed
+**Build status (owner's request of 20 Nov 2026 to build Plex; R300 onwards).** Stage 1 (client, models, fake server; R300),
+stage 2 (the sign-in code page; R302) and stage 3 (server list and connection order; R303) are built and tested offline with hand-written fixtures; later stages are listed
 in section 8. Nothing was compiled for tvOS and no Plex server or plex.tv was contacted. Section 10 names, per screen,
 the Apple screen it follows (R301).
 
@@ -287,6 +287,6 @@ accounts, Materials, Collections, Tab bars, Playing video, Searching; apple.com/
 | Screen | Follows | What is different, and why |
 |---|---|---|
 | Plex sign-in code page (`PlexSetupView`, stage 2, R302) | tvOS Settings (adding a source) | A full-screen page with the code as its largest text, not a Settings form: HIG Managing accounts, tvOS, "Prefer letting people use another device to sign up or authenticate" and "Minimize data entry"; Designing for tvOS: people sit "often 8 feet or more" away. Says how it signs in and why ("Always identify the authentication method you offer"; "Display this message in your sign-in view"). "plex.tv/link" is plain text, no logo or Plex look. Whether tvOS Settings has a page of this exact shape is UNVERIFIED (no Apple page read shows one). The QR code is an alternative only (R302). |
-| Plex server list (stage 3, R303) | tvOS Settings list | Planned: a system `List`, one row per server, the name and "Local" or "Remote" as secondary text, no custom rows (rule L2). |
+| Plex server list (`PlexSetupView`, stage 3, R303) | tvOS Settings list (the same `TaskPage` Form as Add a Source and the forms) | One system row per server, the name and "Local" or "Remote" as secondary text (rule L2), a footer on what adding does. A server that cannot be reached is a system error page with Try Again, not a row state. Same as the other setup lists; nothing differs. |
 | Plex library, detail and player | The TV app screens the app already has (Home shelves, movie and show pages, the system player) | No Plex-specific screen: Plex items appear in the same screens as every other source, so the TV app gaps T1 to T19 apply to them unchanged and are fixed (or not) for all sources at once. |
 | "Cannot play this file" (stage 5, R305) | The app's existing playback error (system alert) | One calm sentence; the server transcode is not built (R271 kept open). |

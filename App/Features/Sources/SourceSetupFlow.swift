@@ -20,7 +20,7 @@ struct SourceSetupFlow: View {
                     switch route {
                     case .form(.plex):
                         // R302: Plex signs in with a code on another device instead of a form.
-                        PlexSetupView()
+                        PlexSetupView(onFinished: { dismiss() })
                     case .form(let kind):
                         SourceFormView(draft: SourceDraft(kind: kind), onFinished: { dismiss() })
                     case .discovery:
