@@ -1,0 +1,11 @@
+{"MediaContainer": {"size": 2, "totalSize": 2, "offset": 0, "Metadata": [
+  {"ratingKey": "3101", "key": "/library/metadata/3101", "type": "episode", "title": "Pilot", "index": 1, "parentIndex": 1,
+   "parentTitle": "Season 1", "grandparentTitle": "Test Show", "duration": 2700000, "viewCount": 1, "lastViewedAt": 1763500000,
+   "Guid": [{"id": "tmdb://63056"}],
+   "Media": [{"id": 4101, "container": "mkv", "videoCodec": "hevc", "audioCodec": "truehd",
+              "Part": [{"id": 2101, "key": "/library/parts/2101/1700000002/file.mkv", "file": "D:\\Media\\TV\\Test Show\\Season 01\\Test Show - S01E01 - Pilot.mkv", "size": 1000, "container": "mkv"}]}]},
+  {"ratingKey": "3102", "key": "/library/metadata/3102", "type": "episode", "title": "Second", "index": 2, "parentIndex": 1,
+   "grandparentTitle": "Test Show", "duration": 2700000, "viewOffset": 120000,
+   "Media": [{"id": 4102, "container": "mkv", "videoCodec": "hevc", "audioCodec": "eac3",
+              "Part": [{"id": 2102, "key": "/library/parts/2102/1700000003/file.mkv", "file": "D:\\Media\\TV\\Test Show\\Season 01\\Test Show - S01E02.mkv", "size": 1000, "container": "mkv"}]}]}
+]}}

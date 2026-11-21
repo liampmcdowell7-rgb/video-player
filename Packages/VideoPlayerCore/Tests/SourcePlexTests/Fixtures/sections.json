@@ -1,0 +1,4 @@
+{"MediaContainer": {"size": 2, "Directory": [
+  {"key": "1", "type": "movie", "title": "Movies", "Location": [{"id": 1, "path": "D:\\Media\\Movies"}]},
+  {"key": "2", "type": "show", "title": "TV Shows", "Location": [{"id": 2, "path": "D:\\Media\\TV"}]}
+]}}

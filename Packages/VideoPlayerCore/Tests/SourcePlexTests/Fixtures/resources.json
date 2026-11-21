@@ -1,0 +1,33 @@
+[
+  {
+    "name": "Home PC",
+    "product": "Plex Media Server",
+    "provides": "server",
+    "clientIdentifier": "machine-0001",
+    "accessToken": "server-token-placeholder",
+    "connections": [
+      {"protocol": "https", "address": "203.0.113.7", "port": 32400, "uri": "https://203-0-113-7.machine0001.plex.direct:32400", "local": false, "relay": false},
+      {"protocol": "https", "address": "192.168.1.20", "port": 32400, "uri": "https://192-168-1-20.machine0001.plex.direct:32400", "local": true, "relay": false},
+      {"protocol": "http", "address": "192.168.1.20", "port": 32400, "uri": "http://192.168.1.20:32400", "local": true, "relay": false},
+      {"protocol": "https", "address": "198.51.100.9", "port": 8443, "uri": "https://198-51-100-9.machine0001.plex.direct:8443", "local": false, "relay": true}
+    ]
+  },
+  {
+    "name": "Living Room TV",
+    "product": "Plex for Apple TV",
+    "provides": "client,player",
+    "clientIdentifier": "player-0002",
+    "accessToken": null,
+    "connections": []
+  },
+  {
+    "name": "Friend's Server",
+    "product": "Plex Media Server",
+    "provides": "server",
+    "clientIdentifier": "machine-0003",
+    "accessToken": "server-token-friend-placeholder",
+    "connections": [
+      {"protocol": "https", "address": "198.51.100.40", "port": 32400, "uri": "https://198-51-100-40.machine0003.plex.direct:32400", "local": false, "relay": false}
+    ]
+  }
+]

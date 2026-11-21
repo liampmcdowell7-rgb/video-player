@@ -1,0 +1,14 @@
+{"MediaContainer": {"size": 2, "totalSize": 2, "offset": 0, "Metadata": [
+  {"ratingKey": "1001", "key": "/library/metadata/1001", "type": "movie", "title": "Test Movie", "year": 2020,
+   "summary": "A synthetic film for tests.", "duration": 5400000, "thumb": "/library/metadata/1001/thumb/1700000000",
+   "art": "/library/metadata/1001/art/1700000000", "contentRating": "PG-13", "rating": 7.5,
+   "Guid": [{"id": "imdb://tt0000001"}, {"id": "tmdb://550"}, {"id": "tvdb://12"}],
+   "Media": [{"id": 4001, "container": "mp4", "videoCodec": "hevc", "audioCodec": "eac3", "audioChannels": 6, "bitrate": 18000,
+              "width": 3840, "height": 2160,
+              "Part": [{"id": 2001, "key": "/library/parts/2001/1700000000/file.mp4", "file": "D:\\Media\\Movies\\Test Movie (2020)\\Test Movie (2020).mp4", "size": 1000, "container": "mp4"}]}]},
+  {"ratingKey": "1002", "key": "/library/metadata/1002", "type": "movie", "title": "Second Test Movie", "year": 2021,
+   "duration": 6000000, "viewOffset": 600000, "viewCount": 0, "lastViewedAt": 1763600000,
+   "Guid": [{"id": "tmdb://551"}],
+   "Media": [{"id": 4002, "container": "mkv", "videoCodec": "h264", "audioCodec": "dca", "audioChannels": 6,
+              "Part": [{"id": 2002, "key": "/library/parts/2002/1700000001/file.mkv", "file": "D:\\Media\\Movies\\Second Test Movie (2021).mkv", "size": 1000, "container": "mkv"}]}]}
+]}}

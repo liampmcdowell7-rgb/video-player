@@ -10,7 +10,7 @@ import Foundation
 //  - One target per source type (Source*). A source target depends on VideoPlayerCore only,
 //    never on another source target. Native-library bindings (SMB, NFS, SFTP) go in their
 //    own target and must be prebuilt binaries unless a C build was approved (docs/SOURCES.md).
-let sourceNames: [String] = ["WebDAV", "Jellyfin", "Emby", "FTP", "UPnP", "Links", "OneDrive", "SFTP"]
+let sourceNames: [String] = ["WebDAV", "Jellyfin", "Emby", "FTP", "UPnP", "Links", "OneDrive", "SFTP", "Plex"]
 
 var products: [Product] = [.library(name: "VideoPlayerCore", targets: ["VideoPlayerCore"])]
 var targets: [Target] = [
