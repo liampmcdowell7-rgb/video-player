@@ -26,17 +26,23 @@ extension LayeredDetailsService {
         return layer
     }
 
-    /// The app's service (#26 item 6, R210): no source layer yet, Wikidata while Free Data Sources is on (`wikidata` not nil),
-    /// then TMDB when the user's key is set (`tmdb` not nil).
+    /// The app's service (#26 item 6, R210): the media server's own synopsis first, for Plex files only (`server` not nil;
+    /// R270, R307), then Wikidata while Free Data Sources is on (`wikidata` not nil), then TMDB when the user's key is set
+    /// (`tmdb` not nil). For every other source the server layer answers nothing, so their order is unchanged.
     public static func online(store: any LibraryStore, wikidata: WikidataClient?,
-                              tmdb: (any TitleDetailsSource)?) -> LayeredDetailsService {
+                              tmdb: (any TitleDetailsSource)?, server: (any ServerMetadataProviding)? = nil) -> LayeredDetailsService {
         var wikidataSource: (any TitleDetailsSource)? = nil
         if let wikidata {
             wikidataSource = WikidataDetailsLayer(store: store, client: wikidata)
         }
         let wikidataLayer: Layer? = layer(wikidataSource)
         let tmdbLayer: Layer? = layer(tmdb)
-        return LayeredDetailsService(source: nil, wikidata: wikidataLayer, tmdb: tmdbLayer)
+        var serverSource: (any TitleDetailsSource)? = nil
+        if let server {
+            serverSource = ServerDetailsLayer(store: store, server: server)
+        }
+        let sourceLayer: Layer? = layer(serverSource)
+        return LayeredDetailsService(source: sourceLayer, wikidata: wikidataLayer, tmdb: tmdbLayer)
     }
 }
 

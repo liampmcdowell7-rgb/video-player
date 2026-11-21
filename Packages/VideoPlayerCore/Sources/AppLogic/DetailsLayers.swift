@@ -9,8 +9,8 @@ import MetadataOnline
 /// A later layer only fills what the earlier ones left empty: the synopsis, the cast list, and a cast member's role or photo
 /// (matched by name). Alternative on the open list: TMDB first.
 ///
-/// Today the library stores no synopsis or cast from layer 1 (the NFO reader and the server sources do not keep them), so
-/// layer 1 is always empty; the slot is here so it can be filled without changing the order (docs/DATA_SOURCES.md).
+/// Layer 1 is filled for Plex files only (the server's synopsis, R307); for every other source it stays empty (the NFO
+/// reader, Jellyfin and Emby do not keep a synopsis), so their order is unchanged (docs/DATA_SOURCES.md).
 public enum DetailsLayer: String, CaseIterable, Sendable {
     case source, wikidata, tmdb
 }

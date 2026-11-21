@@ -160,8 +160,9 @@ Synopsis and cast: the source's own details first (Jellyfin, Emby, Plex servers,
 (Free Data Sources on), then TMDB (key set). A later layer fills only gaps: synopsis, cast list, a cast member's role or
 photo by name. Alternative: TMDB first.
 
-Honest coverage today: the library stores **no synopsis or cast from the source layer** (the NFO reader and the server
-sources do not keep them), so layer 1 is always empty for now, and the IMDb id from an NFO or a server is not stored either
+Honest coverage today: layer 1 is filled **for Plex files only** (the server's synopsis, read from the listing the source
+already holds; R307). For every other source it stays empty (the NFO reader, Jellyfin and Emby do not keep a synopsis or
+cast), so their order is unchanged; and the IMDb id from an NFO or a server is not stored either
 (IntroDB then needs TMDB or Wikidata to find it). How much of a real library each layer covers can only be measured on a
 device with real sources: checklist item K8 records it. `LayeredDetails.used` says which layers gave something.
 

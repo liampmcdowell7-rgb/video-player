@@ -7,7 +7,8 @@ import MetadataOnline
 // Artwork for the library cards (docs/ARTWORK_DISCOVER.md). Precedence, strongest first (docs/METADATA.md, "local sidecar
 // data wins over online data"):
 //   1. a picture next to the video on the source (poster / folder / cover ..., chosen by `SidecarImageFinder`);
-//   2. the poster of the title the metadata matcher found online, as a web address (nothing is downloaded here);
+//   2. for a Plex source only (R270, R307), the server's own poster or episode still, read once and cached;
+//   3. the poster of the title the metadata matcher found online, as a web address (nothing is downloaded here);
 //   3. nothing: the card keeps its placeholder symbol.
 // Everything is read from the library index, so browsing never waits on a server for the folder listing.
 
@@ -93,16 +94,20 @@ public actor ArtworkEngine {
     private let cache: ArtworkDiskCache
     private let reader: any SidecarReading
     private let online: (any OnlineArtworkProviding)?
+    private let server: (any ServerMetadataProviding)?
     private let now: @Sendable () -> Date
     private var misses: [String: Date] = [:]
     /// How long a "found nothing" answer is remembered, so scrolling past a title does not repeat the lookups. PROVISIONAL.
     public static let missMemory: TimeInterval = 15 * 60
 
-    public init(store: any LibraryStore, cache: ArtworkDiskCache, reader: any SidecarReading, online: (any OnlineArtworkProviding)?, now: @escaping @Sendable () -> Date = { Date() }) {
+    /// - Parameter server: the media server's own pictures (Plex, R307); asked only for files of a Plex source.
+    public init(store: any LibraryStore, cache: ArtworkDiskCache, reader: any SidecarReading, online: (any OnlineArtworkProviding)?,
+                server: (any ServerMetadataProviding)? = nil, now: @escaping @Sendable () -> Date = { Date() }) {
         self.store = store
         self.cache = cache
         self.reader = reader
         self.online = online
+        self.server = server
         self.now = now
     }
 
@@ -141,8 +146,19 @@ public actor ArtworkEngine {
                 if let seriesID = item.seriesID, let r = try await showFolderArtwork(seriesID: seriesID) { return r }
             }
         }
+        if let server, let serverFile = await ServerMetadataKinds.file(forItem: item, store: store),
+           let picture = await server.poster(for: serverFile), let r = await cached(picture) { return r }
         if let url = await online?.posterURL(forItem: item, file: file) { return .remote(url) }
         return .none
+    }
+
+    /// A media server's picture through the same cache as sidecars (its key changes when the server's picture changes).
+    private func cached(_ picture: ServerPicture) async -> ArtworkResult? {
+        let key = "server|" + picture.cacheKey
+        if let url = cache.url(forKey: key) { return .file(url) }
+        guard let data = try? await picture.fetch(Self.maxSidecarBytes), !data.isEmpty, data.count <= Self.maxSidecarBytes,
+              let url = try? cache.store(data, key: key) else { return nil }
+        return .file(url)
     }
 
     // MARK: Series

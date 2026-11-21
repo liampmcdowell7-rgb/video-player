@@ -97,3 +97,26 @@ final class MovingClock: @unchecked Sendable {
     var now: Date { lock.withLock { current } }
     func advance(_ seconds: TimeInterval) { lock.withLock { current += seconds } }
 }
+
+/// Stage 7 (R307): the server's pictures are read with the token in a header, never in the address.
+final class PlexImageTests: XCTestCase {
+    func testAPosterIsReadWithTheTokenInAHeaderAndATooLargeOneIsRefused() async throws {
+        let fake = try FakePlexServer()
+        let plex = PlexClient(baseURL: URL(string: "https://192-168-1-20.machine0001.plex.direct:32400")!, token: "server-token-placeholder",
+                              identity: PlexClientIdentity(clientIdentifier: "install-1234", version: "0.1.0"), transport: fake)
+        let item = try await plex.serverItem(at: "/Movies/Test Movie (2020)/Test Movie (2020).mp4")
+        XCTAssertEqual(item?.metadata.summary, "A synthetic film for tests.")
+        let thumb = try XCTUnwrap(item?.metadata.thumb)
+        let data = try await plex.imageData(thumb, maxBytes: 1_000_000)
+        XCTAssertEqual(data.count, Int(fake.partSize))
+        let request = try XCTUnwrap(fake.requests.last)
+        XCTAssertEqual(request.url.path, thumb)
+        XCTAssertEqual(request.headers["X-Plex-Token"], "server-token-placeholder")
+        XCTAssertFalse(request.url.absoluteString.contains("server-token-placeholder"))
+        do {
+            _ = try await plex.imageData(thumb, maxBytes: 10)
+            XCTFail("a picture over the limit is refused")
+        } catch {}
+        XCTAssertTrue(fake.serverWrites.isEmpty)
+    }
+}

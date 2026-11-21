@@ -3,7 +3,8 @@
 **Build status (owner's request of 20 Nov 2026 to build Plex; R300 onwards).** Stage 1 (client, models, fake server; R300),
 stage 2 (the sign-in code page; R302), stage 3 (server list and connection order; R303) stage 4 (browse and index;
 Plex is available in Add a Source; R304) stage 5 (playback: direct play and the app's own remux, no server
-conversion; R305) and stage 6 (watch state copied once, never written back; R306) are built and tested offline with hand-written fixtures; later stages are listed
+conversion; R305) stage 6 (watch state copied once, never written back; R306) and stage 7 (Plex's synopsis and poster first, TMDB
+filling gaps; R307) are built and tested offline with hand-written fixtures; later stages are listed
 in section 8. Nothing was compiled for tvOS and no Plex server or plex.tv was contacted. Section 10 names, per screen,
 the Apple screen it follows (R301).
 
@@ -172,6 +173,13 @@ headers here should only return the first 20 Metadata objects", so the client mu
 (read, sample). JSON only when asked: "The default is XML, so JSON will only be returned if it's explicitly requested
 (`Accept: application/json`)" (read). Images through `/library/metadata/{id}/images` (read, name only) or the photo
 transcoder (UNVERIFIED), sized for the TV, with the token in a header where possible.
+
+**Built in stage 7 (R307):** for Plex files only, the movie page's synopsis is the server's `summary` (TMDB then fills
+only what is missing, such as the cast), and the card's picture is the server's `thumb` (a movie's poster, an episode's
+still), read once with the token in a header and kept in the artwork cache, after any picture next to the file and before
+the online poster. Show pages and show posters still come from the online layers (the show's own record is not read).
+Titles, years and the item model still come from the app's own matcher on the file names. WebDAV, Jellyfin and Emby keep
+their order exactly (tests compare them with and without the Plex layer).
 
 ## 5. Playback
 

@@ -144,6 +144,17 @@ public actor PlexClient: MediaSource {
         return (url, http.identity.headers(token: token))
     }
 
+    /// The bytes of a picture the server keeps (`thumb`, `art`), with the token in a header (R307). Larger than `maxBytes`:
+    /// refused, so one oversized picture cannot fill memory.
+    public func imageData(_ serverPath: String, maxBytes: Int) async throws -> Data {
+        guard let (url, _) = imageRequest(serverPath) else { throw SourceError.notFound }
+        let response = try await http.send(http.request("GET", url, token: token))
+        try PlexHTTP.check(response)
+        guard response.statusCode == 200 else { throw SourceError.httpStatus(response.statusCode) }
+        guard response.body.count <= maxBytes else { throw SourceError.malformedResponse }
+        return response.body
+    }
+
     // MARK: Tree
 
     private func currentTree() async throws -> PlexTree {

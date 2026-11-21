@@ -32,14 +32,17 @@ final class OnlineServices {
     @ObservationIgnored private let store: SQLiteLibraryStore
     @ObservationIgnored private let reader: any SidecarReading
     @ObservationIgnored private let diskCache: ArtworkDiskCache
+    /// Plex's own synopsis and pictures, asked only for Plex files (R307).
+    @ObservationIgnored private let server: (any ServerMetadataProviding)?
 
-    init(keys: OnlineKeyStore, store: SQLiteLibraryStore, reader: any SidecarReading) {
+    init(keys: OnlineKeyStore, store: SQLiteLibraryStore, reader: any SidecarReading, server: (any ServerMetadataProviding)? = nil) {
         self.keys = keys
         self.store = store
         self.reader = reader
+        self.server = server
         self.diskCache = ArtworkDiskCache(directory: ArtworkFolders.sidecars)
         self.imageSession = ArtworkFolders.makeImageSession()
-        self.resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: nil))
+        self.resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: nil, server: server))
         rebuild()
     }
 
@@ -65,7 +68,7 @@ final class OnlineServices {
         guard let key = keys.key(.tmdb), !Self.isUITestLaunch else {
             tmdbClient = nil
             rebuildSegmentLookup()
-            resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: nil))
+            resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: nil, server: server))
             searcher = UnavailableMatchSearcher()
             recorder = nil
             discoverSource = nil
@@ -77,7 +80,7 @@ final class OnlineServices {
                                 cache: JSONFileMetadataCache(directory: ArtworkFolders.metadata), region: region)
         let service = FixMatchService(engine: MatchEngine(provider: client), store: JSONFileMatchStore(url: matchFile))
         let provider = TMDBArtworkProvider(client: client, matcher: service, store: store)
-        resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: provider))
+        resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: provider, server: server))
         searcher = TMDBMatchSearcher(client: client)
         recorder = StoredMatchRecorder(service: service, store: store)
         discoverSource = client
@@ -151,8 +154,8 @@ final class OnlineServices {
     }
 
     /// Synopsis and cast of a movie page ("item-N", #15 6.2) or a show page ("series-N", #22 B), layered (#26 item 6,
-    /// PROVISIONAL R210): the source's own details (none stored yet), then Wikidata while Free Data Sources is on, then TMDB with
-    /// the user's key. Nil when no layer has anything.
+    /// PROVISIONAL R210): the source's own details (Plex's synopsis for Plex files, R307; none for other sources), then
+    /// Wikidata while Free Data Sources is on, then TMDB with the user's key. Nil when no layer has anything.
     func details(key: String) async -> TitleDetails? {
         #if DEBUG
         // #21 D: the screenshot job's fake synopsis and cast (no key, no network). Not compiled into Release.
@@ -161,7 +164,7 @@ final class OnlineServices {
         // #29: typed steps; the closures are built in AppLogic (OnlineComposition.swift), where the package tests cover them.
         var tmdbSource: (any TitleDetailsSource)? = nil
         if hasCatalogueKey { tmdbSource = resolver }
-        let service: LayeredDetailsService = LayeredDetailsService.online(store: store, wikidata: wikidata, tmdb: tmdbSource)
+        let service: LayeredDetailsService = LayeredDetailsService.online(store: store, wikidata: wikidata, tmdb: tmdbSource, server: server)
         let layered: LayeredDetails = await service.details(key: key)
         return layered.details
     }

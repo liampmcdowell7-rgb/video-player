@@ -100,6 +100,10 @@ final class FakePlexServer: HTTPTransport, @unchecked Sendable {
         if path == "/library/sections" { return HTTPResponse(statusCode: 200, headers: ["Content-Type": "application/json"], body: sections) }
         if let list = lists[path] { return page(list, request: request) }
         if path.hasPrefix("/library/parts/") { return part(request) }
+        // A picture (thumb or art): invented bytes, the same length as a Part (no real image is needed).
+        if path.hasPrefix("/library/metadata/"), path.contains("/thumb") || path.contains("/art") {
+            return HTTPResponse(statusCode: 200, headers: ["Content-Type": "image/jpeg"], body: Data(Self.bytes(0, Int(partSize))))
+        }
         return HTTPResponse(statusCode: 404)
     }
 

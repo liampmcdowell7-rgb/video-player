@@ -121,16 +121,18 @@ final class AppServices {
         let factory = self.sourceFactory
         // `SourceFactory` is main-actor isolated (it reads the secrets and the trust list), and this closure is a plain
         // `@Sendable async` one, so the call hops to the main actor with `await` (first compile, 2026-11-17).
-        let reader = SourceSidecarReader(sourceFor: { @Sendable [ledger, factory] (sourceID: String) async -> (any MediaSource)? in
+        let sourceFor: @Sendable (String) async -> (any MediaSource)? = { @Sendable [ledger, factory] (sourceID: String) async -> (any MediaSource)? in
             guard let definition = ledger.sourceDefinitions().first(where: { $0.id == sourceID }) else { return nil }
             return await factory.makeSource(definition)
-        })
+        }
+        let reader = SourceSidecarReader(sourceFor: sourceFor)
         // #26 item 2: one app-wide key store, its own Keychain items plus the encrypted iCloud copy; keys an earlier version
         // kept with the source passwords are moved there at start-up (OnlineKeyStore.migrateLegacy).
         let keyStore = OnlineKeyStore(secrets: MirroredSecrets(local: dependencies.keyCredentials, cloud: dependencies.secretCloud),
                                       legacy: dependencies.credentials)
         keyStore.migrateLegacy()
-        self.online = OnlineServices(keys: keyStore, store: sqliteStore, reader: reader)
+        // R307: Plex's own synopsis and poster come first for Plex files; every other source keeps its order.
+        self.online = OnlineServices(keys: keyStore, store: sqliteStore, reader: reader, server: PlexServerMetadata(sourceFor: sourceFor))
         // The backup refuses any file that holds one of these: every source password or token and every API key, read
         // from protected storage at the time of each backup and never written anywhere (docs/BACKUP.md "Secrets").
         self.backup = BackupHost(store: sqliteStore, cloud: dependencies.backupCloud, matchFile: OnlineServices.matchFileURL, forbidden: { @Sendable [ledger, secrets, keyStore] () -> [String] in
