@@ -1,4 +1,5 @@
 import Foundation
+import VideoPlayerCore
 
 // Plex JSON models (docs/PLEX_SOURCE.md section 4; OPEN_QUESTIONS R300). Only the fields the app uses; everything else is
 // ignored. Field names come from the Plex Media Server reference (https://developer.plex.tv/pms/), re-read 20 Nov 2026:
@@ -145,6 +146,73 @@ public struct PlexMetadata: Decodable, Equatable, Sendable {
 
     /// Runtime in whole seconds.
     public var runtimeSeconds: Int? { duration.map { $0 / 1000 } }
+}
+
+/// R315: the item's details with its markers (`/library/metadata/<ratingKey>?includeMarkers=1`). UNVERIFIED: the query
+/// parameter and the field names `Marker`, `type` ("intro", "credits"), `startTimeOffset`, `endTimeOffset` (milliseconds)
+/// and `final` were not read in the reference text; every field is optional, so a different answer gives no markers
+/// instead of an error. Tested with fixtures only.
+struct PlexMarkerEnvelope: Decodable {
+    var container: Container
+    enum CodingKeys: String, CodingKey { case container = "MediaContainer" }
+
+    struct Container: Decodable {
+        var metadata: [Item]
+        enum CodingKeys: String, CodingKey { case metadata = "Metadata" }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            metadata = (try? c.decodeIfPresent([Item].self, forKey: .metadata)) ?? []
+        }
+    }
+
+    struct Item: Decodable {
+        var markers: [PlexMarker]
+        enum CodingKeys: String, CodingKey { case markers = "Marker" }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            markers = ((try? c.decodeIfPresent([Lenient].self, forKey: .markers)) ?? []).compactMap(\.marker)
+        }
+    }
+
+    /// One entry that never fails: a malformed marker is dropped, the others are kept.
+    private struct Lenient: Decodable {
+        var marker: PlexMarker?
+        init(from decoder: Decoder) throws { marker = try? PlexMarker(from: decoder) }
+    }
+}
+
+struct PlexMarker: Decodable, Equatable {
+    var type: String
+    var startMilliseconds: Int
+    var endMilliseconds: Int
+    var isFinal: Bool
+
+    enum CodingKeys: String, CodingKey { case type, startTimeOffset, endTimeOffset, final }
+
+    init(type: String, startMilliseconds: Int, endMilliseconds: Int, isFinal: Bool = false) {
+        self.type = type; self.startMilliseconds = startMilliseconds; self.endMilliseconds = endMilliseconds; self.isFinal = isFinal
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        guard let type = c.flexibleString(.type), let start = c.flexibleInt(.startTimeOffset), let end = c.flexibleInt(.endTimeOffset) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: c.codingPath, debugDescription: "marker without type or times"))
+        }
+        self.type = type
+        startMilliseconds = start
+        endMilliseconds = end
+        isFinal = c.flexibleBool(.final) ?? false
+    }
+
+    /// Intro and credits markers with a sensible range, in seconds; other kinds (for example commercials) are dropped.
+    static func segments(_ markers: [PlexMarker]) -> [ServerSegmentMarker] {
+        markers.compactMap { m in
+            let kind = m.type.lowercased()
+            guard ["intro", "credits"].contains(kind), m.startMilliseconds >= 0, m.endMilliseconds > m.startMilliseconds else { return nil }
+            return ServerSegmentMarker(kind: kind, start: Double(m.startMilliseconds) / 1000, end: Double(m.endMilliseconds) / 1000,
+                                       isFinal: m.isFinal)
+        }
+    }
 }
 
 public struct PlexMedia: Decodable, Equatable, Sendable {

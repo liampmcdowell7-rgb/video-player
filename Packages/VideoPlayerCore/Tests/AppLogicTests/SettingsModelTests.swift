@@ -42,8 +42,11 @@ final class SettingsModelTests: XCTestCase {
     func testSettingsKeysAreUniqueAndTheDefaultsAreTheDocumentedOnes() {
         let raws = SettingsKey.allCases.map(\.rawValue)
         XCTAssertEqual(Set(raws).count, raws.count)
-        XCTAssertEqual(SettingsKey.allCases.count, 12)
-        for key in SettingsKey.allCases where key != .continueWatchingDays && key != .trueHDCompatibilityCore { XCTAssertTrue(key.defaultBool, key.rawValue) }
+        XCTAssertEqual(SettingsKey.allCases.count, 14)
+        // R314: Skip Credits Automatically is off by default; Skip Intros Automatically on (owner).
+        let offByDefault: Set<SettingsKey> = [.continueWatchingDays, .trueHDCompatibilityCore, .skipCreditsAutomatically]
+        for key in SettingsKey.allCases where !offByDefault.contains(key) { XCTAssertTrue(key.defaultBool, key.rawValue) }
+        XCTAssertFalse(SettingsKey.skipCreditsAutomatically.defaultBool)
         // Quality first: the full TrueHD decode is the default; the Dolby Digital core is an opt-in compatibility setting.
         XCTAssertFalse(SettingsKey.trueHDCompatibilityCore.defaultBool)
         XCTAssertEqual(SettingsKey.defaultContinueWatchingDays, 90)

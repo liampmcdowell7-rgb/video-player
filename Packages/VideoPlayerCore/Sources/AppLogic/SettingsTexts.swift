@@ -15,9 +15,10 @@ public enum SettingsTexts {
     // MARK: Playback
 
     public static let playbackSummary = "How titles play and what the player shows."
-    public static let skipShort = "Skip buttons appear only for titles with intro, recap or credits markers."
+    /// R314 to R316.
+    public static let skipShort = "Skipping needs intro or credits markers. An automatic skip offers a way back for a few seconds."
     public static let skipLearnMoreTitle = "About Skip Markers"
-    public static let skipFull = "Skip buttons and the next-episode card appear only for titles that have intro, recap or credits markers. Markers come from chapters named Intro, Recap or Credits in MKV files, from .edl or .segments.json files next to the video, and from positions you mark yourself in the player. Markers from online lookups or from analysing the video are not available yet."
+    public static let skipFull = "Skip buttons and automatic skips need intro, recap or credits markers. Markers come from your media server, from chapters named Intro, Recap or Credits in MKV files, from .edl or .segments.json files next to the video, from positions you mark yourself in the player, from IntroDB when Free Data Sources is on, and from this Apple TV comparing the sound of episodes of the same season. That comparison runs on this Apple TV only and nothing about it is sent anywhere. It finds an intro once two episodes of a season have been played, and skips it without a press once three agree. Online markers skip without a press only when the comparison agrees with them; otherwise the button shows. After an automatic skip, a button to watch the intro appears for a few seconds and goes back to its start."
     /// R340: a tab of the player's info panel now, never over the picture.
     public static let statsFooter = "Playback Stats adds a tab to the player’s info panel, one swipe down while playing. It never covers the picture."
     public static let trueHDShort = "Off plays Dolby TrueHD losslessly. On plays its lossy Dolby Digital 5.1 core instead."

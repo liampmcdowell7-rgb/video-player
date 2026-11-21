@@ -16,8 +16,10 @@ final class SettingsTextsTests: XCTestCase {
     }
 
     func testTheLongTextsAreKeptWordForWord() {
-        XCTAssertTrue(SettingsTexts.skipFull.hasPrefix("Skip buttons and the next-episode card appear only"))
-        XCTAssertTrue(SettingsTexts.skipFull.contains("Markers from online lookups or from analysing the video are not available yet."))
+        // R314 to R316: the text says where markers come from now, and that the comparison stays on the Apple TV.
+        XCTAssertTrue(SettingsTexts.skipFull.hasPrefix("Skip buttons and automatic skips need"))
+        XCTAssertTrue(SettingsTexts.skipFull.contains("nothing about it is sent anywhere"))
+        XCTAssertFalse(SettingsTexts.skipFull.contains("not available yet"))
         XCTAssertTrue(SettingsTexts.trueHDFull.contains("which is lossy. Applies to the next title you play."))
         XCTAssertTrue(SettingsTexts.accessibilityFull.contains("This app follows them and has no separate copies."))
         for note in [OnlineLookupText.keysAreOptional, OnlineLookupText.storage, OnlineLookupText.removeNote] {

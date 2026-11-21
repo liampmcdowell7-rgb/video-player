@@ -15,20 +15,40 @@ public enum SegmentType: String, Sendable, CaseIterable, Codable {
         case .credits: return "Skip Credits"
         }
     }
+
+    /// R314: the action shown for a few seconds after an automatic skip, which goes back to the start of what was skipped.
+    public var backTitle: String {
+        switch self {
+        case .recap: return "Watch Recap"
+        case .intro: return "Watch Intro"
+        case .credits: return "Watch Credits"
+        }
+    }
 }
 
 /// Where a segment came from. A higher `priority` wins when sources disagree (B3):
-/// user-marked > embedded chapters > local sidecar > online database > on-device detection.
+/// user-marked > embedded chapters > local sidecar > server markers > online database > on-device detection.
+/// R315: `serverMarkers` are the intro and credits markers a media server keeps for the item (Plex).
 public enum SegmentSource: String, Sendable, CaseIterable, Codable {
-    case onDeviceDetection, onlineDatabase, localSidecar, embeddedChapters, userMarked
+    case onDeviceDetection, onlineDatabase, serverMarkers, localSidecar, embeddedChapters, userMarked
 
     public var priority: Int {
         switch self {
         case .onDeviceDetection: return 0
         case .onlineDatabase: return 1
-        case .localSidecar: return 2
-        case .embeddedChapters: return 3
-        case .userMarked: return 4
+        case .serverMarkers: return 2
+        case .localSidecar: return 3
+        case .embeddedChapters: return 4
+        case .userMarked: return 5
+        }
+    }
+
+    /// R314: sources whose times are made for this very file (or by the person), so a skip may happen without a press.
+    /// Online timings and on-device detection are trusted only as `SkipController.allowsAutomatic` says.
+    public var isFileExact: Bool {
+        switch self {
+        case .userMarked, .embeddedChapters, .localSidecar, .serverMarkers: return true
+        case .onlineDatabase, .onDeviceDetection: return false
         }
     }
 }
@@ -64,9 +84,12 @@ public struct SkipSegment: Equatable, Hashable, Sendable, Codable {
     /// Duration of the release the timestamps were made for (online databases, sidecars). When it is
     /// present, or the source is an online database, it must match the file's duration (B1).
     public var referenceDuration: TimeInterval?
+    /// R314 (R288's audio check): true when on-device detection found the same stretch in this file, within
+    /// `SegmentLimits.audioAgreement` at both ends. Only then may an online timing skip without a press. Nil = not checked.
+    public var audioConfirmed: Bool?
 
     public init(type: SegmentType, start: TimeInterval, end: TimeInterval, source: SegmentSource,
-                confidence: Double, file: FileIdentity, referenceDuration: TimeInterval? = nil) {
+                confidence: Double, file: FileIdentity, referenceDuration: TimeInterval? = nil, audioConfirmed: Bool? = nil) {
         self.type = type
         self.start = start
         self.end = end
@@ -74,6 +97,7 @@ public struct SkipSegment: Equatable, Hashable, Sendable, Codable {
         self.confidence = confidence
         self.file = file
         self.referenceDuration = referenceDuration
+        self.audioConfirmed = audioConfirmed
     }
 
     public var length: TimeInterval { end - start }
@@ -103,6 +127,11 @@ public struct SegmentLimits: Equatable, Sendable {
     /// place an intro or a recap, because those sit near the start of the file and do not depend on the release length.
     /// Credits from such a source are still rejected (they depend on the runtime). False restores the strict B1 rule.
     public var acceptsUnreferencedOnlineIntroAndRecap = true
+    /// R314: on-device detection skips without a press only at this confidence or above (two or more episodes of the
+    /// season agreeing, `SeasonSegmentMemory`); below it, the button shows instead.
+    public var automaticDetectionConfidence = 0.9
+    /// R314: an online timing counts as confirmed by the audio when detection's start and end are each this close.
+    public var audioAgreement: TimeInterval = 1.5
 
     public init() {}
 

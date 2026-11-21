@@ -6,6 +6,9 @@ import AppLogic
 struct PlaybackSettingsView: View {
     @AppStorage(SettingsKey.autoPlayNextEpisode.rawValue) private var autoPlayNext = true
     @AppStorage(SettingsKey.showSkipButtons.rawValue) private var skipButtons = true
+    // R314: the intro is skipped by itself by default (owner); credits only when asked, since binge starts at them anyway.
+    @AppStorage(SettingsKey.skipIntrosAutomatically.rawValue) private var skipIntros = true
+    @AppStorage(SettingsKey.skipCreditsAutomatically.rawValue) private var skipCredits = false
     @AppStorage(SettingsKey.showPlaybackStatsButton.rawValue) private var statsButton = true
     @AppStorage(SettingsKey.rememberTrackChoicePerShow.rawValue) private var rememberTracks = true
     @AppStorage(SettingsKey.trueHDCompatibilityCore.rawValue) private var trueHDCore = false
@@ -17,6 +20,8 @@ struct PlaybackSettingsView: View {
             Section {
                 SettingToggle("Play Next Episode Automatically", isOn: $autoPlayNext)
                 SettingToggle("Show Skip Buttons", isOn: $skipButtons)
+                SettingToggle("Skip Intros Automatically", isOn: $skipIntros)
+                SettingToggle("Skip Credits Automatically", isOn: $skipCredits)
                 LearnMoreLink(title: SettingsTexts.skipLearnMoreTitle, text: SettingsTexts.skipFull)
             } footer: {
                 Text(SettingsTexts.skipShort)

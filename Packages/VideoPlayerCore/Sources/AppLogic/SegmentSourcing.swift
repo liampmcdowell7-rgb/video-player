@@ -80,8 +80,12 @@ public struct SegmentCollector: Sendable {
     ///   - marks: the user marks of this item, already read from the ledger.
     ///   - online: #26 5a: online timings for this file (IntroDB through `OnlineSegmentLookup`), asked only when the file, its
     ///     sidecars and the user marks give no candidate. Nil when the user has not turned free data sources on.
+    ///   - serverMarkers: R315: the media server's own intro and credits markers for this file (Plex), nil for other sources.
+    ///   - detected: R316: what this Apple TV learned by comparing the audio of the season's episodes (local only).
     public func collect(file: SegmentFileInfo, source: (any MediaSource)?, marks: [UDSegmentMark],
-                        online: (@Sendable (FileIdentity) async -> OnlineSegmentResult)? = nil) async -> SegmentCollection {
+                        online: (@Sendable (FileIdentity) async -> OnlineSegmentResult)? = nil,
+                        serverMarkers: (@Sendable (FileIdentity) async -> OnlineSegmentResult)? = nil,
+                        detected: (@Sendable (FileIdentity) async -> [SkipSegment])? = nil) async -> SegmentCollection {
         var notes: [String] = []
         var chapterCandidates: [SkipSegment] = []
         var sidecarCandidates: [SkipSegment] = []
@@ -159,10 +163,28 @@ public struct SegmentCollector: Sendable {
         }
         if !markCandidates.isEmpty { notes.append("User marks: \(markCandidates.count)") }
 
-        // 3. Online timings, only when nothing above gave a candidate (#26 5a), under the same deadline. A failure gives a note
-        // and no segment, so no Skip button appears.
+        // 3. R315: the media server's markers, under the same deadline (a failure gives a note and no segment).
+        var serverCandidates: [SkipSegment] = []
+        if let serverMarkers {
+            if let result = await Deadline.run(seconds: deadline, { await serverMarkers(identity) }) {
+                serverCandidates = result.segments
+                notes.append(result.note)
+            } else {
+                notes.append("Server markers: no answer within \(Int(deadline)) seconds; none used")
+            }
+        }
+
+        // 4. R316: what this Apple TV learned from the audio of the season (local, no waiting on a network).
+        var detectedCandidates: [SkipSegment] = []
+        if let detected {
+            detectedCandidates = await detected(identity)
+            if !detectedCandidates.isEmpty { notes.append("Found on this Apple TV: \(detectedCandidates.count)") }
+        }
+
+        // 5. Online timings, only when nothing above from the file or the server gave a candidate (#26 5a), under the same
+        // deadline. A failure gives a note and no segment, so no Skip button appears.
         var onlineCandidates: [SkipSegment] = []
-        if let online, markCandidates.isEmpty, sidecarCandidates.isEmpty, chapterCandidates.isEmpty {
+        if let online, markCandidates.isEmpty, sidecarCandidates.isEmpty, chapterCandidates.isEmpty, serverCandidates.isEmpty {
             if let result = await Deadline.run(seconds: deadline, { await online(identity) }) {
                 onlineCandidates = result.segments
                 notes.append(result.note)
@@ -171,11 +193,12 @@ public struct SegmentCollector: Sendable {
             }
         }
 
-        // 4. Merge.
+        // 6. Merge.
         let resolved = SegmentMerger.merge(
             file: identity,
             inputs: SegmentSourceInputs(userMarked: markCandidates, localSidecar: sidecarCandidates, embeddedChapters: chapterCandidates,
-                                        postCreditsStart: postCredits, onlineDatabase: onlineCandidates),
+                                        postCreditsStart: postCredits, onlineDatabase: onlineCandidates,
+                                        onDeviceDetection: detectedCandidates, serverMarkers: serverCandidates),
             limits: limits)
         for rejected in resolved.rejected where !isOutranked(rejected.reason) {
             notes.append("Not used: \(rejected.segment.type.rawValue) from \(rejected.segment.source.rawValue) (\(rejected.reason))")

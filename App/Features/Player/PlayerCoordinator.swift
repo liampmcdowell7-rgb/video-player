@@ -71,6 +71,8 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     private var lastPosition: TimeInterval = 0
     private var stopped = false
     private var noticeShown = false
+    /// R316: the background reading of this episode's and the next one's audio (cancelled when playback stops).
+    private var learning: Task<Void, Never>?
 
     /// Called once when the player item fails after it was handed over, or a step of the start runs past its limit (the
     /// screen shows the reason). The second value is the system's own error text for the diagnostic row (R311).
@@ -191,6 +193,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         await probe.load()
         await probe.refreshAudioSelection()
         reloadOverlay()
+        startLearning()
         // R340: the Episodes tab once the season is read; the tabs are set once (R311).
         episodes = await PlayerEpisodes.load(itemID: itemID, store: services.store)
         installInfoPanels()
@@ -243,6 +246,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         if let timeObserver { player.removeTimeObserver(timeObserver) }
         for token in [endObserver, jumpObserver, selectionObserver] { if let token { NotificationCenter.default.removeObserver(token) } }
         player.pause()
+        learning?.cancel()
         _ = overlay?.stopped()
         markController?.end()
         pictureOverlay?.hide()
@@ -422,6 +426,21 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         }
     }
 
+    /// R316: learns the intro and credits of this episode and of the next one from their audio, at background priority, so
+    /// the next episode can be skipped even without markers. Local only; a failure only means nothing is learned.
+    private func startLearning() {
+        let segmentService = services.segmentService
+        let store = services.store
+        let itemID = self.itemID
+        learning = Task.detached(priority: .background) {
+            await segmentService.learn(forItem: itemID)
+            let feed = await NextEpisodeFeed.resolve(itemID: itemID, store: store)
+            if case .next(let ref) = feed.decision, let next = NextEpisodeFeed.libraryItemID(for: ref), !Task.isCancelled {
+                await segmentService.learn(forItem: next)
+            }
+        }
+    }
+
     // MARK: Menus
 
     private func rebuildMenus() {
@@ -506,6 +525,14 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
 
     /// Title and second line. The system player shows these in its info panel and publishes them as the Now Playing entry
     /// (WWDC17 session 251; `AVPlayerItem.externalMetadata` lists the identifiers it shows).
+    ///
+    /// R317 (iPhone Now Playing, Apple's pages read 21 Nov 2026): "An AVPlayerViewController manages its own player and Now
+    /// Playing session, so you can't add your own" (MPNowPlayingSession). So the app supplies only this metadata (title =
+    /// episode name, second line "Show · S1, E3" from R313, and the poster); the system takes the duration, elapsed time and
+    /// rate from the AVPlayer and answers play, pause, scrubbing and the skip buttons itself. The app registers no
+    /// MPRemoteCommandCenter handlers and sets no MPNowPlayingInfoCenter values (that would compete with the system's
+    /// entry). `updatesNowPlayingInfoCenter` exists on iOS, not on tvOS. The iPhone's Remote and its volume buttons are
+    /// system features of the Apple TV (volume only with a receiver or TV that supports it).
     private static func metadata(for resolved: ResolvedPlayback) -> [AVMetadataItem] {
         var items: [AVMetadataItem] = []
         func add(_ identifier: AVMetadataIdentifier, _ value: String) {

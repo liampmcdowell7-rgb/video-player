@@ -76,6 +76,15 @@ public enum PlayerSessionFactory {
         showSkipButtons ? SkipSettings() : SkipSettings(recap: .off, intro: .off, credits: .off)
     }
 
+    /// R314 (owner's request of 21 Nov 2026): Skip Intros Automatically (also a recap, which sits at the start too) and
+    /// Skip Credits Automatically. A kind that is not automatic keeps the button as Show Skip Buttons says; an automatic kind
+    /// whose segment the app does not trust enough falls back to the same (`SkipSettings.untrustedFallback`).
+    public static func skipSettings(showSkipButtons: Bool, skipIntros: Bool, skipCredits: Bool) -> SkipSettings {
+        let manual: SkipSetting = showSkipButtons ? .ask : .off
+        return SkipSettings(recap: skipIntros ? .automatic : manual, intro: skipIntros ? .automatic : manual,
+                            credits: skipCredits ? .automatic : manual, untrustedFallback: manual)
+    }
+
     /// The Next Episode settings the old toggle "Play Next Episode Automatically" stands for: on is When Credits Begin (the default),
     /// off is Ask (NES-M, docs/PLAYBACK_LOGIC.md "Differences", item 1).
     public static func nextEpisodeSettings(autoPlay: Bool, countdownSeconds: Int = NextEpisodeSettings.defaultCountdownSeconds) -> NextEpisodeSettings {

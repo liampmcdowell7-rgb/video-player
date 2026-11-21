@@ -73,6 +73,14 @@ public struct PlaybackSession: Sendable {
         return SessionUpdate(skip: .none, episode: actions, seek: target)
     }
 
+    /// R314: the person chose "Watch Intro" after an automatic skip: back to the start of the segment, which is not skipped
+    /// again in this playback.
+    public mutating func backPressed(to target: TimeInterval) -> SessionUpdate {
+        skipController.wentBack()
+        let start = max(0, clamped(target))
+        return SessionUpdate(skip: .none, episode: machine.handle(.playhead(start, .seek)), seek: start)
+    }
+
     public mutating func event(_ event: NextEpisodeEvent) -> [NextEpisodeAction] { machine.handle(event) }
 
     /// A seek target never goes past the end of the file this session plays.

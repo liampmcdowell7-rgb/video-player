@@ -21,7 +21,9 @@ enum SegmentsWiring {
         let feed = await NextEpisodeFeed.resolve(itemID: itemID, store: services.store)
         return PlayerSessionFactory.controller(
             segments: segments, duration: duration,
-            skip: PlayerSessionFactory.skipSettings(showSkipButtons: flag(.showSkipButtons)),
+            // R314: Skip Intros / Skip Credits Automatically; an automatic skip offers "Watch Intro" for 5 s.
+            skip: PlayerSessionFactory.skipSettings(showSkipButtons: flag(.showSkipButtons), skipIntros: flag(.skipIntrosAutomatically),
+                                                    skipCredits: flag(.skipCreditsAutomatically)),
             // R340: the logic presents and waits; the system's Up Next counts down (ProposalPresenter).
             nextEpisode: PlayerSessionFactory.systemUpNextSettings(),
             feed: feed, clock: MonotonicClock(), upNextPresenter: upNextPresenter, skipPresenter: skipPresenter, sink: sink)
@@ -48,6 +50,6 @@ enum SegmentsWiring {
     static var autoPlayNextEpisode: Bool { flag(.autoPlayNextEpisode) }
 
     private static func flag(_ key: SettingsKey) -> Bool {
-        UserDefaults.standard.object(forKey: key.rawValue) as? Bool ?? true
+        UserDefaults.standard.object(forKey: key.rawValue) as? Bool ?? key.defaultBool
     }
 }

@@ -25,16 +25,21 @@ public struct SegmentSourceInputs: Equatable, Sendable {
     /// Later items on the backlog (online timestamp lookups, on-device detection): the merger already accepts them so the
     /// feeds can be added without changing it. Nothing fills them yet.
     public var onlineDatabase: [SkipSegment]
+    /// R316: what the app found by comparing the audio of episodes of one season (`SeasonSegmentMemory`).
     public var onDeviceDetection: [SkipSegment]
+    /// R315: the intro and credits markers of a media server (Plex).
+    public var serverMarkers: [SkipSegment]
 
     public init(userMarked: [SkipSegment] = [], localSidecar: [SkipSegment] = [], embeddedChapters: [SkipSegment] = [],
-                postCreditsStart: TimeInterval? = nil, onlineDatabase: [SkipSegment] = [], onDeviceDetection: [SkipSegment] = []) {
+                postCreditsStart: TimeInterval? = nil, onlineDatabase: [SkipSegment] = [], onDeviceDetection: [SkipSegment] = [],
+                serverMarkers: [SkipSegment] = []) {
         self.userMarked = userMarked
         self.localSidecar = localSidecar
         self.embeddedChapters = embeddedChapters
         self.postCreditsStart = postCreditsStart
         self.onlineDatabase = onlineDatabase
         self.onDeviceDetection = onDeviceDetection
+        self.serverMarkers = serverMarkers
     }
 }
 
@@ -58,11 +63,23 @@ public enum SegmentMerger {
         func tagged(_ list: [SkipSegment], _ source: SegmentSource) -> [SkipSegment] {
             list.map { var s = $0; s.source = source; return s }
         }
+        let detected = tagged(inputs.onDeviceDetection, .onDeviceDetection)
+        // R314 (R288's audio check): an online timing that on-device detection found too, at both ends, is confirmed.
+        let online = tagged(inputs.onlineDatabase, .onlineDatabase).map { timing -> SkipSegment in
+            var checked = timing
+            let agrees = detected.contains {
+                $0.type == timing.type && abs($0.start - timing.start) <= limits.audioAgreement
+                    && abs($0.end - timing.end) <= limits.audioAgreement
+            }
+            if agrees { checked.audioConfirmed = true }
+            return checked
+        }
         let candidates = tagged(inputs.userMarked, .userMarked)
             + tagged(inputs.embeddedChapters, .embeddedChapters)
             + tagged(inputs.localSidecar, .localSidecar)
-            + tagged(inputs.onlineDatabase, .onlineDatabase)
-            + tagged(inputs.onDeviceDetection, .onDeviceDetection)
+            + tagged(inputs.serverMarkers, .serverMarkers)
+            + online
+            + detected
         let resolved = SegmentResolver.resolve(file: file, candidates: candidates, postCreditsStart: inputs.postCreditsStart, limits: limits)
 
         var kept: [SkipSegment] = []

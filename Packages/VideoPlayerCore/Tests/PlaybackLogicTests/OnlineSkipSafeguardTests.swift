@@ -77,7 +77,10 @@ final class OnlineSkipSafeguardTests: XCTestCase {
 
     func testSESS10_automaticSkipOfAnOnlineIntroHappensOnlyInsideTheWindow() {
         let cut = file(1500)
-        var s = session([online(.intro, 120, 200, on: cut)], file: cut, settings: SkipSettings(intro: .automatic))
+        // R314: an online timing skips by itself only once the audio confirmed it (R288); unconfirmed it shows the button.
+        var confirmed = online(.intro, 120, 200, on: cut)
+        confirmed.audioConfirmed = true
+        var s = session([confirmed], file: cut, settings: SkipSettings(intro: .automatic))
         XCTAssertNil(s.playhead(119, kind: .natural).seek)
         XCTAssertEqual(s.playhead(121, kind: .natural).seek, 200)
         XCTAssertNil(s.playhead(260, kind: .natural).seek)

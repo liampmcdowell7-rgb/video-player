@@ -74,9 +74,11 @@ public enum OverlayFocus: Equatable, Sendable { case none, skipButton, upNext }
 
 public struct SkipButtonState: Equatable, Sendable {
     public var type: SegmentType
-    /// "Skip Intro", "Skip Recap", "Skip Credits".
+    /// "Skip Intro", "Skip Recap", "Skip Credits"; "Watch Intro" and the like after an automatic skip (R314).
     public var title: String
     public var target: TimeInterval
+    /// R314: skip to the end, or go back to the start after an automatic skip.
+    public var action: SkipButtonAction = .skip
 }
 
 public struct UpNextState: Equatable, Sendable {
@@ -173,7 +175,7 @@ public final class PlayerOverlayController: @unchecked Sendable, UpNextProposalH
     public func skipPressed() -> [PlayerOverlayEffect] {
         run { me, calls in
             guard let button = me.overlay.skipButton else { return [] }
-            let update = me.session.skipPressed(button.type)
+            let update = button.action == .back ? me.session.backPressed(to: button.target) : me.session.skipPressed(button.type)
             me.overlay.skipButton = nil
             calls.append(.hideSkip)
             var effects: [PlayerOverlayEffect] = []
@@ -258,13 +260,14 @@ public final class PlayerOverlayController: @unchecked Sendable, UpNextProposalH
                 calls.append(.hideSkip)
             }
         case .button(let b):
-            let state = SkipButtonState(type: b.type, title: b.title, target: b.target)
+            let state = SkipButtonState(type: b.type, title: b.title, target: b.target, action: b.action)
             if overlay.skipButton != state {
                 overlay.skipButton = state
                 calls.append(.showSkip(state.title))
             }
         case .jump:
-            // Automatic skip: no UI. The seek arrives in `SessionUpdate.seek`.
+            // Automatic skip: the seek arrives in `SessionUpdate.seek`; the way back ("Watch Intro") follows as a button on
+            // the next update, where the skip landed (R314).
             if overlay.skipButton != nil {
                 overlay.skipButton = nil
                 calls.append(.hideSkip)

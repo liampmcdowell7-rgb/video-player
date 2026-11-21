@@ -248,6 +248,22 @@ extension PlexClient: ServerWatchSource {
     }
 }
 
+// R315: the server's intro and credits markers, one GET of the item's details per playback (read only, like every request).
+extension PlexClient: ServerSegmentSource {
+    public func serverMarkers(at path: String) async throws -> [ServerSegmentMarker] {
+        guard let key = try await serverItemKey(at: path) else { return [] }
+        return try await markers(ratingKey: key)
+    }
+
+    func markers(ratingKey: String) async throws -> [ServerSegmentMarker] {
+        var parts = URLComponents(url: baseURL.appendingPathComponent("library/metadata/\(ratingKey)"), resolvingAgainstBaseURL: false)
+        parts?.queryItems = [URLQueryItem(name: "includeMarkers", value: "1")]
+        guard let url = parts?.url else { throw SourceError.notFound }
+        let envelope = try PlexHTTP.decode(PlexMarkerEnvelope.self, from: try await http.send(http.request("GET", url, token: token)))
+        return PlexMarker.segments(envelope.container.metadata.flatMap(\.markers))
+    }
+}
+
 /// The server's view of one file (read once; never written back, R306).
 public struct PlexServerItem: Equatable, Sendable {
     public var metadata: PlexMetadata

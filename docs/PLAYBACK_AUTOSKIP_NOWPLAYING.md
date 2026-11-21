@@ -1,6 +1,74 @@
-# Auto skip, binge playback, on-device detection and Now Playing (plan only)
+# Auto skip, binge playback, on-device detection and Now Playing
 
-Status: **plan, no code** (owner's request of 20 Nov 2026). Every decision below is PROVISIONAL (except R288 and R290, decided by the owner on 21 Nov 2026) and has an R number in
+Status: **built 21 Nov 2026** (owner's request of 21 Nov 2026: "They're no longer plan-only"), not yet run on a device.
+Section 0 says what was built and how detection works; R314 to R317 in OPEN_QUESTIONS.md record the decisions. Sections
+1 to 12 are the plan of 20 Nov 2026, kept as written for the history; where section 0 differs, section 0 holds.
+
+## 0. What was built (21 Nov 2026)
+
+**Settings (R314).** Settings > Playback: "Skip Intros Automatically" (on by default) and "Skip Credits Automatically"
+(off by default), system Toggles under "Show Skip Buttons". Off: the Skip Intro / Skip Credits button as before. On:
+the segment is skipped without a press, and for 5 seconds after the skip a system contextual action "Watch Intro" (or
+"Watch Recap", "Watch Credits") goes back to the start of the segment, which then plays through. That way back is the
+reference player's behaviour, decided by the owner's standing rule R312.
+
+**Which segments may skip by themselves (R314, R288).** The file's own data (chapters, sidecar files, the user's marks)
+and the media server's markers; on-device detection once two other episodes agree (confidence 0.9); online timings
+(IntroDB) only when the on-device comparison found the same stretch within 1.5 s at both ends. Every other segment
+shows the button instead, or nothing when Show Skip Buttons is off.
+
+**Binge (R314, R340).** The system Up Next card appears at the credits start, or at the end of the file when no credits
+segment is known, and counts down 10 s when "Play Next Episode Automatically" is on (the master switch; off, the card
+waits for a press). The next episode then skips its intro from its first second when Skip Intros Automatically is on.
+With Skip Credits Automatically on, the credits jump to the end and the card appears at once.
+
+**Order of sources (R315, R289).** The user's marks, sidecar files and chapters; then the media server's markers (Plex,
+one read-only request per playback); then what this Apple TV learned; online timings are asked only when none of the
+file's or the server's own data gave anything. Credited in the app as plain text: Plex, IntroDB.
+
+**Detection on the Apple TV (R316).** Method:
+
+1. While an episode plays, at background priority, the app reads the audio of that episode and of the next one: the
+   intro window (first 10 minutes or first quarter, whichever is shorter) and the credits window (last 10 minutes or
+   40 %), as mono samples at 11 kHz through the system's audio reader.
+2. Each window becomes a fingerprint: the audio is reduced to about 5.5 kHz, cut into frames of 0.37 s every 0.19 s, and
+   each frame gives one 32-bit word recording, for 33 bands between 300 and 2000 Hz, whether the energy difference
+   between neighbouring bands rose or fell since the frame before. The same sound gives nearly the same words wherever it
+   sits and however loud it is; unrelated sound differs in about half the bits. Quiet frames never match.
+3. Two episodes of one season are compared at every offset. The longest stretch whose words differ in at most 10 of 32
+   bits (holes of up to 3 s allowed, at least half the frames matching, edges trimmed to where most frames match) is the
+   part they share. An intro is 15 to 120 s long, credits 15 to 300 s; a longer match means the two files are the same
+   recording and is ignored.
+4. Each new episode is compared with up to four others of its season; each comparison is a vote for both. An episode's
+   segment is the median of the largest group of votes that agree within 1 s. Confidence: 0.75 after one vote (the
+   button only), 0.9 after two (skips by itself), 0.02 more per further vote, at most 0.98. So it gets better as more
+   episodes are played.
+5. One JSON file per season in the app's caches folder, named by a hash (no title appears in a file name). The newest 8
+   episodes keep their fingerprints for later comparisons; older ones keep only their votes. Nothing is sent anywhere.
+
+Limits: it needs at least two episodes of a season that share the same theme or credits music; it finds no recap and
+never counts a cold open as part of the intro; credits without shared music (a different song each week) are not found;
+files the system player cannot open itself (Matroska played through the app's own remux, sources read byte by byte) are
+not analysed; the system may empty the caches folder, after which the season is learned again. UNVERIFIED until a device
+run: whether the system's audio reader reads a file over HTTP (Plex, WebDAV) at all, how long the two windows take and
+how much they cost on the network, and the accuracy on real episodes. The tuning values are first guesses (PROVISIONAL).
+
+**iPhone Now Playing (R317).** Apple's pages (read 21 Nov 2026): the system player view controller "manages its own
+player and Now Playing session", so the app cannot add its own; `updatesNowPlayingInfoCenter` is not on tvOS. What the
+app supplies: the item's metadata, title = the episode's name, second line "Show · S1, E3" (R313), and the poster as
+artwork. What the system supplies by itself: duration, elapsed time and rate from the player, and the answers to play,
+pause, scrubbing and the 10-second skips from the iPhone. The Apple TV Remote on the iPhone and its volume buttons are
+system features (volume only with a receiver or TV that supports it). The app registers no remote commands and sets no
+Now Playing values of its own, which would compete with the system's entry. All of it is UNVERIFIED until the device
+check in section 11.
+
+**Tests (Linux, synthetic data).** `AudioDetectionTests` (fingerprints and the season memory on generated audio),
+`SegmentDetectionTests` (the store on disk, the collector, the provider), `AutoSkipTests`, `BingeTests`,
+`PlexMarkerTests` (hand-written answers, fake server only).
+
+## Plan of 20 Nov 2026 (history)
+
+Status then: **plan, no code** (owner's request of 20 Nov 2026). Every decision below is PROVISIONAL (except R288 and R290, decided by the owner on 21 Nov 2026) and has an R number in
 OPEN_QUESTIONS.md (R-rows listed in section 12). Nothing here is built. Brandless rule: this document names no other
 media-player app; behaviour is described generically. Data providers appear only as plain-text names, as
 docs/NAMES.md allows (IntroDB is already on its allowlist; other names in section 8 are research notes, not app text).
@@ -333,6 +401,12 @@ opens and controls the app. Skipping, for each of Off, Show Button and Automatic
 credits of the last episode of a season (no next episode; credits play). Binge: an episode ends, the next starts and its
 intro is skipped as set. Each result goes into docs/DEVICE_TEST_CHECKLIST_PLATFORM.md when the stage is built.
 
+Added 21 Nov 2026 for what was built (section 0): with Skip Intros Automatically on, "Watch Intro" shows for about 5 s
+after the skip and goes back; with it off, the button as before; with Skip Credits Automatically on, the card appears at
+once and counts down; on a Plex show, the server's markers are used (File Details lists "Server markers: N"); on a show
+without markers, after two or three episodes of a season "Found on this Apple TV" appears in File Details and the third
+episode's intro is skipped; the iPhone's Now Playing shows the episode's name over "Show · S1, E3" with the poster.
+
 ## 12. Stages (each small, each with offline tests; none before the gate at the top)
 
 1. **Segment data and settings:** fix the out-of-date texts; Skip Intro and Skip Credits pickers (R280); Next Episode
@@ -353,3 +427,5 @@ playable app" (lists no steps on the page itself), MPNowPlayingSession, HIG Play
 next episode), AVAssetReader (does not say whether HTTP assets work), vDSP, Sound Analysis, Recognizing text in images
 (no availability line; `VNRecognizeTextRequest` is tvOS 13.0+), Core ML, CloudKit; Apple TV User Guide on the iPhone
 remote (support.apple.com). `contentProposalAcceptanceHandler` was not found on any page read. Community: section 8.1.
+Read again 21 Nov 2026 for section 0: AVPlayerViewController (`updatesNowPlayingInfoCenter` availability, skipping
+behaviour), MPNowPlayingSession, MPNowPlayingInfoCenter, MPRemoteCommandCenter, AVContentProposal.

@@ -8,6 +8,10 @@ public enum SettingsKey: String, CaseIterable, Sendable {
     case showDiscover
     case autoPlayNextEpisode
     case showSkipButtons
+    /// R314: the intro (and a recap) is skipped without a press (on by default, owner's request of 21 Nov 2026).
+    case skipIntrosAutomatically
+    /// R314: the credits are skipped without a press (off by default; the Up Next card counts down instead).
+    case skipCreditsAutomatically
     case showPlaybackStatsButton
     case rememberTrackChoicePerShow
     case showContinueWatching
@@ -22,7 +26,7 @@ public enum SettingsKey: String, CaseIterable, Sendable {
 
     public var defaultBool: Bool {
         switch self {
-        case .continueWatchingDays, .trueHDCompatibilityCore: return false
+        case .continueWatchingDays, .trueHDCompatibilityCore, .skipCreditsAutomatically: return false
         default: return true
         }
     }
