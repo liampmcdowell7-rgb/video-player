@@ -48,20 +48,22 @@ Names from Codemagic's pages read on 20 Nov 2026 (listed under Sources at the en
   configuration** choose the branch `main` and the workflow **tvOS TestFlight (manual)**, then start it *(unverified:
   the name of the final button)*. Nothing starts by itself: the file has no trigger. It stops itself at 30 minutes. An
   estimate: 15 to 25 minutes (never measured). **Minutes cost money now:** on 20 November 2026 the Codemagic Billing
-  page showed 506 of 500 free macOS minutes used, current balance $6.75, next invoice 1 December 2026, so builds bill as
+  page showed 506 of 500 free macOS minutes used, next invoice 1 December 2026, so builds bill as
   overage until the reset (OPEN_QUESTIONS R105). You decide when to start a build.
 - **C6. CODE** — what the workflow does (`codemagic.yaml`, `scripts/cm-testflight.sh`), on a Mac mini M2 with Xcode 27.2
   (the tvOS 27.2 SDK, the same Xcode as the GitHub runner):
-  1. Prepare exactly as the GitHub compile check does (`scripts/ci-prepare.sh`): check the committed vendored packages,
-     install the pinned XcodeGen 2.46.0 (SHA-256 checked), generate the project, resolve the packages.
-  2. Signing: Codemagic installs the stored certificate **Balance Ahead distribution** (`ios_signing` in
+  Signing and the profile check come first: they read only App Store Connect and the keychain, so a signing problem
+  stops the build in about 2 minutes *(an estimate, not measured)*, before the long package setup.
+  1. Signing: Codemagic installs the stored certificate **Balance Ahead distribution** (`ios_signing` in
      `codemagic.yaml`). The step finds that same certificate in App Store Connect (by comparing fingerprints, through the
      integration), then for `com.liamp.videoplayer` and `com.liamp.videoplayer.topshelf` reuses an existing active
      **tvOS App Store** profile that carries it; only if there is none does it make a new profile with it
      (`app-store-connect profiles create --type TVOS_APP_STORE`). No devices. It never makes a key or a certificate and
      never revokes or deletes anything (the pre-push check and its self-test refuse such commands).
-  3. Checks the two profiles: the app's must carry the iCloud container `iCloud.com.liamp.videoplayer` and the App Group
+  2. Checks the two profiles: the app's must carry the iCloud container `iCloud.com.liamp.videoplayer` and the App Group
      `group.com.liamp.videoplayer`; the Top Shelf's the App Group. A missing one stops the build (see C7).
+  3. Prepare exactly as the GitHub compile check does (`scripts/ci-prepare.sh`): check the committed vendored packages,
+     install the pinned XcodeGen 2.46.0 (SHA-256 checked), generate the project, resolve the packages.
   4. Points each target at its own profile (`xcode-project use-profiles`), checks both now sign manually, sets the build
      number to the UTC time `yyyyMMddHHmm` and archives for tvOS devices (Release).
   5. Exports the `.ipa` (method `app-store`), and Codemagic uploads it to App Store Connect with the integration.

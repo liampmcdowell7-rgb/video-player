@@ -51,12 +51,14 @@ workflows:
         XCODEGEN_VERSION: "2.46.0"
         XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
     scripts:
-      - name: Prepare (check vendored files, pinned XcodeGen, generate, resolve packages)
-        script: bash scripts/cm-testflight.sh prepare
+      # Signing first: it reads only App Store Connect and the keychain (no generated project), so a signing failure stops
+      # the build before the long package setup (an estimate: about 2 minutes, not measured; OPEN_QUESTIONS R266).
       - name: Signing files (the stored certificate; existing or new TVOS_APP_STORE profiles for the app and Top Shelf)
         script: bash scripts/cm-testflight.sh signing
       - name: Check the profiles' iCloud container and App Group
         script: bash scripts/cm-testflight.sh check-profiles
+      - name: Prepare (check vendored files, pinned XcodeGen, generate, resolve packages)
+        script: bash scripts/cm-testflight.sh prepare
       - name: Archive for tvOS devices (Release, manual signing, one profile per target)
         script: bash scripts/cm-testflight.sh archive
       - name: Export the .ipa (method app-store)

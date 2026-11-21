@@ -40,8 +40,8 @@ c("publishing: only app_store_connect", list(pub.keys()) == ["app_store_connect"
 c("publishing: auth integration, submit_to_testflight false, nothing else",
   pub.get("app_store_connect") == {"auth": "integration", "submit_to_testflight": False})
 steps = [s.get("script", "") for s in wf.get("scripts", [])]
-c("the five steps run scripts/cm-testflight.sh prepare, signing, check-profiles, archive, export in order",
-  steps == ["bash scripts/cm-testflight.sh " + s for s in ("prepare", "signing", "check-profiles", "archive", "export")])
+c("the five steps run scripts/cm-testflight.sh signing, check-profiles, prepare, archive, export in order",
+  steps == ["bash scripts/cm-testflight.sh " + s for s in ("signing", "check-profiles", "prepare", "archive", "export")])
 c("the artifact is the .ipa only", wf.get("artifacts") == ["build/ios/ipa/*.ipa"])
 for line in checks: print(line)
 print("XCG|%s|%s" % (env.get("vars", {}).get("XCODEGEN_VERSION"), env.get("vars", {}).get("XCODEGEN_SHA256")))
