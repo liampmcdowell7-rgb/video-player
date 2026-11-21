@@ -393,6 +393,31 @@ final class ScreenshotTests: XCTestCase {
         let result: CheckResult = ScreenRules.stillAndWhole([UInt8](first), [UInt8](later), caption: captionCheck(caption, in: app, screenshot: screenshot))
         note(name + "-later-CAPTION", "after \(step)\n" + result.text)
         XCTAssertTrue(result.passed, "\(name)-later: " + result.verdict)
+        captionOverlapCheck(name, caption: caption, in: app)
+    }
+
+    /// R354 (item 5): the long caption does not run over the lines under it. The run of 21 Nov drew S2 E3's three-line
+    /// caption (88 pt) over its "43 min" line. Every other text of the card that holds `caption` must start below the
+    /// caption's frame or end above it. "-OVERLAP" note; an overlap fails the test.
+    func captionOverlapCheck(_ name: String, caption: String, in app: XCUIApplication) {
+        let text: XCUIElement = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", caption)).firstMatch
+        let card: XCUIElement = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", caption)).firstMatch
+        guard text.exists, card.exists else {
+            note(name + "-OVERLAP", "the caption or its card was not found: NOT CHECKED")
+            XCTFail("\(name): the caption \u{201C}\(caption)\u{201D} or its card was not found for the overlap check")
+            return
+        }
+        let box: CGRect = text.frame
+        var lines: [String] = ["caption \(box)"]
+        var overlaps: [String] = []
+        for other in card.staticTexts.allElementsBoundByIndex where other.label != text.label {
+            let frame: CGRect = other.frame
+            lines.append("\u{201C}\(other.label)\u{201D} \(frame)")
+            if frame.intersects(box) { overlaps.append(other.label) }
+        }
+        lines.append(overlaps.isEmpty ? "CAPTION OVERLAP OK" : "OVERLAP: the caption runs over " + overlaps.joined(separator: ", "))
+        note(name + "-OVERLAP", lines.joined(separator: "\n"))
+        XCTAssertTrue(overlaps.isEmpty, "\(name): the caption runs over \(overlaps.joined(separator: ", ")) (R354)")
     }
 
     /// R339 (docs/HIG_AUDIT.md T10): the show page has its season tabs and lists ONE season's episodes. The note -SEASONS

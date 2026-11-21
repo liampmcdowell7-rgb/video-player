@@ -100,61 +100,47 @@ struct PosterCard: View {
 }
 
 /// #36 group 4 (OPEN_QUESTIONS R264, PROVISIONAL; replaces the one-line marquee caption of R259): the title of a lockup
-/// card (Continue Watching, episode) is never cut. It is ONE line in the Caption style while it fits when shrunk no lower
-/// than the 23 pt floor (`minimumScaleFactor`, rule S1, as `FittingText`); a longer title is drawn at the floor size
-/// (Caption 2, 23 pt) and wraps onto a second line, and onto more if it needs them, so no word is ever clipped. Apple,
-/// `minimumScaleFactor(_:)`: "Sets the minimum amount that text in this view scales down to fit in the available space."
-/// The third run of 20 Nov showed why the marquee had to go: 50 and 56 were cut mid-word ("… that i") and did not move.
+/// card (Continue Watching, episode) is never cut. It is ONE line in the Caption style when it fits, else ONE line at the
+/// 23 pt floor (Caption 2, Apple's minimum on tvOS), else it is drawn at the floor size and wraps onto as many lines as it
+/// needs, so no word is ever clipped. The third run of 20 Nov showed why the marquee had to go: 50 and 56 were cut
+/// mid-word ("… that i") and did not move.
+/// R354 (compile run of 21 Nov 2026, item 5): the choice is made by the system's `ViewThatFits` (tvOS 16.0+: "adapts to
+/// the available space by providing the first child view that fits"), in the same layout pass, with no measured state.
+/// Before, a hidden measure set a `@State` flag after the first layout and the caption switched to the wrapping text
+/// afterwards; the run's hierarchy (55, 56, 77, 108) showed the long caption laid out 30 pt high (one line) but drawn
+/// 88 pt high (three lines), so it ran over "43 min" under it. Why the card did not take the new height on the later
+/// pass is not proven (the borderless lockup's layout of its label is not on Apple's pages): UNVERIFIED; this layout
+/// does not depend on a later pass. The shrink is now in steps (Caption, then Caption 2) instead of continuous.
 /// Height: the caption reports its own height (`CaptionHeightKey`) and every card of the row takes the tallest one
-/// (`reservedCaptionHeight`, set by `equalCaptionRow`), so the cards of a row stay exactly equal; the hidden one-line
-/// "spacer" text of R259 is gone. The width is the column's (`maxWidth: .infinity`) and never depends on the height, so no
-/// measure feeds back into the next layout (#31, R231). The natural one-line width is measured off screen as in
-/// `FittingText` (hidden, never drawn or spoken).
+/// (`reservedCaptionHeight`, set by `equalCaptionRow`), so the cards of a row stay exactly equal. The width is the
+/// column's (`maxWidth: .infinity`) and never depends on the height (#31, R231).
 struct CardCaption: View {
     let text: String
-    @State private var natural: Double = 0
-    @State private var available: Double = 0
     @State private var ownHeight: CGFloat = 0
     @Environment(\.reservedCaptionHeight) private var reserved: CGFloat
 
     var body: some View {
-        let readable: Double = ShortLine.minimumScale(forPointSize: TVTextStyle.caption.pointSize)
-        let wraps: Bool = FittingText.isTooLong(natural: natural, available: available, readable: readable)
-        caption(wraps: wraps, readable: readable)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { (height: CGFloat) in
-                if abs(height - ownHeight) >= 0.5 { ownHeight = height }
-            }
-            .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { (width: Double) in
-                if abs(width - available) >= 0.5 { available = width }
-            }
-            .preference(key: CaptionHeightKey.self, value: ownHeight)
-            .frame(minHeight: reserved, alignment: .topLeading)
-            .background(alignment: .leading) {
-                // The natural one-line width in the Caption style, measured off screen (hidden: not drawn, not spoken).
-                Text(text)
-                    .font(TVTextStyle.caption.font)
-                    .lineLimit(1) // design-lint:allow hidden measurement of the natural width, never drawn or spoken (rule S1 is applied to the visible text)
-                    .fixedSize()
-                    .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { natural = $0 }
-                    .hidden()
-            }
-    }
-
-    @ViewBuilder
-    private func caption(wraps: Bool, readable: Double) -> some View {
-        if wraps {
+        ViewThatFits(in: .horizontal) {
+            oneLine(TVTextStyle.caption)
+            oneLine(TVTextStyle.caption2)
             // At the floor (Caption 2 is 23 pt on tvOS, Apple's minimum), as many lines as the title needs.
             Text(text)
                 .font(TVTextStyle.caption2.font)
-        } else {
-            Text(text)
-                .font(TVTextStyle.caption.font)
-                .lineLimit(1)
-                // design-lint:allow rule S1 (OPEN_QUESTIONS R165, R229, R264): the caption shrinks to fit, never below the readable floor
-                .minimumScaleFactor(readable)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { (height: CGFloat) in
+            if abs(height - ownHeight) >= 0.5 { ownHeight = height }
+        }
+        .preference(key: CaptionHeightKey.self, value: ownHeight)
+        .frame(minHeight: reserved, alignment: .topLeading)
+    }
+
+    /// One line in `style`; `ViewThatFits` uses it only when its natural width fits, so it is never cut (rule S1).
+    private func oneLine(_ style: TVTextStyle) -> some View {
+        Text(text)
+            .font(style.font)
+            .lineLimit(1) // design-lint:allow R354: offered to ViewThatFits only at its natural width, so it is never cut (rule S1)
     }
 }
 
