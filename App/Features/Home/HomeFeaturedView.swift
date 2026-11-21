@@ -37,7 +37,7 @@ struct HomeFeaturedView: View {
         .containerRelativeFrame(.vertical) { (length: CGFloat, _: Axis) -> CGFloat in
             length * HomeFeaturedLayout.heightFraction
         }
-        .background { BackdropView(artworkKey: featured.titleArtworkKey, style: .featured) }
+        .background { BackdropView(artworkKey: featured.titleArtworkKey, style: .hero) }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(ControlID.featured)
     }

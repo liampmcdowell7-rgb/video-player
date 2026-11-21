@@ -79,6 +79,9 @@ none of them fails a job on its own unless the line says so):
   failed in `index.md`. `<picture>-UNCHANGED.txt`: a step meant to change the screen did not; a WARNING, and since #33 L a
   test failure where the step is marked `mustChangeAfter`. `-TABBAR`, `-HIERARCHY`: the tab bar and the accessibility tree
   at that moment.
+- `-PRODUCT` (R350): the movie page (57) and the show page (55) in the TV app's product-page order: Play, then Cast &
+  Crew (when the page has a cast), then Information (movie and episode pages), with the format badges shown; FAIL when
+  a section is out of order, Information is missing on the movie page or the old "Media Info" heading is shown.
 - `-FEATURED` (R349): Home's featured area, its Play (or Resume) and More are in the tree, with the area's height
   against the window's and which shelves are on screen; FAIL when the area, Play or More is missing (50-home-rows).
 - `-RESELECT` (R348): from a page two levels deep in Settings, the test moves the focus to the tab bar and presses

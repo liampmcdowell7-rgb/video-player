@@ -1,9 +1,12 @@
 import SwiftUI
 import AppLogic
 
-/// The loaded detail page (#15 6.2): backdrop under the system material (R336); title or title logo; "year · duration · rating"; the format line;
-/// the synopsis; the buttons; the cast; then "Media Info", always fully shown. Everything reachable is a button, a menu or
-/// a focusable block, so the remote can scroll to all of it.
+/// The loaded detail page (#15 6.2), R350 (owner's device test of build 5, item D; PROVISIONAL) as the TV app's product
+/// page: the artwork full bleed behind everything, clear at the top (`BackdropStyle.hero`); the first screen is the hero
+/// area, its content at the bottom: title or title logo, ONE metadata line (year · duration · rating, then the outlined
+/// format badges, `ProductMetadataLine`), the description, the buttons. Below it: Cast & Crew, then "Information", every
+/// technical row of the file, always fully shown, most important first. Everything reachable is a button, a menu or a
+/// focusable block, so the remote can scroll to all of it.
 struct ItemDetailContentView: View {
     let content: ItemDetailContent
     let model: ScreenModel<ItemDetailViewModel>
@@ -14,36 +17,13 @@ struct ItemDetailContentView: View {
     @State private var details: TitleDetails?
     /// #15 6.2: Play (or Resume) has focus when the page opens, although the synopsis sits above it.
     @FocusState private var playFocused: Bool
+    /// R350: the height of the page's scroll view, so the hero area fills the first screen (`ProductPageLayout`).
+    @State private var pageHeight: CGFloat = 0
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading) {
-                if let series = content.seriesTitle, let seriesID = content.seriesID {
-                    NavigationLink(series, value: Route.series(seriesID))
-                }
-                // #15 Part 9: a movie's title logo when one is found and the setting is on; otherwise the text title (rule S1).
-                TitleHeader(title: content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil)
-                if !content.facts.isEmpty {
-                    FittingText(content.facts, style: .body)
-                        .foregroundStyle(.secondary)
-                }
-                if !content.badges.isEmpty {
-                    FittingLine(line: CardBuilder.badgeLine(content.badges), style: .callout)
-                        .foregroundStyle(.secondary)
-                }
-                if let overview = details?.overview {
-                    SynopsisLink(title: content.title, text: overview)
-                } else if content.kind == .movie, !services.online.hasCatalogueKey {
-                    // #26 item 4: one short line saying the synopsis needs the key and where to add it.
-                    StatusText(OnlineLookupText.detailsNeedKey)
-                }
-                // #15 D3: how much is left, as text, instead of a full-width bar. Fixed in code, verify in next screenshots.
-                if let timeLeft = content.timeLeft {
-                    StatusText(timeLeft)
-                }
-                actions
-                    // #33 I (OPEN_QUESTIONS R239, PROVISIONAL): room between the button row and the next heading.
-                    .padding(.bottom, DetailPageLayout.belowActions)
+                hero
                 if let cast = details?.cast, !cast.isEmpty {
                     CastShelf(cast: cast)
                 }
@@ -51,6 +31,9 @@ struct ItemDetailContentView: View {
                     MediaInfoSection(rows: content.mediaInfo)
                 }
             }
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { (height: CGFloat) in
+            if abs(height - pageHeight) >= 0.5 { pageHeight = height }
         }
         // R345: the focused buttons and rows grow past the page's scroll view; it must not clip them.
         .scrollClipDisabled()
@@ -62,11 +45,40 @@ struct ItemDetailContentView: View {
         // (`-UITestOpen`, a Top Shelf link) gets the focus the tab bar had, and `defaultFocus` alone only picks where the
         // focus lands when it moves INTO the page. Asking for Play once the page is on screen moves it there.
         .task(id: content.itemID) { playFocused = true }
-        .background { BackdropView(artworkKey: content.artworkKey) }
+        .background { BackdropView(artworkKey: content.artworkKey, style: .hero) }
         .task(id: "\(content.artworkKey)|\(services.online.keyRevision)") {
             details = content.kind == .movie ? await services.online.details(key: content.artworkKey) : nil
         }
         .pushedScreen(content.title)
+    }
+
+    /// R350: the hero area, the first screen of the page, its content at the bottom over the clear artwork.
+    private var hero: some View {
+        VStack(alignment: .leading) {
+            if let series = content.seriesTitle, let seriesID = content.seriesID {
+                NavigationLink(series, value: Route.series(seriesID))
+            }
+            // #15 Part 9: a movie's title logo when one is found and the setting is on; otherwise the text title (rule S1).
+            TitleHeader(title: content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil)
+            // R350: ONE line, the facts then the outlined format badges (dropped from the end when it does not fit).
+            if !content.facts.isEmpty || !content.badges.isEmpty {
+                ProductMetadataLine(facts: content.facts, badges: content.badges)
+            }
+            if let overview = details?.overview {
+                SynopsisLink(title: content.title, text: overview)
+            } else if content.kind == .movie, !services.online.hasCatalogueKey {
+                // #26 item 4: one short line saying the synopsis needs the key and where to add it.
+                StatusText(OnlineLookupText.detailsNeedKey)
+            }
+            // #15 D3: how much is left, as text, instead of a full-width bar. Fixed in code, verify in next screenshots.
+            if let timeLeft = content.timeLeft {
+                StatusText(timeLeft)
+            }
+            actions
+                // #33 I (OPEN_QUESTIONS R239, PROVISIONAL): room between the button row and the next heading.
+                .padding(.bottom, DetailPageLayout.belowActions)
+        }
+        .productHero(pageHeight: pageHeight)
     }
 
     private var actions: some View {
@@ -146,7 +158,7 @@ struct CastShelf: View {
 
     var body: some View {
         VStack(alignment: .leading) {
-            Text("Cast")
+            Text(ProductPage.castHeading)
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
             ScrollView(.horizontal) {
@@ -222,7 +234,7 @@ private struct CastPhoto: View {
     }
 }
 
-/// "Media Info" (#15 6.2): every row shown, never collapsed, most important first (MediaInfo.rows). The block takes focus
+/// "Information" (#15 6.2; R350: named as the TV app names it, at the bottom of the page, formerly "Media Info"): every row shown, never collapsed, most important first (MediaInfo.rows). The block takes focus
 /// as one piece so the remote scrolls the page down to it.
 ///
 /// #25 B6: the run on 1fe5d50 (57, 58, 61) drew `LabeledContent`, which puts the value at the far right of the page, too far
@@ -234,7 +246,7 @@ private struct MediaInfoSection: View {
 
     var body: some View {
         VStack(alignment: .leading) {
-            Text("Media Info")
+            Text(ProductPage.informationHeading)
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
             Grid(alignment: .leadingFirstTextBaseline) {

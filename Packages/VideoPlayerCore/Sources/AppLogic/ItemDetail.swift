@@ -148,7 +148,8 @@ public struct ItemDetailViewModel: Sendable {
         }
         let mediaInfo = files.first { $0.id == preferred }.map { MediaInfo.rows(file: $0, sidecars: sidecars, sourceName: sourceNames[$0.sourceID], tracks: tracks) } ?? []
         return ItemDetailContent(itemID: item.id, kind: item.kind, title: card.title, seriesID: item.seriesID, seriesTitle: item.seriesTitle,
-                                 facts: facts.joined(separator: " · "), badges: card.badges, playTitle: playTitle, canStartOver: started,
+                                 facts: facts.joined(separator: " · "),
+                                 badges: ProductPage.formatBadges(cardBadges: card.badges, maxChannels: item.maxChannels), playTitle: playTitle, canStartOver: started,
                                  isWatched: item.watch.watched, isFavorite: item.watch.favorite, progress: progress, timeLeft: timeLeft,
                                  versions: versions, extras: extras, artworkKey: card.artworkKey, mediaInfo: mediaInfo)
     }

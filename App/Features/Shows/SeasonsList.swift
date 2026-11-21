@@ -1,7 +1,8 @@
 import SwiftUI
 import AppLogic
 
-/// The show page (#15 5.1, 5.2): backdrop, the title (or its title logo, #15 Part 9), the synopsis, Play and More as buttons,
+/// The show page (#15 5.1, 5.2; R350, item D: the TV app's product page, the hero area on the first screen over the clear
+/// artwork, then the season tabs and episodes, then Cast & Crew): backdrop, the title (or its title logo, #15 Part 9), the synopsis, Play and More as buttons,
 /// the season tabs and the chosen season's 16:9 episode cards, then the cast (#22 B: synopsis and cast as on the movie page,
 /// nothing when there are no details).
 ///
@@ -28,6 +29,8 @@ struct SeasonsList: View {
     @FocusState private var playFocused: Bool
     /// R339: the season the person chose with the tabs; nil until they choose (then `SeasonTabs.shown` picks).
     @State private var chosenSeason: Int?
+    /// R350: the height of the page's scroll view, so the hero area fills the first screen (`ProductPageLayout`).
+    @State private var pageHeight: CGFloat = 0
 
     private var shownSeason: SeasonSection? {
         SeasonTabs.shown(content.seasons, chosen: chosenSeason, resumeEpisodeID: content.resumeEpisodeID)
@@ -36,17 +39,23 @@ struct SeasonsList: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading) {
-                TitleHeader(title: content.seriesTitle, artworkKey: "series-\(seriesID)")
-                // As on the movie page: the synopsis above the buttons (three lines, the whole text one press away).
-                if let overview = details?.overview {
-                    SynopsisLink(title: content.seriesTitle, text: overview)
-                } else if !services.online.hasCatalogueKey {
-                    // #26 item 4: one short line saying the synopsis needs the key and where to add it.
-                    StatusText(OnlineLookupText.detailsNeedKey)
+                // R350 (item D): the hero area fills the first screen, its content at the bottom over the clear artwork.
+                VStack(alignment: .leading) {
+                    TitleHeader(title: content.seriesTitle, artworkKey: "series-\(seriesID)")
+                    // R350: the one metadata line (the seasons; no format badges for a whole show).
+                    ProductMetadataLine(facts: ProductPage.showFacts(seasonCount: content.seasons.count), badges: [])
+                    // As on the movie page: the synopsis above the buttons (three lines, the whole text one press away).
+                    if let overview = details?.overview {
+                        SynopsisLink(title: content.seriesTitle, text: overview)
+                    } else if !services.online.hasCatalogueKey {
+                        // #26 item 4: one short line saying the synopsis needs the key and where to add it.
+                        StatusText(OnlineLookupText.detailsNeedKey)
+                    }
+                    actions
+                        // #33 I (OPEN_QUESTIONS R239, PROVISIONAL): room between the button row and the first season heading.
+                        .padding(.bottom, DetailPageLayout.belowActions)
                 }
-                actions
-                    // #33 I (OPEN_QUESTIONS R239, PROVISIONAL): room between the button row and the first season heading.
-                    .padding(.bottom, DetailPageLayout.belowActions)
+                .productHero(pageHeight: pageHeight)
                 // #25 B7 (OPEN_QUESTIONS R193, the alternative now taken, still PROVISIONAL): the episodes right after Play,
                 // the cast after them. R339: the season tabs, then the chosen season's episodes.
                 seasonTabs
@@ -73,6 +82,9 @@ struct SeasonsList: View {
                 }
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { (height: CGFloat) in
+            if abs(height - pageHeight) >= 0.5 { pageHeight = height }
+        }
         // R345: the focused buttons and cards grow past the page's scroll view; it must not clip them.
         .scrollClipDisabled()
         // R346 (item A): the scrolling page is one focus region, so Up scrolls back to its first row before it
@@ -83,7 +95,7 @@ struct SeasonsList: View {
         // tab bar's focus).
         .task(id: seriesID) { playFocused = true }
         // #15 5.2: the show's fan art (or its matched online backdrop) behind the page, as on the movie page.
-        .background { BackdropView(artworkKey: "series-\(seriesID)") }
+        .background { BackdropView(artworkKey: "series-\(seriesID)", style: .hero) }
         .task(id: "series-\(seriesID)|\(services.online.keyRevision)") {
             details = await services.online.details(key: "series-\(seriesID)")
         }

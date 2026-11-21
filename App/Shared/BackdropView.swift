@@ -16,8 +16,9 @@ import AppLogic
 /// change its appearance"); its exact look on tvOS 27 is UNVERIFIED.
 struct BackdropView: View {
     let artworkKey: String
-    /// R349: `.page` (movie and show pages: the material over the whole picture, R336) or `.featured` (Home's featured
-    /// area: the picture clear at the top, the material rising over its lower part, where the title and buttons are).
+    /// R349, R350: `.hero` (Home's featured area and, since R350, the movie and show pages: the picture clear at the top,
+    /// the material rising over its lower part, where the title and buttons are) or `.page` (the material over the whole
+    /// picture, R336; no screen uses it since R350, kept as R350's alternative (a)).
     var style: BackdropStyle = .page
     @Environment(AppServices.self) private var services
     @State private var result: ArtworkResult = .none
@@ -46,11 +47,11 @@ struct BackdropView: View {
                             case .page:
                                 // design-lint:allow R336: the system regular material over the full-strength backdrop, Apple's tvOS media catalog sample's product page (a standard material in the content layer, HIG Materials; not glass)
                                 Rectangle().fill(.regularMaterial)
-                            case .featured:
-                                // design-lint:allow R349: the system regular material over the lower part of Home's featured artwork only, so its title, metadata and buttons stay readable while the top of the picture stays clear (the TV app's featured area); the mask is the material's shape, not a colour of ours
+                            case .hero:
+                                // design-lint:allow R349, R350: the system regular material over the lower part of the artwork only (Home's featured area, the movie and show pages), so the title, metadata and buttons stay readable while the top of the picture stays clear (the TV app's featured area and product pages); the mask is the material's shape, not a colour of ours
                                 Rectangle().fill(.regularMaterial)
                                     .mask {
-                                        LinearGradient(stops: [.init(color: .clear, location: BackdropStyle.featuredClearTop),
+                                        LinearGradient(stops: [.init(color: .clear, location: BackdropStyle.heroClearTop),
                                                                .init(color: .primary, location: 1)],
                                                        startPoint: .top, endPoint: .bottom)
                                     }
@@ -67,9 +68,9 @@ struct BackdropView: View {
 /// R349: how the backdrop's picture is covered (see `BackdropView.style`).
 enum BackdropStyle {
     case page
-    case featured
+    case hero
 
-    /// R349 (PROVISIONAL): the featured artwork is fully clear above this share of its height; the material rises from
+    /// R349, R350 (PROVISIONAL): the hero artwork is fully clear above this share of its height; the material rises from
     /// there to the bottom edge. Our choice (Apple publishes none); the owner's photos of the TV app decide.
-    static let featuredClearTop: CGFloat = 0.35
+    static let heroClearTop: CGFloat = 0.35
 }

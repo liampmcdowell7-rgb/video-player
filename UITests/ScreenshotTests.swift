@@ -567,6 +567,33 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(passed, "\(name): the featured area, its Play or its More is missing")
     }
 
+    /// R350 (owner's device test of build 5, item D): the movie and show pages in the TV app's product-page order: Play in
+    /// the hero area, then (when the page has them) "Cast & Crew", then "Information" at the bottom (movie and episode
+    /// pages). Reads the frames from the tree (the page is not lazy, so sections below the screen are in it). Writes
+    /// "<name>-PRODUCT"; a section out of order, a missing Play or a missing Information fails the test.
+    func productPageCheck(_ name: String, information: Bool, in app: XCUIApplication) {
+        let play: XCUIElement = app.descendants(matching: .any).matching(identifier: "control.play").firstMatch
+        let cast: XCUIElement = app.staticTexts["Cast & Crew"]
+        let info: XCUIElement = app.staticTexts["Information"]
+        var lines: [String] = []
+        var problems: [String] = []
+        if play.exists { lines.append("Play at y \(Int(play.frame.minY))") } else { problems.append("no Play") }
+        if cast.exists { lines.append("Cast & Crew at y \(Int(cast.frame.minY))") } else { lines.append("Cast & Crew: not on this page (no cast)") }
+        if info.exists { lines.append("Information at y \(Int(info.frame.minY))") }
+        else if information { problems.append("no Information section") }
+        if play.exists, cast.exists, cast.frame.minY <= play.frame.minY { problems.append("Cast & Crew is not below Play") }
+        if play.exists, info.exists, info.frame.minY <= play.frame.minY { problems.append("Information is not below Play") }
+        if cast.exists, info.exists, info.frame.minY <= cast.frame.minY { problems.append("Information is not below Cast & Crew") }
+        if app.staticTexts["Media Info"].exists { problems.append("the old “Media Info” heading is still shown") }
+        let badges: [String] = ["4K", "Dolby Vision", "HDR10+", "HDR10", "HLG", "Dolby Atmos", "5.1", "7.1"].filter { app.staticTexts[$0].exists }
+        lines.append("format badges shown: \(badges.isEmpty ? "none" : badges.joined(separator: ", "))")
+        var verdict: String = "PRODUCT PAGE ORDER OK"
+        if !problems.isEmpty { verdict = "PRODUCT PAGE PROBLEM: " + problems.joined(separator: "; ") }
+        lines.append(verdict)
+        note(name + "-PRODUCT", lines.joined(separator: "\n"))
+        XCTAssertTrue(problems.isEmpty, "\(name): " + verdict)
+    }
+
     /// #36 group 5: what each press of the last `moveFocusToEnd` or `focus` did, one line per press ("3 Down: “Plex” {…}").
     private var focusPath: [String] = []
 
@@ -1272,6 +1299,7 @@ final class ScreenshotTests: XCTestCase {
         if waitForScreen("screen.series", in: app, timeout: 60), waitFor("Season 1", in: app, timeout: 20) {
             settle(); shot("55-show-page")
             let showTop: String = focusedLabel(in: app)
+            productPageCheck("55-show-page", information: false, in: app)
             // R336: the show page's backdrop, as on the movie page ("55-show-page-CONTRAST", a note).
             textContrast("55-show-page", in: app)
             // #33 E: every episode card the same size (55 of the run of 20 Nov: S2 E3 378 x 566 beside 410 x 615).
@@ -1313,6 +1341,7 @@ final class ScreenshotTests: XCTestCase {
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 1", in: app) {
             settle(); shot("57-movie-detail")
             let movieTop: String = focusedLabel(in: app)
+            productPageCheck("57-movie-detail", information: true, in: app)
             let movieTree: String = app.debugDescription
             note("57-movie-detail-HIERARCHY", movieTree)
             checkGap("57-movie-detail", tree: movieTree, anchors: [ControlID.play, ControlID.more], kinds: ["StaticText"], minimum: 40, what: "buttons to the next heading")
