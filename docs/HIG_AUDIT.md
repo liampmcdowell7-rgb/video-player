@@ -247,18 +247,18 @@ SwiftUI" (the SwiftUI page `/documentation/swiftui/lockups` still does not load:
 | T3 | Matches Apple's sample (40 pt, `containerRelativeFrame(count: 6, spacing: 40)`): no change. 100 pt between grid rows: UNVERIFIED. |
 | T6 | Built (R336): the backdrop at full strength under the system `regularMaterial` (Apple's sample, product page). The 35 % dimming-layer citation above is withdrawn: on the Materials page it is for components with clear Liquid Glass. |
 | T7 | Not changed: the second focus request fixes a measured run (#25 B10, the tab bar kept the focus on a page pushed at launch). Removing it would need a run that proves `defaultFocus` alone is enough (R338). |
-| T8 | Built (R336): initials in place of a missing photo (HIG Lockups, Monograms). Selecting a person still does nothing (no person page; R338). |
+| T8 | Built (R336): initials in place of a missing photo (HIG Lockups, Monograms). Selecting a person still does nothing (no person page; R338). Decided by the owner, 21 Nov 2026: selecting a cast member opens a page of their titles from the library (R341). |
 | T9 | Not changed: Media Info is already text in two columns, not a collection; the `LabeledContent` form was replaced for a measured reason (#25 B6). |
-| T10 | Not built: a season picker changes the show page's structure; the TV app's pattern is not on any Apple page read (R338). |
-| T11 | Built in part (R337): system `searchSuggestions` from the titles already found. Recent searches (storage) and landscape result lockups (a backdrop lookup per result, more online requests) are for the owner (R338). |
-| T12 | Not built: Select on a Discover card toggling the watchlist is behaviour, not presentation (R338). |
+| T10 | Not built: a season picker changes the show page's structure; the TV app's pattern is not on any Apple page read (R338). Decided by the owner, 21 Nov 2026: seasons as a row of tabs above the episode list (R339). |
+| T11 | Built in part (R337): system `searchSuggestions` from the titles already found. Recent searches (storage) and landscape result lockups (a backdrop lookup per result, more online requests) are for the owner (R338). Decided by the owner, 21 Nov 2026: recent searches on this Apple TV only, with Clear Recent Searches (R343); wide result cards not built, kept as an alternative. |
+| T12 | Not built: Select on a Discover card toggling the watchlist is behaviour, not presentation (R338). Decided by the owner, 21 Nov 2026: Select opens the title; adding to Up Next moves to the context menu (R342). |
 | T4 | Not changed: owner decision R258 (Decided) is not reopened (R338). |
-| T5 | Not changed: the TV app's pattern for active filters is not on any page read (R338). |
-| T13 | Not changed: no Apple page read gives the proportions (R338). |
-| T14 | Not changed: the owner's rule S1 (R338). |
-| T15 | Not changed: the player is being changed by the Plex work now; moving the overlay is for the owner (R338). |
-| T16 | Not changed: moving Skip Points and Stats into content tabs is a change to the player's actions (R338). |
-| T17 | Not changed: an Episodes tab needs new data and behaviour in the player (R338). |
-| T18 | Kept as a known exception: the system player does not draw picture subtitles. |
-| T19 | Not changed: playback behaviour (R338). |
-| T20 | Not changed: the Plex work's own decision (R302, R338). |
+| T5 | Not changed: the TV app's pattern for active filters is not on any page read (R338). Decided by the owner, 21 Nov 2026: replace the chips with a system Menu in the toolbar, sort and filters together (R344). |
+| T13 | Not changed: no Apple page read gives the proportions (R338). Decided by the owner, 21 Nov 2026: no change now; revisit after the owner sees it on the Apple TV. |
+| T14 | Not changed: the owner's rule S1 (R338). Decided by the owner, 21 Nov 2026: no change now; revisit after the owner sees it on the Apple TV. |
+| T15 | Not changed: the player is being changed by the Plex work now; moving the overlay is for the owner (R338). Decided by the owner, 21 Nov 2026: the stats move into the info panel, every stat shown, most important first (R340). |
+| T16 | Not changed: moving Skip Points and Stats into content tabs is a change to the player's actions (R338). Decided by the owner, 21 Nov 2026: Playback Stats leaves the transport bar for an info panel tab (R340); the Mark menu stays. |
+| T17 | Not changed: an Episodes tab needs new data and behaviour in the player (R338). Decided by the owner, 21 Nov 2026: an Episodes tab in the info panel (R340). |
+| T18 | Kept as a known exception: the system player does not draw picture subtitles. Decided by the owner, 21 Nov 2026: unchanged. |
+| T19 | Not changed: playback behaviour (R338). Decided by the owner, 21 Nov 2026: the system Up Next (`AVContentProposal`), and the dropped advance step fixed (R340). |
+| T20 | Not changed: the Plex work's own decision (R302, R338). Decided by the owner, 21 Nov 2026: no change now; revisit after the owner sees it on the Apple TV. |
