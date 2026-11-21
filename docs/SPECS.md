@@ -8,6 +8,7 @@
 | docs/FEATURE_BACKLOG.md | Tier A, B, C, the cut list, out of scope |
 | docs/SOURCES.md | Source contract, one section per source type, blocked list |
 | docs/IPAD_PLAN.md | Long-term iPad app plan (no code): goal, stage order, R274 to R278 |
+| docs/PLAYBACK_AUTOSKIP_NOWPLAYING.md | Plan (no code): auto skip settings, binge playback, on-device intro and credits detection, learning from the owner, community timestamps, Now Playing and iPhone remote control; R280 to R291 |
 | docs/HIG_AUDIT.md | Apple HIG audit of each screen |
 | docs/CODEMAGIC_SETUP.md | One-time setup steps |
 | docs/TESTFLIGHT.md | TestFlight from GitHub Actions: the owner's Apple and GitHub steps, in order (R244 to R252) |

@@ -1,0 +1,330 @@
+# Auto skip, binge playback, on-device detection and Now Playing (plan only)
+
+Status: **plan, no code** (owner's request of 20 Nov 2026). Every decision below is PROVISIONAL and has an R number in
+OPEN_QUESTIONS.md (R-rows listed in section 12). Nothing here is built. Brandless rule: this document names no other
+media-player app; behaviour is described generically. Data providers appear only as plain-text names, as
+docs/NAMES.md allows (IntroDB is already on its allowlist; other names in section 8 are research notes, not app text).
+
+**Gate (no stage starts before both):** the R273 field fix is seen working in a screenshot run
+(11-form-webdav-FIELDS-AT-REST passes), and the build-number fix (R279) is committed. Status: both met (the simulator
+run of 20 Nov 2026 passed 11-form-webdav-FIELDS-AT-REST; R279 committed locally, not yet pushed); no stage starts
+without the owner's go-ahead.
+
+Owner's words (20 Nov 2026), in summary: a setting to skip intros and credits automatically, or keep the button;
+pressing the button every time is annoying. At the end of an episode go straight to the next one, then skip that
+episode's intro. Full Now Playing control from an iPhone: timeline, skip ahead or back, the Apple TV remote, the volume.
+If nothing out there shares the necessary data, the app should detect it itself and learn to be smarter; open data can
+serve as a baseline.
+
+## 1. What exists today (audit of 20 Nov 2026, from the code)
+
+**Segment data.** Models: `Packages/VideoPlayerCore/Sources/PlaybackLogic/Segments.swift` (`SegmentType` recap, intro,
+credits; `SegmentSource` with a priority order on-device detection < online database < sidecar < chapters < user mark;
+`SkipSegment`, `SegmentLimits`), merging in `SegmentMerge.swift`, collection in
+`Sources/AppLogic/SegmentSourcing.swift` (`SegmentCollector`, 6 s deadline). There is no per-source segment code: every
+source goes through the generic `MediaSource.list` and `read(range:)`.
+
+| Where segments come from | State |
+|---|---|
+| MKV/WebM chapters named Intro, Recap, Credits (`MatroskaReader`) | built; MP4 chapters not built |
+| Sidecar files `.edl` and `.segments.json` next to the video (`SidecarSegments.swift`) | built |
+| The user's own marks (`UserData/SegmentMarks.swift`, `AppLogic/SegmentMarkFlow.swift`, `App/Features/Player/PlayerMarkMenu.swift`) | built |
+| Online community timestamps: IntroDB (`MetadataOnline/IntroDBClient.swift`, `AppLogic/OnlineSegments.swift`, wired in `App/Support/OnlineServices.swift`) | built; asked only when nothing else gives a segment and only while Free Data Sources is on (R208, R209, R221) |
+| Jellyfin and Emby media segments | not built (nothing in `SourceJellyfin`, `SourceEmby`) |
+| Plex markers | not built (no Plex source code; docs/PLEX_SOURCE.md) |
+| On-device detection | not built (backlog item 34) |
+
+Out of date and to fix in the first stage: docs/SEGMENTS.md and FEATURE_BACKLOG item 33 say online lookup is "not
+built", and the Settings text `SettingsTexts.skipFull` says online markers are "not available yet".
+
+**Skip buttons.** `App/Features/Player/SkipButtonPresenter.swift` sets the system player's `contextualActions` (one
+`UIAction`) only while the playhead is inside a segment: the system's own button, no custom chrome. `SkipSetting` has
+`ask`, `automatic` and `off` (`PlaybackLogic/SkipController.swift`), but Settings shows one switch, **Show Skip
+Buttons** (on), which maps only to ask or off (`AppLogic/NextEpisodeFeed.swift`). **Automatic exists in logic, not in
+Settings.**
+
+**Next Episode (R49).** `PlaybackLogic/NextEpisode.swift`: `NextEpisodeMachine`, modes when credits begin, when the
+episode ends, ask, off; countdown 0 to 30 s (default 10); `EpisodeOrder.next` takes the lowest later episode of the same
+season, then the first episode of the next season, never advances from season 0. `App/Features/Player/ProposalPresenter.swift`
+uses the system `AVContentProposal` with automatic acceptance off (`automaticAcceptanceInterval = .nan`).
+**Missing, found in the audit:** `PlayerCoordinator.handle` acts only on seek and mark-watched; the advance effect falls
+into `default: break`, so **the next episode never starts**; the overlay's `tick()` is never called, so a countdown never
+fires; the overlay's effects reach `handle` twice (a seek may run twice). These are bugs to fix in the binge stage.
+
+**Settings > Playback** (`App/Features/Settings/PlaybackSettingsView.swift`, `@AppStorage`): Auto-Play Next Episode (on:
+when credits begin; off: ask), Show Skip Buttons (on), Playback Stats button (on), Remember Track Choice per Show (on),
+TrueHD compatibility core (off). No per-kind skip setting, no Next Episode mode or countdown row. The ledger's
+`setSetting` is never called, so these settings are not synced between devices.
+
+**Now Playing.** No use of `MPNowPlayingInfoCenter`, `MPRemoteCommandCenter` or `MPNowPlayingSession` in the code
+(only comments in `PlayerCoordinator.swift`; an unused key mapping in `AppLogic/NowPlaying.swift`). The player publishes
+`externalMetadata` (title, series title as subtitle, artwork) on the `AVPlayerItem` (R157). No remote command is
+handled by the app.
+
+**The app's own remux.** `Pkg/RemuxEngine/Loopback.swift` (HTTP server on 127.0.0.1, secret path), used by
+`App/Features/Player/RemuxPlayback.swift` when `AppServices` picks the remux route. It still plays in
+`AVPlayerViewController`, so it gets the same treatment as direct play. There is no second player (no non-AVPlayer
+renderer in code; the fallback engine exists only in docs/SPECS.md D1, D4).
+
+**Building blocks for detection.** Ranged reads over every source: `MatroskaReader`, `SegmentCollector.readSidecars`,
+the RemuxEngine readers with a block cache. No use of AVAssetReader, Accelerate/vDSP, Sound Analysis, Vision or Core ML.
+
+UNVERIFIED in the audit: whether Jellyfin and Emby listings ever return sidecar files; whether `SourceRangeProxy` is wired
+in the app; the full text of docs/PLAYBACK_LOGIC.md, docs/BACKUP.md, docs/STORAGE_MODEL.md.
+
+## 2. Auto skip setting (R280)
+
+Settings > Playback gets two rows, **Skip Intro** and **Skip Credits**, each a system `Picker` with three choices:
+**Off** (no button, no skip), **Show Button** (the system contextual action, as today), **Automatic** (skip without a
+press). Recap follows Skip Intro (it sits at the start too). Provisional default: Show Button for both, so nothing skips
+unexpectedly; the owner is expected to choose Automatic. The existing Show Skip Buttons switch is replaced (on maps to
+Show Button, off to Off), so no setting is lost.
+
+Automatic skip rules (all offline-testable in `SkipController`): skip once per segment per play; never skip when the
+user scrubbed into the segment (they chose to be there); never skip past the end of the file; only with a segment whose
+confidence is high (section 6); otherwise show the button. After an automatic skip: section 7.3.
+
+Alternatives: (a) one combined switch for all segments; (b) Automatic as the default; (c) settings per source or per
+show; (d) keep the single switch and add Automatic as its third state.
+
+## 3. Binge playback (R281)
+
+What the system gives (Apple pages read 20 Nov 2026): `AVContentProposal` (tvOS 10.0+), set as the current item's
+`nextContentProposal`, with a transition time, title, preview image and URL; `automaticAcceptanceInterval` shows a
+countdown and accepts at its end ("Set this value to nan to disable"); the app subclasses
+`AVContentProposalViewController` for the card; the player delegate is told when a proposal is presented, accepted or
+rejected (`shouldPresent`, `didAccept`, `didReject`). `MPNowPlayingInfoPropertyCreditsStartTime` tells the system where
+the credits start. The HIG "Playing video" page has no guidance on next episode or skip buttons.
+
+Plan: a separate **Auto-Play Next Episode** switch (exists) plus the existing modes, now with a countdown row. With
+Auto-Play on: at the credits start (or the end, when no credits segment exists) the proposal card appears with the
+system countdown; at zero, or on accept, the next episode starts; it then applies the Skip Intro setting from its first
+second. Countdown 0 means "go straight to the next episode" with no card. The app must add: the missing advance and
+tick wiring (section 1), loading the next item, resuming at its saved position, and stopping after the last episode of
+the last season (no proposal; credits play to the end). Native only: the system proposal and player, no custom overlay.
+
+Alternatives: (a) no countdown at all by default (straight to the next episode); (b) countdown 10 s (today's default);
+(c) "Are you still watching" after N episodes (not planned; listed so it is not lost); (d) Auto-Play off by default.
+
+## 4. Segment sources and the order of use (R282, R289)
+
+Sources that can supply segments: Plex markers (intro and credits, documented by Plex; field names UNVERIFIED, see
+docs/PLEX_SOURCE.md section 9); Jellyfin and Emby media segments (server API; field names UNVERIFIED, not read for this
+plan); MKV chapters titled Intro, Recap or Credits (built); MP4 chapters (not built); sidecar files (built); community
+timestamps (section 8); the user's own marks (built); on-device detection (section 6).
+
+**Order of use per item (PROVISIONAL, R289; replaces the order of the first addition):**
+1. segment data the source provides (server markers or segments, chapters, sidecars; the user's explicit marks rank here
+   too, as today);
+2. what the app learned from the owner for this show (section 7);
+3. community timestamps that passed the match check (section 8.3);
+4. on-device detection (section 6);
+5. nothing: **no skip and no button**. The player says nothing; a missing button is the honest answer.
+
+The player's info panel shows one plain line per item, for example "Intro: from the server", "Intro: from chapters",
+"Intro: learned from you", "Intro: community timestamps", "Intro: found by the app", "Intro: not known". UNVERIFIED: the
+best native place for it (an info-view tab via `customInfoViewControllers`, tvOS 15.0+, or the Playback Stats page).
+
+Alternatives: (a) community data before the owner's own learning; (b) on-device detection before community data;
+(c) today's code order (user mark > chapters > sidecar > online > detection), with learning added under user marks.
+
+## 5. Now Playing and remote commands (R283)
+
+Apple (read 20 Nov 2026): `MPNowPlayingInfoCenter` (tvOS 5.0+) carries title, artwork, duration, elapsed time, rate and
+default rate; `MPRemoteCommandCenter` (tvOS 7.1+) has play, pause, stop, toggle, skip forward and back with
+`preferredIntervals`, change playback position, change rate, next and previous track; `MPNowPlayingSession` (tvOS 14.0+)
+with `automaticallyPublishesNowPlayingInfo` (tvOS 16.0+). The `AVPlayerViewController` page lists
+`updatesNowPlayingInfoCenter` for iOS, iPadOS, Mac Catalyst and visionOS, **not tvOS**, and the session page says the
+player view controller "manages its own player and Now Playing session". So on tvOS the system player very likely
+publishes Now Playing itself from the item and `externalMetadata`; **UNVERIFIED** until a device test, and the reason
+this plan starts by testing before writing any publishing code.
+
+Plan: (1) device test first (checklist, section 11) with the app as it is; (2) only for what is missing, publish by hand:
+episode line (show, season, episode), duration, elapsed time and rate on every play, pause, seek and item change;
+`MPNowPlayingInfoPropertyCreditsStartTime`; handle play, pause, toggle, skip forward and back (10 s, matching the Siri
+Remote default), change playback position (scrubbing from an iPhone), next and previous track (next and previous
+episode). The remux route is the same `AVPlayerViewController`, so it needs nothing extra; elapsed time is the item's
+own time (the loopback is invisible to the system). Never claim a command works until the device test says so.
+
+What the app does NOT control: the iPhone's Apple TV Remote and its volume buttons are system features. Apple's user
+guide (support.apple.com, read 20 Nov 2026) lists play/pause, 10-second skips and subtitles in the iPhone remote, and
+says the iPhone volume buttons work "only with supported audio/video receivers". The app's part is only to keep a
+correct Now Playing state and handle the commands above. Whether the iPhone shows the app's Now Playing card and its
+timeline: **UNVERIFIED until a device test**; no developer page about it was found.
+
+Alternatives: (a) publish everything by hand from the start; (b) rely on the system only (no code); (c) adopt
+`MPNowPlayingSession` (not possible with the system player view controller, per Apple's page).
+
+## 6. Detection on the device (R284)
+
+Used only when the source gives nothing, nothing was learned and no community timestamp matched (section 4).
+
+**6a. Intro: episode comparison.** Compare the audio of the first minutes (provisional: 10 minutes or the first quarter,
+whichever is smaller) of two or more episodes of the same season; the stretch that repeats is the intro. Method: decode
+the audio to mono at a low rate, build a compact fingerprint per short frame (spectral peaks with vDSP FFT, tvOS 13.0+),
+find the longest aligned run that matches across episodes (correlation); provisional length limits 15 s to 2 min. Sparse
+frames only when audio is ambiguous. Needs at least two episodes of the season. The first episode watched has no partner
+until a second one is analysed: no automatic skip; the button appears only once a partner confirms it (then also for
+that first episode when it is played again). Costs: decoding about 10 minutes of audio per episode. UNVERIFIED: speed on
+Apple TV hardware; whether AVAssetReader reads remote or loopback HTTP assets (its page mentions file-based media only),
+so decoding may need the app's own demuxer and FFmpeg audio decoder that already exist for the remux.
+
+**6b. Credits.** Signals near the end of the file (provisional: the last 10 minutes, or 15 for a film): a long
+low-energy or silent gap, black frames, a sudden lasting change in the picture, and rolling text found by Vision
+(`VNRecognizeTextRequest`, tvOS 13.0+, on device). A credits segment is proposed only when at least two signals agree.
+Costs: sparse frames (provisional: one per 2 s) plus audio over the last minutes. UNVERIFIED: speed and accuracy; how
+frames are decoded for the remux route (video decode outside the player).
+
+**6c. Recap / "previously on".** No method better than guessing is known: **not planned**. Recaps still come from
+sources, sidecars, user marks and community data.
+
+**6d. What is read and when.** Only the first and last minutes of an episode, through ranged reads over the existing
+`MediaSource.read(range:)`, never the whole file. For a container the app remuxes, the existing demuxer finds the byte
+ranges of the wanted minutes from its index (cues), then reads only those. Network cost per episode: about 10 + 10
+minutes of the audio track, plus the video packets only when frames are needed; for a 1080p file roughly a few hundred
+MB at most for 20 minutes of video, much less for audio alone (an estimate; UNVERIFIED, depends on interleaving: audio
+and video are interleaved, so reading audio alone may still read most of the bytes of that range). Time: UNVERIFIED.
+
+When to analyse (docs/SPECS.md D8: background work is not relied on): (a) analyse the next episode while the current one
+plays (provisional choice); (b) analyse while the app is open and idle; (c) on demand from the episode's menu. Whether
+tvOS allows any of this outside playback, in the background: UNVERIFIED; the plan does not rely on it.
+
+Alternatives for detection as a whole: (a) intro only, no credits detection; (b) no on-device detection (only sources,
+community data and marks); (c) a trained model later (section 9).
+
+## 7. Learning from the owner (R285)
+
+On the device only. Signals: where the owner presses Skip; where the owner scrubs back after an automatic skip (it skipped too far) or
+forward right after one (too little); where the owner stops or presses next during credits. Adjustment, simple and explainable:
+per show and segment kind, a stored start and end time and a confidence value; each signal moves the stored time toward
+what the owner did (provisional: halfway, at most 10 s per signal); agreement raises the confidence, disagreement lowers it;
+automatic skip only above a threshold (section 10).
+
+**7.1 Storage.** The ledger's existing user-data path in the owner's private CloudKit database (custom zone, private database
+only; CloudKit tvOS 9.0+), mirrored like the other user data (R56, R65: the local SQLite index is a rebuildable mirror);
+no outside server, no analytics, nothing shared. UNVERIFIED: the exact record type; whether it belongs in the existing
+user-data zone or a new one.
+
+**7.2 Visibility.** The info-panel line says "learned from you"; Settings gets "Forget Learned Skip Times" (per show and
+all).
+
+**7.3 After a wrong automatic skip.** Options: (a) provisional: a short "Skipped Intro" system contextual action for a
+few seconds that goes back to the segment start when pressed (and counts as a disagreement); (b) no message, the user
+scrubs back (also counted); (c) a short message without an action.
+
+## 8. Community and open data baseline (R288, R290, R291)
+
+### 8.1 Candidates (public documentation and licence pages only, read 20 Nov 2026; nothing downloaded, no API called)
+
+| Candidate | Key | Covers | Answer | Licence and credit | Key or account | Rate limits | Maintenance and dump |
+|---|---|---|---|---|---|---|---|
+| IntroDB (already used by the app) | IMDb ID + season/episode | TV, movies | JSON: start/end in s and ms, confidence, submission count, updated time, "no intro / recap / outro" flags | Data ODbL 1.0, commercial use allowed; the open-data page asks for the credit "Contains data from IntroDB (introdb.app), available under the ODbL." and share-alike for the data; docs/DATA_SOURCES.md records credit as optional for API use | anonymous reads; submitting needs a key | on an "Errors and limits" page not read | live submissions, review queue with votes; daily CSV dumps (90 days kept) and a weekly release |
+| TheIntroDB | TVDB ID first, or TMDB or IMDb | TV, movies | start/end in ms, arrays per kind | data licence: pages did not say; client code MIT, plugins GPL-3.0 | reads public; submitting needs a key | did not say | did not say; the site needs JavaScript and showed nothing (R216 already: not added) |
+| AniSkip | not stated on official pages | anime openings and endings | not stated on official pages | code MIT; data licence and terms did not say | did not say | did not say | a weekly anonymised dump is mentioned in its repository; schema not shown |
+| An open-source intro-skip plugin for Jellyfin servers | none (works on the server's own files) | TV, films | result format not described | GPL-3.0 (code only; a method reference; reusing its code in this app would need a licence decision) | — | — | active; documented defaults: intros within the first quarter or 10 minutes, 15 s to 2 min; credits 15 s to 5 min |
+| Chromaprint (audio fingerprint library) | none | audio | fingerprint format not described | licence not on the page read | — | — | version 1.6.2 |
+| Research paper, arXiv 2504.09738 (CC BY 4.0) | — | 972 episodes | per-second classifier, F1 91.0 % | paper CC BY 4.0; dataset release not stated | — | — | — |
+
+No source gave average intro start times or lengths. A WACV 2021 paper page returned HTTP 403. Pages that did not load
+or did not say: theintrodb.org docs and terms (JavaScript only), the AniSkip API docs (empty), the AniSkip common
+repository (no specification), the dump repository (no licence or schema), the Chromaprint page (no licence, no format),
+the plugin repository (no result format or thresholds).
+
+### 8.2 Three ways to use it (R288)
+
+**(a) Lookup at playback time** (what the app already does for IntroDB, behind Free Data Sources). Sends ONLY the show's
+IMDb ID, season and episode (today also the app's User-Agent with name, version and repository address); nothing about
+the owner, the device, the source or the file name. Cached on the device (today 7 days, "none" 1 day); works without
+the network when nothing is cached (no button). Settings: either the existing **Free Data Sources** switch (OFF by
+default, R209) or a separate **Use Community Timestamps** switch (provisional default OFF until the owner says
+otherwise). Alternatives: default ON; no lookup at all.
+
+**(b) A snapshot shipped in the app.** No contact at run time, but a download at development time that only the owner
+can approve: the IntroDB daily `segments.csv.gz` (and `segmentless.csv.gz`) from its open-data page, size not stated on
+the pages read (UNVERIFIED). On the device: the whole table or only shows in the library (UNVERIFIED size). Problems: it
+is out of date from day one and needs a new app release to update; the ODbL share-alike and credit apply to the shipped
+database. Not done; listed for the owner.
+
+**(c) Priors only.** No lookup: published typical limits (for example intros within the first quarter or 10 minutes,
+15 s to 2 min; credits 15 s to 5 min, from the plugin's documented defaults) only narrow where on-device detection looks.
+No outside contact, no licence beyond citing the numbers' source.
+
+### 8.3 Matching a community timestamp to the owner's file
+
+Timestamps belong to one cut of an episode. Checks: (1) when the data carries a duration, the file's duration must be
+within a few seconds (IntroDB gives none, R208); (2) the returned end must fall inside the file (built, R221); (3) a short
+audio check: the audio at the stated intro start should match the same moment in another episode of the season (the
+section 6a fingerprint), or, when nothing else exists, at least not be silence. On a mismatch: never skip
+automatically; show the button only if the owner's setting is Show Button, otherwise fall back to detection. A wrong
+automatic skip is worse than none.
+
+### 8.4 Licence, attribution and the brandless rule (R290)
+
+IntroDB is already credited in plain text in Settings > About (`App/Support/Attribution.swift`), and its name is on the
+docs/NAMES.md allowlist. The open-data page's ODbL credit ("Contains data from IntroDB (introdb.app), available under the
+ODbL.") is a plain-text line; a line in Settings > About would carry it, without a logo. **Conflict flagged for the owner,
+not decided:** the owner's brandless rule says no other company in the app's screens except TMDB (R148), while the app
+already names IntroDB in About, and a snapshot (8.2 b) would make the ODbL credit mandatory. Any other dataset whose
+licence needs a name or logo goes on the same open item.
+
+### 8.5 Privacy (R291)
+
+| Option | What leaves the device | How the owner sees and stops it |
+|---|---|---|
+| (a) lookup | IMDb ID, season, episode, the app's User-Agent (name, version, repository address); the network address, as with any request | Settings switch (Free Data Sources today); the info-panel line "community timestamps" |
+| (b) snapshot | nothing at run time | nothing to switch |
+| (c) priors | nothing | nothing to switch |
+| on-device detection and learning | nothing (learning syncs only in the owner's private iCloud database) | "Forget Learned Skip Times"; detection can be switched off with the Skip settings |
+
+Privacy label and manifest (docs/APPSTORE_READINESS.md sections 1 and 3): the manifests are not written yet; with no
+analytics and no tracking, "Data Not Collected" stays the recommendation (D10, open). Whether a lookup keyed by a public
+show ID counts as collected data: UNVERIFIED (Apple's privacy-label pages not read for this plan).
+
+## 9. Trained models (R286)
+
+No trained model exists in the repository, none may be downloaded, and the owner has no Mac for Create ML training.
+Core ML (tvOS 11.0+, on device) and Sound Analysis (tvOS 13.0+; the built-in classifier "can identify over 300 sounds")
+are a later alternative. A model would need: hand-marked training data (episodes with intro and credits times), a Mac
+or a cloud training service, a size budget on the device (UNVERIFIED), and a licence for any model or data used. The
+research paper in 8.1 reports F1 91.0 % with a large vision model, far beyond what this plan bundles. Nothing is bundled
+or downloaded; the first versions use the explainable methods of sections 6 and 7.
+
+## 10. Accuracy and tests (R287)
+
+Measures, against hand-marked answers: (1) start and end each within N seconds (provisional N = 3); (2) share of items
+found; (3) share of wrong automatic skips. Provisional targets: wrong automatic skips under 1 %; intros found in at least
+80 % of seasons with two or more episodes. **Real accuracy is UNKNOWN** until the owner supplies real episodes (marked by
+hand once). Because a wrong automatic skip is worse than no skip, the first version skips automatically only at high
+confidence (provisional: two agreeing episodes and a match within 1 s) and shows the button otherwise.
+
+Offline tests (Linux, like the existing package tests): synthetic fixtures generated by a script in the repository (no
+downloads): a repeated jingle at different offsets across fake episodes, plus noise and a cold open; a black-frame and
+text credits roll with silence; files shorter than the stated end; a mismatched cut. Each stage below adds its tests.
+
+## 11. Device test checklist (owner, on the Apple TV and an iPhone)
+
+Now Playing: the Now Playing card appears on the iPhone; scrub the timeline; skip 10 s forward and back; pause and
+resume; next episode; volume (works only with a supported receiver, per Apple's guide); the iPhone's Apple TV Remote
+opens and controls the app. Skipping, for each of Off, Show Button and Automatic: at an intro, at credits, and at the
+credits of the last episode of a season (no next episode; credits play). Binge: an episode ends, the next starts and its
+intro is skipped as set. Each result goes into docs/DEVICE_TEST_CHECKLIST_PLATFORM.md when the stage is built.
+
+## 12. Stages (each small, each with offline tests; none before the gate at the top)
+
+1. **Segment data and settings:** fix the out-of-date texts; Skip Intro and Skip Credits pickers (R280); Next Episode
+   countdown row; the info-panel line (R289); settings synced through the ledger.
+2. **Now Playing:** device test first; publish only what is missing; remote commands (R283).
+3. **Detection, intro by episode comparison** (R284 6a).
+4. **Detection, credits** (R284 6b).
+5. **Learning from the owner** (R285).
+6. **Binge playback:** advance and countdown wiring, the double-effect bug, the last episode (R281).
+
+Community data (R288) can join stage 1 (it already exists behind Free Data Sources) once the owner decides R288 and R290.
+
+## Sources read (20 Nov 2026)
+
+Apple: AVPlayerViewController, AVContentProposal, MPRemoteCommandCenter, MPNowPlayingInfoCenter, "Becoming a now
+playable app" (lists no steps on the page itself), MPNowPlayingSession, HIG Playing video (nothing on skip buttons or
+next episode), AVAssetReader (does not say whether HTTP assets work), vDSP, Sound Analysis, Recognizing text in images
+(no availability line; `VNRecognizeTextRequest` is tvOS 13.0+), Core ML, CloudKit; Apple TV User Guide on the iPhone
+remote (support.apple.com). `contentProposalAcceptanceHandler` was not found on any page read. Community: section 8.1.
