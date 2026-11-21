@@ -255,7 +255,9 @@ private struct MediaInfoSection: View {
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
             if !badges.isEmpty {
-                BadgeFlowRow(badges: badges)
+                // R373: one line, dropped from the end, never wrapped; every badge is also a row below.
+                BadgeRow(badges: badges, separate: true)
+                    .accessibilityIdentifier("badges.all")
             }
             Grid(alignment: .leadingFirstTextBaseline) {
                 ForEach(rows) { row in
