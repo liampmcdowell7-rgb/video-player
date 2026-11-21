@@ -38,14 +38,23 @@ struct OnlineLookupSettingsView: View {
             }
             Section {
                 // R334 (PROVISIONAL): Region has a fixed list of answers (ISO 3166-1 alpha-2 country codes, the key of
-                // TMDB's `iso_3166_1` answers), so it is a system `Picker` row with the country trailing, not a typed field.
-                Picker(selection: regionChoice) {
-                    ForEach(regionOptions) { (option: RegionOption) in
-                        Text(option.title).tag(option.code)
-                    }
+                // TMDB's `iso_3166_1` answers), so it is a row with the country trailing, not a typed field.
+                // R353 (compile run of 21 Nov 2026): the system navigation-link `Picker` pushed a BLANK page on tvOS 27
+                // (36-settings-online-lookup-region-NOT-REACHED: one "Empty list" table, not even the selected country).
+                // Why is not on Apple's pages (UNVERIFIED); the row is now a system `NavigationLink` to `RegionPage`, whose
+                // rows are an INLINE system `Picker` (tvOS 14.0+, "each option is displayed inline with other views in the
+                // current container"), the tvOS Settings pattern: a pushed list, a checkmark on the chosen country.
+                NavigationLink {
+                    RegionPage(selection: regionChoice, options: regionOptions)
                 } label: {
-                    FittingText(OnlineLookupText.regionLabel)
+                    LabeledContent {
+                        FittingText(regionTitle)
+                    } label: {
+                        FittingText(OnlineLookupText.regionLabel)
+                    }
                 }
+                .accessibilityLabel(OnlineLookupText.regionLabel)
+                .accessibilityValue(regionTitle)
                 .accessibilityIdentifier(ControlID.regionPicker)
             } footer: {
                 Text(OnlineLookupText.regionHelp)
@@ -62,6 +71,12 @@ struct OnlineLookupSettingsView: View {
     /// R334: the stored code as the picker's selection; a stored value that is not two letters shows as the default (US).
     private var regionChoice: Binding<String> {
         Binding(get: { OnlineLookupPrefs.normalizedRegion(region) }, set: { region = $0 })
+    }
+
+    /// R353: the chosen country's name, as the row shows it.
+    private var regionTitle: String {
+        let code: String = OnlineLookupPrefs.normalizedRegion(region)
+        return regionOptions.first { $0.code == code }?.title ?? code
     }
 
     /// R334: the system's list of territories (`Locale.Region.isoRegions(ofCategory:)`, tvOS 26.0+) with their names in the
@@ -147,5 +162,29 @@ private struct KeyRow: View {
         } catch {
             message = error.localizedDescription
         }
+    }
+}
+
+/// R353: Settings > Online Lookup > Region: every country as a row of one INLINE system `Picker`, the chosen one with the
+/// system checkmark; choosing one stores it and goes back, as in tvOS Settings. The page is a `SettingsPane` (title and
+/// the help sentence on the left, the rows on the right).
+private struct RegionPage: View {
+    @Binding var selection: String
+    let options: [RegionOption]
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        SettingsPane(title: OnlineLookupText.regionLabel, summary: OnlineLookupText.regionHelp) {
+            Picker(selection: $selection) {
+                ForEach(options) { (option: RegionOption) in
+                    Text(option.title).tag(option.code)
+                }
+            } label: {
+                Text(OnlineLookupText.regionLabel)
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
+        }
+        .onChange(of: selection) { dismiss() }
     }
 }

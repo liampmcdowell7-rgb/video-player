@@ -1171,6 +1171,8 @@ final class ScreenshotTests: XCTestCase {
         if row.waitForExistence(timeout: 5), focus(row, in: app, maxPresses: 30) {
             let value: String = (row.value as? String) ?? ""
             lines.append("row \u{201C}\(row.label)\u{201D} value \u{201C}\(value)\u{201D}")
+            // R353: the row shows the chosen country's name trailing (the fixtures keep the default, US).
+            if !value.contains("United States") { failures.append("the Region row does not show \u{201C}United States\u{201D} (value \u{201C}\(value)\u{201D})") }
             XCUIRemote.shared.press(.select)
             if waitFor("Germany", in: app, timeout: 10) {
                 settle(); shot(name)
