@@ -43,7 +43,7 @@ struct PlayerEpisodesPanel: View {
                                 // design-lint:allow #36 7 (R259): Apple's tvOS media catalog sample attaches the borderless lockup's highlight by hand to a custom artwork view; the system effect, not our own
                                 .hoverEffect(.highlight)
                             VStack(alignment: .leading) {
-                                CardCaption(text: episode.code + " · " + episode.title)
+                                CardCaption(text: content.caption(for: episode))
                                 FittingText(isCurrent ? PlayerEpisodes.nowPlaying : (episode.runtimeText ?? ""), style: .caption2)
                                     .foregroundStyle(.secondary)
                             }
@@ -53,7 +53,7 @@ struct PlayerEpisodesPanel: View {
                     .buttonStyle(.borderless)
                     // design-lint:allow HIG Layout, four columns of the grid width for 16:9 episode cards (R189)
                     .containerRelativeFrame(.horizontal, count: 4, spacing: 40)
-                    .accessibilityLabel("\(episode.code), \(episode.title)")
+                    .accessibilityLabel(content.caption(for: episode))
                     .accessibilityValue(isCurrent ? PlayerEpisodes.nowPlaying : (episode.runtimeText ?? ""))
                 }
             }

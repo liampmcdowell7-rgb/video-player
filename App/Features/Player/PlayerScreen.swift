@@ -47,7 +47,8 @@ struct PlayerScreen: View {
                 }
                 Button("Done", role: .cancel) { dismiss() }
             } message: { failure in
-                Text(failure.text)
+                // R313: an episode's error starts with which episode it was ("Show · S1, E3 · Name").
+                Text([start.tracker.itemLine, failure.text].compactMap { $0 }.joined(separator: "\n\n"))
             }
             .onDisappear { closed = true }
     }

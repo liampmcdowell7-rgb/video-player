@@ -16,11 +16,14 @@ final class ProposalPresenter: UpNextProposalPresenting, @unchecked Sendable {
     @MainActor weak var item: AVPlayerItem?
     /// Settings > Playback > Auto-Play Next Episode.
     @MainActor var autoPlay = true
+    /// The show's name, for the card's line "Show · S1, E4 · Episode name" (R313).
+    @MainActor var seriesTitle: String?
 
     func present(_ proposal: UpNextProposal) {
         Task { @MainActor [weak self] in
             guard let self, let item = self.item else { return }
-            let title: String = [proposal.episodeCode, proposal.episodeTitle].compactMap { $0 }.joined(separator: " · ")
+            // R313: the system card shows "Up Next" above this line.
+            let title: String = PlayerEpisodeText.upNextLine(proposal, show: self.seriesTitle)
             let content = AVContentProposal(contentTimeForTransition: item.currentTime(), title: title, previewImage: nil)
             let duration: Double = item.duration.seconds
             content.automaticAcceptanceInterval = UpNextCard.acceptanceInterval(

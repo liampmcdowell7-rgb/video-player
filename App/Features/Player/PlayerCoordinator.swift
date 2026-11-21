@@ -95,6 +95,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         super.init()
         skipPresenter.controllerProvider = { [weak self] in self?.controller }
         proposalPresenter.item = playerItem
+        proposalPresenter.seriesTitle = resolved.content.seriesTitle
         if let remux = resolved.remux {
             let model = PictureSubtitleMenuModel(info: remux.info.pictureSubtitles)
             pictureModel = model.isVisible ? model : nil

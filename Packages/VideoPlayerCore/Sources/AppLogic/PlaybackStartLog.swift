@@ -169,6 +169,7 @@ public final class PlaybackStartTracker: @unchecked Sendable {
     private var container: String?
     private var codecs: String?
     private var secrets: [String] = []
+    private var line: String?
     private let clock: @Sendable () -> Double
 
     public init(clock: @escaping @Sendable () -> Double = { ProcessInfo.processInfo.systemUptime }) {
@@ -195,6 +196,12 @@ public final class PlaybackStartTracker: @unchecked Sendable {
             if let codecs, !codecs.isEmpty { self.codecs = codecs }
             self.secrets += secrets.filter { !$0.isEmpty }
         }
+    }
+
+    /// R313: which episode is being started ("Show · S1, E3 · Name"), for the first line of the error; nil for a film.
+    public var itemLine: String? {
+        get { lock.withLock { line } }
+        set { lock.withLock { line = newValue } }
     }
 
     /// True when the running step has passed its limit.

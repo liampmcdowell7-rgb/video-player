@@ -11,6 +11,14 @@ public enum PlayerEpisodes {
         public var season: SeasonSection
         /// The episode playing now (its card says so and does nothing when chosen).
         public var currentID: Int64
+        /// R313: each episode's "S1, E3" (the player's form, `PlayerEpisodeText.code`), by episode id.
+        public var codes: [Int64: String] = [:]
+
+        /// The card caption: "S1, E3 · Name", or the name alone when no number is known.
+        public func caption(for row: EpisodeRow) -> String {
+            guard let code = codes[row.id], !code.isEmpty else { return row.title }
+            return code + " · " + row.title
+        }
     }
 
     /// Nil for a film or an item without a series and season (no Episodes tab then). Never throws.
@@ -19,7 +27,13 @@ public enum PlayerEpisodes {
               let episodes = try? await store.episodes(ofSeries: seriesID), !episodes.isEmpty else { return nil }
         let season = item.season ?? 1
         guard let section = SeasonsViewModel.content(episodes).seasons.first(where: { $0.season == season }) else { return nil }
-        return Content(season: section, currentID: itemID)
+        var codes: [Int64: String] = [:]
+        for episode in episodes {
+            if let code = PlayerEpisodeText.code(season: episode.season, episode: episode.episode, episodeEnd: episode.episodeEnd) {
+                codes[episode.id] = code
+            }
+        }
+        return Content(season: section, currentID: itemID, codes: codes)
     }
 
     /// "Now Playing", the second line of the current episode's card.

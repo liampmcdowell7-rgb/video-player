@@ -439,6 +439,8 @@ final class AppServices {
         guard let item = try await store.item(id: itemID) else { throw PlaybackError.noFile }
         let files = try await store.versions(of: itemID)
         guard let file = files.first(where: { $0.id == item.preferredFileID }) ?? files.first else { throw PlaybackError.noFile }
+        // R313: the error's first line names the episode ("Show · S1, E3 · Name"); nil for a film.
+        tracker?.itemLine = PlayerEpisodeText.errorLine(for: item)
         let definition = definitions.first(where: { $0.id == file.sourceID })
         tracker?.describe(sourceKind: definition?.kindTitle,
                           container: PlaybackStartTracker.containerName(fileName: file.name),
@@ -488,7 +490,9 @@ final class AppServices {
                                         season: item.season, episode: item.episode, year: item.year, artworkKey: card.artworkKey)
         let resume = fromStart || item.watch.watched ? 0 : item.watch.position
         let segments = await segmentService.segments(forItem: itemID)
-        var resolved = ResolvedPlayback(url: location, headers: headers, title: card.title, subtitle: item.seriesTitle, startAt: resume,
+        // R313: an episode's transport bar (and so its Info tab and Now Playing entry) reads name over "Show · S1, E3".
+        let lines = PlayerEpisodeText.lines(for: item, filmTitle: card.title, filmSubtitle: item.seriesTitle)
+        var resolved = ResolvedPlayback(url: location, headers: headers, title: lines.title, subtitle: lines.subtitle, startAt: resume,
                                         duration: item.runtime ?? item.watch.duration, content: content)
         resolved.segments = segments
         resolved.remux = remux
