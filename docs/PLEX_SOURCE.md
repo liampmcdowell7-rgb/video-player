@@ -329,7 +329,17 @@ off by default) in the Plex source's settings. `ServerWatchRecorder` passes the 
 on; `ServerWatchSync` sends them (scrobble, unscrobble) to every Plex file of the item whose source has the switch on,
 and the player's timeline reports to the Plex file being played, or, when the item is played through another source, to
 the Plex files of the same item. Switch off: nothing is sent and the server is not asked. The R306 seed is not sent
-back. A failed request is not retried yet (stage 3).
+back. (Stage 3 below replaces "not retried".)
+
+**Built, two-way stage 3 (R310):** a write whose server cannot be reached waits in a small queue (newest resume point
+and newest watched flag per file; a JSON file next to the library database, with no token or address) and is sent after
+the next write that reaches that server and after each scan of the source: the resume point as a stopped timeline with
+`offline=1` and `updated` (the time of the change, seconds since 1970), the flag as scrobble or unscrobble. A waiting
+change older than the server's `lastViewedAt` for the file is dropped. After every complete scan of a source with the
+switch on, the app's and the server's state are merged per item and the newer change wins (`PlexWatchMerge`: the
+server's `lastViewedAt` against the later of the app's last play and last Mark as Unwatched); what the app takes from
+the server is not sent back. With the switch off, R306's one-time copy stays exactly as it was. Stage 4 is the owner's
+device check (docs/DEVICE_TEST_CHECKLIST_SOURCES.md).
 
 ## 7. Test plan per stage (no real server, no network)
 

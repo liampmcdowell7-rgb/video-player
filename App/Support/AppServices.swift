@@ -133,7 +133,13 @@ final class AppServices {
         let watchSync = ServerWatchSync(
             store: sqliteStore,
             isOn: { @Sendable [ledger] sourceID in ledger.sourceDefinitions().first { $0.id == sourceID }.map(PlexWatchSyncOption.isOn) ?? false },
-            source: { @Sendable sourceID in await sourceFor(sourceID) as? any ServerWatchSource })
+            source: { @Sendable sourceID in await sourceFor(sourceID) as? any ServerWatchSource },
+            // R310: writes wait here while their server cannot be reached (no token or address in the file; not synced).
+            queue: ServerWatchQueue(storage: FileServerWatchQueueStorage(url: Self.watchQueueURL)),
+            resetTime: { @Sendable [ledger] key in
+                let epoch = UDWatch.epoch(of: ledger.record(type: UDSchema.watch, id: key))
+                return epoch > 0 ? Date(timeIntervalSince1970: epoch) : nil
+            })
         self.watchSync = watchSync
         recorder.setHandler { watchSync.send(.changed($0)) }
         Task { await watchSync.run() }
@@ -239,14 +245,19 @@ final class AppServices {
             // Runs off the main thread (the store is an actor); only the progress numbers come back to the screen.
             // #23 D: weak at the outer closure too, so the progress closure itself never holds AppServices strongly.
             let summary = try? await syncer.sync(progress: { [weak self] p in Task { @MainActor [weak self] in self?.scanProgress = p } })
-            if summary?.status == .completed, PlexWatchSeed.isNeeded(for: definition), let plex = source as? PlexClient {
+            guard summary?.status == .completed else { continue }
+            if PlexWatchSyncOption.isOn(definition) {
+                // R310: with the switch on, the app's and the server's watch state are merged after every complete scan
+                // (what waited for the server is sent first); the newer change wins.
+                watchSync.send(.merge(sourceID: definition.id))
+            } else if PlexWatchSeed.isNeeded(for: definition), let plex = source as? PlexClient {
                 await seedPlexWatchState(plex, definition: definition)
             }
         }
     }
 
-    /// R306: after the first complete scan of a Plex source, the server's watched and resume state is copied once into the
-    /// app's own watch state, only where the app has none. Nothing is ever sent to the server. The source is marked
+    /// R306 (sources with the R309 switch off): after the first complete scan of a Plex source, the server's watched and resume
+    /// state is copied once into the app's own watch state, only where the app has none. Nothing is ever sent to the server. The source is marked
     /// seeded only when the copy succeeded, so a failure is tried again after the next scan.
     private func seedPlexWatchState(_ plex: PlexClient, definition: UDSourceDefinition) async {
         guard let items = try? await plex.serverItems() else { return }
@@ -261,6 +272,13 @@ final class AppServices {
         }
         guard copied else { return }
         try? await definitionSaver.saveDefinition(PlexWatchSeed.markedDone(definition))
+    }
+
+    /// R310: the file of writes waiting for a Plex server, next to the library database (Caches: the system may delete it;
+    /// the merge after the next scan then still sends the app's newer state).
+    nonisolated static var watchQueueURL: URL {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory
+        return base.appendingPathComponent("plex-watch-queue.json")
     }
 
     private static let sortLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "VideoPlayer", category: "Sorting")

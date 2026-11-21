@@ -83,4 +83,29 @@ public protocol ServerWatchSource: Sendable {
     var watchWriter: any ServerWatchWriting { get }
     /// The server's own id of the item a file belongs to (Plex: `ratingKey`), nil when the server does not list the file.
     func serverItemKey(at path: String) async throws -> String?
+    /// What the server knows about one file (R310), nil when it does not list the file.
+    func serverWatchState(at path: String) async throws -> ServerWatchState?
+    /// What the server knows about every file it lists, by path (R310: the merge after a scan).
+    func serverWatchStates() async throws -> [String: ServerWatchState]
+}
+
+/// The server's own watch state of one file (R310).
+public struct ServerWatchState: Equatable, Sendable {
+    /// The server's id of the item (Plex: `ratingKey`).
+    public var itemKey: String
+    /// Played at least once (Plex: `viewCount` > 0).
+    public var played: Bool
+    /// The resume point in seconds (Plex: `viewOffset`), nil when none.
+    public var position: Double?
+    /// When it was last watched (Plex: `lastViewedAt`).
+    public var lastViewedAt: Date?
+    public var duration: Double?
+
+    public init(itemKey: String, played: Bool, position: Double? = nil, lastViewedAt: Date? = nil, duration: Double? = nil) {
+        self.itemKey = itemKey
+        self.played = played
+        self.position = position
+        self.lastViewedAt = lastViewedAt
+        self.duration = duration
+    }
 }

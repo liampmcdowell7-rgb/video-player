@@ -40,7 +40,7 @@ extension SQLiteLibraryStore {
 
     // MARK: Write-through
 
-    func itemKey(_ id: Int64) throws -> String? {
+    public func itemKey(_ id: Int64) throws -> String? {
         try db.first("SELECT key FROM items WHERE id = ?", [.int(id)]) { $0.text(0) }
     }
 

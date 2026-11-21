@@ -86,4 +86,37 @@ final class PlexWatchSyncEndToEndTests: XCTestCase {
         let failures = await rig.sync.failures
         XCTAssertEqual(failures, 0)
     }
+
+    // MARK: Stage 3 (R310)
+
+    func testWritesWhileTheServerIsOffAreReplayedWithOfflineAndUpdated() async throws {
+        let rig = try await makeRig(switchOn: true)
+        rig.fake.reachableHosts = []   // the server goes off after the scan
+        try await useTheItem(rig)
+        XCTAssertEqual(rig.fake.serverWrites.count, 0, "nothing arrived: the write paths could not even be looked up")
+        let waiting = await rig.sync.waiting
+        XCTAssertEqual(waiting.map(\.kind), [.position, .unplayed])
+        rig.fake.reachableHosts = ["192-168-1-20.machine0001.plex.direct"]
+        let before = rig.fake.serverWrites.count
+        rig.sync.send(.replay(sourceID: "plex-1"))
+        await rig.sync.flush()
+        let replayed = Array(rig.fake.serverWrites.dropFirst(before))
+        XCTAssertEqual(replayed.map { "\($0.method) \($0.url.path)" }, ["POST /:/timeline", "PUT /:/unscrobble"])
+        let query = Dictionary(uniqueKeysWithValues: (URLComponents(url: replayed[0].url, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        XCTAssertEqual(query["state"], "stopped")
+        XCTAssertEqual(query["time"], "13000")
+        XCTAssertEqual(query["offline"], "1")
+        XCTAssertEqual(query["updated"], "1800000002")
+        let left = await rig.sync.waiting
+        XCTAssertEqual(left, [])
+    }
+
+    func testTheMergeTakesTheServersStateWithoutWritingAnything() async throws {
+        let rig = try await makeRig(switchOn: true)
+        rig.sync.send(.merge(sourceID: "plex-1"))
+        await rig.sync.flush()
+        XCTAssertEqual(rig.fake.serverWrites.map { "\($0.method) \($0.url.path)" }, [], "the app had nothing newer to send")
+        let item = try await rig.store.item(id: rig.itemID)
+        XCTAssertEqual(item?.watch.position, 600, "the server's resume point (fixture: 600 s)")
+    }
 }

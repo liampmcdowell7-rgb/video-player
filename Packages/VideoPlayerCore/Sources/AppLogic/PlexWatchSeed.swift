@@ -8,7 +8,8 @@ import UserData
 /// After a Plex source's first complete scan, what the server knew (an item played to the end, or stopped partway) is
 /// copied into the app's own watch state, ONLY for items the app has no watch state for yet. It runs once per source (the
 /// source's `seeded` option is set afterwards) and never writes anything to the server: the app's watch state is the only
-/// record from then on (two-way sync is an R272 alternative, not built). The server field names `viewOffset` (ms),
+/// record from then on. This is the behaviour for a source with the R309 switch off; with it on, `ServerWatchSync` merges
+/// after every scan instead (R310). The server field names `viewOffset` (ms),
 /// `viewCount` and `lastViewedAt` (seconds since 1970) are UNVERIFIED (not in the text of the PMS reference returned).
 public struct PlexWatchSeed: Sendable {
     /// What the server knew about one file.

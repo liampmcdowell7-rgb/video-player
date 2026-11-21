@@ -233,6 +233,19 @@ extension PlexClient: ServerWatchSource {
     public func serverItemKey(at path: String) async throws -> String? {
         try await serverItem(at: path)?.metadata.ratingKey
     }
+
+    public func serverWatchState(at path: String) async throws -> ServerWatchState? {
+        try await serverItem(at: path).map(Self.watchState)
+    }
+
+    public func serverWatchStates() async throws -> [String: ServerWatchState] {
+        try await serverItems().mapValues(Self.watchState)
+    }
+
+    static func watchState(_ item: PlexServerItem) -> ServerWatchState {
+        ServerWatchState(itemKey: item.metadata.ratingKey, played: (item.viewCount ?? 0) > 0, position: item.viewOffsetSeconds,
+                         lastViewedAt: item.lastViewedAt, duration: item.metadata.runtimeSeconds.map(Double.init))
+    }
 }
 
 /// The server's view of one file (read once; never written back, R306).
