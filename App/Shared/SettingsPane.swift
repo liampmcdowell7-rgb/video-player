@@ -87,6 +87,9 @@ struct TaskPage<Content: View>: View {
         // R345: room for the focus effect, as SettingsPane (the task pages' rows were whole in the run, 10 to 19; one
         // rule for every Form).
         .scrollClipDisabled()
+        // R346 (item A): the scrolling page is one focus region, so Up scrolls back to its first row before it
+        // can leave for the tab bar (reason and UNVERIFIED cause: PaneColumns, App/Shared/SettingsPane.swift).
+        .focusSection()
         // #36 S-A (OPEN_QUESTIONS R253, PROVISIONAL): the same two hierarchical levels as `SettingsPane`'s Form. Why the
         // header was dim here and bright on Move: the title and sentence sit in this Form's first SECTION HEADER, which
         // the system draws in the Form's dimmed header level when the Form sets no levels of its own (run of 20 Nov: title
@@ -242,6 +245,12 @@ struct PaneColumns<Content: View>: View {
             // R345: the right column's List or Form must not clip its focused row (Files 71 to 73, Settings 31 to 38).
             content
                 .scrollClipDisabled()
+                // R346 (owner's device test of build 5, item A): Up from a lower row jumped to the tab bar once the focus reached
+                // the top of the visible area, before the page was back at its first row. `focusSection()` (tvOS 15.0+: "the view's
+                // frame and cohort of focusable descendants should be used to guide focus movement") makes the scrolling column one
+                // focus region, so the focus engine searches it, rows above the visible area included, before leaving it. That this
+                // is the cause is UNVERIFIED (no Apple page says why the jump happens); the -SCROLL-UP notes of the next run prove it.
+                .focusSection()
                 .frame(maxWidth: .infinity)
         }
     }

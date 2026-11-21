@@ -75,6 +75,9 @@ struct SeasonsList: View {
         }
         // R345: the focused buttons and cards grow past the page's scroll view; it must not clip them.
         .scrollClipDisabled()
+        // R346 (item A): the scrolling page is one focus region, so Up scrolls back to its first row before it
+        // can leave for the tab bar (reason and UNVERIFIED cause: PaneColumns, App/Shared/SettingsPane.swift).
+        .focusSection()
         .defaultFocus($playFocused, true)
         // #25 B10: as on the movie page, Play takes the focus once the page is on screen (a page pushed at launch kept the
         // tab bar's focus).

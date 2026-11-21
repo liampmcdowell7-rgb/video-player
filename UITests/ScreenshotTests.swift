@@ -445,6 +445,53 @@ final class ScreenshotTests: XCTestCase {
         return false
     }
 
+    /// R346 (owner's device test of build 5, 21 Nov 2026, item A): on a long page, Up from a lower row must scroll the page
+    /// back row by row until its FIRST row has the focus; only the next Up may reach the tab bar (tvOS Settings and the TV
+    /// app behave so). On build 5 the focus jumped to the tab bar as soon as it reached the top of the visible area.
+    /// Method: `top` is what had the focus when the page opened (its first row); Down until the focus stops, then Up, one
+    /// press at a time, recording each focused element. PASS when the last element focused before the tab bar (or before
+    /// the focus stops moving) is `top`. Writes "<name>-SCROLL-UP" and fails the test on a jump. Leaves the focus on the tab
+    /// bar (or the first row), so call it at the END of a page's steps.
+    func scrollUpCheck(_ name: String, top: String, in app: XCUIApplication, maxPresses: Int = 40) {
+        let reachedEnd: Bool = moveFocusToEnd(in: app, maxPresses: maxPresses)
+        let down: String = focusPathText()
+        let tabBar: XCUIElement = app.tabBars.firstMatch
+        var path: [String] = []
+        var lastContent: String = focusedLabel(in: app)
+        var reachedTabBar: Bool = false
+        var last: String?
+        var unmoved: Int = 0
+        for press in 1...maxPresses {
+            XCUIRemote.shared.press(.up); usleep(400_000)
+            let inTabBar: Bool = tabBar.exists
+                && tabBar.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch.exists
+            let focused: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+            let label: String = focused.exists ? "“\(focused.label)”" : "none"
+            var frame: String = ""
+            if focused.exists { frame = "\(focused.frame)" }
+            var place: String = ""
+            if inTabBar { place = "TAB BAR " }
+            path.append("\(press) Up: \(place)\(label) \(frame)")
+            if inTabBar { reachedTabBar = true; break }
+            let here: String = label + frame
+            if here == last { unmoved += 1; if unmoved >= 3 { break } } else { unmoved = 0 }
+            last = here
+            lastContent = label
+        }
+        // #29: typed steps, no ternary inside a `+` chain.
+        let passed: Bool = lastContent == top
+        var stop: String = "the focus stopped (the tab bar was not reached)"
+        if reachedTabBar { stop = "the tab bar" }
+        var verdict: String = "SCROLL UP OK: the first row \(top) had the focus before \(stop)"
+        if !passed { verdict = "FOCUS JUMPED: the last row before \(stop) was \(lastContent), not the first row \(top)" }
+        let upLines: String = path.joined(separator: "\n")
+        let text: String = "first row (focused when the page opened): \(top)\nend reached going down: \(reachedEnd)\nDOWN \(down)\nUP \(path.count) presses:\n\(upLines)\n\(verdict)"
+        note(name + "-SCROLL-UP", text)
+        XCTAssertTrue(passed, "\(name): " + verdict)
+        // Back into the page, so the next step (a Back press, an open) starts from the page and not from the tab bar.
+        if reachedTabBar { XCUIRemote.shared.press(.down); usleep(400_000) }
+    }
+
     /// #36 group 5: what each press of the last `moveFocusToEnd` or `focus` did, one line per press ("3 Down: “Plex” {…}").
     private var focusPath: [String] = []
 
@@ -803,11 +850,14 @@ final class ScreenshotTests: XCTestCase {
             let name = "\(n)-settings-" + page.lowercased().replacingOccurrences(of: " ", with: "-")
             guard open(page, in: app, name: name) else { continue }
             settle()
+            let pageTop: String = focusedLabel(in: app)
             shot(name)
             // #36 T6: every Settings page from 31 to 38 gets a -CONTRAST note of all its texts.
             textContrast(name, in: app)
             if page == "Playback" {
                 checkContrast(name, prefixes: ["How titles play", "Skip buttons appear", "Playback Stats adds"], in: app)
+                // R346 (item A): the longest Settings pane; Up from its last row must reach its first row first.
+                scrollUpCheck(name, top: pageTop, in: app)
             }
             if page == "Sources", open("Sample Library", in: app, name: "34-settings-source-detail") {
                 settle(); shot("34-settings-source-detail"); textContrast("34-settings-source-detail", in: app); back()
@@ -824,6 +874,7 @@ final class ScreenshotTests: XCTestCase {
         guard open("About", in: about, name: "40-about") else { return }
         settle()
         shot("40-about")
+        let aboutTop: String = focusedLabel(in: about)
         // #24 C: the run on fa00af8 had 41-1/2/3 identical to 40: the page is longer than the screen, but its text rows were
         // not focusable, so Down had nothing to move to. The rows now take focus (App/Features/Settings/AboutView.swift);
         // four Down presses per picture move the focus, and the page with it, a screen further.
@@ -832,10 +883,14 @@ final class ScreenshotTests: XCTestCase {
             sleep(1)
             shot("41-about-scrolled-\(step)")
         }
+        // R346 (item A): the owner's build 5 jumped to the tab bar on Up before the page was back at its first row.
+        scrollUpCheck("41-about", top: aboutTop, in: about)
         // #25 A2: by its identifier; the long notices moved to Learn More pages (B9), so the link is nearer the top.
         if open("Full Licence Texts", id: ControlID.fullLicenceTexts, in: about, name: "42-licence-texts") {
             settle(); shot("42-licence-texts")
+            let licenceTop: String = focusedLabel(in: about)
             for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); shot("43-licence-texts-scrolled-\(step)") }
+            scrollUpCheck("43-licence-texts", top: licenceTop, in: about)
         }
         about.terminate()
 
@@ -1134,6 +1189,7 @@ final class ScreenshotTests: XCTestCase {
         app = launch("-UITestFixtures", open: "Sample Show 1")
         if waitForScreen("screen.series", in: app, timeout: 60), waitFor("Season 1", in: app, timeout: 20) {
             settle(); shot("55-show-page")
+            let showTop: String = focusedLabel(in: app)
             // R336: the show page's backdrop, as on the movie page ("55-show-page-CONTRAST", a note).
             textContrast("55-show-page", in: app)
             // #33 E: every episode card the same size (55 of the run of 20 Nov: S2 E3 378 x 566 beside 410 x 615).
@@ -1166,12 +1222,15 @@ final class ScreenshotTests: XCTestCase {
             } else {
                 notReached("56-show-long-episode-caption", "Could not move the focus to S2 E3 (focus on \(focusedLabel(in: app))).")
             }
+            // R346 (item A): Up from the bottom of the show page reaches its first control before the tab bar.
+            scrollUpCheck("56-show-page", top: showTop, in: app)
         } else { hierarchy("55-show-page", of: app); notReached("55-show-page", "The show page did not open.") }
         app.terminate()
 
         app = launch("-UITestFixtures", open: "Sample Movie 1")
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 1", in: app) {
             settle(); shot("57-movie-detail")
+            let movieTop: String = focusedLabel(in: app)
             let movieTree: String = app.debugDescription
             note("57-movie-detail-HIERARCHY", movieTree)
             checkGap("57-movie-detail", tree: movieTree, anchors: [ControlID.play, ControlID.more], kinds: ["StaticText"], minimum: 40, what: "buttons to the next heading")
@@ -1180,6 +1239,8 @@ final class ScreenshotTests: XCTestCase {
             // contrast against it in "57-movie-detail-CONTRAST" (a note, not a failure; targets PROVISIONAL, R240).
             textContrast("57-movie-detail", in: app)
             for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); let mustChange: String? = step == 1 ? "Down on the movie page" : nil; shot("58-movie-detail-scrolled-\(step)", mustChangeAfter: mustChange, endOfScroll: step == 1 ? nil : "Down on the movie page") }
+            // R346 (item A): Up from the bottom of the movie page reaches Play before the tab bar.
+            scrollUpCheck("58-movie-detail", top: movieTop, in: app)
             // Fix Match is in the More menu (ItemDetailContentView.moreMenu), not a button on the page: the old test looked for
             // it on the page and never found it (#15 item 1.3). Up to the action row first: the focus is below it after 58.
             for _ in 0..<6 { XCUIRemote.shared.press(.up) }; sleep(1)
@@ -1637,6 +1698,7 @@ final class ScreenshotTests: XCTestCase {
                 settle(); shot("71-files-root"); hierarchy("71-files-root", of: app)
                 if open("Movies", in: app, name: "72-files-folder") {
                     settle(); shot("72-files-folder")
+                    let folderTop: String = focusedLabel(in: app)
                     // #15 7.2: opening a folder must keep the Files tab. If the Movies tab got selected instead, say so (the
                     // test pressed the tab, or the app switched tabs) rather than leave a Movies grid named "files-folder".
                     // #24 C: the run on fa00af8 failed here ("no match for TabBar > Button where isSelected == 1", line 562):
@@ -1648,6 +1710,8 @@ final class ScreenshotTests: XCTestCase {
                     if !onFolder || onMovies {
                         notReached("72-files-folder", "After opening the Movies folder: folder screen shown \(onFolder), Movies tab screen shown \(onMovies). Accessibility tree (first 60 lines):\n\(trimmedHierarchy(app))")
                     }
+                    // R346 (item A): Up from the last file of the folder reaches the first file before the tab bar.
+                    if onFolder { scrollUpCheck("72-files-folder", top: folderTop, in: app) }
                     if open("Sample Movie 1 (2021)", in: app, name: "73-files-movie-folder") {
                         settle(); shot("73-files-movie-folder")
                         // #25 B9: the picture waits for the sheet's last element (Done) to stand still.
@@ -2110,7 +2174,9 @@ final class ScreenshotTests: XCTestCase {
         settle(); shot("63-movies-needs-review-button\(suffix)")
         if openToolbarControl("Needs Review", id: ControlID.needsReview, in: app, name: "64-needs-review\(suffix)"), waitForScreen("screen.needsReview", in: app) {
             settle(); shot("64-needs-review\(suffix)"); hierarchy("64-needs-review\(suffix)", of: app)
+            let reviewTop: String = focusedLabel(in: app)
             for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); shot("64-needs-review-scrolled-\(step)\(suffix)") }
+            if suffix.isEmpty { scrollUpCheck("64-needs-review", top: reviewTop, in: app) }
             if open("Sample Clip", in: app, name: "65-needs-review-choice\(suffix)") {
                 // #25 A3: the choice is open when its Move to Shows item is there.
                 if waitForAny(["Move to Shows"], in: app) != nil { sleep(1); shot("65-needs-review-choice\(suffix)") }

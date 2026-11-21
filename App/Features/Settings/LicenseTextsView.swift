@@ -15,6 +15,9 @@ struct LicenseTextsView: View {
             }
             // R345: the focused row grows past the list's edge; the list must not clip it (42, 43).
             .scrollClipDisabled()
+            // R346 (item A): the scrolling page is one focus region, so Up scrolls back to its first row before it
+            // can leave for the tab bar (reason and UNVERIFIED cause: PaneColumns, App/Shared/SettingsPane.swift).
+            .focusSection()
         }
         .pushedScreen("Full Licence Texts")
     }

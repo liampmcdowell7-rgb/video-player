@@ -79,6 +79,10 @@ none of them fails a job on its own unless the line says so):
   failed in `index.md`. `<picture>-UNCHANGED.txt`: a step meant to change the screen did not; a WARNING, and since #33 L a
   test failure where the step is marked `mustChangeAfter`. `-TABBAR`, `-HIERARCHY`: the tab bar and the accessibility tree
   at that moment.
+- `-SCROLL-UP` (R346): on a long page (31, 41, 43, 56, 58, 64, 72) the test presses Down to the end, then Up one press
+  at a time; every press is listed. FAIL when the last row focused before the tab bar (or before the focus stops) is
+  not the row that had the focus when the page opened: the focus jumped to the tab bar before the page was back at
+  its first row (owner's device test of build 5).
 - `-FOCUS-CLIPPED` (R345): the focused row of the picture (the white platter of the system focus effect) is cut flat on
   one side or touches the edge of the picture; a test failure (`FocusRoom`, checked on every picture).
 - `-COVER` (#33, #34 2): while a full-screen cover is open, the page behind it is hidden from VoiceOver and the cover itself

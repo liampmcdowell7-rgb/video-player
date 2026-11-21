@@ -54,6 +54,9 @@ struct ItemDetailContentView: View {
         }
         // R345: the focused buttons and rows grow past the page's scroll view; it must not clip them.
         .scrollClipDisabled()
+        // R346 (item A): the scrolling page is one focus region, so Up scrolls back to its first row before it
+        // can leave for the tab bar (reason and UNVERIFIED cause: PaneColumns, App/Shared/SettingsPane.swift).
+        .focusSection()
         .defaultFocus($playFocused, true)
         // #25 B10: the run on 1fe5d50 (78) opened the page with the TAB BAR focused: a page pushed at launch
         // (`-UITestOpen`, a Top Shelf link) gets the focus the tab bar had, and `defaultFocus` alone only picks where the
