@@ -290,7 +290,8 @@ The run's **Summary** page shows the same short list, so you can also copy it fr
 
 One press of **Run workflow** starts six jobs (#24 D removed the seventh, the accessibility-settings screenshots; OPEN_QUESTIONS
 R197). Each has its own line on the run page, its own tick or cross, and its own download. The Simulator build, the
-device build and the package tests have a 30-minute limit each; the three screenshot jobs 60 minutes each (#24 B).
+device build and the package tests have a 30-minute limit each; the three screenshot jobs 60 minutes each (#24 B), the two
+Screenshots parts 75 minutes since R367.
 
 **Order (#23 E).** "Build app + Top Shelf (Simulator)" and "Package tests" start at once. The device build and the three
 screenshot jobs wait for the Simulator build (`needs: compile`) and start only when it is green, about 5 minutes later
@@ -321,7 +322,8 @@ tests in one xcodebuild call, the time limit stopped it, and the half-written re
   fails does not stop the tests after it;
 - every picture is also written as a PNG file at once, so even a test that is stopped half-way keeps the pictures it
   took (the logs download has the loose files in `screenshot-files/`);
-- the tests have **25 minutes counted from the start of the first UI test** (`CI_TEST_BUDGET_SECONDS`). A test still
+- the tests have **25 minutes counted from the start of the first UI test** (`CI_TEST_BUDGET_SECONDS`; 40 minutes in the two
+  Screenshots jobs since R367, whose job cap is 75 minutes). A test still
   running then is stopped (`TIME BUDGET: stopping`: first the polite stop, Ctrl-C, with 60 seconds to finish; then a
   hard stop), the rest are not started, and `index.md` begins with **TEST STOPPED BY THE TIME BUDGET: pictures up to
   <name>**;

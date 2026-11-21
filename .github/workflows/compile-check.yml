@@ -458,7 +458,7 @@ jobs:
     name: Screenshots, part 1 (setup, Settings, sorting; tvOS Simulator, UI tests)
     needs: compile   # #23 E: runs only when job 1 compiled the app; otherwise job "not-taken" says so
     runs-on: xcode-27
-    timeout-minutes: 60   # #24 B: hard cap; the tests stop after 25 minutes (CI_TEST_BUDGET_SECONDS)
+    timeout-minutes: 75   # #24 B, R367: hard cap; the tests stop after 40 minutes (CI_TEST_BUDGET_SECONDS)
     env:
       XCODE_APP: /Applications/Xcode_27.2.app
       XCODEGEN_VERSION: "2.46.0"
@@ -467,7 +467,10 @@ jobs:
       # #24 B: 25 minutes for the UI tests, counted from the start of the first one (scripts/ci-sim.sh), so a slow build
       # no longer eats the test time. Prepare, boot, build and smoke took about 12 minutes on fa00af8; 12 + 25 + the
       # collect, check and upload steps stays well inside the 60-minute job cap.
-      CI_TEST_BUDGET_SECONDS: "1500"
+      # R367 (compile run of 21 Nov 2026, item 15): 40 minutes. Run 8 stopped part 1 in test10 at 25:11 and part 2 in
+      # test16 at 24:17, each the last test of its job, so planned pictures were not taken. Standard runners are free
+      # in a public repository (docs/GITHUB_ACTIONS_RUNBOOK.md, Cost); about 12 + 40 + collect and upload stays inside 75.
+      CI_TEST_BUDGET_SECONDS: "2400"
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7
@@ -538,7 +541,7 @@ jobs:
       - name: Run the UI tests, one xcodebuild call per test (pictures copied after each)
         id: uitests
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        timeout-minutes: 35
+        timeout-minutes: 45   # R367: the 40-minute budget plus the stop grace
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Run the UI tests, one call per test"
           bash scripts/ci-ui-tests.sh "$GITHUB_WORKSPACE/screenshots" \
@@ -613,7 +616,7 @@ jobs:
     name: Screenshots, part 2 (library and detail pages; tvOS Simulator, UI tests)
     needs: compile   # #23 E: runs only when job 1 compiled the app; otherwise job "not-taken" says so
     runs-on: xcode-27
-    timeout-minutes: 60   # #24 B: hard cap; the tests stop after 25 minutes (CI_TEST_BUDGET_SECONDS)
+    timeout-minutes: 75   # #24 B, R367: hard cap; the tests stop after 40 minutes (CI_TEST_BUDGET_SECONDS)
     env:
       XCODE_APP: /Applications/Xcode_27.2.app
       XCODEGEN_VERSION: "2.46.0"
@@ -622,7 +625,10 @@ jobs:
       # #24 B: 25 minutes for the UI tests, counted from the start of the first one (scripts/ci-sim.sh), so a slow build
       # no longer eats the test time. Prepare, boot, build and smoke took about 12 minutes on fa00af8; 12 + 25 + the
       # collect, check and upload steps stays well inside the 60-minute job cap.
-      CI_TEST_BUDGET_SECONDS: "1500"
+      # R367 (compile run of 21 Nov 2026, item 15): 40 minutes. Run 8 stopped part 1 in test10 at 25:11 and part 2 in
+      # test16 at 24:17, each the last test of its job, so planned pictures were not taken. Standard runners are free
+      # in a public repository (docs/GITHUB_ACTIONS_RUNBOOK.md, Cost); about 12 + 40 + collect and upload stays inside 75.
+      CI_TEST_BUDGET_SECONDS: "2400"
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7
@@ -693,7 +699,7 @@ jobs:
       - name: Run the UI tests, one xcodebuild call per test (pictures copied after each)
         id: uitests
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        timeout-minutes: 35
+        timeout-minutes: 45   # R367: the 40-minute budget plus the stop grace
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Run the UI tests, one call per test"
           # #34 4 (OPEN_QUESTIONS R242, PROVISIONAL mitigation, not a diagnosis): test12 and test13 hung in part 1 of the
