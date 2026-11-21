@@ -5,6 +5,7 @@ struct V: View {
             Text("Row")
 
         }
+        .scrollClipDisabled()
         .textCase(.uppercase) // design-lint:allow fixture: documented exception
     }
 }

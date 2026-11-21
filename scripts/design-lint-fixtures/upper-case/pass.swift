@@ -6,5 +6,6 @@ struct V: View {
                 Text("Row")
             }
         }
+        .scrollClipDisabled()
     }
 }

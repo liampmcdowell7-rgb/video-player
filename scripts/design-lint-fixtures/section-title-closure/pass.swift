@@ -14,5 +14,6 @@ struct V: View {
             }
             Section(isExpanded: .constant(true)) { Text("a") } header: { Text("b") }
         }
+        .scrollClipDisabled()
     }
 }

@@ -5,6 +5,7 @@ struct V: View {
             Text("Row")
 
         }
+        .scrollClipDisabled()
         // design-lint:allow fixture: documented exception
         .listRowBackground(Color.clear)
     }

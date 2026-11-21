@@ -21,6 +21,13 @@ struct SettingsPane<Content: View>: View {
         PaneColumns(title: title, summary: summary, status: status, summaryStyle: ReadableSecondary.style) {
             Form { content }
                 .foregroundStyle(HierarchicalShapeStyle.primary, ReadableSecondary.style)
+                // R345 (compile run of 21 Nov 2026): the system focus effect grows the focused row a few points past the
+                // Form's edge, and the Form clipped it to its bounds: every focused Settings row was cut flat on the left
+                // at x 990, the left edge of this column (31 to 38, 41, 64, 69, 109). `scrollClipDisabled()` (tvOS 17.0+:
+                // "Sets whether a scroll view clips its content to its bounds") lets the system draw the whole row.
+                // Whether a Form (a List underneath) honours it on tvOS 27 is UNVERIFIED until the -FOCUS-CLIPPED check
+                // of the next run.
+                .scrollClipDisabled()
         }
         .navigationTitle(title)
         .toolbarVisibility(.hidden, for: .navigationBar)
@@ -77,6 +84,9 @@ struct TaskPage<Content: View>: View {
             }
             content
         }
+        // R345: room for the focus effect, as SettingsPane (the task pages' rows were whole in the run, 10 to 19; one
+        // rule for every Form).
+        .scrollClipDisabled()
         // #36 S-A (OPEN_QUESTIONS R253, PROVISIONAL): the same two hierarchical levels as `SettingsPane`'s Form. Why the
         // header was dim here and bright on Move: the title and sentence sit in this Form's first SECTION HEADER, which
         // the system draws in the Form's dimmed header level when the Form sets no levels of its own (run of 20 Nov: title
@@ -229,7 +239,9 @@ struct PaneColumns<Content: View>: View {
             // #25 B9: the system padding between the left text and the rows (Storage and iCloud: the text almost touched the
             // list). No number: the platform default.
             .padding(.trailing)
+            // R345: the right column's List or Form must not clip its focused row (Files 71 to 73, Settings 31 to 38).
             content
+                .scrollClipDisabled()
                 .frame(maxWidth: .infinity)
         }
     }

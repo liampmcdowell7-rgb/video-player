@@ -7,6 +7,7 @@ struct LongTextPage: View {
     let text: String
 
     var body: some View {
+        // design-lint:allow R345: a long text holds no focusable row (the scroll view itself takes focus)
         ScrollView {
             Text(text)
                 .font(.body)

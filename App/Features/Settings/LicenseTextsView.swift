@@ -13,6 +13,8 @@ struct LicenseTextsView: View {
                     LicenseTextView(item: item)
                 }
             }
+            // R345: the focused row grows past the list's edge; the list must not clip it (42, 43).
+            .scrollClipDisabled()
         }
         .pushedScreen("Full Licence Texts")
     }
@@ -31,6 +33,7 @@ struct LicenseTextView: View {
     }
 
     var body: some View {
+        // design-lint:allow R345: a licence text holds no focusable row (the scroll view itself takes focus)
         ScrollView {
             VStack(alignment: .leading) {
                 // #33 J: the page's title, drawn once (the navigation bar is hidden on pushed pages, rule D1, so the page

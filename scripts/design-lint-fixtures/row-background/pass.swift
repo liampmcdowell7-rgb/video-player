@@ -4,5 +4,6 @@ struct V: View {
         Form {
             LabeledContent("Backup", value: "On")
         }
+        .scrollClipDisabled()
     }
 }

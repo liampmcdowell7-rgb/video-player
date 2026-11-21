@@ -43,6 +43,8 @@
 #   fixture-claim          "Tested against a real server" or .realServer in sample or fixture data (rule D7)
 #   section-title-closure  Section("Title") { } followed by header: or footer: (no such SwiftUI initializer; #23 A)
 #   form-sheet             any .sheet( presentation (#30: every task screen is a full-screen .taskCover, never a small sheet)
+#   focus-room             a ScrollView, List or Form in a file with fewer .scrollClipDisabled() than containers, or a
+#                          .clipped() / .clipShape( / .mask in such a file (R345: a focused row is never clipped)
 #
 # The names rule (unknown-name), exactly. It reads UI strings only (string literals in .swift files, keys and values in
 # .xcstrings files), never comments or code identifiers. Per string: interpolations \(...), escapes, URLs, paths and
@@ -468,6 +470,21 @@ for e in "${FILES[@]}"; do
   # #30 (OPEN_QUESTIONS R228): every task screen opens full screen through `.taskCover` (or `.addSourceCover`); any
   # `.sheet(` presentation is reported (a small card over the page, the tab bar above it: 10, 11, 17, 21, 74, 94).
   scan "$f" "$nf" "$cf" form-sheet '\.sheet\(' 'presented as a sheet: present task screens full screen with .taskCover(isPresented:) or .taskCover(item:) (#30, R228)'
+  # R345 (compile run of 21 Nov 2026): the system focus effect grows a focused row past its container, and a List, Form or
+  # scroll view clips it to its bounds (31: the row cut flat at x 990). Every container gives the focus room the system way,
+  # `.scrollClipDisabled()`; a container that holds no focusable row takes a design-lint:allow with the reason.
+  if grep -qE '(^|[^A-Za-z0-9_])(ScrollView|List|Form)[[:space:]]*(\{|\()' "$cf"; then
+    need=0; lines=""
+    while IFS= read -r ln; do
+      [ -z "$ln" ] && continue
+      if has_allow "$nf" "$ln"; then ALLOWED=$((ALLOWED + 1)); else need=$((need + 1)); lines="$lines $ln"; fi
+    done < <(grep -nE '(^|[^A-Za-z0-9_])(ScrollView|List|Form)[[:space:]]*(\{|\()' "$cf" | cut -d: -f1)
+    have="$(grep -c 'scrollClipDisabled' "$cf")"
+    if [ "$have" -lt "$need" ]; then
+      for ln in $lines; do report "$f" "$nf" "$ln" focus-room 'ScrollView, List or Form without .scrollClipDisabled(): the system focus effect grows a focused row past the container, which clips it (R345)'; done
+    fi
+    scan "$f" "$nf" "$cf" focus-room '\.clipped\(\)|\.clipShape\(|\.mask[[:space:]]*[({]' 'clipping modifier in a file with a scrolling container: never clip a container that holds focusable rows (R345)'
+  fi
   if ! grep -q 'accessibilityReduceMotion' "$cf"; then
     scan "$f" "$nf" "$cf" motion 'withAnimation|\.animation\(|\.transition\(|\.contentTransition\(|\.symbolEffect\(|\.phaseAnimator\(|\.keyframeAnimator\(' 'animation with no @Environment(\.accessibilityReduceMotion) in this file: honour Reduce Motion'
   fi

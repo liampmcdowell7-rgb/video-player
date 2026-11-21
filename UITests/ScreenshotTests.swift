@@ -109,6 +109,19 @@ final class ScreenshotTests: XCTestCase {
         }
         lastShot = (name, png)
         lastScreenshot = screenshot
+        focusRoomCheck(name, screenshot)
+    }
+
+    /// R345: on every picture with a focused row (the white platter of the system focus effect), the row must be whole: its
+    /// rounded corners intact on both sides (no straight cut) and its frame inside the picture (`FocusRoom`, proven in
+    /// FocusRoomTests on the run of 21 Nov, where 31-settings-playback was cut flat at x 990). A failure writes a
+    /// -FOCUS-CLIPPED note and fails the test; a picture without a focused row is not measured.
+    func focusRoomCheck(_ name: String, _ screenshot: XCUIScreenshot) {
+        guard let image = RGBImage(screenshot: screenshot) else { return }
+        let result: CheckResult = FocusRoom.check(image)
+        guard !result.passed else { return }
+        note(name + "-FOCUS-CLIPPED", result.text)
+        XCTFail("\(name): \(result.verdict)")
     }
 
     /// The last capture as a screenshot, for the pixel checks of the "-later" pictures.

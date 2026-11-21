@@ -25,6 +25,8 @@ struct FilesFolderView: View {
                                     }
                                 }
                         }
+                        // R345: the focused row grows past the list's edge; the list must not clip it (72, 73).
+                        .scrollClipDisabled()
                     }
                 }
             } else {

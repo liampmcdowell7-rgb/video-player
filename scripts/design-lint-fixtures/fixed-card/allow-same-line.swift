@@ -5,6 +5,7 @@ struct V: View {
             Text("Row")
 
         }
+        .scrollClipDisabled()
         .presentationDetents([.medium]) // design-lint:allow fixture: documented exception
     }
 }

@@ -73,6 +73,8 @@ struct SeasonsList: View {
                 }
             }
         }
+        // R345: the focused buttons and cards grow past the page's scroll view; it must not clip them.
+        .scrollClipDisabled()
         .defaultFocus($playFocused, true)
         // #25 B10: as on the movie page, Play takes the focus once the page is on screen (a page pushed at launch kept the
         // tab bar's focus).

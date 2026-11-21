@@ -4,6 +4,7 @@ struct V: View {
         Form {
             Text("Row")
         }
+        .scrollClipDisabled()
         .navigationTitle("Playback")
         .toolbarVisibility(.hidden, for: .navigationBar)
     }

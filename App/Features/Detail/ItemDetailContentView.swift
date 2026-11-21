@@ -52,6 +52,8 @@ struct ItemDetailContentView: View {
                 }
             }
         }
+        // R345: the focused buttons and rows grow past the page's scroll view; it must not clip them.
+        .scrollClipDisabled()
         .defaultFocus($playFocused, true)
         // #25 B10: the run on 1fe5d50 (78) opened the page with the TAB BAR focused: a page pushed at launch
         // (`-UITestOpen`, a Top Shelf link) gets the focus the tab bar had, and `defaultFocus` alone only picks where the
@@ -193,6 +195,7 @@ private struct CastPhoto: View {
                 placeholder
             }
         }
+        // design-lint:allow R345: the cast photo itself is cut to a circle (the system highlight is attached to it); it holds no focusable row
         .clipShape(Circle())
         .accessibilityHidden(true)
     }

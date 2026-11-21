@@ -79,6 +79,8 @@ none of them fails a job on its own unless the line says so):
   failed in `index.md`. `<picture>-UNCHANGED.txt`: a step meant to change the screen did not; a WARNING, and since #33 L a
   test failure where the step is marked `mustChangeAfter`. `-TABBAR`, `-HIERARCHY`: the tab bar and the accessibility tree
   at that moment.
+- `-FOCUS-CLIPPED` (R345): the focused row of the picture (the white platter of the system focus effect) is cut flat on
+  one side or touches the edge of the picture; a test failure (`FocusRoom`, checked on every picture).
 - `-COVER` (#33, #34 2): while a full-screen cover is open, the page behind it is hidden from VoiceOver and the cover itself
   is exposed (10 to 21, 59, 66, 67, 74, the saved views, the accessibility Add a Source screens).
 - `-NAME` (#33): whether the server's name is readable on 21-server-details.

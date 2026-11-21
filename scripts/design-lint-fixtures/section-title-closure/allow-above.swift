@@ -5,5 +5,6 @@ struct V: View {
             // design-lint:allow fixture: an allowed instance
             Section("Storage") { Text("a") } footer: { Text("b") }
         }
+        .scrollClipDisabled()
     }
 }

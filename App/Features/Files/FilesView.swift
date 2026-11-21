@@ -22,6 +22,8 @@ struct FilesView: View {
                                 RowLabel(source.name, systemImage: "externaldrive", detail: FilesText.sourceDetail(source.kind))
                             }
                         }
+                        // R345: the focused row grows past the list's edge; the list must not clip it (31, 71 to 73).
+                        .scrollClipDisabled()
                     }
                 }
             } else {

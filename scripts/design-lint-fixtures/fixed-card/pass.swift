@@ -4,6 +4,7 @@ struct V: View {
         List {
             Text("Types")
         }
+        .scrollClipDisabled()
         .frame(maxHeight: .infinity)
     }
 }

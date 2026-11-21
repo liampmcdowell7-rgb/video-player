@@ -5,6 +5,7 @@ struct V: View {
             Text("Row")
 
         }
+        .scrollClipDisabled()
         .navigationTitle("Playback") // design-lint:allow fixture: documented exception
     }
 }

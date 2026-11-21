@@ -13,5 +13,7 @@ struct HomeRows: View {
                 }
             }
         }
+        // R345: the focused cards grow past the page's scroll view; it must not clip them.
+        .scrollClipDisabled()
     }
 }
