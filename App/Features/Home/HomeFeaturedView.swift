@@ -3,7 +3,7 @@ import AppLogic
 
 /// R349 (owner's device test of build 5, 21 Nov 2026, item C; PROVISIONAL): the featured area at the top of Home, as the
 /// Home screen of Apple's TV app on tvOS 27 (docs/DESIGN_SYSTEM.md "Reference screens"): the title's large artwork across
-/// the full width, and over its lower part the title logo (or the name), ONE line of metadata, then Play (or Resume) and
+/// the full width (drawn behind the page by `HomeRows`, R357), and over its lower part the title logo (or the name), ONE line of metadata, then Play (or Resume) and
 /// More. More opens the title's page. Which title: AppLogic `HomeFeatured.pick` (Continue Watching first).
 /// The area is two thirds of the screen's height (`HomeFeaturedLayout.heightFraction`), so the first shelf shows below it
 /// and the person can see there is more (HIG Designing for tvOS: "Deliver beautiful, edge-to-edge artwork").
@@ -37,7 +37,8 @@ struct HomeFeaturedView: View {
         .containerRelativeFrame(.vertical) { (length: CGFloat, _: Axis) -> CGFloat in
             length * HomeFeaturedLayout.heightFraction
         }
-        .background { BackdropView(artworkKey: featured.titleArtworkKey, style: .hero) }
+        // R357: the artwork is drawn by `HomeRows` behind the whole page (full bleed), not here inside the scroll content,
+        // where it stopped at the safe area. This area only holds the text and buttons, inside the system margins.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(ControlID.featured)
     }
