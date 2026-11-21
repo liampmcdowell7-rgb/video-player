@@ -10,9 +10,12 @@
 #                                    certificate and never revokes or deletes anything (the self-test checks this).
 #   cm-testflight.sh check-profiles  scripts/cm-profile-check.py dir (iCloud container and App Group of the chosen two)
 #   cm-testflight.sh archive         `xcode-project use-profiles` (the chosen profiles only), a check that both targets now
-#                                    sign manually with a profile, the build number, `xcodebuild archive` (Release, tvOS)
+#                                    sign manually with a profile, the build number, `xcodebuild archive` (Release, tvOS), then
+#                                    check-build on the archive
 #   cm-testflight.sh export          `xcodebuild -exportArchive` with the generated export options (method app-store)
 #   cm-testflight.sh redact          stdin to stdout with the extra redaction below (used by the self-test)
+#   cm-testflight.sh check-build ARCHIVE N  the archive's app and Top Shelf Info.plist carry CFBundleVersion N (the archive
+#                                    step runs it after xcodebuild archive, before export; R279)
 # Codemagic's CLI tools (app-store-connect, xcode-project) are on its build machines; the App Store Connect
 # integration `asc-testflight` gives them the API key (codemagic.yaml). The repository is public: every command writes to
 # a file in a private temporary folder; the log shows only result lines and, on failure, the error lines, redacted twice
@@ -20,7 +23,7 @@
 # with the holder's name, e-mail addresses). UNVERIFIED (no Mac, never run): every Codemagic CLI behaviour named here.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-step="${1:?step: prepare | signing | check-profiles | archive | export | redact}"
+step="${1:?step: prepare | signing | check-profiles | archive | export | redact | check-build}"
 APP_ID=com.liamp.videoplayer
 TOPSHELF_ID=com.liamp.videoplayer.topshelf
 ARCHIVE=build/ios/xcarchive/VideoPlayer.xcarchive
@@ -37,6 +40,39 @@ redact() {
 }
 
 if [ "$step" = redact ]; then redact; exit 0; fi
+
+# check_build_number ARCHIVE N: both bundles in the archive must carry CFBundleVersion N (OPEN_QUESTIONS R279; TestFlight
+# showed 0.1.0 (1) for the first upload). Reads with PlistBuddy on the Mac; python3 plistlib where PlistBuddy is missing
+# (the Linux self-test). One error line per wrong bundle; returns 1 if any is wrong.
+plist_build() {
+  if [ -x /usr/libexec/PlistBuddy ]; then
+    /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$1" 2>/dev/null
+  else
+    python3 -c 'import plistlib,sys; d=plistlib.load(open(sys.argv[1],"rb")); v=d.get("CFBundleVersion"); sys.exit(1) if v is None else print(v)' "$1" 2>/dev/null
+  fi
+}
+check_build_number() {
+  local archive="$1" want="$2" bad=0 label plist got
+  # The bundle names are looked up, not assumed (expected VideoPlayer.app and TopShelf.appex; UNVERIFIED until an archive).
+  local app ext
+  app="$(ls -d "$archive"/Products/Applications/*.app 2>/dev/null | head -n 1)"
+  ext="$(ls -d "$app"/PlugIns/*.appex 2>/dev/null | head -n 1)"
+  for label in app topshelf; do
+    if [ "$label" = app ]; then plist="${app:-$archive/Products/Applications/(no .app)}/Info.plist"
+    else plist="${ext:-${app:-$archive}/PlugIns/(no .appex)}/Info.plist"; fi
+    if [ ! -f "$plist" ]; then
+      echo "BUILD NUMBER ERROR: $label Info.plist not found in the archive ($plist)"; bad=1; continue
+    fi
+    got="$(plist_build "$plist")" || got=""
+    if [ "$got" != "$want" ]; then
+      echo "BUILD NUMBER ERROR: $label CFBundleVersion is '${got:-missing}', expected $want (project.yml info properties, R279)"; bad=1
+    fi
+  done
+  [ "$bad" -eq 0 ] && echo "Build number check: app and Top Shelf carry CFBundleVersion $want"
+  return "$bad"
+}
+
+if [ "$step" = check-build ]; then check_build_number "${2:?archive path}" "${3:?build number}"; exit $?; fi
 
 W="${TMPDIR:-/tmp}/vp-testflight"
 mkdir -p "$W/logs" && chmod 700 "$W"
@@ -146,7 +182,10 @@ case "$step" in
       CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
       > "$W/logs/archive.log" 2>&1; rc=$?
     show "$W/logs/archive.log" "Archive" "$rc"
-    exit "$rc" ;;
+    [ "$rc" -eq 0 ] || exit "$rc"
+    # Before export: both bundles must carry this build number (R279), or the upload would repeat an old one.
+    check_build_number "$ARCHIVE" "$BUILD_NUMBER" || exit 1
+    exit 0 ;;
 
   export)
     [ -f "$EXPORT_OPTIONS" ] || { echo "SIGNING ERROR: no export options at ~/export_options.plist (use-profiles writes it)"; exit 1; }

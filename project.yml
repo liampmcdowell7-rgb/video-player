@@ -81,7 +81,10 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: Video Player
-        CFBundleShortVersionString: "0.1.0"
+        # Build number and version from the build settings (OPEN_QUESTIONS R279): the archive step overrides
+        # CURRENT_PROJECT_VERSION with the UTC build number; without these two keys TestFlight showed 0.1.0 (1).
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
         # Plain system launch screen: no storyboard, no image.
         UILaunchScreen: {}
         # The link scheme Top Shelf items use (AppLogic/DeepLink.swift): videoplayer://item/42, series/7, library.
@@ -176,7 +179,9 @@ targets:
       path: TopShelf/Info.plist
       properties:
         CFBundleDisplayName: Video Player Top Shelf
-        CFBundleShortVersionString: "0.1.0"
+        # Same values as the app (R279).
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.tv-top-shelf
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).TopShelfProvider

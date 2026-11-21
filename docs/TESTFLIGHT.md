@@ -97,6 +97,11 @@ Names from Codemagic's pages read on 20 Nov 2026 (listed under Sources at the en
   tvOS apps that contain the 'com.apple.developer.icloud-services' entitlement." Fixed by: Push Notifications on the App
   ID `com.liamp.videoplayer`, the app's profile made again and uploaded (`video_player_tvos_3`), and `aps-environment`
   `production` in the app's entitlements in `project.yml` (entitlement only; the app sends no notifications). R266.
+  The first build that reached TestFlight showed **0.1.0 (1)**: build number 1, not the UTC time. Cause: project.yml's
+  Info.plist properties did not take `CFBundleVersion` from the build settings, so the run-time build number never
+  reached the bundle; another upload of 0.1.0 would repeat build 1 and be refused. Fixed (built, not yet run on a Mac):
+  both targets now use `$(CURRENT_PROJECT_VERSION)` and `$(MARKETING_VERSION)`, and the archive step stops before export
+  if either bundle does not carry the build number. R279.
 - **C8. YOU (Apple website and Apple TV)** — steps 23 to 26 below: wait for Processing, add yourself as an **internal
   tester** (Internal Testing group, automatic distribution), install TestFlight on the Apple TV and the build.
 - **C9. YOU** — for every later build: C5 only (and C8 if you want it on the Apple TV).

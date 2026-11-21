@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Self-test for the Codemagic TestFlight route (OPEN_QUESTIONS R266): codemagic.yaml's shape, scripts/cm-build-number.sh,
+# the build-number check on an archive and project.yml's version keys (R279),
 # scripts/cm-signing.py (synthetic CLI output and throwaway certificates; the negative checks that nothing can make,
 # revoke or delete a key or a certificate), scripts/cm-profile-check.py (against the hand-written sample plists in scripts/codemagic-fixtures/, decoded and as
 # signed profiles made here with a throwaway key), the redaction in scripts/cm-testflight.sh, and the codemagic.yaml
@@ -89,6 +90,64 @@ now="$(date -u +%Y%m%d%H%M)"; [ $((now - n)) -ge 0 ] && [ $((now - n)) -le 1 ] &
 bash scripts/cm-build-number.sh --check "$n" && ok "--check accepts the build number" || bad "--check refuses $n"
 r=0; for v in 202613011200 202611321200 202611202460 2026112012 abc ""; do bash scripts/cm-build-number.sh --check "$v" && r=1; done
 [ "$r" -eq 0 ] && ok "--check refuses month 13, day 32, minute 60, a short value, letters and empty" || bad "--check accepted a wrong value"
+
+# --- build number inside the archive (R279): cm-testflight.sh check-build against fixture plists made here ---
+# PlistBuddy does not exist on Linux, so these runs use the python3 plistlib reader in the same function.
+mkarch() { # $1 = archive dir, $2 = app CFBundleVersion or "-" for no key, $3 = Top Shelf value or "-", or "none" for no .appex
+  python3 - "$1" "$2" "$3" <<'PY'
+import os, plistlib, sys
+a, appv, extv = sys.argv[1:4]
+app = os.path.join(a, "Products/Applications/VideoPlayer.app")
+os.makedirs(app, exist_ok=True)
+def write(folder, v):
+    d = {"CFBundleIdentifier": "com.example.synthetic", "CFBundleShortVersionString": "0.1.0"}
+    if v != "-": d["CFBundleVersion"] = v
+    with open(os.path.join(folder, "Info.plist"), "wb") as f: plistlib.dump(d, f)
+write(app, appv)
+if extv != "none":
+    ext = os.path.join(app, "PlugIns/TopShelf.appex"); os.makedirs(ext, exist_ok=True); write(ext, extv)
+PY
+}
+BN=202611210145
+mkarch "$t/a-ok" "$BN" "$BN"
+out="$(bash scripts/cm-testflight.sh check-build "$t/a-ok" "$BN" 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "^Build number check: app and Top Shelf carry CFBundleVersion $BN$" && ok "check-build passes when app and Top Shelf carry the build number" || bad "check-build on a matching archive: rc $rc, $out"
+mkarch "$t/a-one" "$BN" "1"
+out="$(bash scripts/cm-testflight.sh check-build "$t/a-one" "$BN" 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q "^BUILD NUMBER ERROR: topshelf CFBundleVersion is '1', expected $BN" && [ "$(printf '%s\n' "$out" | grep -c ERROR)" -eq 1 ] && ok "check-build stops on \"1\" in the Top Shelf extension (one error line)" || bad "check-build with Top Shelf 1: rc $rc, $out"
+mkarch "$t/a-app1" "1" "$BN"
+out="$(bash scripts/cm-testflight.sh check-build "$t/a-app1" "$BN" 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q "^BUILD NUMBER ERROR: app CFBundleVersion is '1', expected $BN" && ok "check-build stops on \"1\" in the app" || bad "check-build with app 1: rc $rc, $out"
+mkarch "$t/a-miss" "-" "$BN"
+out="$(bash scripts/cm-testflight.sh check-build "$t/a-miss" "$BN" 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q "^BUILD NUMBER ERROR: app CFBundleVersion is 'missing', expected $BN" && ok "check-build stops when the key is missing" || bad "check-build with a missing key: rc $rc, $out"
+mkarch "$t/a-noext" "$BN" "none"
+out="$(bash scripts/cm-testflight.sh check-build "$t/a-noext" "$BN" 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q "^BUILD NUMBER ERROR: topshelf Info.plist not found" && ok "check-build stops when the Top Shelf extension is missing" || bad "check-build without .appex: rc $rc, $out"
+grep -q 'check_build_number "$ARCHIVE" "$BUILD_NUMBER" || exit 1' scripts/cm-testflight.sh && \
+  awk '/^  archive\)/{a=1} a&&/xcodebuild archive/{x=NR} a&&/check_build_number "\$ARCHIVE"/{c=NR} /^  export\)/{a=0} END{exit !(x && c && c>x)}' scripts/cm-testflight.sh \
+  && ok "the archive step runs check-build after xcodebuild archive (before the export step)" || bad "archive step does not run check-build after the archive"
+
+# --- project.yml: both targets take the version and build number from the build settings (R279) ---
+if python3 -c 'import yaml' 2>/dev/null; then
+  out="$(python3 - <<'PY'
+import yaml
+d = yaml.safe_load(open("project.yml"))
+for name in ("VideoPlayer", "TopShelf"):
+    tg = d["targets"][name]
+    p = tg["info"]["properties"]
+    s = tg["settings"]["base"]
+    print(("ok" if p.get("CFBundleVersion") == "$(CURRENT_PROJECT_VERSION)" else "FAIL") + "|project.yml " + name + ": CFBundleVersion is $(CURRENT_PROJECT_VERSION)")
+    print(("ok" if p.get("CFBundleShortVersionString") == "$(MARKETING_VERSION)" else "FAIL") + "|project.yml " + name + ": CFBundleShortVersionString is $(MARKETING_VERSION)")
+a, b = (d["targets"][n]["settings"]["base"] for n in ("VideoPlayer", "TopShelf"))
+print(("ok" if a.get("MARKETING_VERSION") == b.get("MARKETING_VERSION") and a.get("MARKETING_VERSION") else "FAIL") + "|project.yml: app and Top Shelf have the same MARKETING_VERSION")
+print(("ok" if a.get("CURRENT_PROJECT_VERSION") == b.get("CURRENT_PROJECT_VERSION") and a.get("CURRENT_PROJECT_VERSION") else "FAIL") + "|project.yml: app and Top Shelf have the same CURRENT_PROJECT_VERSION")
+PY
+)"
+  while IFS='|' read -r r name; do [ "$r" = ok ] && ok "$name" || bad "$name"; done <<< "$out"
+else
+  echo "SKIP  project.yml version keys (PyYAML not installed)"; skip=$((skip + 1))
+fi
 
 # --- profile check, decoded plists (hand-written samples) ---
 out="$(python3 "$PC" plists "$F/app-ok.plist" "$F/topshelf-ok.plist")"; rc=$?
