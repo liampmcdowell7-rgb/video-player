@@ -492,6 +492,29 @@ final class ScreenshotTests: XCTestCase {
         if reachedTabBar { XCUIRemote.shared.press(.down); usleep(400_000) }
     }
 
+    /// R348 (owner's device test of build 5, item B): pressing the tab that is already selected takes it back to its first
+    /// page. From a pushed page (its header `pushedHeader`), Up until the tab bar has the focus (the selected tab takes it),
+    /// then Select. PASS when `rootText` is on screen and no element is labelled `pushedHeader`. Writes "<name>-RESELECT" and
+    /// the picture "<name>".
+    func reselectTabCheck(_ name: String, rootText: String, pushedHeader: String, in app: XCUIApplication) {
+        let tabBar: XCUIElement = app.tabBars.firstMatch
+        let focusedInBar: NSPredicate = NSPredicate(format: "hasFocus == true")
+        var presses: Int = 0
+        while presses < 40, !(tabBar.exists && tabBar.descendants(matching: .any).matching(focusedInBar).firstMatch.exists) {
+            XCUIRemote.shared.press(.up); usleep(400_000); presses += 1
+        }
+        let onTab: String = focusedLabel(in: app)
+        XCUIRemote.shared.press(.select); sleep(2)
+        let pushedLeft: Bool = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", pushedHeader)).firstMatch.exists
+        let atRoot: Bool = waitFor(rootText, in: app, timeout: 5)
+        let passed: Bool = atRoot && !pushedLeft
+        var verdict: String = "RESELECT OK: back on the tab's first page"
+        if !passed { verdict = "RESELECT FAILED: \(pushedHeader) still in the tree \(pushedLeft), first page text “\(rootText)” shown \(atRoot)" }
+        note(name + "-RESELECT", "Up presses to the tab bar: \(presses)\ntab focused: \(onTab)\n\(verdict)")
+        shot(name)
+        XCTAssertTrue(passed, "\(name): " + verdict)
+    }
+
     /// #36 group 5: what each press of the last `moveFocusToEnd` or `focus` did, one line per press ("3 Down: “Plex” {…}").
     private var focusPath: [String] = []
 
@@ -891,6 +914,9 @@ final class ScreenshotTests: XCTestCase {
             let licenceTop: String = focusedLabel(in: about)
             for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); shot("43-licence-texts-scrolled-\(step)") }
             scrollUpCheck("43-licence-texts", top: licenceTop, in: about)
+            // R348 (item B): two pages deep in Settings (About, Full Licence Texts); pressing Settings again goes back to
+            // the first Settings page.
+            reselectTabCheck("44-settings-reselected", rootText: "Playback", pushedHeader: "Full Licence Texts", in: about)
         }
         about.terminate()
 

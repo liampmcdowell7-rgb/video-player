@@ -93,14 +93,14 @@ check "compile cancelled, no error line: says so instead of inventing one" $?
 
 # #24 D: a main set made by scripts/ci-ui-tests.sh after a deadline stop with an INCOMPLETE result bundle: only the loose
 # PNG files of the tests before the stop, notes/ beside them, index.md saying TEST STOPPED. It must pass the check, and its
-# index must list every picture and the counts.
+# index must list every picture and the counts. (R348: 46 planned in test01 to test03, with 44-settings-reselected.)
 D="$TMP/deadline"; mkdir -p "$D/notes"; pic "$D/02-home-empty.png"; pic "$D/10-add-source-types.png"; pic "$D/11-form-webdav-NOT-REACHED.png"
 printf 'The row could not be focused.' > "$D/notes/11-form-webdav-NOT-REACHED.txt"
 printf 'test\tresult\tseconds\tpictures\ntest01_FirstLaunchAndEmptyScreens\tpassed\t68\t1\ntest02_AddASource\tstopped by the time budget\t900\t2\ntest03_Settings\tnot started (time budget)\t0\t0\n' > "$TMP/ui-tests.tsv"
 python3 "$HERE/scripts/ci-ui-index.py" "$D" "$HERE/scripts/screenshot-plan.tsv" "$TMP/ui-tests.tsv" test01_FirstLaunchAndEmptyScreens test02_AddASource test03_Settings > /dev/null
 OUT="$(bash "$CHECK" "$D" main 2>&1)"; RC=$?
 [ "$RC" -eq 0 ] && has "ARTIFACT OK (main): 3 pictures" && grep -qF 'TEST STOPPED BY THE TIME BUDGET: pictures up to 10-add-source-types' "$D/index.md" \
-  && grep -qF 'Planned: 45. Taken: 2. Missing: 42. Failed (not reached): 1.' "$D/index.md" && grep -qE '^- \[02-home-empty\]\(02-home-empty.png\) [0-9]+ KB' "$D/index.md"
+  && grep -qF 'Planned: 46. Taken: 2. Missing: 43. Failed (not reached): 1.' "$D/index.md" && grep -qE '^- \[02-home-empty\]\(02-home-empty.png\) [0-9]+ KB' "$D/index.md"
 check "deadline stop, incomplete bundle: the loose pictures pass the check; index says TEST STOPPED and counts" $?
 
 # #26: the whole synthetic test key in any artifact file fails the check; the masked form passes.

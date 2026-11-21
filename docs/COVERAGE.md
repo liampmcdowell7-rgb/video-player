@@ -79,6 +79,8 @@ none of them fails a job on its own unless the line says so):
   failed in `index.md`. `<picture>-UNCHANGED.txt`: a step meant to change the screen did not; a WARNING, and since #33 L a
   test failure where the step is marked `mustChangeAfter`. `-TABBAR`, `-HIERARCHY`: the tab bar and the accessibility tree
   at that moment.
+- `-RESELECT` (R348): from a page two levels deep in Settings, the test moves the focus to the tab bar and presses
+  Settings again; FAIL when the first Settings page is not shown (picture 44-settings-reselected).
 - `-SCROLL-UP` (R346): on a long page (31, 41, 43, 56, 58, 64, 72) the test presses Down to the end, then Up one press
   at a time; every press is listed. FAIL when the last row focused before the tab bar (or before the focus stops) is
   not the row that had the focus when the page opened: the focus jumped to the tab bar before the page was back at

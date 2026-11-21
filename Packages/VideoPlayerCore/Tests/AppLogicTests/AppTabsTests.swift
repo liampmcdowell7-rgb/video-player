@@ -47,4 +47,30 @@ final class AppTabsTests: XCTestCase {
         XCTAssertFalse(SearchTabContent.libraryResults.loadsDiscover, "typing never sends a discovery request")
         XCTAssertFalse(SearchTabContent.prompt.loadsDiscover)
     }
+
+    // R348 (item B): re-selecting the selected tab takes it back to its root; selecting another tab does not.
+    func testReselectingTheSelectedTabRaisesOnlyThatTabsRootGeneration() {
+        var roots = TabRoots()
+        XCTAssertEqual(roots.generation(of: .settings), 0)
+        XCTAssertTrue(roots.select(.settings, current: .settings), "pressing Settings again is a re-selection")
+        XCTAssertEqual(roots.generation(of: .settings), 1)
+        XCTAssertEqual(roots.generation(of: .home), 0, "the other tabs keep their pages")
+        XCTAssertTrue(roots.select(.settings, current: .settings))
+        XCTAssertEqual(roots.generation(of: .settings), 2)
+    }
+
+    func testSelectingAnotherTabKeepsEveryTabsPages() {
+        var roots = TabRoots()
+        XCTAssertFalse(roots.select(.movies, current: .home))
+        XCTAssertFalse(roots.select(.home, current: .movies))
+        for tab in AppTabID.allCases { XCTAssertEqual(roots.generation(of: tab), 0, tab.rawValue) }
+    }
+
+    func testEveryTabCanBeReselected() {
+        var roots = TabRoots()
+        for tab in AppTabID.allCases {
+            XCTAssertTrue(roots.select(tab, current: tab), tab.rawValue)
+            XCTAssertEqual(roots.generation(of: tab), 1, tab.rawValue)
+        }
+    }
 }

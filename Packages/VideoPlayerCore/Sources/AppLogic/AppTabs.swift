@@ -50,3 +50,26 @@ public enum SearchTabContent: Equatable, Sendable {
     /// Whether Discover may load (and so contact the online service, when a key is set) in this state.
     public var loadsDiscover: Bool { self == .discover }
 }
+
+/// R348 (owner's device test of build 5, 21 Nov 2026, item B; PROVISIONAL): selecting the tab that is ALREADY selected
+/// takes that tab back to its first page, scrolled to the top, as Apple's apps do (pressing Settings again on build 5 left
+/// the pushed Settings page in place). Every tab has a root generation; re-selecting a tab raises its generation, and the
+/// app rebuilds that tab's navigation stack from its root when the generation changes (`.id` on the stack, RootView), so
+/// pages pushed by value AND by destination are all gone and the root starts at its top. Selecting another tab changes
+/// nothing: each tab keeps its own pages, as before.
+public struct TabRoots: Equatable, Sendable {
+    private var generations: [AppTabID: Int] = [:]
+
+    public init() {}
+
+    /// The selection of `tab` while `current` is selected. True when it was a re-selection (the tab's root generation rose).
+    @discardableResult
+    public mutating func select(_ tab: AppTabID, current: AppTabID) -> Bool {
+        guard tab == current else { return false }
+        generations[tab, default: 0] += 1
+        return true
+    }
+
+    /// The identity of `tab`'s navigation stack: it changes only when the tab is re-selected.
+    public func generation(of tab: AppTabID) -> Int { generations[tab] ?? 0 }
+}

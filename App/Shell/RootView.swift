@@ -23,39 +23,47 @@ struct RootView: View {
     @State private var showsPath: [Route] = []
     @State private var filesPath: [Route] = []
     @State private var searchPath: [Route] = []
+    /// R348 (item B): each tab's root generation; re-selecting the selected tab raises it (AppLogic `TabRoots`).
+    @State private var roots: TabRoots = TabRoots()
     /// #33 B (2): open task covers (`taskCover`, App/Shared/SettingsPane.swift).
     @State private var coverPresence: CoverPresence = CoverPresence.shared
 
     var body: some View {
         @Bindable var services = services
-        TabView(selection: $selection) {
+        TabView(selection: tabSelection) {
             Tab("Home", systemImage: "house", value: AppTab.home) {
                 NavigationStack(path: $homePath) { HomeView().tabRootScreen("Home", identifier: "screen.home").routeDestinations() }
+                    .id(roots.generation(of: .home))
                     .uiTestAccessibilityOverrides()
                     .accessibilityHidden(coverPresence.isCovered)
             }
             Tab("Movies", systemImage: "film", value: AppTab.movies) {
                 NavigationStack(path: $moviesPath) { MoviesView().tabRootScreen("Movies", identifier: "screen.movies").routeDestinations() }
+                    .id(roots.generation(of: .movies))
                     .uiTestAccessibilityOverrides()
                     .accessibilityHidden(coverPresence.isCovered)
             }
             Tab("Shows", systemImage: "tv", value: AppTab.shows) {
                 NavigationStack(path: $showsPath) { ShowsView().tabRootScreen("Shows", identifier: "screen.shows").routeDestinations() }
+                    .id(roots.generation(of: .shows))
                     .uiTestAccessibilityOverrides()
                     .accessibilityHidden(coverPresence.isCovered)
             }
             Tab("Files", systemImage: "folder", value: AppTab.files) {
                 NavigationStack(path: $filesPath) { FilesView().tabRootScreen("Files", identifier: "screen.files").routeDestinations() }
+                    .id(roots.generation(of: .files))
                     .uiTestAccessibilityOverrides()
                     .accessibilityHidden(coverPresence.isCovered)
             }
             Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
                 NavigationStack(path: $searchPath) { SearchView().screenIdentifier("screen.search").screenHeader("Search").routeDestinations() }
+                    .id(roots.generation(of: .search))
                     .uiTestAccessibilityOverrides()
                     .accessibilityHidden(coverPresence.isCovered)
             }
             Tab("Settings", systemImage: "gearshape", value: AppTab.settings) {
                 NavigationStack { SettingsView().tabRootScreen("Settings", identifier: "screen.settings") }
+                    .id(roots.generation(of: .settings))
                     .uiTestAccessibilityOverrides()
                     .accessibilityHidden(coverPresence.isCovered)
             }
@@ -123,6 +131,30 @@ struct RootView: View {
         }
         .onChange(of: scenePhase) {
             if scenePhase == .active { services.sync.request(.becameActive) }
+        }
+    }
+
+    /// R348 (owner's device test of build 5, item B; PROVISIONAL): the tab bar's selection. Selecting the tab that is
+    /// already selected takes it back to its first page at the top, as Apple's apps do: the tab's path is emptied and its
+    /// stack is rebuilt from the root (a new `.id`), which also removes pages pushed by destination (Settings, Files) that
+    /// no path holds. Whether tvOS calls the binding's setter when the selected tab is pressed again is UNVERIFIED (no
+    /// Apple page read says so); the UI test's -RESELECT note proves it on the next run.
+    private var tabSelection: Binding<AppTab> {
+        Binding(get: { selection }, set: { (tab: AppTab) in
+            if roots.select(tab, current: selection) { clearPath(of: tab) }
+            selection = tab
+        })
+    }
+
+    /// The pages of one tab's path (the stack's `.id` change removes the rest).
+    private func clearPath(of tab: AppTab) {
+        switch tab {
+        case .home: homePath = []
+        case .movies: moviesPath = []
+        case .shows: showsPath = []
+        case .files: filesPath = []
+        case .search: searchPath = []
+        case .settings: break
         }
     }
 
