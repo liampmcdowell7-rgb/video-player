@@ -1,4 +1,5 @@
 import SwiftUI
+import AppLogic
 
 /// A settings-style page or sheet (#15 rules L1, L3, L6, D1; PROVISIONAL, OPEN_QUESTIONS R172): the page title and one sentence
 /// on the left, the rows in a system `Form` on the right, so rows sit in a column of about half the screen and never run edge
@@ -117,7 +118,7 @@ extension View {
     /// #33 A: the run of 20 Nov showed every cover SEE-THROUGH (10 to 19, 21, 59, 66, 67, 74): the cover was above the tab
     /// bar and full width (notes 10-add-source-types-HIERARCHY, 11-form-webdav-PRESENTATION), but drew no background, so the
     /// page and the tab bar showed through. `TaskCoverChrome` gives every cover, here in one place:
-    /// - an opaque system background over the whole presentation: `presentationBackground(_:)` with the `background` style
+    /// - an opaque system background over the whole presentation: the `background` style, full bleed (R362: no longer `presentationBackground(_:)`)
     ///   ("Automatically fills the entire presentation"; tvOS 16.4+);
     /// - the modal accessibility trait (`AccessibilityTraits.isModal`: "sibling accessibility elements that are not modal are
     ///   ignored"), and it hides the app's tabs from accessibility while it is open (`CoverPresence`, RootView).
@@ -157,11 +158,34 @@ struct TaskCoverChrome: ViewModifier {
             // background that ignores the safe area); `background(_:ignoresSafeAreaEdges:)` ignores all edges by default.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(BackgroundStyle(), ignoresSafeAreaEdges: .all)
-            .presentationBackground(.background)
+            // R362 (compile run of 21 Nov 2026, item 10): no `presentationBackground`. Apple's page for it: a presentation
+            // background "Allows views behind the presentation to show through translucent styles", which needs the views
+            // behind to stay; the page stayed in the tree under every cover of the run. The opaque full-bleed background
+            // above already covers the screen (pixel check B 1 passed under every cover with it in place).
             .onAppear { presence?.opened() }
             .onDisappear { presence?.closed() }
             // #36 group 2: a screen inside the cover is not the page behind it (HiddenUnderTaskCover, RootView).
             .environment(\.isInTaskCover, true)
+            .modifier(CoverCountProbe())
+    }
+}
+
+/// R362 (item 10): a UI-test-only record of the cover counter, read by the -COVER note, so the next run tells the two
+/// remaining causes apart: the counter never rose (the cover says "cover probe: open covers 0"), or the page was told to hide and
+/// XCTest still lists it (the page says "cover probe: told hidden true"). Nothing in a Release build or a normal launch.
+struct CoverCountProbe: ViewModifier {
+    private var presence: CoverPresence? { CoverPresence.shared }
+
+    func body(content: Content) -> some View {
+        #if DEBUG
+        if UITestMode.current != .off {
+            content.accessibilityValue("cover probe: open covers \(presence?.openCovers ?? -1)")
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
     }
 }
 

@@ -1196,6 +1196,16 @@ final class ScreenshotTests: XCTestCase {
                 lines.append("  button “\(control.label)”: isHittable \(control.isHittable), isEnabled \(control.isEnabled)")
             }
         }
+        // R362 (item 10): which cause is left (record only). The cover's value is the app's cover counter; a page screen's
+        // value says whether it was told to hide. Counter 0: the cover never counted itself. "told hidden true" on a page
+        // still listed: the page was hidden and XCTest lists it anyway (then XCTest's tree is not VoiceOver's).
+        lines.append("## cover counter (R362, record only)")
+        let probes: [XCUIElement] = app.descendants(matching: .any).matching(NSPredicate(format: "value BEGINSWITH %@", "cover probe")).allElementsBoundByIndex.prefix(8).map { $0 }
+        if probes.isEmpty { lines.append("no cover probe value in the tree") }
+        for probe in probes where probe.exists {
+            let value: String = (probe.value as? String) ?? ""
+            lines.append("\(probe.identifier.isEmpty ? probe.label : probe.identifier): \(value)")
+        }
         var scrolledReason: String? = scrolled
         if scrolledReason == nil, name.hasSuffix("-scrolled") || name.contains("-scrolled-") { scrolledReason = "scrolling (“-scrolled” in its name)" }
         take("cover layout (A)", ScreenRules.coverLayout(in: dump, scrolled: scrolledReason))

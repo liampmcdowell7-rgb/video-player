@@ -243,6 +243,16 @@ struct HiddenUnderTaskCover: ViewModifier {
     @Environment(\.isInTaskCover) private var isInTaskCover: Bool
 
     func body(content: Content) -> some View {
-        content.accessibilityHidden(!isInTaskCover && (presence?.isCovered ?? false))
+        let hidden: Bool = !isInTaskCover && (presence?.isCovered ?? false)
+        #if DEBUG
+        // R362 (item 10): what this screen was told, for the -COVER note (UI-test launches only).
+        if UITestMode.current != .off {
+            content.accessibilityHidden(hidden).accessibilityValue("cover probe: told hidden \(hidden)")
+        } else {
+            content.accessibilityHidden(hidden)
+        }
+        #else
+        content.accessibilityHidden(hidden)
+        #endif
     }
 }
