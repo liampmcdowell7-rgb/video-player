@@ -65,3 +65,6 @@ Music, photos, podcasts, live TV, DVR, a hosted server, user accounts, ads.
 34. On-device detection of intros and credits (audio or picture analysis): later, research first.
 35. Swift 6 language mode for App and TopShelf (after the first clean compile; OPEN_QUESTIONS R104/R108): first raise SWIFT_STRICT_CONCURRENCY from minimal to targeted, then complete, in Swift 5 mode and fix the warnings; then set SWIFT_VERSION to "6.0". Then decide the same for the package targets (VideoPlayerCore tools 5.9). The vendored SMB library is already Swift 6 mode.
 36. OMDb ratings lookup (IMDb, Rotten Tomatoes, Metacritic scores): removed in #27 (OPEN_QUESTIONS R211); would need a new decision and a new key row.
+
+## Long-term: iPad app (owner decision, 20 Nov 2026)
+37. **iPad app** with the same player and sources for Plex, WebDAV, and files on the iPad or on external storage (USB-C drives, SD cards) through the system Files experience. Starts only after the tvOS TestFlight build is installed and verified, the text-field bug (R273) is fixed, and the Plex source works; no iPad code before then. Plan: docs/IPAD_PLAN.md; open questions R274 to R278 (all PROVISIONAL).
