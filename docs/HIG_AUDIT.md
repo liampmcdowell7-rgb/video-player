@@ -221,6 +221,11 @@ Next, the player's info, audio and subtitle panels, or the search keyboard.
 | T17 | Player (no `customInfoViewControllers`) | No content tabs: for an episode there is no Episodes tab under the transport controls | "Below the transport controls, the video player displays content tabs, like Info, Episodes, or Chapters" (HIG Playing video) |
 | T18 | Player (`PictureSubtitleOverlay`) | Picture subtitles are drawn by the app in `contentOverlayView` | Custom drawing, but with a reason: the system player does not draw picture-based subtitles (from the code's comments; UNVERIFIED on an Apple page). Kept as a known exception |
 | T19 | Player (`ProposalPresenter`) | `automaticAcceptanceInterval = .nan`; the app runs the Up Next countdown itself | System content proposal with its own countdown is the stock pattern (AVKit); why the app runs its own: see docs/PLAYBACK_AUTOSKIP_NOWPLAYING.md. TV app's Up Next look: UNVERIFIED |
+| T20 | Plex sign-in code page (`PlexSetupView`; R302, reported by the Plex work under R301) | A full-screen page with the sign-in code as its largest text, not a Settings form of rows; no Apple page read shows a tvOS Settings page of this shape | HIG Managing accounts, tvOS: "**Prefer letting people use another device to sign up or authenticate.**" (a code entered on another device matches it). The page's shape against the TV app or tvOS Settings: UNVERIFIED |
+
+Plex screens (R301): the server list (R303) uses the same TaskPage Form and row style as Add a Source, and the "cannot
+play this file" message (R305) the existing playback alert: no gap found. Plex adds no library, detail or player screens of
+its own, so T1 to T19 apply to them unchanged.
 
 Matches (no gap found in code): the system `TabView` tab bar with Search as a tab (HIG Tab bars, Searching); one
 `NavigationStack` per tab; the stock `AVPlayerViewController` with `externalMetadata` (HIG Playing video: "Use the system
