@@ -496,6 +496,9 @@ final class ScreenshotTests: XCTestCase {
     /// ("<name>", the system lift on a borderless lockup), and the "-LOCKUP" note: the caption (the StaticText with the
     /// focused card's title) must be inside the focused card (`ScreenRules.captionInLockup`). A caption that is not exposed
     /// in the tree is reported, not failed (whether tvOS 27 exposes the label's text inside the button: UNVERIFIED).
+    /// R360 (item 7): the tree reports the button as the artwork only, so "inside" is now written for the record and the
+    /// test fails on `ScreenRules.captionMovesOnFocus`: the focused title must sit lower than a resting card's title in
+    /// the same row (Apple: the title moves "out of the way of the button's image as it scales up on focus").
     func lockupCheck(_ name: String, in app: XCUIApplication) {
         // Down past the library toolbar (Sort, Filter, ...) onto the first card of the grid.
         var focused: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
@@ -509,9 +512,19 @@ final class ScreenshotTests: XCTestCase {
         settle(); shot(name)
         let title: String = focused.label
         let text: XCUIElement = app.staticTexts.matching(NSPredicate(format: "label == %@", title)).firstMatch
-        let result: CheckResult = ScreenRules.captionInLockup(focused: AXRect(focused.frame), caption: text.exists ? AXRect(text.frame) : nil, title: title)
-        note(name + "-LOCKUP", result.text)
-        if text.exists { XCTAssertTrue(result.passed, "\(name): " + result.verdict) }
+        let inside: CheckResult = ScreenRules.captionInLockup(focused: AXRect(focused.frame), caption: text.exists ? AXRect(text.frame) : nil, title: title)
+        // R360: a resting card's title in the same row (another sample title within 60 pt of the focused one's height).
+        var resting: XCUIElement?
+        if text.exists {
+            for other in app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ AND label != %@", "Sample", title)).allElementsBoundByIndex.prefix(12)
+            where other.exists && abs(other.frame.minY - text.frame.minY) < 60 {
+                resting = other; break
+            }
+        }
+        let moves: CheckResult = ScreenRules.captionMovesOnFocus(focusedCaption: text.exists ? AXRect(text.frame) : nil,
+                                                                 restingCaption: resting.map { AXRect($0.frame) }, title: title)
+        note(name + "-LOCKUP", "for the record (R335): " + inside.text + "\n" + moves.text)
+        if text.exists { XCTAssertTrue(moves.passed, "\(name): " + moves.verdict) }
     }
 
     /// The caption check for a focused card: the caption is the StaticText containing `caption`, its column the focused

@@ -27,4 +27,16 @@ final class LockupRulesTests: XCTestCase {
         XCTAssertFalse(ScreenRules.captionInLockup(focused: nil, caption: nearEdge, title: "T").passed)
         XCTAssertFalse(ScreenRules.captionInLockup(focused: button, caption: nil, title: "T").passed)
     }
+
+    /// R360: picture 53 of the run of 21 Nov: "Sample Movie 2" focused, its caption at y 813 like the resting cards' (the
+    /// note 53-movies-focused-LOCKUP), so the title did not move.
+    func testTheFocusedTitleMustMoveDown() {
+        let resting = AXRect(x: 96, y: 813, width: 176, height: 30)
+        let still: CheckResult = ScreenRules.captionMovesOnFocus(focusedCaption: AXRect(x: 456, y: 813, width: 176, height: 30), restingCaption: resting, title: "Sample Movie 2")
+        XCTAssertFalse(still.passed, still.text)
+        XCTAssertTrue(still.text.contains("TITLE DID NOT MOVE"))
+        let moved: CheckResult = ScreenRules.captionMovesOnFocus(focusedCaption: AXRect(x: 456, y: 836, width: 176, height: 30), restingCaption: resting, title: "Sample Movie 2")
+        XCTAssertTrue(moved.passed, moved.text)
+        XCTAssertFalse(ScreenRules.captionMovesOnFocus(focusedCaption: nil, restingCaption: resting, title: "T").passed)
+    }
 }

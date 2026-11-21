@@ -24,4 +24,23 @@ public extension ScreenRules {
                                       : "CAPTION OUTSIDE THE FOCUSED CARD: the title is not part of the lockup (R335)"]
         return CheckResult(passed: inside, lines: lines)
     }
+
+    /// R360 (compile run of 21 Nov 2026, item 7): the focused card's title moves with the lifted artwork, as Apple's sample
+    /// says the borderless lockup does ("automatically move out of the way of the button's image as it scales up on focus").
+    /// Passes when the focused card's caption sits at least `minimumDrop` points lower than a resting card's caption in the
+    /// same row. The run's tree reports a borderless button's frame as the artwork only (55-show-page-HIERARCHY), so
+    /// `captionInLockup` cannot tell a moving title from a still one; this compares the captions themselves.
+    static func captionMovesOnFocus(focusedCaption: AXRect?, restingCaption: AXRect?, title: String, minimumDrop: Double = 2) -> CheckResult {
+        guard let focusedCaption, let restingCaption else {
+            return CheckResult(passed: false, lines: ["caption \u{201C}\(title)\u{201D}: \(focusedCaption.map { "\($0)" } ?? "not found")",
+                                                      "resting caption: \(restingCaption.map { "\($0)" } ?? "not found")",
+                                                      "LOCKUP NOT CHECKED: a caption is missing"])
+        }
+        let drop: Double = focusedCaption.y - restingCaption.y
+        let moved: Bool = drop >= minimumDrop
+        var verdict: String = "LOCKUP OK: the focused title moved \(Int(drop.rounded())) pt down with the lifted artwork"
+        if !moved { verdict = "TITLE DID NOT MOVE: the focused title is \(Int(drop.rounded())) pt from the resting titles (R360)" }
+        return CheckResult(passed: moved, lines: ["focused caption \u{201C}\(title)\u{201D} \(focusedCaption)",
+                                                  "resting caption \(restingCaption)", verdict])
+    }
 }

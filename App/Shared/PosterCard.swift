@@ -31,20 +31,22 @@ struct PosterCard: View {
         VStack(alignment: .leading) {
             if wide {
                 NavigationLink(value: Route.item(card.id)) {
+                    // R360 (compile run of 21 Nov 2026, item 7): the artwork and the text are SIBLINGS in the label, as Apple's
+                    // sample writes a lockup ("Provide a separate `Image` and `Text` view in the button's label closure"), so
+                    // the borderless style can move the text "out of the way of the button's image as it scales up on focus".
+                    // Picture 53: wrapped in one VStack, the focused poster lifted and its title stayed put.
+                    artwork
+                        // #36 group 4: the artwork keeps its 16:9 height whatever the caption needs (R264).
+                        .fixedSize(horizontal: false, vertical: true)
+                        // design-lint:allow #36 7 (R259): Apple's tvOS media catalog sample attaches the borderless lockup's highlight by hand to a custom artwork view; the system effect, not our own
+                        .hoverEffect(.highlight)
+                    // #36 7: the title and the second lines inside the button (R259); #36 group 4: the title shrinks
+                    // to the floor, then wraps, never cut (CardCaption, R264).
                     VStack(alignment: .leading) {
-                        artwork
-                            // #36 group 4: the artwork keeps its 16:9 height whatever the caption needs (R264).
-                            .fixedSize(horizontal: false, vertical: true)
-                            // design-lint:allow #36 7 (R259): Apple's tvOS media catalog sample attaches the borderless lockup's highlight by hand to a custom artwork view; the system effect, not our own
-                            .hoverEffect(.highlight)
-                        // #36 7: the title and the second lines inside the button (R259); #36 group 4: the title shrinks
-                        // to the floor, then wraps, never cut (CardCaption, R264).
-                        VStack(alignment: .leading) {
-                            CardCaption(text: card.title)
-                            secondLines
-                        }
-                        .padding(.horizontal)
+                        CardCaption(text: card.title)
+                        secondLines
                     }
+                    .padding(.horizontal)
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel(card.title)
@@ -57,19 +59,21 @@ struct PosterCard: View {
                 // the way of the button's image as it scales up on focus"). Before: a `.card` button around the artwork and
                 // the caption outside it.
                 NavigationLink(value: Route.item(card.id)) {
+                    // R360 (compile run of 21 Nov 2026, item 7): the artwork and the text are SIBLINGS in the label, as Apple's
+                    // sample writes a lockup ("Provide a separate `Image` and `Text` view in the button's label closure"), so
+                    // the borderless style can move the text "out of the way of the button's image as it scales up on focus".
+                    // Picture 53: wrapped in one VStack, the focused poster lifted and its title stayed put.
+                    artwork
+                        // design-lint:allow R335: Apple's tvOS media catalog sample attaches the borderless lockup's highlight by hand to a custom artwork view; the system effect, not our own
+                        .hoverEffect(.highlight)
+                    // #17 C: the text keeps a side padding, so it never touches the card's edge (Larger Text screenshot
+                    // 80: titles ended 2-3 px from it). The system's default padding; FittingLine measures the width
+                    // inside it.
                     VStack(alignment: .leading) {
-                        artwork
-                            // design-lint:allow R335: Apple's tvOS media catalog sample attaches the borderless lockup's highlight by hand to a custom artwork view; the system effect, not our own
-                            .hoverEffect(.highlight)
-                        // #17 C: the text keeps a side padding, so it never touches the card's edge (Larger Text screenshot
-                        // 80: titles ended 2-3 px from it). The system's default padding; FittingLine measures the width
-                        // inside it.
-                        VStack(alignment: .leading) {
-                            FittingText(card.title, style: .caption)
-                            secondLines
-                        }
-                        .padding(.horizontal)
+                        FittingText(card.title, style: .caption)
+                        secondLines
                     }
+                    .padding(.horizontal)
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel(card.title)
