@@ -58,7 +58,7 @@ check "all pass: exit 0, pictures of both tests in DEST" "[ $rc -eq 0 ] && [ -f 
 check "all pass: one xcodebuild call per test, its own result bundle" "[ -d '$S/out/xcresult/$T1.xcresult' ] && [ -d '$S/out/xcresult/$T2.xcresult' ] && [ \$(grep -c 'running test' '$S/stdout') -eq 2 ]"
 check "index.md: tests table with seconds per picture" "grep -qF '| $T1 | passed |' '$S/dest/index.md' && grep -qE '\| $T1 \| passed \| 0:0[0-9] \| 2 \|' '$S/dest/index.md'"
 check "index.md: every picture with its size" "grep -qE '^- \[02-home-empty\]\(02-home-empty.png\) [0-9]+ KB' '$S/dest/index.md'"
-check "index.md: counts against the plan (22 planned for test01+test02, 4 taken; #36 group 3 added 11-form-webdav-keyboard-name, R331 11-form-webdav-entry-name)" "grep -qF 'Planned: 22. Taken: 4. Missing: 18. Failed (not reached): 0. Warnings (unchanged): 2.' '$S/dest/index.md'"
+check "index.md: counts against the plan (22 planned for test01+test02, 4 taken; #36 group 3 added 11-form-webdav-keyboard-name, R331 11-form-webdav-entry-name, R326 12-form-smb-network-search and -found)" "grep -qF 'Planned: 24. Taken: 4. Missing: 20. Failed (not reached): 0. Warnings (unchanged): 2.' '$S/dest/index.md'"
 check "index.md: an unchanged picture is a WARNING line, and the picture is kept" "grep -qF -- '- WARNING: 03-movies-empty: Identical to 02-home-empty' '$S/dest/index.md' && [ -f '$S/dest/03-movies-empty.png' ] && [ -f '$S/dest/notes/03-movies-empty-UNCHANGED.txt' ]"
 check "index.md: an end-of-scroll note is listed apart, not counted as a warning (#36 group 1 c)" "grep -qF -- '- 02-home-empty: end of scroll: identical to the picture before' '$S/dest/index.md' && grep -qF '## End of scroll (not a warning)' '$S/dest/index.md' && ! grep -qF -- '- WARNING: 02-home-empty' '$S/dest/index.md'"
 check "results file has one row per test" "[ \$(grep -c '	passed	' '$S/out/ui-tests.tsv') -eq 2 ]"
@@ -156,7 +156,7 @@ lit="$(grep -oE 'shot\("[0-9]{2,3}-[a-z0-9-]+"\)' "$here/../UITests/ScreenshotTe
 miss="$(while IFS= read -r n; do [ -n "$n" ] && ! cut -f2 "$here/screenshot-plan.tsv" | grep -qx "$n" && echo "$n"; done <<< "$lit")"
 S="$(mktemp -d)"; echo "not planned: $miss" > "$S/stdout"
 check "plan: every literal shot name in ScreenshotTests.swift is in screenshot-plan.tsv" "[ -z \"$miss\" ] && [ -n \"$lit\" ]"
-check "plan: 166 planned pictures (69 part 1, 64 part 2, 33 accessibility; #25 adds 10-add-source-learn-more, #26 the two key-set pictures, #30 two network-search and two long-caption pictures, #32 the toolbars and menus moved to part 2 with 16 more, #34 4 moved test12 and test13, 14 pictures, to part 2; #34 5a adds the two Continue Watching caption pictures; #36 group 3 adds 11-form-webdav-keyboard-name; R331 adds 11-form-webdav-entry-name)" "[ \$(grep -vc '^#' '$here/screenshot-plan.tsv') -eq 166 ]"
+check "plan: 168 planned pictures (71 part 1, 64 part 2, 33 accessibility; #25 adds 10-add-source-learn-more, #26 the two key-set pictures, #30 two network-search and two long-caption pictures, #32 the toolbars and menus moved to part 2 with 16 more, #34 4 moved test12 and test13, 14 pictures, to part 2; #34 5a adds the two Continue Watching caption pictures; #36 group 3 adds 11-form-webdav-keyboard-name; R331 adds 11-form-webdav-entry-name; R326 adds 12-form-smb-network-search and 12-form-smb-network-found)" "[ \$(grep -vc '^#' '$here/screenshot-plan.tsv') -eq 168 ]"
 
 echo "ci-ui-tests self-test: passed $passed, failed $failed"
 [ "$failed" -eq 0 ]

@@ -25,6 +25,8 @@ enum ControlID {
     static let goToTitle = "control.goToTitle"
     static let fullLicenceTexts = "control.fullLicenceTexts"
     static let searchYourNetwork = "control.searchYourNetwork"
+    /// R326: the Search Your Network row at the top of a type's form (only that type is searched).
+    static let formSearchYourNetwork = "control.formSearchYourNetwork"
     /// Add a Source's Cancel (the cover's root page only since R324; the forms have none).
     static let sourceCancel = "control.sourceCancel"
     /// R324: a source form's one action.

@@ -712,6 +712,7 @@ final class ScreenshotTests: XCTestCase {
                     note("21-search-your-network-server-details-NAME", nameNote)
                     XCTAssertTrue(nameOK, "21-search-your-network-server-details: the Name field is not “Sample NAS” alone: \(fieldValues)")
                 }
+                formSearchPicksServer(in: fake)
             } else {
                 notReached("21-search-your-network-result", "The synthetic server “Sample NAS” was not listed within 10 s.")
             }
@@ -1600,6 +1601,40 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(result.passed, "\(name): " + result.verdict)
         back()
         back()
+    }
+
+    /// R326, R328 (docs/SOURCE_SETUP_DESIGN.md): from the found server's form (21-search-your-network-server-details), Back
+    /// twice to Add a Source; the SMB form starts with its own Search Your Network row; choosing it lists the synthetic SMB
+    /// server ("12-form-smb-network-search"); choosing that goes back to the SAME form with the Server ID row and the server
+    /// filled in ("12-form-smb-network-found"). The focus is expected on the Shared Folder row, the one required field the
+    /// search cannot know (R325). "-FORM-SEARCH" note; a failure fails the test.
+    func formSearchPicksServer(in app: XCUIApplication) {
+        let name: String = "12-form-smb-network-found"
+        back(); back()
+        guard waitForScreen(ControlID.searchYourNetwork, in: app, timeout: 10),
+              open("SMB", id: ControlID.sourceKind("smb"), in: app, name: "12-form-smb-network-search") else {
+            return notReached("12-form-smb-network-search", "Back twice did not return to Add a Source, or the SMB form did not open.")
+        }
+        guard waitForScreen(ControlID.formSearchYourNetwork, in: app, timeout: 10),
+              open("Search Your Network", id: ControlID.formSearchYourNetwork, in: app, name: "12-form-smb-network-search"),
+              waitFor("Sample NAS", in: app, timeout: 10) else {
+            return notReached("12-form-smb-network-search", "The SMB form has no Search Your Network row, or the search did not list “Sample NAS”.\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
+        }
+        settle(); shot("12-form-smb-network-search")
+        guard open("Sample NAS", in: app, name: name), waitForScreen(ControlID.serverID, in: app, timeout: 10) else {
+            return notReached(name, "Choosing “Sample NAS” did not bring the form back with its Server ID row.\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
+        }
+        settle(); shot(name)
+        let server: String = (control(id: ControlID.sourceField("host"), label: "Server", in: app).value as? String) ?? ""
+        let focused: String = focusedLabel(in: app)
+        let sameForm: Bool = app.descendants(matching: .any).matching(identifier: ControlID.formSearchYourNetwork).firstMatch.exists
+        let filled: Bool = server == "nas.sample.invalid"
+        let lines: [String] = ["Server row value: \u{201C}\(server)\u{201D}" + (filled ? " OK" : " NOT FILLED"),
+                               "back on the SMB form (its Search Your Network row is there): " + (sameForm ? "yes OK" : "NO"),
+                               "focus on: \(focused) (expected the Shared Folder row; UNVERIFIED whether tvOS applies it)"]
+        note(name + "-FORM-SEARCH", lines.joined(separator: "\n"))
+        XCTAssertTrue(filled, "\(name): the found server did not fill the Server row (\(server))")
+        XCTAssertTrue(sameForm, "\(name): choosing the server did not go back to the SMB form")
     }
 
     /// R322, R331: on an empty form no field row reports "Optional", "Required" or an example as its value. Field rows are

@@ -119,8 +119,9 @@ HIG Lockups, Playing video, Tab bars) say nothing about adding a source or accou
 ### Discovery first (R326)
 
 - **Fault:** discovery was only on the Add a Source list; a type's form offered typing only.
-- **Pattern:** Add a Source keeps **Search Your Network** as its first row (all types). The form of every type the system
-  can find by itself (WebDAV, SMB, NFS, SFTP, FTP, UPnP/DLNA) starts with a **Search Your Network** row (that type only);
+- **Pattern:** Add a Source keeps **Search Your Network** as its first row (all types). The form of every type the network
+  search finds (WebDAV, SMB, NFS, SFTP, FTP) starts with a **Search Your Network** row (that type only). As built: no row
+  on the UPnP/DLNA form, because the search does not find UPnP/DLNA devices (R326 alternative (d));
   choosing a server there fills the form's rows and comes back to the form, with the Server Details section added and the
   focus on Connect (R325). Typing the rows is the fallback below it. The search starts only when the row is chosen, so
   opening a form never asks for local-network permission.
@@ -135,7 +136,8 @@ HIG Lockups, Playing video, Tab bars) say nothing about adding a source or accou
   handling (R294, #30 item 3).
 - **Pattern:** a system Form: the found servers as rows (name, type as a second line); while none is found, the
   searching sentence is the section footer (rule L3: status is never a row). Server Details is a section of the form with
-  system value rows: Server ID (the whole identifier one press away, unchanged) and the address the search found.
+  the Server ID row (the whole identifier one press away, unchanged). As built, the address found has no row of its own:
+  it is already the value of the Server or Address row (rule L9).
 - **UNVERIFIED:** the footer's look while the list is empty.
 
 ### Add a Source (10), not available (20), About Source Types (10-add-source-learn-more) (R329)

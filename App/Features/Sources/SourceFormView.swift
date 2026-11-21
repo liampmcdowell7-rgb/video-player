@@ -5,8 +5,9 @@ import AppLogic
 /// The form for one source type: its fields, a Connect button, and the answers (progress, errors, the certificate question).
 struct SourceFormView: View {
     @State var draft: SourceDraft
-    /// #30 item 3: the machine identifier of a server found on the network (nil for a typed source).
-    var serverID: String? = nil
+    /// #30 item 3: the machine identifier of a server found on the network (nil for a typed source). R326: state, because
+    /// the form's own Search Your Network row can fill it.
+    @State var serverID: String? = nil
     var onFinished: () -> Void
     @Environment(AppServices.self) private var services
     @State private var model: ScreenModel<SourceSetupViewModel>?
@@ -38,6 +39,18 @@ struct SourceFormView: View {
         // `TaskPage`. R320 (PROVISIONAL, docs/SOURCE_SETUP_DESIGN.md): every field is one tvOS Settings row, value trailing;
         // Select opens its entry page. R324: Connect is the one action; no Cancel (Back returns to the type list).
         TaskPage(title: info.title, summary: info.summary) {
+            // R326 (PROVISIONAL): discovery first. A type the network search finds starts with its own Search Your Network
+            // row; the search starts only when the row is chosen, so opening a form never asks for local-network access.
+            if SourceDiscoveryText.searches(draft.kind) {
+                Section {
+                    NavigationLink {
+                        DiscoveryView(kind: draft.kind, onPick: picked)
+                    } label: {
+                        RowLabel("Search Your Network", systemImage: "wifi")
+                    }
+                    .accessibilityIdentifier(ControlID.formSearchYourNetwork)
+                }
+            }
             Section {
                 ForEach(info.fields) { spec in
                     SourceFieldRow(spec: spec, text: binding(spec.kind)) { (before: String, after: String) in
@@ -131,6 +144,15 @@ struct SourceFormView: View {
                 .focused($focus, equals: .connect)
                 .accessibilityIdentifier(ControlID.sourceConnect)
         }
+    }
+
+    /// R326: a server chosen on the form's Search Your Network page fills the rows it knows (a typed Name, user name and
+    /// password stay), adds Server Details, and the focus goes where R325 puts it as the form shows again.
+    private func picked(_ found: DiscoveredSource) {
+        let next: SourceDraft = SourceDiscoveryText.merged(draft, with: found)
+        draft = next
+        serverID = SourceSetupFlow.identifier(of: found)
+        pendingFocus = SourceFormText.firstFocus(next)
     }
 
     /// R325: Done on a field's entry page. When that Done filled the last empty required field, the focus goes to Connect
