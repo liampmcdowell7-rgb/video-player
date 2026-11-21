@@ -250,3 +250,5 @@ SwiftUI" (the SwiftUI page `/documentation/swiftui/lockups` still does not load:
 | T8 | Built (R336): initials in place of a missing photo (HIG Lockups, Monograms). Selecting a person still does nothing (no person page; R338). |
 | T9 | Not changed: Media Info is already text in two columns, not a collection; the `LabeledContent` form was replaced for a measured reason (#25 B6). |
 | T10 | Not built: a season picker changes the show page's structure; the TV app's pattern is not on any Apple page read (R338). |
+| T11 | Built in part (R337): system `searchSuggestions` from the titles already found. Recent searches (storage) and landscape result lockups (a backdrop lookup per result, more online requests) are for the owner (R338). |
+| T12 | Not built: Select on a Discover card toggling the watchlist is behaviour, not presentation (R338). |

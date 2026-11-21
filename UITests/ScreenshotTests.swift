@@ -1598,6 +1598,11 @@ final class ScreenshotTests: XCTestCase {
             if typeOnKeyboard("sam", in: app, name: "76-search-results") {
                 sleep(3)
                 shot("76-search-results")
+                // R337 (docs/HIG_AUDIT.md T11): every element that carries a sample title, so the run shows whether the
+                // system search suggestions appear next to the results. A note, not a failure: their place on tvOS 27 is
+                // not on any Apple page read.
+                let titled = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH 'Sample'")).allElementsBoundByIndex
+                note("76-search-results-SUGGESTIONS", titled.prefix(40).map { "\($0.elementType.rawValue) \u{201C}\($0.label)\u{201D} \($0.frame)" }.joined(separator: "\n"))
             } else {
                 hierarchy("76-search-results", of: app)
                 notReached("76-search-results", "The keys of the on-screen keyboard could not be reached with the remote (every step in 76-search-results-FOCUS-PATH).")

@@ -7,6 +7,9 @@ import AppLogic
 /// - field empty, Discover off (Settings > Home Screen > Show Discover): the "Search Your Library" prompt, no discovery request;
 /// - something typed: titles in your library only, after a short pause. Discover is hidden; clearing the field brings it back.
 /// Library results and Discover are never in one list.
+/// R337 (PROVISIONAL, docs/HIG_AUDIT.md T11): while something is typed, the system `searchSuggestions` lists up to five of the
+/// titles found (AppLogic `SearchSuggestions`); HIG Searching: "offer predictive search suggestions". Nothing new is requested
+/// or stored. Their exact look under the tvOS 27 keyboard is UNVERIFIED until a run.
 struct SearchView: View {
     @Environment(AppServices.self) private var services
     /// Settings > Home Screen > Show Discover. When off, Discover is not shown and no discovery requests are made.
@@ -27,11 +30,22 @@ struct SearchView: View {
             }
         }
         .searchable(text: $query)
+        .searchSuggestions {
+            ForEach(suggestions, id: \.self) { title in
+                Text(title).searchCompletion(title)
+            }
+        }
         .task(id: query) { await search() }
         .task(id: services.libraryRevision) { await search() }
         .task(id: "\(content.loadsDiscover)|\(services.libraryRevision)|\(services.online.keyRevision)") {
             if content.loadsDiscover { await discover.loadIfNeeded(services: services) }
         }
+    }
+
+    /// R337: the titles the library search found for the typed text (none for Discover, the prompt or an error).
+    private var suggestions: [String] {
+        guard case .libraryResults = content, case .loaded(let cards)? = model?.screen.state else { return [] }
+        return SearchSuggestions.titles(cards.map(\.title), query: query)
     }
 
     @ViewBuilder private var results: some View {
