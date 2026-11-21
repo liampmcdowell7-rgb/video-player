@@ -609,6 +609,11 @@ final class ScreenshotTests: XCTestCase {
             // The form is ready when its Cancel row (the last row but one) stands still.
             _ = waitUntilStill(control(id: ControlID.sourceCancel, label: "Cancel", in: app))
             shot(name)
+            // R273: every field on screen without the focus has a visible shape; on the WebDAV form all four fields,
+            // Connect and Cancel are inside the 60 pt safe area as the form opens (the owner's TestFlight report of 21 Nov:
+            // no text entry fields at all on the WebDAV form).
+            fieldsAtRest(name, in: app, mustHaveField: n == "11")
+            if n == "11" { formSafeArea(name, in: app) }
             checkNoKeyField(in: app, name: name)
             checkFullScreen(anchor: ControlID.sourceCancel, label: "Cancel", in: app, name: name)
             if n == "11" { keyboardOfNameField(in: app) }
@@ -1570,6 +1575,36 @@ final class ScreenshotTests: XCTestCase {
              + "\nText and search fields:\n" + inputs.joined(separator: "\n"))
         hierarchy(name, of: app)
         back()
+    }
+
+    /// R273: the text and secure fields of the open form that are on screen and do not have the focus each show a shape
+    /// (a fill or an outline against the page; `ScreenRules.fieldShapeAtRest`). Written to "<name>-FIELDS-AT-REST"; a
+    /// failure fails the test. Fields below the screen are listed and not measured (the safe-area check covers WebDAV).
+    /// `mustHaveField`: the form must show at least one text or secure field (WebDAV: four); a form whose rows are all pickers
+    /// or buttons only writes the note.
+    func fieldsAtRest(_ name: String, in app: XCUIApplication, mustHaveField: Bool) {
+        let window: CGRect = app.windows.firstMatch.frame
+        let fields: [XCUIElement] = app.textFields.allElementsBoundByIndex + app.secureTextFields.allElementsBoundByIndex
+        var atRest: [ScreenRules.FieldAtRest] = []
+        var skipped: [String] = []
+        for field in fields where field.exists {
+            if window.width > 0, !window.contains(field.frame) { skipped.append("\u{201C}\(field.label)\u{201D} \(field.frame)"); continue }
+            atRest.append(ScreenRules.FieldAtRest(name: field.label, frame: AXRect(field.frame), isFocused: field.hasFocus))
+        }
+        if atRest.isEmpty && !mustHaveField {
+            note(name + "-FIELDS-AT-REST", "no text or secure field on screen (\(fields.count) in the tree); nothing to measure")
+            return
+        }
+        guard let image = RGBImage(screenshot: XCUIScreen.main.screenshot()), window.width > 0 else {
+            note(name + "-FIELDS-AT-REST", "The screenshot could not be read or the window has no frame. PIXELS NOT MEASURED")
+            return XCTFail("\(name): fields at rest not measured")
+        }
+        let scale: Double = Double(image.width) / Double(window.width)
+        let result: CheckResult = ScreenRules.fieldShapeAtRest(image, fields: atRest, scale: scale)
+        note(name + "-FIELDS-AT-REST", "\(fields.count) fields, focus on \(focusedLabel(in: app))\n"
+             + (skipped.isEmpty ? "" : "below or beside the screen, not measured: " + skipped.joined(separator: "; ") + "\n")
+             + result.text)
+        XCTAssertTrue(result.passed, "\(name): " + result.verdict)
     }
 
     /// #36 group 3 (R265): the fields, Connect and Cancel of the open source form, each inside the 60 pt safe area, as the
