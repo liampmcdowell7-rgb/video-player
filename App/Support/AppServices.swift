@@ -225,8 +225,24 @@ final class AppServices {
                                        })
             // Runs off the main thread (the store is an actor); only the progress numbers come back to the screen.
             // #23 D: weak at the outer closure too, so the progress closure itself never holds AppServices strongly.
-            _ = try? await syncer.sync(progress: { [weak self] p in Task { @MainActor [weak self] in self?.scanProgress = p } })
+            let summary = try? await syncer.sync(progress: { [weak self] p in Task { @MainActor [weak self] in self?.scanProgress = p } })
+            if summary?.status == .completed, PlexWatchSeed.isNeeded(for: definition), let plex = source as? PlexClient {
+                await seedPlexWatchState(plex, definition: definition)
+            }
         }
+    }
+
+    /// R306: after the first complete scan of a Plex source, the server's watched and resume state is copied once into the
+    /// app's own watch state, only where the app has none. Nothing is ever sent to the server. The source is marked
+    /// seeded only when the copy succeeded, so a failure is tried again after the next scan.
+    private func seedPlexWatchState(_ plex: PlexClient, definition: UDSourceDefinition) async {
+        guard let items = try? await plex.serverItems() else { return }
+        let states = items.mapValues {
+            PlexWatchSeed.ServerState(positionSeconds: $0.viewOffsetSeconds, viewCount: $0.viewCount, lastViewedAt: $0.lastViewedAt,
+                                      durationSeconds: $0.metadata.runtimeSeconds.map(Double.init))
+        }
+        guard (try? await PlexWatchSeed(store: sqlite, files: sqlite).seed(sourceID: definition.id, statesByPath: states)) != nil else { return }
+        try? await definitionSaver.saveDefinition(PlexWatchSeed.markedDone(definition))
     }
 
     private static let sortLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "VideoPlayer", category: "Sorting")

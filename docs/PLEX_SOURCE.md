@@ -2,8 +2,8 @@
 
 **Build status (owner's request of 20 Nov 2026 to build Plex; R300 onwards).** Stage 1 (client, models, fake server; R300),
 stage 2 (the sign-in code page; R302), stage 3 (server list and connection order; R303) stage 4 (browse and index;
-Plex is available in Add a Source; R304) and stage 5 (playback: direct play and the app's own remux, no server
-conversion; R305) are built and tested offline with hand-written fixtures; later stages are listed
+Plex is available in Add a Source; R304) stage 5 (playback: direct play and the app's own remux, no server
+conversion; R305) and stage 6 (watch state copied once, never written back; R306) are built and tested offline with hand-written fixtures; later stages are listed
 in section 8. Nothing was compiled for tvOS and no Plex server or plex.tv was contacted. Section 10 names, per screen,
 the Apple screen it follows (R301).
 
@@ -224,6 +224,11 @@ names only), and wrong writes would change the Plex history on other devices.
 Alternatives (R272): (a) fully read-only, never seed; (b) two-way: report progress with the timeline call while playing
 and mark watched at 95 % (`LibraryWatchRules.watchedFraction`) with scrobble, as a later stage after recorded fixtures
 prove the parameters.
+
+**Built in stage 6 (R306):** the recommended "read once, then local only". After the first complete scan of a Plex
+source, a played item (`viewCount` above 0 and no resume point) is marked watched and an item stopped at 30 seconds or more
+resumes there, only where the app has recorded nothing; the source then carries the option `seeded=done` and is never
+seeded again. No timeline, scrobble or any other write is sent (a test fails on any request but GET or HEAD to the server).
 
 ## 7. Test plan per stage (no real server, no network)
 

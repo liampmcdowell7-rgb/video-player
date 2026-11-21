@@ -22,7 +22,9 @@ for name in sourceNames {
     products.append(.library(name: "Source" + name, targets: ["Source" + name]))
     targets.append(.target(name: "Source" + name, dependencies: ["VideoPlayerCore"]))
     let own: Target.Dependency = .target(name: "Source" + name)
-    targets.append(.testTarget(name: "Source" + name + "Tests", dependencies: [own, "VideoPlayerCore"]))
+    // The Plex tests also run the one-time watch-state seed end to end (index, seed, no server write; R306).
+    let extra: [Target.Dependency] = name == "Plex" ? ["AppLogic", "LibraryIndex", "UserData"] : []
+    targets.append(.testTarget(name: "Source" + name + "Tests", dependencies: [own, "VideoPlayerCore"] + extra))
 }
 
 // --- Feature modules (library index, metadata, playback logic, subtitles, status). Pure Swift,
