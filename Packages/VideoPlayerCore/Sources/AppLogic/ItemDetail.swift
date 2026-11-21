@@ -113,6 +113,13 @@ public struct ItemDetailViewModel: Sendable {
         state = .loaded(updated)
     }
 
+    /// R369: the page's badges are the preferred file's (`ProductPage.badges`), each with its Information row; with no
+    /// facts for that file, the card's badges and the item's best channel layout, as before.
+    static func badges(card: ItemCard, item: LibraryItem, technical: FileTechnicalInfo?) -> [String] {
+        if let technical { return ProductPage.badges(technical: technical, maxChannels: item.maxChannels).map(\.text) }
+        return ProductPage.formatBadges(cardBadges: card.badges, maxChannels: item.maxChannels)
+    }
+
     static func content(_ item: LibraryItem, files: [StoredFile], sidecars: [StoredFile], sourceNames: [String: String] = [:],
                         tracks: FileTrackDetails? = nil) -> ItemDetailContent {
         let card = CardBuilder.card(item)
@@ -149,7 +156,8 @@ public struct ItemDetailViewModel: Sendable {
         let mediaInfo = files.first { $0.id == preferred }.map { MediaInfo.rows(file: $0, sidecars: sidecars, sourceName: sourceNames[$0.sourceID], tracks: tracks) } ?? []
         return ItemDetailContent(itemID: item.id, kind: item.kind, title: card.title, seriesID: item.seriesID, seriesTitle: item.seriesTitle,
                                  facts: facts.joined(separator: " · "),
-                                 badges: ProductPage.formatBadges(cardBadges: card.badges, maxChannels: item.maxChannels), playTitle: playTitle, canStartOver: started,
+                                 badges: Self.badges(card: card, item: item, technical: files.first { $0.id == preferred }?.technical),
+                                 playTitle: playTitle, canStartOver: started,
                                  isWatched: item.watch.watched, isFavorite: item.watch.favorite, progress: progress, timeLeft: timeLeft,
                                  versions: versions, extras: extras, artworkKey: card.artworkKey, mediaInfo: mediaInfo)
     }

@@ -61,7 +61,9 @@ final class MediaInfoTests: XCTestCase {
         let r = MediaInfo.rows(technical: t, size: 1, path: "/Movies/Sample Movie.mkv", subtitleNames: ["Sample Movie.de.srt"],
                                sourceName: nil, tracks: readTracks)
         XCTAssertEqual(r.map(\.label), ["Resolution", "HDR", "Video", "Frame Rate", "Bitrate", "Audio 1", "Audio 2", "Audio 3",
-                                        "Subtitles", "Container", "File Size", "Source", "Path"], "most important first, every track")
+                                        "Audio Format", "Subtitles", "Container", "File Size", "Source", "Path"],
+                       "most important first, every track; R369: the scan's Dolby Atmos keeps its own row")
+        XCTAssertEqual(value(r, "Audio Format"), "Dolby Atmos (from the library scan)")
         XCTAssertEqual(value(r, "Frame Rate"), "23.976 fps")
         XCTAssertEqual(value(r, "Audio 1"), "Dolby TrueHD 7.1 · English · default", "Atmos is not claimed from the header")
         XCTAssertEqual(value(r, "Audio 2"), "Dolby Digital 5.1 · French")

@@ -45,6 +45,9 @@ public enum MediaInfo {
             for (i, track) in audio.enumerated() {
                 rows.append(MediaInfoRow(label: audio.count == 1 ? "Audio" : "Audio \(i + 1)", value: audioLine(track)))
             }
+            // R369: the header's track lines never claim Atmos, so the Dolby Atmos badge (from the library scan: a file-name
+            // tag or the probe) keeps its own row here.
+            if t?.hasAtmos == true { rows.append(MediaInfoRow(label: "Audio Format", value: "Dolby Atmos (from the library scan)")) }
         } else {
             let line = t.flatMap { FormatNames.audio(codec: $0.audioCodec, channels: $0.audioChannels, atmos: $0.hasAtmos) }
             rows.append(MediaInfoRow(label: "Audio", value: line ?? (tracks == nil ? notChecked : notKnown)))
@@ -100,16 +103,20 @@ public enum MediaInfo {
 
     /// "3840 × 2160 (4K)", "1920 × 1080 (1080p)", or "1080p" when only the height is known.
     public static func resolution(width: Int?, height: Int?) -> String? {
-        guard let height, height > 0 else { return nil }
-        let name: String
-        switch height {
-        case 2000...: name = "4K"
-        case 1000..<2000: name = "1080p"
-        case 700..<1000: name = "720p"
-        default: name = "\(height)p"
-        }
+        guard let name = resolutionName(height: height), let height else { return nil }
         guard let width, width > 0 else { return name }
         return "\(width) × \(height) (\(name))"
+    }
+
+    /// "4K", "1080p", "720p" or "<height>p": the name in the Resolution row, and the resolution badge (R369).
+    public static func resolutionName(height: Int?) -> String? {
+        guard let height, height > 0 else { return nil }
+        switch height {
+        case 2000...: return "4K"
+        case 1000..<2000: return "1080p"
+        case 700..<1000: return "720p"
+        default: return "\(height)p"
+        }
     }
 
     /// "57.6 Mbit/s", "800 kbit/s". The index keeps bits per second.
