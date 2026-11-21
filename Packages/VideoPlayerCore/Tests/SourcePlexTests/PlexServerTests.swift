@@ -84,4 +84,15 @@ final class PlexServerTests: XCTestCase {
             XCTFail("expected unreachable")
         } catch PlexError.serverUnreachable {}
     }
+
+    /// R302, R303: the source secret is the server's own token only; a server without one cannot be added, and the account
+    /// token is never offered in its place.
+    func testTheSourceSecretIsTheServersOwnTokenAndNeverTheAccountToken() throws {
+        let own = PlexServer(name: "Home PC", machineIdentifier: "machine-0001", accessToken: "server-token-placeholder", connections: [])
+        XCTAssertEqual(try own.sourceSecret(), "server-token-placeholder")
+        for missing in [nil, ""] as [String?] {
+            let bare = PlexServer(name: "Home PC", machineIdentifier: "machine-0001", accessToken: missing, connections: [])
+            XCTAssertThrowsError(try bare.sourceSecret()) { XCTAssertEqual($0 as? PlexError, .noServerToken) }
+        }
+    }
 }

@@ -64,9 +64,18 @@ public struct PlexPinSignIn: Sendable {
     }
 
     /// One look at the PIN: the account token when the code was entered, nil while it was not. A 404 means the code is gone.
+    ///
+    /// The PIN's code goes with every check as the query parameter `code` (owner's instruction, 21 Nov 2026). Re-read
+    /// 21 Nov 2026 ("Authenticating with Plex" in the OpenAPI file of https://developer.plex.tv/pms/): the guide's check is
+    /// `GET https://plex.tv/api/v2/pins/<pinID>` with `Accept` and `X-Plex-Client-Identifier` only; it does not show `code`
+    /// on the check (the code appears there only in the sign-in page address). Sending it is harmless if plex.tv ignores it;
+    /// whether plex.tv needs it is UNVERIFIED.
     public func check(_ code: PlexSignInCode) async throws -> String? {
         if now() >= code.expiresAt { throw PlexError.codeExpired }
-        let response = try await http.send(http.request("GET", plexTV.appendingPathComponent("api/v2/pins/\(code.id)"), token: nil))
+        var parts = URLComponents(url: plexTV.appendingPathComponent("api/v2/pins/\(code.id)"), resolvingAgainstBaseURL: false)
+        parts?.queryItems = [URLQueryItem(name: "code", value: code.code)]
+        guard let url = parts?.url else { throw SourceError.invalidURL }
+        let response = try await http.send(http.request("GET", url, token: nil))
         if response.statusCode == 404 { throw PlexError.codeExpired }
         return try PlexHTTP.decode(PlexPinResponse.self, from: response).authToken
     }

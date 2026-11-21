@@ -18,6 +18,14 @@ public struct PlexServer: Equatable, Sendable {
     public var isLocal: Bool { connections.contains { $0.local && !$0.relay } }
     /// True when the only way to reach the server is the Plex relay.
     public var onlyRelay: Bool { !connections.isEmpty && connections.allSatisfy(\.relay) }
+
+    /// The token saved as this source's secret: the server's own `accessToken`, never the account token (R302, R303).
+    /// Source secrets are mirrored to iCloud; the account token stays on this Apple TV. A server without a token of its own
+    /// cannot be added (`PlexError.noServerToken`). Whether a real owned server ever comes without one is UNVERIFIED.
+    public func sourceSecret() throws -> String {
+        guard let accessToken, !accessToken.isEmpty else { throw PlexError.noServerToken }
+        return accessToken
+    }
 }
 
 /// The account's server list from plex.tv.

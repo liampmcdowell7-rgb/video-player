@@ -57,6 +57,8 @@ public enum PlexError: Error, Equatable, Sendable {
     case notJSON
     /// The file cannot be played by this app (R304): the reason in plain words.
     case cannotPlay(String)
+    /// The server came without a token of its own; the account token is never used in its place (R302, R303).
+    case noServerToken
 }
 
 extension PlexError: LocalizedError {
@@ -68,6 +70,7 @@ extension PlexError: LocalizedError {
         case .onlyRelay: return "This server is reachable only through the Plex relay, which is off."
         case .notJSON: return "The Plex server sent an answer this app cannot read."
         case .cannotPlay(let reason): return reason
+        case .noServerToken: return "This server cannot be added yet."
         }
     }
 }

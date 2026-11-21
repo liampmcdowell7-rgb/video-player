@@ -111,4 +111,22 @@ final class PlexSignInTests: XCTestCase {
             XCTFail("expected cancellation")
         } catch is CancellationError {}
     }
+
+    /// Every check carries the PIN's code as the query parameter `code` (owner's instruction, 21 Nov 2026; the guide read the
+    /// same day shows the check without it, so it is harmless extra), and never a token.
+    func testEveryCheckSendsTheCodeAsAQueryParameter() async throws {
+        let server = try FakePlexServer()
+        server.claimAfterPolls = 2
+        let flow = signIn(server, clock: Clock())
+        let code = try await flow.start()
+        _ = try await flow.waitForToken(code)
+        let checks = server.requests.filter { $0.method == "GET" && $0.url.path == "/api/v2/pins/\(code.id)" }
+        XCTAssertEqual(checks.count, 2)
+        for check in checks {
+            let items = URLComponents(url: check.url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            XCTAssertEqual(items, [URLQueryItem(name: "code", value: code.code)])
+            XCTAssertEqual(check.headers["X-Plex-Client-Identifier"], "install-1234")
+            XCTAssertNil(check.headers["X-Plex-Token"])
+        }
+    }
 }

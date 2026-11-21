@@ -170,12 +170,30 @@ final class PlexSetupTests: XCTestCase {
         XCTAssertEqual(error.message, PlexSetupText.unreachable)
     }
 
+    /// R302, R303: a server without a token of its own is not added; nothing is saved, so the account token can never
+    /// become a (mirrored) source secret.
+    func testAServerWithoutItsOwnTokenCannotBeAddedAndSavesNothing() async throws {
+        let secrets = Secrets(), store = try SQLiteLibraryStore(path: ":memory:")
+        var model = try model(FakeAccount(signedIn: true, servers: .success([home]), connection: .failure(PlexSetupError.noServerToken)),
+                              secrets: secrets, store: store)
+        await model.start()
+        await model.add(home)
+        guard case .failed(let error) = model.phase else { return XCTFail("expected a failure, got \(model.phase)") }
+        XCTAssertEqual(error.title, PlexSetupText.noServerTokenTitle)
+        XCTAssertEqual(error.message, PlexSetupText.noServerToken)
+        let saved = await secrets.saved
+        XCTAssertTrue(saved.isEmpty)
+        let sources = try await store.sources()
+        XCTAssertTrue(sources.isEmpty)
+    }
+
     /// HIG Managing accounts (read 20 Nov 2026): name the method, say why, never "passcode"; S1: no "..." in short texts.
     func testTheTextsFollowTheGuidance() {
         let all = [PlexSetupText.signInTitle, PlexSetupText.instruction(link: "plex.tv/link"), PlexSetupText.why,
                    PlexSetupText.waiting, PlexSetupText.expired, PlexSetupText.newCode, PlexSetupText.gettingCode,
                    PlexSetupText.serversTitle, PlexSetupText.serversFooter, PlexSetupText.loadingServers,
-                   PlexSetupText.noServersTitle, PlexSetupText.noServers, PlexSetupText.onlyRelay, PlexSetupText.unreachable]
+                   PlexSetupText.noServersTitle, PlexSetupText.noServers, PlexSetupText.onlyRelay, PlexSetupText.unreachable,
+                   PlexSetupText.noServerTokenTitle, PlexSetupText.noServerToken]
         XCTAssertTrue(PlexSetupText.instruction(link: "plex.tv/link").contains("plex.tv/link"))
         XCTAssertTrue(PlexSetupText.signInTitle.contains("Plex"), "the method is named")
         XCTAssertTrue(PlexSetupText.why.contains("password is never entered"))

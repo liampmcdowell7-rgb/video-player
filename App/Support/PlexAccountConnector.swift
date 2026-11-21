@@ -72,8 +72,11 @@ final class PlexAccountConnector: PlexAccountConnecting, @unchecked Sendable {
 
     func connect(_ choice: PlexServerChoice) async throws -> PlexServerConnection {
         guard let server = lock.withLock({ known[choice.id] }) else { throw PlexSetupError.unreachable }
-        // The resource's own token; an owned server without one falls back to the account token (UNVERIFIED which happens).
-        guard let token = server.accessToken ?? (try credentials.secret(for: Self.accountKey)) else { throw SourceError.unauthorized }
+        // The server's own token only. The account token never becomes a source secret: source secrets are mirrored to
+        // iCloud and the account token stays on this Apple TV (R302). A server without a token of its own cannot be added
+        // yet (R303; whether that happens on a real account is UNVERIFIED).
+        let token: String
+        do { token = try server.sourceSecret() } catch { throw PlexSetupError.noServerToken }
         do {
             let connection = try await probe.firstReachable(server, allowRelay: false)
             return PlexServerConnection(machineIdentifier: server.machineIdentifier, name: server.name, uri: connection.uri,

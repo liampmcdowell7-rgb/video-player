@@ -65,6 +65,9 @@ Steps, from the developer home page (read):
    code and the text "plex.tv/link". The exact lifetime of a short PIN is **not stated** (UNVERIFIED; the screen offers
    "Get a New Code" when it expires).
 2. Poll `GET https://plex.tv/api/v2/pins/<id>` with `Accept` and `X-Plex-Client-Identifier`, "once per second" (read).
+   Since 21 Nov 2026 (owner's instruction) every check also sends the PIN's code as the query parameter `code`. Re-read
+   that day: the guide's check request shows only the two headers, not `code` (the code appears only in the sign-in page
+   address); sending it is harmless if plex.tv ignores it, and whether plex.tv needs it is UNVERIFIED.
    When the owner has entered the code, `authToken` is set; "If authentication failed, the `authToken` field will remain
    `null`" (read).
 3. The token is stored at once (section 3) and never shown, logged or printed.
@@ -127,6 +130,9 @@ Plan (R268):
 - Two tokens exist: the plex.tv account token (from the PIN) and each server's `accessToken` (from resources). Plan: keep
   the **server access token** as the source secret (it is all playback needs), and keep the account token in the same
   Keychain item only if the owner wants server-list refresh without signing in again (R269).
+- Built (R302, R303, fix of 21 Nov 2026): the account token stays in its own Keychain item on this Apple TV and is never
+  a source secret. A server whose resource has no `accessToken` of its own is not added ("Cannot Add This Server Yet");
+  until this fix the account token would have been saved in its place, and so mirrored to iCloud.
 - iCloud: secrets today are mirrored by `MirroredSecrets` (Keychain first, then the CloudKit `Secrets` zone, record type
   `SourceSecret`). Recommended (R269): the Plex token follows the same rule as the other source secrets, so a second Apple
   TV in the same iCloud account gets the source without signing in again. Alternative: never mirror Plex tokens (sign in

@@ -47,6 +47,9 @@ public enum PlexSetupError: Error, Equatable, Sendable {
     /// The relay is the only way to the server and it is off (R268).
     case onlyRelay
     case unreachable
+    /// The server came without a token of its own. The account token is never saved as a source secret in its place
+    /// (source secrets are mirrored to iCloud; the account token stays on this Apple TV, R302, R303).
+    case noServerToken
 }
 
 /// The Plex account side of the setup flow. The real one lives in the app target (it talks to plex.tv and the Keychain).
@@ -98,6 +101,8 @@ public enum PlexSetupText {
     public static let noServers = "This Plex account has no server this app can use."
     public static let onlyRelay = "This server can be reached only through the Plex relay, which is off. Connect the Apple TV to the same network as the server and try again."
     public static let unreachable = "The server did not answer. Check that it is turned on and on the same network, then try again."
+    public static let noServerTokenTitle = "Cannot Add This Server Yet"
+    public static let noServerToken = "Plex did not give this Apple TV a sign-in of its own for this server, so it cannot be added yet. Your Plex account sign-in stays on this Apple TV only."
 }
 
 public struct PlexSetupModel: Sendable {
@@ -170,6 +175,8 @@ public struct PlexSetupModel: Sendable {
             phase = .failed(ErrorState(title: "Cannot Reach the Server", message: PlexSetupText.onlyRelay))
         } catch PlexSetupError.unreachable {
             phase = .failed(ErrorState(title: "Cannot Reach the Server", message: PlexSetupText.unreachable))
+        } catch PlexSetupError.noServerToken {
+            phase = .failed(ErrorState(title: PlexSetupText.noServerTokenTitle, message: PlexSetupText.noServerToken))
         } catch is CancellationError {
             return
         } catch {
