@@ -1,6 +1,6 @@
 # Auto skip, binge playback, on-device detection and Now Playing (plan only)
 
-Status: **plan, no code** (owner's request of 20 Nov 2026). Every decision below is PROVISIONAL and has an R number in
+Status: **plan, no code** (owner's request of 20 Nov 2026). Every decision below is PROVISIONAL (except R288 and R290, decided by the owner on 21 Nov 2026) and has an R number in
 OPEN_QUESTIONS.md (R-rows listed in section 12). Nothing here is built. Brandless rule: this document names no other
 media-player app; behaviour is described generically. Data providers appear only as plain-text names, as
 docs/NAMES.md allows (IntroDB is already on its allowlist; other names in section 8 are research notes, not app text).
@@ -232,6 +232,11 @@ the plugin repository (no result format or thresholds).
 
 ### 8.2 Three ways to use it (R288)
 
+**Decided by the owner, 21 Nov 2026 (R288):** (a) lookup at playback time behind the existing **Free Data Sources**
+switch (off by default), plus (c) priors. Only the show's ID, season and episode are sent; answers are cached on the
+Apple TV; typical intro and credit lengths narrow the on-device detection; no automatic skip unless the on-device audio
+check (8.3) agrees. No separate switch, no default ON, no shipped snapshot. The options below are kept as history.
+
 **(a) Lookup at playback time** (what the app already does for IntroDB, behind Free Data Sources). Sends ONLY the show's
 IMDb ID, season and episode (today also the app's User-Agent with name, version and repository address); nothing about
 the owner, the device, the source or the file name. Cached on the device (today 7 days, "none" 1 day); works without
@@ -259,6 +264,10 @@ automatically; show the button only if the owner's setting is Show Button, other
 automatic skip is worse than none.
 
 ### 8.4 Licence, attribution and the brandless rule (R290)
+
+**Decided by the owner, 21 Nov 2026 (R290):** a plain-text credit line in Settings > About, no logo: the same exception
+the TMDB credit has, limited to that one line (docs/NAMES.md section 4 item 6). No snapshot is shipped (R288), so the
+ODbL credit is not mandatory; the existing About line stays. The text below is the question as it was put.
 
 IntroDB is already credited in plain text in Settings > About (`App/Support/Attribution.swift`), and its name is on the
 docs/NAMES.md allowlist. The open-data page's ODbL credit ("Contains data from IntroDB (introdb.app), available under the
@@ -319,7 +328,8 @@ intro is skipped as set. Each result goes into docs/DEVICE_TEST_CHECKLIST_PLATFO
 5. **Learning from the owner** (R285).
 6. **Binge playback:** advance and countdown wiring, the double-effect bug, the last episode (R281).
 
-Community data (R288) can join stage 1 (it already exists behind Free Data Sources) once the owner decides R288 and R290.
+Community data (R288) can join stage 1 (it already exists behind Free Data Sources): the owner decided R288 and R290 on
+21 Nov 2026. Stage 1 adds the audio check of 8.3 before any automatic skip from community data.
 
 ## Sources read (20 Nov 2026)
 

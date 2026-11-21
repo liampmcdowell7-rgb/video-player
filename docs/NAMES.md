@@ -428,6 +428,13 @@ the first archive's linked libraries. Alternative: a separate Licences screen (O
 4. **Pages not read** (cannot confirm they have no further requirement): Dolby brand guidelines, dts.com trademarks, Plex trademark/partner pages, HDMI adopter guidelines, Microsoft trademark list PDF, UPnP notice PDF, HDR10+ logo guide, Metacritic terms. A person should read them before release.
 5. **Apple:** "Apple TV" and the other marks are used as adjectives with generic nouns where possible; no Apple logo, no AirPlay or "Made for" badge.
 
+6. **IntroDB credit: the second exception (owner's decision 21 Nov 2026, OPEN_QUESTIONS R290).** Like the TMDB credit,
+   one credit line for a community data source is allowed on the app's screens: the plain-text IntroDB line in Settings >
+   About (`App/Support/Attribution.swift`). Plain text only, no logo, no brand colour, nowhere else (the TMDB logo of item 1
+   stays the only logo). The data is looked up only while Free Data Sources is on (R288); no snapshot is shipped, so the
+   ODbL credit is not mandatory today; if a snapshot is ever shipped, its ODbL credit goes on this same line. Any other
+   data source that would need a credit is a new owner decision, not covered by this item.
+
 ## 4a. Written source offer for the LGPL libraries (Settings > About > Open Source, verbatim; OPEN_QUESTIONS R149, PROVISIONAL)
 
 Source: `LicenseNotices.sourceOffer`, `sourceLinks` and `repositoryLine` in
