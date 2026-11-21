@@ -548,6 +548,8 @@ public struct EpisodeRow: Equatable, Sendable, Identifiable {
     public var progress: Double?
     public var isWatched: Bool
     public var artworkKey: String
+    /// R370: the episode's badges (`FormatBadges.item`: resolution, HDR, Dolby Atmos).
+    public var badges: [FormatBadgeItem] = []
 }
 
 public struct SeasonSection: Equatable, Sendable, Identifiable {
@@ -609,7 +611,8 @@ public struct SeasonsViewModel: Sendable {
                 EpisodeRow(id: item.id, title: CardBuilder.episodeTitleIsReal(item) ? item.title : "Episode \(item.episode ?? 0)",
                            code: DisplayText.episodeCode(season: item.season, episode: item.episode, episodeEnd: item.episodeEnd) ?? "",
                            runtimeText: (item.runtime ?? item.watch.duration).map(DisplayText.runtime),
-                           progress: CardBuilder.progressFraction(item), isWatched: item.watch.watched, artworkKey: "item-\(item.id)")
+                           progress: CardBuilder.progressFraction(item), isWatched: item.watch.watched, artworkKey: "item-\(item.id)",
+                           badges: FormatBadges.item(item))
             }
             return SeasonSection(season: season, title: season == 0 ? "Specials" : "Season \(season)", episodes: rows,
                                  watchedCount: rows.filter(\.isWatched).count)

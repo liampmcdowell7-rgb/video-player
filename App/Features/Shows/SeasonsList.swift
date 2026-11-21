@@ -209,6 +209,7 @@ private struct EpisodeCard: View {
     private var accessibilityValue: String {
         var parts: [String] = []
         if let runtime = episode.runtimeText { parts.append(runtime) }
+        parts.append(contentsOf: episode.badges.map(\.spokenLabel))
         if episode.isWatched { parts.append("Watched") }
         return parts.joined(separator: ", ")
     }
@@ -223,6 +224,8 @@ private struct EpisodeCard: View {
                     FittingText(runtime, style: .caption2)
                         .foregroundStyle(.secondary)
                 }
+                // R370: the episode's own badges (resolution, HDR, Dolby Atmos), dropped from the end where space is short.
+                BadgeRow(badges: episode.badges)
                 // #15 D5: the watched mark keeps its slot.
                 SymbolColumn(systemImage: "checkmark.circle", isShown: episode.isWatched, accessibilityText: "Watched")
             }

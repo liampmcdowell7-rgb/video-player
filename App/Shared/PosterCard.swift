@@ -98,8 +98,8 @@ struct PosterCard: View {
     @ViewBuilder private var secondLines: some View {
         FittingLine(line: card.subtitleLine, style: .caption2)
             .foregroundStyle(.secondary)
-        FittingLine(line: card.badgeLine, style: .caption2)
-            .foregroundStyle(.secondary)
+        // R370: the card's badges drawn (4K, the HDR format, Dolby Atmos), dropped from the end where space is short.
+        BadgeRow(badges: card.formatBadges)
     }
 }
 

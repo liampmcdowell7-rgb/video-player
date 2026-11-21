@@ -45,7 +45,8 @@ public struct ItemDetailContent: Equatable, Sendable {
     public var seriesTitle: String?
     /// "2020 · 1 h 52 min · ★ 7.8", or "S2 E4 · 41 min".
     public var facts: String
-    public var badges: [String]
+    /// R370: the headline badges of the metadata line (resolution, HDR, audio format).
+    public var badges: [FormatBadgeItem]
     public var playTitle: String
     public var canStartOver: Bool
     public var isWatched: Bool
@@ -58,6 +59,8 @@ public struct ItemDetailContent: Equatable, Sendable {
     public var artworkKey: String
     /// #15 6.2: what the preferred file contains, always fully shown. Empty when the title has no file.
     public var mediaInfo: [MediaInfoRow] = []
+    /// R370: every badge of the preferred file, for the top of Information.
+    public var allBadges: [FormatBadgeItem] = []
 }
 
 public struct ItemDetailViewModel: Sendable {
@@ -113,11 +116,17 @@ public struct ItemDetailViewModel: Sendable {
         state = .loaded(updated)
     }
 
-    /// R369: the page's badges are the preferred file's (`ProductPage.badges`), each with its Information row; with no
-    /// facts for that file, the card's badges and the item's best channel layout, as before.
-    static func badges(card: ItemCard, item: LibraryItem, technical: FileTechnicalInfo?) -> [String] {
-        if let technical { return ProductPage.badges(technical: technical, maxChannels: item.maxChannels).map(\.text) }
-        return ProductPage.formatBadges(cardBadges: card.badges, maxChannels: item.maxChannels)
+    /// R370: the page's badges are the preferred file's (`FormatBadges.all`), each group with its Information row; with no
+    /// facts for that file, what the library item knows (resolution, HDR, Dolby Atmos) and its best channel layout.
+    static func badges(item: LibraryItem, file: StoredFile?) -> (headline: [FormatBadgeItem], all: [FormatBadgeItem]) {
+        let all: [FormatBadgeItem]
+        if let file, let technical = file.technical {
+            let ext = (file.name as NSString).pathExtension
+            all = FormatBadges.all(technical: technical, fileExtension: ext, maxChannels: item.maxChannels)
+        } else {
+            all = FormatBadges.item(item) + [FormatBadges.channels(item.maxChannels)].compactMap { $0 }
+        }
+        return (FormatBadges.headline(all), all)
     }
 
     static func content(_ item: LibraryItem, files: [StoredFile], sidecars: [StoredFile], sourceNames: [String: String] = [:],
@@ -153,13 +162,15 @@ public struct ItemDetailViewModel: Sendable {
         if let progress, let duration = item.watch.duration ?? item.runtime, duration > 0 {
             timeLeft = DisplayText.remaining(duration * (1 - progress))
         }
+        let badges = Self.badges(item: item, file: files.first { $0.id == preferred })
         let mediaInfo = files.first { $0.id == preferred }.map { MediaInfo.rows(file: $0, sidecars: sidecars, sourceName: sourceNames[$0.sourceID], tracks: tracks) } ?? []
         return ItemDetailContent(itemID: item.id, kind: item.kind, title: card.title, seriesID: item.seriesID, seriesTitle: item.seriesTitle,
                                  facts: facts.joined(separator: " · "),
-                                 badges: Self.badges(card: card, item: item, technical: files.first { $0.id == preferred }?.technical),
+                                 badges: badges.headline,
                                  playTitle: playTitle, canStartOver: started,
                                  isWatched: item.watch.watched, isFavorite: item.watch.favorite, progress: progress, timeLeft: timeLeft,
-                                 versions: versions, extras: extras, artworkKey: card.artworkKey, mediaInfo: mediaInfo)
+                                 versions: versions, extras: extras, artworkKey: card.artworkKey, mediaInfo: mediaInfo,
+                                 allBadges: badges.all)
     }
 
     static func kindText(_ kind: FileKind) -> String {

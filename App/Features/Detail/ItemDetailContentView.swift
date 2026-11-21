@@ -28,7 +28,7 @@ struct ItemDetailContentView: View {
                     CastShelf(cast: cast)
                 }
                 if !content.mediaInfo.isEmpty {
-                    MediaInfoSection(rows: content.mediaInfo)
+                    MediaInfoSection(rows: content.mediaInfo, badges: content.allBadges)
                 }
             }
         }
@@ -245,12 +245,17 @@ private struct CastPhoto: View {
 /// its column; labels stay on one line (rule S1).
 private struct MediaInfoSection: View {
     let rows: [MediaInfoRow]
+    /// R370: every format badge of the file, above the rows that say the same in full.
+    var badges: [FormatBadgeItem] = []
 
     var body: some View {
         VStack(alignment: .leading) {
             Text(ProductPage.informationHeading)
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
+            if !badges.isEmpty {
+                BadgeFlowRow(badges: badges)
+            }
             Grid(alignment: .leadingFirstTextBaseline) {
                 ForEach(rows) { row in
                     GridRow {

@@ -693,12 +693,48 @@ final class ScreenshotTests: XCTestCase {
         if play.exists, info.exists, info.frame.minY <= play.frame.minY { problems.append("Information is not below Play") }
         if cast.exists, info.exists, info.frame.minY <= cast.frame.minY { problems.append("Information is not below Cast & Crew") }
         if app.staticTexts["Media Info"].exists { problems.append("the old “Media Info” heading is still shown") }
-        let badges: [String] = ["4K", "Dolby Vision", "HDR10+", "HDR10", "HLG", "Dolby Atmos", "5.1", "7.1"].filter { app.staticTexts[$0].exists }
+        // R370: the badges are drawn elements labelled "4K, resolution" and so on (identifier "badge.<group>").
+        let badges: [String] = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "badge.")).allElementsBoundByIndex.map(\.label)
         lines.append("format badges shown: \(badges.isEmpty ? "none" : badges.joined(separator: ", "))")
         var verdict: String = "PRODUCT PAGE ORDER OK"
         if !problems.isEmpty { verdict = "PRODUCT PAGE PROBLEM: " + problems.joined(separator: "; ") }
         lines.append(verdict)
         note(name + "-PRODUCT", lines.joined(separator: "\n"))
+        XCTAssertTrue(problems.isEmpty, "\(name): " + verdict)
+    }
+
+    /// R370 (owner's decision of 21 Nov 2026): the drawn format badges are never cut. Every element whose identifier starts
+    /// with "badge." (the full set at the top of Information, each badge its own element) has a size, lies inside the window
+    /// from side to side, and overlaps no other badge; the metadata line (one combined element) lies inside the window. The
+    /// note "-BADGES" lists every badge with its frame. Vertical position is not checked: Information is below the fold.
+    func badgesNotCutCheck(_ name: String, expectBadges: Bool, in app: XCUIApplication) {
+        let window: CGRect = app.windows.firstMatch.frame
+        let found: [XCUIElement] = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "badge.")).allElementsBoundByIndex
+        var lines: [String] = ["window \(Int(window.width)) x \(Int(window.height))"]
+        var problems: [String] = []
+        var frames: [(String, CGRect)] = []
+        for badge in found {
+            let f: CGRect = badge.frame
+            lines.append("\(badge.identifier) “\(badge.label)” x \(Int(f.minX)) y \(Int(f.minY)) w \(Int(f.width)) h \(Int(f.height))")
+            if f.width <= 0 || f.height <= 0 { problems.append("“\(badge.label)” has no size") }
+            if f.minX < window.minX || f.maxX > window.maxX { problems.append("“\(badge.label)” is cut at the side of the window") }
+            for (other, g) in frames where f.intersection(g).width > 1 && f.intersection(g).height > 1 {
+                problems.append("“\(badge.label)” overlaps “\(other)”")
+            }
+            frames.append((badge.label, f))
+        }
+        if found.isEmpty && expectBadges { problems.append("no badge element found") }
+        let line: XCUIElement = app.descendants(matching: .any).matching(identifier: "product.metadataLine").firstMatch
+        if line.exists {
+            let f: CGRect = line.frame
+            lines.append("metadata line “\(line.label)” x \(Int(f.minX)) w \(Int(f.width))")
+            if f.minX < window.minX || f.maxX > window.maxX { problems.append("the metadata line is cut at the side of the window") }
+        } else {
+            lines.append("metadata line: not found by identifier")
+        }
+        let verdict: String = problems.isEmpty ? "BADGES NOT CUT" : "BADGES PROBLEM: " + problems.joined(separator: "; ")
+        lines.append(verdict)
+        note(name + "-BADGES", lines.joined(separator: "\n"))
         XCTAssertTrue(problems.isEmpty, "\(name): " + verdict)
     }
 
@@ -1445,6 +1481,7 @@ final class ScreenshotTests: XCTestCase {
             settle(); shot("55-show-page")
             let showTop: String = focusedLabel(in: app)
             productPageCheck("55-show-page", information: false, in: app)
+            badgesNotCutCheck("55-show-page", expectBadges: false, in: app)
             // R336: the show page's backdrop, as on the movie page ("55-show-page-CONTRAST", a note).
             textContrast("55-show-page", in: app)
             // #33 E: every episode card the same size (55 of the run of 20 Nov: S2 E3 378 x 566 beside 410 x 615).
@@ -1487,6 +1524,7 @@ final class ScreenshotTests: XCTestCase {
             settle(); shot("57-movie-detail")
             let movieTop: String = focusedLabel(in: app)
             productPageCheck("57-movie-detail", information: true, in: app)
+            badgesNotCutCheck("57-movie-detail", expectBadges: true, in: app)
             let movieTree: String = app.debugDescription
             note("57-movie-detail-HIERARCHY", movieTree)
             checkGap("57-movie-detail", tree: movieTree, anchors: [ControlID.play, ControlID.more], kinds: ["StaticText"], minimum: 40, what: "buttons to the next heading")
