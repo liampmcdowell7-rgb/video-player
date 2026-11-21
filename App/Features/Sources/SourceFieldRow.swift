@@ -1,26 +1,22 @@
 import SwiftUI
 import AppLogic
 
-/// One field of the source form as ONE system row: a text field, a secure field for the password, or a picker when the field
-/// has fixed answers.
+/// One field of a source form as ONE tvOS Settings row (docs/SOURCE_SETUP_DESIGN.md, OPEN_QUESTIONS R320, PROVISIONAL).
 ///
-/// #30 C (OPEN_QUESTIONS R228, PROVISIONAL): at the default text size the label is on the leading side and the field on the
-/// trailing side of the same row (`LabeledContent`), so a whole form fits on one screen; before, each field was a section
-/// with its own header and the sheet showed only four of them (11, 17). Every field has the same width
-/// (`TaskPageLayout.fieldFraction`); the label stays on one line and is never cut (`FittingText`, rules S1 and R199).
-/// #30 E: at an accessibility text size the label goes above the field and both use the full row (HIG Layout: "horizontally
-/// adjacent views may need to stack vertically"), so nothing is shrunk or cut. The problem texts are under the section
-/// (SourceFormView).
-/// #36 S-D (OPEN_QUESTIONS R256, PROVISIONAL): text and secure fields are `FieldRow`: one rounded shape (the row draws no
-/// background). #36 group 3 (R265, PROVISIONAL): for text and secure fields the label is now above the field at every text
-/// size, the field has the system bordered shape at rest, and the former placeholder ("Living Room", "Optional") is the
-/// field's prompt again (FieldRow); the paragraphs above still describe the picker rows.
-/// R273 (PROVISIONAL): text and secure fields keep the system row background and the automatic field style (FieldRow);
-/// `focus`, when given, binds this row's control (field or picker) so the form can open on it.
+/// - A text field is a system `NavigationLink` row: the field name leading, the current value trailing in the Form's
+///   secondary level (`LabeledContent`), nothing when empty (R322: never "Optional" or an example in the value position),
+///   eight dots for a password. Select opens the field's entry page (`SourceFieldEntryPage`, R321), where the system
+///   keyboard is.
+/// - A field with fixed answers (FTP Encryption) stays a system `Picker` row, which already shows its answer trailing.
+///
+/// History: before R320 this row drew the label above a system text field inside the row platter (R256, R265, R273), a box
+/// inside a box with typing in place (compile run of 20 Nov 2026, 11 to 19). The rows are system rows, so the focus look
+/// is the system's (HIG Focus and selection: "Rely on system-provided focus effects").
 struct SourceFieldRow: View {
     let spec: SourceFieldSpec
     @Binding var text: String
-    var focus: FocusState<Bool>.Binding? = nil
+    /// Called after Done on the entry page with the value before and after (the form decides where the focus goes, R325).
+    var onDone: (_ before: String, _ after: String) -> Void = { _, _ in }
 
     var body: some View {
         if !spec.choices.isEmpty {
@@ -32,9 +28,21 @@ struct SourceFieldRow: View {
                 FittingText(spec.title)
             }
             .accessibilityLabel(spec.title)
-            .modifier(OptionalFocus(focus: focus))
+            .accessibilityIdentifier(ControlID.sourceField(spec.kind.rawValue))
         } else {
-            FieldRow(spec.title, hint: spec.prompt, text: $text, isSecret: spec.isSecret, focus: focus)
+            NavigationLink {
+                SourceFieldEntryPage(spec: spec, value: $text, onDone: onDone)
+            } label: {
+                LabeledContent {
+                    FittingText(SourceFormText.rowValue(spec, text))
+                        .foregroundStyle(.secondary)
+                } label: {
+                    FittingText(spec.title)
+                }
+            }
+            .accessibilityLabel(spec.title)
+            .accessibilityValue(SourceFormText.spokenValue(spec, text))
+            .accessibilityIdentifier(ControlID.sourceField(spec.kind.rawValue))
         }
     }
 

@@ -25,7 +25,14 @@ enum ControlID {
     static let goToTitle = "control.goToTitle"
     static let fullLicenceTexts = "control.fullLicenceTexts"
     static let searchYourNetwork = "control.searchYourNetwork"
+    /// Add a Source's Cancel (the cover's root page only since R324; the forms have none).
     static let sourceCancel = "control.sourceCancel"
+    /// R324: a source form's one action.
+    static let sourceConnect = "control.sourceConnect"
+    /// R321: the one text field of a field's entry page.
+    static let sourceEntryField = "control.sourceEntryField"
+    /// R320: one field row of a source form: "sourceField.address", "sourceField.password", ... (`SourceFieldKind.rawValue`).
+    static func sourceField(_ rawValue: String) -> String { "sourceField." + rawValue }
     static let learnMore = "control.learnMore"
     /// #32 F: the item count at the trailing end of the Movies and Shows toolbar.
     static let gridCount = "control.gridCount"

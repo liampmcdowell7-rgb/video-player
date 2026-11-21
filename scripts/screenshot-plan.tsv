@@ -12,6 +12,7 @@ test01_FirstLaunchAndEmptyScreens	05-files-empty
 test01_FirstLaunchAndEmptyScreens	06-search-empty-discover
 test02_AddASource	10-add-source-types
 test02_AddASource	11-form-webdav
+test02_AddASource	11-form-webdav-entry-name
 test02_AddASource	11-form-webdav-keyboard-name
 test02_AddASource	12-form-smb
 test02_AddASource	13-form-nfs

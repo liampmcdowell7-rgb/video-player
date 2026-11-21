@@ -11,8 +11,10 @@ struct SourceFormView: View {
     @Environment(AppServices.self) private var services
     @State private var model: ScreenModel<SourceSetupViewModel>?
     @State private var attempted = false
-    /// R273 (PROVISIONAL): the form opens with the focus on its first field (Name), not on Connect below the fields.
-    @FocusState private var firstFieldFocused: Bool
+    /// R325 (PROVISIONAL): where the focus is: a field row or Connect. Replaces R273's first focus on Name.
+    @FocusState private var focus: SourceFormFocus?
+    /// R325: set after Done filled the last empty required field; applied when the form appears again.
+    @State private var pendingFocus: SourceFormFocus?
 
     private var info: SourceKindInfo { SourceCatalog.info(for: draft.kind, oneDriveClientID: SourceConfiguration.oneDriveClientID) }
     private var problems: [FieldProblem] { attempted ? SourceDraftValidator.problems(draft) : [] }
@@ -23,28 +25,29 @@ struct SourceFormView: View {
         guard let caveat: String = info.caveat else { return status }
         return status + " " + caveat
     }
-    /// #30: the problem texts of all fields, one per line, under the fields' section (each names its field).
-    private var problemText: String {
-        let lines: [String] = problems.map { (problem: FieldProblem) -> String in problem.message }
+    /// The fields' section footer (R322, R327): after Connect, what is wrong with each field (each names its field), one per
+    /// line; then, always, the one line that names the optional fields. Plain text, never an alert for validation.
+    private var footerText: String {
+        var lines: [String] = problems.map { (problem: FieldProblem) -> String in problem.message }
+        if let optional = SourceFormText.optionalLine(info.fields) { lines.append(optional) }
         return lines.joined(separator: "\n")
     }
 
-    @Environment(\.dismiss) private var dismiss
-
     var body: some View {
-        // #25 B1 (R202): one column, the type's name on top and its one sentence under it; Connect and Cancel sit together
-        // after the fields. What was tested and what was not (the status and the caveat) are on the type's Learn More page,
-        // one press away. #30 (R228): a full-screen `TaskPage`; all fields in ONE section, label and field on one row, the
-        // problems under it. Fixed in code, verify in next screenshots (11 to 19, 94, 100, 111).
+        // #25 B1 (R202): one column, the type's name on top and its one sentence under it. #30 (R228): a full-screen
+        // `TaskPage`. R320 (PROVISIONAL, docs/SOURCE_SETUP_DESIGN.md): every field is one tvOS Settings row, value trailing;
+        // Select opens its entry page. R324: Connect is the one action; no Cancel (Back returns to the type list).
         TaskPage(title: info.title, summary: info.summary) {
             Section {
                 ForEach(info.fields) { spec in
-                    SourceFieldRow(spec: spec, text: binding(spec.kind),
-                                   focus: spec.id == info.fields.first?.id ? $firstFieldFocused : nil)
+                    SourceFieldRow(spec: spec, text: binding(spec.kind)) { (before: String, after: String) in
+                        fieldDone(spec.kind, before: before, after: after)
+                    }
+                    .focused($focus, equals: .field(spec.kind))
                 }
             } footer: {
-                if !problems.isEmpty {
-                    Text(problemText)
+                if !footerText.isEmpty {
+                    Text(footerText)
                 }
             }
             // #30 item 3 (21-search-your-network-server-details): the found server's raw identifier, WHOLE on one line, in its own
@@ -68,20 +71,27 @@ struct SourceFormView: View {
                 }
             }
             Section {
-                // #36 S-C (R255): Connect and Cancel side by side, the same size, Connect prominent.
+                // R324 (PROVISIONAL): Connect alone, `.borderedProminent` (HIG Buttons: "use a button that has a prominent
+                // visual style for the most likely action in a view"). No Cancel: the remote's Back opens the parent, the
+                // type list (HIG Remotes), and Add a Source's own Cancel closes the cover (HIG Modality).
                 TaskButtonRow {
                     connectRow
-                    TaskButton("Cancel", role: .cancel) { dismiss() }
-                        .accessibilityIdentifier(ControlID.sourceCancel)
                 }
                 LearnMoreLink(title: "About \(info.title)", text: aboutText)
                     .accessibilityIdentifier(ControlID.learnMore)
             }
         }
-        // R273: the first focus goes to the first field when the form appears (Apple, defaultFocus(_:_:priority:): "focus
-        // automatically goes to" the given field "when the view is first presented"; tvOS 16.0+). Priority automatic: the
-        // user's own moves are not redirected.
-        .defaultFocus($firstFieldFocused, true)
+        // R325: the first focus (Apple, defaultFocus(_:_:priority:), tvOS 16.0+: focus goes there "when the view is first
+        // presented"): Connect when every required field is filled, otherwise the first empty required row.
+        .defaultFocus($focus, SourceFormText.firstFocus(draft))
+        // R325: after Done filled the last empty required field, Connect, once the form shows again. UNVERIFIED: whether
+        // SwiftUI restores the focus to the row after this.
+        .onAppear {
+            if let next = pendingFocus {
+                pendingFocus = nil
+                focus = next
+            }
+        }
         .onChange(of: phase) { _, newPhase in
             if case .saved = newPhase {
                 services.sourceAdded()
@@ -118,7 +128,19 @@ struct SourceFormView: View {
             .frame(maxWidth: .infinity, minHeight: TaskButtonLayout.minimumHeight)
         } else {
             TaskButton("Connect", prominent: true) { Task { await connect() } }
+                .focused($focus, equals: .connect)
+                .accessibilityIdentifier(ControlID.sourceConnect)
         }
+    }
+
+    /// R325: Done on a field's entry page. When that Done filled the last empty required field, the focus goes to Connect
+    /// as the form shows again.
+    private func fieldDone(_ field: SourceFieldKind, before: String, after: String) {
+        var old: SourceDraft = draft
+        old[field] = before
+        var new: SourceDraft = draft
+        new[field] = after
+        if let next = SourceFormText.focusAfterDone(before: old, after: new) { pendingFocus = next }
     }
 
     private var failure: ErrorState? {

@@ -613,17 +613,17 @@ final class ScreenshotTests: XCTestCase {
         for (n, kind, raw) in kinds {
             let name = "\(n)-form-" + kind.lowercased().replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: " ", with: "-")
             guard open(kind, id: ControlID.sourceKind(raw), in: app, name: name) else { continue }
-            // The form is ready when its Cancel row (the last row but one) stands still.
-            _ = waitUntilStill(control(id: ControlID.sourceCancel, label: "Cancel", in: app))
+            // The form is ready when its Connect button stands still (R324: the forms have no Cancel).
+            _ = waitUntilStill(control(id: ControlID.sourceConnect, label: "Connect", in: app))
             shot(name)
-            // R273: every field on screen without the focus has a visible shape; on the WebDAV form all four fields,
-            // Connect and Cancel are inside the 60 pt safe area as the form opens (the owner's TestFlight report of 20 Nov 2026:
-            // no text entry fields at all on the WebDAV form).
-            fieldsAtRest(name, in: app, mustHaveField: n == "11")
-            if n == "11" { formSafeArea(name, in: app) }
+            // R331 (docs/SOURCE_SETUP_DESIGN.md): an empty form shows no placeholder as a value (R322), and Connect is its one
+            // action, with a shape at rest (R324). The R273 checks of drawn text fields (-FIELDS-AT-REST, -SAFE-AREA) are
+            // gone: the form draws no text field since R320.
+            checkNoPlaceholderValues(name, in: app)
+            checkActions(name, in: app)
             checkNoKeyField(in: app, name: name)
-            checkFullScreen(anchor: ControlID.sourceCancel, label: "Cancel", in: app, name: name)
-            if n == "11" { keyboardOfNameField(in: app) }
+            checkFullScreen(anchor: ControlID.sourceConnect, label: "Connect", in: app, name: name)
+            if n == "11" { keyboardOfNameRow(in: app) }
             back()
             _ = waitForScreen(ControlID.searchYourNetwork, in: app, timeout: 5)
         }
@@ -697,12 +697,11 @@ final class ScreenshotTests: XCTestCase {
                     let value: String = (row.value as? String) ?? ""
                     note("21-search-your-network-server-details-ROW", "Server ID row value: \(value)\nframe: \(row.frame)\n" + (value == rawName ? "WHOLE ID OK" : "ID NOT WHOLE"))
                     XCTAssertEqual(value, rawName, "21-search-your-network-server-details: the Server ID row does not carry the whole identifier")
-                    // #33 D: the Name field starts with the readable name only. The tree carries a field's whole value, not
-                    // what is drawn, so a "…" cut cannot be read here; the picture 21-search-your-network-server-details shows it.
-                    let fieldValues: [String] = fake.textFields.allElementsBoundByIndex.map { (field: XCUIElement) -> String in
-                        guard let value = field.value as? String else { return "" }
-                        return value
-                    }
+                    // #33 D: the Name row starts with the readable name only. R320: the form draws no text field; the Name
+                    // ROW (identifier sourceField.name) reports the value. The tree carries the whole value, not what is drawn,
+                    // so a "…" cut cannot be read here; the picture 21-search-your-network-server-details shows it.
+                    let nameRow: XCUIElement = control(id: ControlID.sourceField("name"), label: "Name", in: fake)
+                    let fieldValues: [String] = [(nameRow.value as? String) ?? ""]
                     // #34 1: typed steps, no ternary inside a `+` chain (the #29 pattern).
                     let hasReadable: Bool = fieldValues.contains("Sample NAS")
                     let hasRaw: Bool = fieldValues.contains { (value: String) -> Bool in value.contains(rawName) }
@@ -790,7 +789,7 @@ final class ScreenshotTests: XCTestCase {
         if open("Sources", in: keyed, name: "39-second-source-no-key-field"), open("Add a Source", in: keyed, name: "39-second-source-no-key-field"),
            waitForScreen(ControlID.searchYourNetwork, in: keyed, timeout: 15),
            open("WebDAV", id: ControlID.sourceKind("webdav"), in: keyed, name: "39-second-source-no-key-field") {
-            _ = waitUntilStill(control(id: ControlID.sourceCancel, label: "Cancel", in: keyed))
+            _ = waitUntilStill(control(id: ControlID.sourceConnect, label: "Connect", in: keyed))
             checkNoKeyField(in: keyed, name: "39-second-source-no-key-field")
         }
     }
@@ -1534,10 +1533,10 @@ final class ScreenshotTests: XCTestCase {
                 return app
             }
             guard open("WebDAV", id: ControlID.sourceKind("webdav"), in: app, name: name) else { app.terminate(); return nil }
-            _ = waitUntilStill(control(id: ControlID.sourceCancel, label: "Cancel", in: app))
-            // #30: 94, 100, 111. At Larger Text the Cancel row may not be built yet (a lazy list); `fullScreenRow` then
-            // measures the cover's first Cell and says so in the note (#33 C).
-            checkFullScreen(anchor: ControlID.sourceCancel, label: "Cancel", in: app, name: name)
+            _ = waitUntilStill(control(id: ControlID.sourceConnect, label: "Connect", in: app))
+            // #30: 94, 100, 111. At Larger Text the Connect row may not be built yet (a lazy list); `fullScreenRow` then
+            // measures the cover's first Cell and says so in the note (#33 C). R324: the forms have no Cancel.
+            checkFullScreen(anchor: ControlID.sourceConnect, label: "Connect", in: app, name: name)
             return app
         default:
             XCTFail("Unknown accessibility screen \(key)")
@@ -1552,9 +1551,9 @@ final class ScreenshotTests: XCTestCase {
             let name = String(format: "%02d", number) + "-\(variant)-\(key)"
             guard let app = reachAccessibilityScreen(key, name: name, extra: extra) else { continue }
             settle(); shot(name)
-            // #36 group 3 (R265): at Larger Text the WebDAV form opens with every field, Connect and Cancel inside the
-            // 60 pt safe area (94 of the third run of 20 Nov had Connect and Cancel below the screen).
-            if key == "source-form" && variant == "larger-text" { formSafeArea(name, in: app, focusConnectWhenBelow: true) }
+            // R331 (replaces R265 and R295's -SAFE-AREA of text fields): at Larger Text, Down from the top of the WebDAV form
+            // reaches every field row and Connect, and Connect is inside the 60 pt safe area while focused.
+            if key == "source-form" && variant == "larger-text" { rowsReachable(name, in: app) }
             // #15 item 1.5: "Settings" was cut to "Sett" under Larger Text; the tab bar must read TAB BAR OK here too.
             if key == "home" { tabBarCheck(name, in: app) }
             recordOrCompareTexts(variant: variant, key: key, name: name, in: app)
@@ -1562,99 +1561,124 @@ final class ScreenshotTests: XCTestCase {
         }
     }
 
-    /// #36 group 3 (R262 (e), R265): the keyboard screen opened with Select on the WebDAV form's Name field, its picture
-    /// "11-form-webdav-keyboard-name" and every text on it in the "-KEYBOARD" note, so the next run shows the heading (the
-    /// field's title is empty, its prompt the hint "Living Room"). Menu then closes the keyboard; the caller closes the form.
-    func keyboardOfNameField(in app: XCUIApplication) {
+    /// R321, R331 (docs/SOURCE_SETUP_DESIGN.md): the Name row of the WebDAV form opens its entry page, whose heading is
+    /// "Name"; Select on the entry page's field shows the keyboard screen, "11-form-webdav-keyboard-name", and the
+    /// "-KEYBOARD-HEADING" note says whether that screen names the field ("Name") and not the example ("Living Room", the
+    /// heading the run of 20 Nov showed; R262). Back closes the keyboard, Back again the entry page.
+    func keyboardOfNameRow(in app: XCUIApplication) {
         let name: String = "11-form-webdav-keyboard-name"
-        let field: XCUIElement = app.textFields.matching(NSPredicate(format: "label == %@", "Name")).firstMatch
-        guard field.waitForExistence(timeout: 5), focus(field, in: app, maxPresses: 20) else {
-            return notReached(name, "The Name field could not be focused (focus on \(focusedLabel(in: app))).\n" + focusPathText())
+        let row: XCUIElement = control(id: ControlID.sourceField("name"), label: "Name", in: app)
+        guard row.waitForExistence(timeout: 5), focus(row, in: app, maxPresses: 20) else {
+            return notReached(name, "The Name row could not be focused (focus on \(focusedLabel(in: app))).\n" + focusPathText())
         }
         XCUIRemote.shared.press(.select)
+        let field: XCUIElement = app.descendants(matching: .any).matching(identifier: ControlID.sourceEntryField).firstMatch
+        guard field.waitForExistence(timeout: 10) else {
+            return notReached(name, "Select on the Name row did not open its entry page.\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
+        }
+        settle(); shot("11-form-webdav-entry-name")
+        let pageHeading: Bool = app.staticTexts.matching(NSPredicate(format: "label == %@", "Name")).firstMatch.exists
+        if !field.hasFocus { _ = focus(field, in: app, maxPresses: 5) }
+        XCUIRemote.shared.press(.select)
         guard app.keyboards.firstMatch.waitForExistence(timeout: 10) else {
-            return notReached(name, "No keyboard screen appeared after Select on the Name field.\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
+            back()
+            return notReached(name, "No keyboard screen appeared after Select on the Name entry field.\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
         }
         sleep(1); shot(name)
-        let texts: [String] = app.staticTexts.allElementsBoundByIndex.prefix(40).map { "\u{201C}\($0.label)\u{201D} \($0.frame)" }
+        // Top first, so the heading (if tvOS draws one) is early in the list.
+        let statics: [XCUIElement] = app.staticTexts.allElementsBoundByIndex.prefix(60).filter { $0.exists }
+            .sorted { (a: XCUIElement, b: XCUIElement) -> Bool in a.frame.minY < b.frame.minY }
+        let texts: [String] = statics.map(\.label)
+        let result: CheckResult = ScreenRules.keyboardHeading(texts: texts, fieldName: "Name", example: "Living Room")
         let inputs: [String] = (app.textFields.allElementsBoundByIndex + app.searchFields.allElementsBoundByIndex).map {
             "\u{201C}\($0.label)\u{201D} placeholder \u{201C}\($0.placeholderValue ?? "")\u{201D} \($0.frame)"
         }
-        note(name + "-KEYBOARD", "Select on the Name field (title empty, prompt \u{201C}Living Room\u{201D}, spoken label \u{201C}Name\u{201D}).\n"
-             + "Texts on the keyboard screen (the heading, if any, is among them):\n" + texts.joined(separator: "\n")
-             + "\nText and search fields:\n" + inputs.joined(separator: "\n"))
+        note("11-form-webdav-KEYBOARD-HEADING", "entry page heading \u{201C}Name\u{201D}: " + (pageHeading ? "shown" : "NOT SHOWN") + "\n" + result.text
+             + "\ntext fields on the keyboard screen:\n" + inputs.joined(separator: "\n"))
         hierarchy(name, of: app)
+        XCTAssertTrue(pageHeading, "\(name): the entry page has no \u{201C}Name\u{201D} heading")
+        XCTAssertTrue(result.passed, "\(name): " + result.verdict)
+        back()
         back()
     }
 
-    /// R273: the text and secure fields of the open form that are on screen and do not have the focus each show a shape
-    /// (a fill or an outline against the page; `ScreenRules.fieldShapeAtRest`). Written to "<name>-FIELDS-AT-REST"; a
-    /// failure fails the test. Fields below the screen are listed and not measured (the safe-area check covers WebDAV).
-    /// `mustHaveField`: the form must show at least one text or secure field (WebDAV: four); a form whose rows are all pickers
-    /// or buttons only writes the note.
-    func fieldsAtRest(_ name: String, in app: XCUIApplication, mustHaveField: Bool) {
-        let window: CGRect = app.windows.firstMatch.frame
-        let fields: [XCUIElement] = app.textFields.allElementsBoundByIndex + app.secureTextFields.allElementsBoundByIndex
-        // R273 build: each field's row (the smallest Form cell around it), so the page colour is sampled outside the row
-        // platter and the platter counts as the field's shape.
-        let cells: [CGRect] = app.cells.allElementsBoundByIndex.map { (cell: XCUIElement) -> CGRect in cell.frame }
-        var atRest: [ScreenRules.FieldAtRest] = []
-        var skipped: [String] = []
-        for field in fields where field.exists {
-            if window.width > 0, !window.contains(field.frame) { skipped.append("\u{201C}\(field.label)\u{201D} \(field.frame)"); continue }
-            let row: CGRect? = cells.filter { (cell: CGRect) -> Bool in cell.contains(field.frame) && cell != field.frame }
-                .min { (a: CGRect, b: CGRect) -> Bool in a.width * a.height < b.width * b.height }
-            atRest.append(ScreenRules.FieldAtRest(name: field.label, frame: AXRect(field.frame), isFocused: field.hasFocus,
-                                                  row: row.map { (r: CGRect) -> AXRect in AXRect(r) }))
+    /// R322, R331: on an empty form no field row reports "Optional", "Required" or an example as its value. Field rows are
+    /// found by identifier ("sourceField." + field kind); the FTP Encryption picker always shows its answer and is left out.
+    /// Written to "<name>-NO-PLACEHOLDER-VALUES"; a failure fails the test.
+    func checkNoPlaceholderValues(_ name: String, in app: XCUIApplication) {
+        let rows: [XCUIElement] = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", ControlID.sourceField(""))).allElementsBoundByIndex
+            .filter { (row: XCUIElement) -> Bool in row.identifier != ControlID.sourceField("security") }
+        var seen: Set<String> = []
+        var pairs: [(name: String, value: String)] = []
+        for row in rows where !seen.contains(row.identifier) {
+            seen.insert(row.identifier)
+            pairs.append((name: row.label, value: (row.value as? String) ?? ""))
         }
-        if atRest.isEmpty && !mustHaveField {
-            note(name + "-FIELDS-AT-REST", "no text or secure field on screen (\(fields.count) in the tree); nothing to measure")
-            return
-        }
-        guard let image = RGBImage(screenshot: XCUIScreen.main.screenshot()), window.width > 0 else {
-            note(name + "-FIELDS-AT-REST", "The screenshot could not be read or the window has no frame. PIXELS NOT MEASURED")
-            return XCTFail("\(name): fields at rest not measured")
-        }
-        let scale: Double = Double(image.width) / Double(window.width)
-        let result: CheckResult = ScreenRules.fieldShapeAtRest(image, fields: atRest, scale: scale)
-        note(name + "-FIELDS-AT-REST", "\(fields.count) fields, focus on \(focusedLabel(in: app))\n"
-             + (skipped.isEmpty ? "" : "below or beside the screen, not measured: " + skipped.joined(separator: "; ") + "\n")
-             + result.text)
+        // The catalog's examples and the two words that are not examples (AppLogic SourceCatalog; R322).
+        let placeholders: Set<String> = ["Optional", "Required", "Living Room", "https://nas.local", "nas.local", "445", "Videos",
+                                         "/videos", "22", "/", "21", "http://nas.local:8200", "http://nas.local:8096",
+                                         "https://nas.local/a.mkv"]
+        let result: CheckResult = ScreenRules.noPlaceholderValues(rows: pairs, placeholders: placeholders)
+        note(name + "-NO-PLACEHOLDER-VALUES", result.text)
         XCTAssertTrue(result.passed, "\(name): " + result.verdict)
     }
 
-    /// #36 group 3 (R265): the fields, Connect and Cancel of the open source form, each inside the 60 pt safe area, as the
-    /// form opens (no focus moved). Written to "<name>-SAFE-AREA"; a failure fails the test.
-    /// R295 (Larger Text, 94): the form is taller than the screen, so Connect and Cancel start below it (fourth run of 20 Nov:
-    /// Connect and Cancel at y 997, 96 pt high; the safe area ends at y 1020). With `focusConnectWhenBelow`, when either button
-    /// is outside the safe area as the form opens, the test moves the focus to Connect (the system scrolls the form to the
-    /// focused row) and measures again: both must then be inside. The note keeps both measurements.
-    func formSafeArea(_ name: String, in app: XCUIApplication, focusConnectWhenBelow: Bool = false) {
-        let fields: [XCUIElement] = app.textFields.allElementsBoundByIndex + app.secureTextFields.allElementsBoundByIndex
-        var elements: [(name: String, frame: AXRect?)] = fields.map { (field: XCUIElement) in
-            (name: field.label, frame: field.exists ? AXRect(field.frame) : nil)
+    /// R324, R331: the form's action buttons are exactly Connect (no Cancel since R324), and Connect shows a shape at rest
+    /// (its bezel against the page, `ScreenRules.fieldShapeAtRest`, measured without the focus). When Connect is below the
+    /// screen the focus goes to the last field row first, so the form scrolls Connect into view without focusing it.
+    /// Written to "<name>-ACTIONS"; a failure fails the test.
+    func checkActions(_ name: String, in app: XCUIApplication) {
+        let connect: XCUIElement = control(id: ControlID.sourceConnect, label: "Connect", in: app)
+        let cancel: XCUIElement = control(id: ControlID.sourceCancel, label: "Cancel", in: app)
+        var actions: [String] = []
+        if connect.exists { actions.append("Connect") }
+        if cancel.exists { actions.append("Cancel") }
+        let window: CGRect = app.windows.firstMatch.frame
+        var lines: [String] = []
+        if connect.exists, window.width > 0, !window.contains(connect.frame) {
+            let rows: [XCUIElement] = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier BEGINSWITH %@", ControlID.sourceField(""))).allElementsBoundByIndex
+            if let last = rows.last, focus(last, in: app, maxPresses: 15) { settle() }
+            lines.append("Connect was below the screen; focus moved to the last field row (\(focusedLabel(in: app)))")
         }
-        for label in ["Connect", "Cancel"] {
-            let button: XCUIElement = app.buttons[label].firstMatch
-            elements.append((name: label, frame: button.exists ? AXRect(button.frame) : nil))
+        var shape: CheckResult?
+        if connect.exists, window.width > 0, window.contains(connect.frame), let image = RGBImage(screenshot: XCUIScreen.main.screenshot()) {
+            let scale: Double = Double(image.width) / Double(window.width)
+            shape = ScreenRules.fieldShapeAtRest(image, fields: [ScreenRules.FieldAtRest(name: "Connect", frame: AXRect(connect.frame),
+                                                                                            isFocused: connect.hasFocus)], scale: scale)
+            if connect.hasFocus { lines.append("Connect HAS THE FOCUS: not at rest") }
         }
-        let result: CheckResult = ScreenRules.insideSafeArea(elements, window: AXRect(app.windows.firstMatch.frame))
-        guard focusConnectWhenBelow, !result.passed else {
-            note(name + "-SAFE-AREA", "\(fields.count) fields\n" + result.text)
-            return XCTAssertTrue(result.passed, "\(name): " + result.verdict)
+        let result: CheckResult = ScreenRules.oneProminentAction(actions: actions, expected: "Connect", shape: shape)
+        note(name + "-ACTIONS", (lines + result.lines).joined(separator: "\n"))
+        XCTAssertTrue(result.passed, "\(name): " + result.verdict)
+    }
+
+    /// R331 (Larger Text, replaces R265 and R295's -SAFE-AREA of text fields): from the top of the WebDAV form, Down until the
+    /// focus stops; the identifier of what has the focus is recorded after each press. Every field row and Connect must have
+    /// taken the focus, in order, and Connect must be inside the 60 pt safe area while focused. "<name>-ROWS-REACHABLE".
+    func rowsReachable(_ name: String, in app: XCUIApplication) {
+        let rows: [String] = ["name", "address", "username", "password"].map { ControlID.sourceField($0) }
+        let remote = XCUIRemote.shared
+        for _ in 0..<12 { remote.press(.up); usleep(250_000) }
+        var path: [String] = []
+        var lastInside: Bool?
+        var unmoved: Int = 0
+        for _ in 0..<20 {
+            let focused: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+            let id: String = focused.exists ? (focused.identifier.isEmpty ? "\u{201C}\(focused.label)\u{201D}" : focused.identifier) : "none"
+            if id == ControlID.sourceConnect {
+                let inside: CheckResult = ScreenRules.insideSafeArea([(name: "Connect", frame: AXRect(focused.frame))],
+                                                                     window: AXRect(app.windows.firstMatch.frame))
+                lastInside = inside.passed
+            }
+            if path.last == id { unmoved += 1; if unmoved >= 2 { break } } else { unmoved = 0 }
+            path.append(id)
+            remote.press(.down); usleep(400_000)
         }
-        let connect: XCUIElement = app.buttons["Connect"].firstMatch
-        let reached: Bool = connect.exists && focus(connect, in: app)
-        if reached { settle() }
-        let buttons: [(name: String, frame: AXRect?)] = ["Connect", "Cancel"].map { (label: String) in
-            let button: XCUIElement = app.buttons[label].firstMatch
-            return (name: label, frame: button.exists ? AXRect(button.frame) : nil)
-        }
-        let focused: CheckResult = ScreenRules.insideSafeArea(buttons, window: AXRect(app.windows.firstMatch.frame))
-        note(name + "-SAFE-AREA", "\(fields.count) fields\nas the form opens (the form is taller than the screen):\n" + result.text
-             + "\nafter moving the focus to Connect (" + (reached ? "reached" : "NOT REACHED, focus on \(focusedLabel(in: app))") + "):\n"
-             + focused.text)
-        XCTAssertTrue(reached && focused.passed, "\(name): Connect and Cancel with the focus on Connect: " + focused.verdict)
+        let result: CheckResult = ScreenRules.everyRowReached(rows: rows, last: ControlID.sourceConnect, focusPath: path, lastInside: lastInside)
+        note(name + "-ROWS-REACHABLE", result.text)
+        XCTAssertTrue(result.passed, "\(name): " + result.verdict)
     }
 
     /// #30 item 5: the app's own texts on screen under each accessibility variant (label to frame), kept by test06 for
