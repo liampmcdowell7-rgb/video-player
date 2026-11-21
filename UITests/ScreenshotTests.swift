@@ -681,7 +681,10 @@ final class ScreenshotTests: XCTestCase {
                    waitForScreen(ControlID.serverID, in: fake, timeout: 10) {
                     let row: XCUIElement = control(id: ControlID.serverID, label: "Server ID", in: fake)
                     if focus(row, in: fake) {
-                        settle(); shot("21-search-your-network-server-details"); checkCover("21-search-your-network-server-details", in: fake)
+                        settle(); shot("21-search-your-network-server-details")
+                        // R294: the focus was moved down to the Server ID row, so the form has scrolled and its first text
+                        // is above the screen by design (fourth run of 20 Nov: "Name" at y -121); the title rule is skipped.
+                        checkCover("21-search-your-network-server-details", scrolled: "the focus moved down to the Server ID row", in: fake)
                     }
                     else { notReached("21-search-your-network-server-details", "The Server ID row did not take the focus (focus on \(focusedLabel(in: fake))).") }
                     let value: String = (row.value as? String) ?? ""
