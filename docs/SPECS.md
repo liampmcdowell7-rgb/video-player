@@ -2,6 +2,8 @@
 
 **Guiding principle (owner, 20 Nov 2026, R332):** design reference Apple's TV app on tvOS 27 (tvOS Settings where the TV app has no equivalent), native system components only; functionality reference a leading third-party tvOS player for personal libraries, never named in the repository. Full text: docs/DESIGN_SYSTEM.md, top section.
 
+**Standing rule for decisions (owner, 21 Nov 2026, R312, Decided):** design questions are decided by what is closest to Apple's TV app as it is now (tvOS 26 design, unchanged in tvOS 27); functionality questions by what the owner's reference player does today (described generically, never named). Each is recorded in its R row as "decided by the owner's standing rule", citing the reference. The owner is asked only when neither reference answers, when following one would break an owner rule (brandless, no third-party logos, privacy, no outside contact by Claude, spending), or when the two conflict. Full text: docs/DESIGN_SYSTEM.md, "Standing rule for decisions".
+
 | Document | What it covers |
 |---|---|
 | README.md | What the project is |

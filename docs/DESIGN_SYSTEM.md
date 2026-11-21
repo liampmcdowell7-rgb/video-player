@@ -24,6 +24,21 @@ docs/HIG_AUDIT.md, section "Against Apple's TV app". Only Apple's pages are cite
 page is UNVERIFIED. If the owner sends photos of the TV app, they become the primary reference over any written
 description.
 
+## Standing rule for decisions (owner's decision, 21 Nov 2026; OPEN_QUESTIONS R312, Decided)
+
+Applies to every decision from now on; sessions decide by it and do not ask the owner.
+
+- **Design questions** (layout, navigation, components, look, motion, wording on screen): choose what is closest to
+  Apple's TV app as it is now (the tvOS 26 design, unchanged in tvOS 27). Cite the reference followed.
+- **Functionality questions** (what a feature does; how playback, sources, the media server, metadata, subtitles, audio,
+  skipping and watch state behave): choose what the owner's reference player does today, described generically (the
+  brandless rule above: it is never named in the repository).
+- Each such decision is recorded in its R row as "decided by the owner's standing rule", with the reference followed.
+  Earlier alternatives stay in the R rows as history.
+- The owner is asked only when neither reference answers the question, when following a reference would break one of the
+  owner's rules (brandless, no third-party logos, privacy, no outside contact by Claude, spending), or when the two
+  references conflict.
+
 **Standard (user decision, 2026-11-17):** the app must be indistinguishable from the system apps: native components first, Liquid Glass from the SDK, system values only, system focus engine only, tvOS navigation conventions, `AVPlayerViewController` for playback, neutral icon art.
 
 **Status of everything below:** written from Apple's pages and checked by `scripts/design-lint.sh` (static text checks). **Nothing has been compiled, run in a Simulator or seen on an Apple TV.** Visual fidelity to the system apps cannot be proven until a build is compiled and looked at on a real Apple TV (docs/DEVICE_TEST_CHECKLIST_VISUAL.md). Every decision here is **PROVISIONAL** with its alternative visible, and is mirrored in OPEN_QUESTIONS.md by the parent.
