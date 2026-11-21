@@ -1547,7 +1547,7 @@ final class ScreenshotTests: XCTestCase {
             settle(); shot(name)
             // #36 group 3 (R265): at Larger Text the WebDAV form opens with every field, Connect and Cancel inside the
             // 60 pt safe area (94 of the third run of 20 Nov had Connect and Cancel below the screen).
-            if key == "source-form" && variant == "larger-text" { formSafeArea(name, in: app) }
+            if key == "source-form" && variant == "larger-text" { formSafeArea(name, in: app, focusConnectWhenBelow: true) }
             // #15 item 1.5: "Settings" was cut to "Sett" under Larger Text; the tab bar must read TAB BAR OK here too.
             if key == "home" { tabBarCheck(name, in: app) }
             recordOrCompareTexts(variant: variant, key: key, name: name, in: app)
@@ -1618,7 +1618,11 @@ final class ScreenshotTests: XCTestCase {
 
     /// #36 group 3 (R265): the fields, Connect and Cancel of the open source form, each inside the 60 pt safe area, as the
     /// form opens (no focus moved). Written to "<name>-SAFE-AREA"; a failure fails the test.
-    func formSafeArea(_ name: String, in app: XCUIApplication) {
+    /// R295 (Larger Text, 94): the form is taller than the screen, so Connect and Cancel start below it (fourth run of 20 Nov:
+    /// Connect and Cancel at y 997, 96 pt high; the safe area ends at y 1020). With `focusConnectWhenBelow`, when either button
+    /// is outside the safe area as the form opens, the test moves the focus to Connect (the system scrolls the form to the
+    /// focused row) and measures again: both must then be inside. The note keeps both measurements.
+    func formSafeArea(_ name: String, in app: XCUIApplication, focusConnectWhenBelow: Bool = false) {
         let fields: [XCUIElement] = app.textFields.allElementsBoundByIndex + app.secureTextFields.allElementsBoundByIndex
         var elements: [(name: String, frame: AXRect?)] = fields.map { (field: XCUIElement) in
             (name: field.label, frame: field.exists ? AXRect(field.frame) : nil)
@@ -1628,8 +1632,22 @@ final class ScreenshotTests: XCTestCase {
             elements.append((name: label, frame: button.exists ? AXRect(button.frame) : nil))
         }
         let result: CheckResult = ScreenRules.insideSafeArea(elements, window: AXRect(app.windows.firstMatch.frame))
-        note(name + "-SAFE-AREA", "\(fields.count) fields\n" + result.text)
-        XCTAssertTrue(result.passed, "\(name): " + result.verdict)
+        guard focusConnectWhenBelow, !result.passed else {
+            note(name + "-SAFE-AREA", "\(fields.count) fields\n" + result.text)
+            return XCTAssertTrue(result.passed, "\(name): " + result.verdict)
+        }
+        let connect: XCUIElement = app.buttons["Connect"].firstMatch
+        let reached: Bool = connect.exists && focus(connect, in: app)
+        if reached { settle() }
+        let buttons: [(name: String, frame: AXRect?)] = ["Connect", "Cancel"].map { (label: String) in
+            let button: XCUIElement = app.buttons[label].firstMatch
+            return (name: label, frame: button.exists ? AXRect(button.frame) : nil)
+        }
+        let focused: CheckResult = ScreenRules.insideSafeArea(buttons, window: AXRect(app.windows.firstMatch.frame))
+        note(name + "-SAFE-AREA", "\(fields.count) fields\nas the form opens (the form is taller than the screen):\n" + result.text
+             + "\nafter moving the focus to Connect (" + (reached ? "reached" : "NOT REACHED, focus on \(focusedLabel(in: app))") + "):\n"
+             + focused.text)
+        XCTAssertTrue(reached && focused.passed, "\(name): Connect and Cancel with the focus on Connect: " + focused.verdict)
     }
 
     /// #30 item 5: the app's own texts on screen under each accessibility variant (label to frame), kept by test06 for
