@@ -432,20 +432,30 @@ final class AppServices {
 
     // MARK: Playback
 
-    func resolvePlayback(itemID: Int64, fromStart: Bool) async throws -> ResolvedPlayback {
+    /// Finds and opens the file for one item. R311: `tracker` follows the steps (the player screen's time limit and the
+    /// "Last Playback Problem" row in Settings > Playback say which step a failure happened in).
+    func resolvePlayback(itemID: Int64, fromStart: Bool, tracker: PlaybackStartTracker? = nil) async throws -> ResolvedPlayback {
+        tracker?.enter(.findFile)
         guard let item = try await store.item(id: itemID) else { throw PlaybackError.noFile }
         let files = try await store.versions(of: itemID)
         guard let file = files.first(where: { $0.id == item.preferredFileID }) ?? files.first else { throw PlaybackError.noFile }
+        let definition = definitions.first(where: { $0.id == file.sourceID })
+        tracker?.describe(sourceKind: definition?.kindTitle,
+                          container: PlaybackStartTracker.containerName(fileName: file.name),
+                          codecs: PlaybackStartTracker.codecText([file.technical?.videoCodec, file.technical?.audioCodec]))
         #if DEBUG
         // #21 E: in fixture mode one sample file plays a generated clip (screenshots of the player). Not in Release.
+        tracker?.enter(.prepareSample)
         let clip: URL? = UITestClip.standsIn(for: file) ? try await UITestClip.url() : nil
         #else
         let clip: URL? = nil
         #endif
         // MKV and the other containers the converting player opens go through it (PLAYBACK); the rest is refused with the reason.
+        tracker?.enter(.checkFormat)
         let route = PlaybackRoute.route(fileName: file.name)
         if clip == nil, case .unsupported(let failure) = route { throw failure }
         // R305: a Plex file the Apple TV cannot decode is refused here with one sentence; the server never converts.
+        tracker?.enter(.checkServer)
         if clip == nil, let format = await plexConversionNeeded(file) {
             throw PlaybackFailures.needsServerConversion(formatName: format)
         }
@@ -455,18 +465,24 @@ final class AppServices {
         if let clip {
             location = clip
         } else if route == .remux {
+            tracker?.enter(.openConverter)
             let opened = try await RemuxPlayback.open(reader: try await sourceFactory.byteReader(for: file))
             remux = opened
             location = opened.url
+            tracker?.describe(codecs: PlaybackStartTracker.codecText([opened.info.videoCodecString] + opened.info.audio.map(\.codecString)))
         } else {
-            guard let definition = definitions.first(where: { $0.id == file.sourceID }), let source = makeSource(definition) else {
+            tracker?.enter(.getLink)
+            guard let definition, let source = makeSource(definition) else {
                 throw PlaybackError.sourceUnavailable
             }
             let access = try await source.playbackAccess(for: file.path)
             guard case .url(let url, let accessHeaders) = access else { throw PlaybackError.notReadable }
             location = url
             headers = accessHeaders
+            // The header values (a server token) never reach the stored problem text.
+            tracker?.describe(secrets: Array(accessHeaders.values))
         }
+        tracker?.enter(.readSegments)
         let card = CardBuilder.card(item)
         let content = NowPlayingContent(kind: item.kind == .movie ? .movie : .episode, title: card.title, seriesTitle: item.seriesTitle,
                                         season: item.season, episode: item.episode, year: item.year, artworkKey: card.artworkKey)

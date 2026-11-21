@@ -8,14 +8,17 @@ struct PlayerHost: UIViewControllerRepresentable {
     let resolved: ResolvedPlayback
     let itemID: Int64
     let services: AppServices
+    /// R311: the steps of this start; the coordinator moves it on and checks each step's time limit.
+    let tracker: PlaybackStartTracker
     var onExit: () -> Void
-    /// Called when the player item fails after it was handed over; the screen shows the reason.
-    var onFailure: (PlaybackFailure) -> Void = { _ in }
+    /// Called when the player item fails after it was handed over, or a step of its start runs past its limit; the screen
+    /// shows the reason. The second value is the system's own error text, for the diagnostic row (R311).
+    var onFailure: (PlaybackFailure, String?) -> Void = { _, _ in }
     /// R340: play another item in place of this one (Up Next, the Episodes tab).
     var onPlayItem: (Int64) -> Void = { _ in }
 
     func makeCoordinator() -> PlayerCoordinator {
-        let coordinator = PlayerCoordinator(resolved: resolved, itemID: itemID, services: services)
+        let coordinator = PlayerCoordinator(resolved: resolved, itemID: itemID, services: services, tracker: tracker)
         coordinator.onFailure = onFailure
         coordinator.onPlayItem = onPlayItem
         return coordinator

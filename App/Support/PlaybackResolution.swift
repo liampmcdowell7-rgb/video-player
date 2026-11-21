@@ -3,8 +3,9 @@ import AppLogic
 import LibraryIndex
 import PlaybackLogic
 
-/// Everything the player needs to start one item.
-struct ResolvedPlayback {
+/// Everything the player needs to start one item. R311: `@unchecked Sendable` so the start can be timed by
+/// `PlaybackStartWatch` (it crosses one task boundary; `remux` is main-actor isolated and only used there).
+struct ResolvedPlayback: @unchecked Sendable {
     var url: URL
     var headers: [String: String]
     var title: String

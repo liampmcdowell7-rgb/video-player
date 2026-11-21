@@ -19,6 +19,16 @@ import PlaybackStatus
 /// `.advance` fall into `default`, so the next episode never started) now plays the next item through `onPlayItem`. The
 /// overlay's effects reach `handle` once, through its sink (before, the returned copy was handled too, so a seek ran twice).
 ///
+/// R311 (owner's device test of build 5: a black player, about 30 seconds, then the page again with no message; the CI run
+/// of the same commit stopped the same way with the sample clip): the start is a chain of named steps, each with a time
+/// limit checked by the one-second clock: the item becoming ready, the move to the saved position, the first moving picture.
+/// A step past its limit, or an item that fails, ends with the reason on screen and in Settings > Playback > Last Playback
+/// Problem. The item's status is observed from its first value (a failure that came before the observer was added was
+/// never seen, leaving a black screen); playback starts when the item is ready, and only then the resume seek (with 2 s
+/// of tolerance before the saved place, so it lands on a nearby key frame instead of decoding up to an exact frame).
+/// The info panel tabs are installed once, after play has been asked for (before, they were set while SwiftUI was
+/// building the player and again a moment later), and the R309 timeline clock is the same one-second clock.
+///
 /// Two ways in: a file the system player opens itself (`resolved.remux == nil`), or a converted playback where `resolved.url` is the
 /// loopback address of `resolved.remux` (docs/PLAYBACK_WIRING.md).
 ///
@@ -53,21 +63,27 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     /// R340: the Episodes tab's content (nil for a film); loaded once at the start.
     private var episodes: PlayerEpisodes.Content?
     private var advanced = false
+    /// R311: the steps of this start and their time limits.
+    private let tracker: PlaybackStartTracker
+    private var begun = false
+    private var failed = false
     private var lastSaved: TimeInterval = 0
     private var lastPosition: TimeInterval = 0
     private var stopped = false
     private var noticeShown = false
 
-    /// Called once when the player item fails after it was handed over (the screen shows the reason).
-    var onFailure: (PlaybackFailure) -> Void = { _ in }
+    /// Called once when the player item fails after it was handed over, or a step of the start runs past its limit (the
+    /// screen shows the reason). The second value is the system's own error text for the diagnostic row (R311).
+    var onFailure: (PlaybackFailure, String?) -> Void = { _, _ in }
     /// R340: play another library item in place of this one (Up Next accepted, or an episode chosen in the Episodes tab).
     /// The screen ends this playback (`stop`, which saves the position and tells the watch sync) and starts the next.
     var onPlayItem: (Int64) -> Void = { _ in }
 
-    init(resolved: ResolvedPlayback, itemID: Int64, services: AppServices) {
+    init(resolved: ResolvedPlayback, itemID: Int64, services: AppServices, tracker: PlaybackStartTracker) {
         self.resolved = resolved
         self.itemID = itemID
         self.services = services
+        self.tracker = tracker
         let options: [String: Any]? = resolved.headers.isEmpty ? nil : ["AVURLAssetHTTPHeaderFieldsKey": resolved.headers]
         let asset = AVURLAsset(url: resolved.url, options: options)
         let playerItem = AVPlayerItem(asset: asset)
@@ -103,7 +119,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
             guard let self, !self.stopped else { return }
             self.stats.update(from: self.probe, player: self.player)
         }
-        installInfoPanels()
+        // R311: the info panel tabs are installed once playback has been asked for (`begin`), not while SwiftUI builds the player.
         proposalPresenter.autoPlay = SegmentsWiring.autoPlayNextEpisode
         if let remux = resolved.remux, pictureModel != nil, let container = controller.contentOverlayView {
             pictureOverlay = PictureSubtitleOverlay(playback: remux, container: container)
@@ -129,31 +145,19 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         // Sound goes to the TV and the speakers whatever the silent switch or other apps say.
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
         try? AVAudioSession.sharedInstance().setActive(true)
-        let start = resolved.startAt
-        statusObservation = item.observe(\.status, options: [.new]) { [weak self] _, _ in
+        // R311: from here the item must become ready within its limit (checked once a second in `everySecond`).
+        tracker.enter(.playerReady)
+        // `.initial`: a status the item reached before this line is seen too (R311).
+        statusObservation = item.observe(\.status, options: [.initial, .new]) { [weak self] _, _ in
             Task { @MainActor [weak self] in self?.itemStatusChanged() }
         }
         services.watchSync.send(.started(itemID: itemID, file: resolved.file))
         playStateObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] _, _ in
-            Task { @MainActor [weak self] in self?.reportTimeline() }
+            Task { @MainActor [weak self] in self?.playStateChanged() }
         }
+        // One clock for the time limits of the start (R311) and the watch sync's timeline (R309).
         timelineTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.reportTimeline() }
-        }
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            if start > 1 {
-                _ = await self.player.seek(to: CMTime(seconds: start, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
-            }
-            self.player.play()
-            // The poster may need a download; it runs on its own so the skip button and Up Next set-up below never wait for it.
-            Task { @MainActor [weak self] in await self?.addArtworkToMetadata() }
-            await self.probe.load()
-            await self.probe.refreshAudioSelection()
-            self.reloadOverlay()
-            // R340: the Episodes tab once the season is read.
-            self.episodes = await PlayerEpisodes.load(itemID: self.itemID, store: self.services.store)
-            self.installInfoPanels()
+            Task { @MainActor [weak self] in self?.everySecond() }
         }
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main) { [weak self] time in
             let seconds = time.seconds
@@ -168,6 +172,65 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         selectionObserver = NotificationCenter.default.addObserver(forName: AVPlayerItem.mediaSelectionDidChangeNotification, object: self.item, queue: .main) { [weak self] _ in
             Task { @MainActor [weak self] in await self?.selectionChanged() }
         }
+    }
+
+    /// Runs once, when the item is ready to play (R311): the move to the saved position, play, then everything that may wait.
+    private func begin() async {
+        let start = resolved.startAt
+        if start > 1 {
+            tracker.enter(.resumeSeek)
+            _ = await player.seek(to: CMTime(seconds: start, preferredTimescale: 600),
+                                  toleranceBefore: CMTime(seconds: 2, preferredTimescale: 600), toleranceAfter: .zero)
+            guard !stopped, !failed else { return }
+        }
+        tracker.enter(.startPlaying)
+        player.play()
+        // The poster may need a download; it runs on its own so the skip button and Up Next set-up below never wait for it.
+        Task { @MainActor [weak self] in await self?.addArtworkToMetadata() }
+        await probe.load()
+        await probe.refreshAudioSelection()
+        reloadOverlay()
+        // R340: the Episodes tab once the season is read; the tabs are set once (R311).
+        episodes = await PlayerEpisodes.load(itemID: itemID, store: services.store)
+        installInfoPanels()
+    }
+
+    private func playStateChanged() {
+        guard !stopped else { return }
+        // Playing, or paused after play was asked for (the person paused): the start is over and has no limit any more.
+        if player.timeControlStatus != .waitingToPlayAtSpecifiedRate, tracker.step.step == .startPlaying { tracker.enter(.playing) }
+        reportTimeline()
+    }
+
+    /// The one-second clock: the time limit of the running start step (R311), then the timeline for the watch sync (R309).
+    private func everySecond() {
+        guard !stopped, !failed else { return }
+        let step = tracker.step.step
+        if step != .playing, tracker.isOverdue {
+            report(PlaybackFailures.startTimedOut(step, seconds: PlaybackStartDeadline.limit(for: step) ?? 0))
+            return
+        }
+        reportTimeline()
+    }
+
+    /// Ends this playback with the reason (once).
+    private func report(_ failure: PlaybackFailure) {
+        guard !stopped, !failed else { return }
+        failed = true
+        item.cancelPendingSeeks()
+        player.pause()
+        onFailure(failure, playerDetail)
+    }
+
+    /// What the system player said about the problem, for the diagnostic row (tokens are removed by the tracker).
+    private var playerDetail: String? {
+        var parts: [String] = []
+        if let error = item.error as NSError? { parts.append("\(error.domain) \(error.code): \(error.localizedDescription)") }
+        if let event = item.errorLog()?.events.last {
+            parts.append("\(event.errorDomain) \(event.errorStatusCode): \(event.errorComment ?? "")")
+        }
+        parts.append("item status \(item.status.rawValue), play state \(player.timeControlStatus.rawValue)")
+        return parts.joined(separator: "; ")
     }
 
     func stop() {
@@ -244,10 +307,17 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     }
 
     private func itemStatusChanged() {
-        guard !stopped, item.status == .failed else { return }
-        let failure = Self.failure(for: item.error)
-        player.pause()
-        onFailure(failure)
+        guard !stopped, !failed else { return }
+        switch item.status {
+        case .failed:
+            report(Self.failure(for: item.error))
+        case .readyToPlay:
+            guard !begun else { return }
+            begun = true
+            Task { @MainActor [weak self] in await self?.begin() }
+        default:
+            break
+        }
     }
 
     private static func failure(for error: Error?) -> PlaybackFailure {
