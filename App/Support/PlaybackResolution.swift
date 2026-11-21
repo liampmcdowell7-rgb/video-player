@@ -1,5 +1,6 @@
 import Foundation
 import AppLogic
+import LibraryIndex
 import PlaybackLogic
 
 /// Everything the player needs to start one item.
@@ -15,6 +16,8 @@ struct ResolvedPlayback {
     var segments: [Segment] = []
     /// Set when the file is played through the converting player; `url` is then its loopback address. The player screen stops it.
     var remux: RemuxPlayback?
+    /// The library file being played (R309: the Plex watch sync reports to its server, or to the Plex files of the same item).
+    var file: StoredFile?
 }
 
 /// Why an item cannot be played. Every case maps to plain text and a what-to-do line (`failure`); the text is the whole message.

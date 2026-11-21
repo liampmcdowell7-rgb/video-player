@@ -324,6 +324,13 @@ the app's own change time) and a queue for writes made while the server cannot b
 (VideoPlayerCore): the three calls exactly as quoted above, paths from `/media/providers` (documented fallback), the token
 in a header only; `ServerTimelineRhythm` decides when a report is due (every state change, otherwise every 10 seconds).
 
+**Built, two-way stage 2 (R309):** the per-source switch "Sync Watched Status with Plex" (source option `watchSync=1`,
+off by default) in the Plex source's settings. `ServerWatchRecorder` passes the app's own watched and unwatched changes
+on; `ServerWatchSync` sends them (scrobble, unscrobble) to every Plex file of the item whose source has the switch on,
+and the player's timeline reports to the Plex file being played, or, when the item is played through another source, to
+the Plex files of the same item. Switch off: nothing is sent and the server is not asked. The R306 seed is not sent
+back. A failed request is not retried yet (stage 3).
+
 ## 7. Test plan per stage (no real server, no network)
 
 The pattern already used for Jellyfin and Emby (`Tests/SourceJellyfinTests/`: a fake server, JSON fixtures, client

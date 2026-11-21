@@ -44,6 +44,11 @@ extension SQLiteLibraryStore {
         try db.first("SELECT key FROM items WHERE id = ?", [.int(id)]) { $0.text(0) }
     }
 
+    /// The item a recorded key belongs to (the recorder only sees keys; R309 needs the item's files to reach the server).
+    public func itemID(forKey key: String) throws -> Int64? {
+        try db.first("SELECT id FROM items WHERE key = ?", [.text(key)]) { $0.int64(0) }
+    }
+
     static func watchValue(_ s: SQLiteStatement, from index: Int32) -> UDWatchValue {
         let lastPlayed = s.double(index + 4)
         return UDWatchValue(

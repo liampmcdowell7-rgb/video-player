@@ -51,6 +51,17 @@ struct SourceDetailView: View {
                     Text(SortSourceOption.footer)
                 }
             }
+            if PlexWatchSyncOption.applies(toKind: current.kind) {
+                // R309: two-way watch state with this Plex server; off by default. PROVISIONAL, OPEN_QUESTIONS.
+                Section {
+                    SettingToggle(PlexWatchSyncOption.title, isOn: Binding(
+                        get: { PlexWatchSyncOption.isOn(current) },
+                        set: { on in Task { await services.setPlexWatchSync(on, for: current) } }
+                    ))
+                } footer: {
+                    Text(PlexWatchSyncOption.footer)
+                }
+            }
             if SourceBuilder.trustKind(for: current) != nil {
                 Section("Approved Fingerprint") {
                     if let shown = current.approvedFingerprintDisplay {

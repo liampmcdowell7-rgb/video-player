@@ -75,3 +75,12 @@ public struct ServerTimelineRhythm: Equatable, Sendable {
         return due
     }
 }
+
+/// A source whose server keeps its own watch state and accepts writes to it (Plex; R309). The app's sync asks it for the
+/// writer and for the server's id of a file; it never needs to know which server kind it is.
+public protocol ServerWatchSource: Sendable {
+    /// The writer for this server (one per server address and token).
+    var watchWriter: any ServerWatchWriting { get }
+    /// The server's own id of the item a file belongs to (Plex: `ratingKey`), nil when the server does not list the file.
+    func serverItemKey(at path: String) async throws -> String?
+}

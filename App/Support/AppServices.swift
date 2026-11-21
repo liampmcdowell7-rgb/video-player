@@ -51,6 +51,8 @@ final class AppServices {
     let databaseWasRebuilt: Bool
     /// iCloud backup of the generated data (Settings > Backup, docs/BACKUP.md).
     let backup: BackupHost
+    /// Two-way watch state with Plex servers whose source has the switch on (R306 b, R309).
+    let watchSync: ServerWatchSync
 
     var libraryRevision = 0
     var pendingLink: DeepLink?
@@ -89,7 +91,8 @@ final class AppServices {
         let ledger = UserDataLedger(deviceID: deviceID)
         let essentials = UDEssentialsStore(store: UserDefaultsKeyValueStore())
         essentials.restore(into: ledger)
-        let recorder = LedgerRecorder(ledger: ledger)
+        // R309: the recorder also tells the Plex watch sync about watched and unwatched changes (the sync is set up below).
+        let recorder = ServerWatchRecorder(wrapping: LedgerRecorder(ledger: ledger))
 
         let caches = (FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory)
         let databaseURL = caches.appendingPathComponent("library.sqlite")
@@ -126,6 +129,14 @@ final class AppServices {
             return await factory.makeSource(definition)
         }
         let reader = SourceSidecarReader(sourceFor: sourceFor)
+        // R309: watch state goes to a Plex server only while its source's "Sync Watched Status with Plex" switch is on.
+        let watchSync = ServerWatchSync(
+            store: sqliteStore,
+            isOn: { @Sendable [ledger] sourceID in ledger.sourceDefinitions().first { $0.id == sourceID }.map(PlexWatchSyncOption.isOn) ?? false },
+            source: { @Sendable sourceID in await sourceFor(sourceID) as? any ServerWatchSource })
+        self.watchSync = watchSync
+        recorder.setHandler { watchSync.send(.changed($0)) }
+        Task { await watchSync.run() }
         // #26 item 2: one app-wide key store, its own Keychain items plus the encrypted iCloud copy; keys an earlier version
         // kept with the source passwords are moved there at start-up (OnlineKeyStore.migrateLegacy).
         let keyStore = OnlineKeyStore(secrets: MirroredSecrets(local: dependencies.keyCredentials, cloud: dependencies.secretCloud),
@@ -243,7 +254,12 @@ final class AppServices {
             PlexWatchSeed.ServerState(positionSeconds: $0.viewOffsetSeconds, viewCount: $0.viewCount, lastViewedAt: $0.lastViewedAt,
                                       durationSeconds: $0.metadata.runtimeSeconds.map(Double.init))
         }
-        guard (try? await PlexWatchSeed(store: sqlite, files: sqlite).seed(sourceID: definition.id, statesByPath: states)) != nil else { return }
+        // What came from the server is not sent back to it (R309).
+        let seed = PlexWatchSeed(store: sqlite, files: sqlite)
+        let copied = await ServerWatchEcho.$suppressed.withValue(true) {
+            (try? await seed.seed(sourceID: definition.id, statesByPath: states)) != nil
+        }
+        guard copied else { return }
         try? await definitionSaver.saveDefinition(PlexWatchSeed.markedDone(definition))
     }
 
@@ -264,6 +280,12 @@ final class AppServices {
         try? await definitionSaver.saveDefinition(SortSourceOption.setting(on, on: definition))
         libraryRevision += 1
         await rescanAfterSortChange()
+    }
+
+    /// Saves the Plex source's "Sync Watched Status with Plex" switch (R309). It takes effect at the next change sent.
+    func setPlexWatchSync(_ on: Bool, for definition: UDSourceDefinition) async {
+        try? await definitionSaver.saveDefinition(PlexWatchSyncOption.setting(on, on: definition))
+        libraryRevision += 1
     }
 
     /// A scan already running may have passed the changed file; one more scan then picks the change up.
@@ -436,6 +458,7 @@ final class AppServices {
                                         duration: item.runtime ?? item.watch.duration, content: content)
         resolved.segments = segments
         resolved.remux = remux
+        resolved.file = file
         return resolved
     }
 

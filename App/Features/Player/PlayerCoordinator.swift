@@ -4,6 +4,7 @@ import AVFoundation
 import CoreMedia
 import UIKit
 import SwiftUI
+import VideoPlayerCore
 import AppLogic
 import PlaybackLogic
 import PlaybackStatus
@@ -39,6 +40,9 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     private var jumpObserver: NSObjectProtocol?
     private var selectionObserver: NSObjectProtocol?
     private var statusObservation: NSKeyValueObservation?
+    /// R309: the play state and a one-second clock for the Plex watch sync (it sends at most every 10 seconds, at once on a change).
+    private var playStateObservation: NSKeyValueObservation?
+    private var timelineTimer: Timer?
     private var statsHost: UIHostingController<StatsOverlayView>?
     private var lastSaved: TimeInterval = 0
     private var lastPosition: TimeInterval = 0
@@ -112,6 +116,13 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         statusObservation = item.observe(\.status, options: [.new]) { [weak self] _, _ in
             Task { @MainActor [weak self] in self?.itemStatusChanged() }
         }
+        services.watchSync.send(.started(itemID: itemID, file: resolved.file))
+        playStateObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] _, _ in
+            Task { @MainActor [weak self] in self?.reportTimeline() }
+        }
+        timelineTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.reportTimeline() }
+        }
         Task { @MainActor [weak self] in
             guard let self else { return }
             if start > 1 {
@@ -143,6 +154,8 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         guard !stopped else { return }
         stopped = true
         statusObservation?.invalidate()
+        playStateObservation?.invalidate()
+        timelineTimer?.invalidate()
         if let timeObserver { player.removeTimeObserver(timeObserver) }
         for token in [endObserver, jumpObserver, selectionObserver] { if let token { NotificationCenter.default.removeObserver(token) } }
         player.pause()
@@ -150,6 +163,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         markController?.end()
         pictureOverlay?.hide()
         save(lastPosition)
+        services.watchSync.send(.stopped(position: lastPosition, duration: knownDuration, at: Date()))
         // The player is stopped first, then the loopback server and the file reader are closed.
         resolved.remux?.stop()
     }
@@ -239,6 +253,23 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         let alert = UIAlertController(title: notice.title ?? "About This Playback", message: notice.fullText, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         controller.present(alert, animated: true)
+    }
+
+    private var knownDuration: TimeInterval? { item.duration.seconds.isFinite ? item.duration.seconds : resolved.duration }
+
+    /// R309: what the player is doing, for the Plex watch sync (nothing is sent unless a Plex source of this item has the
+    /// switch on).
+    private func reportTimeline() {
+        guard !stopped else { return }
+        let state: ServerPlaybackState
+        switch player.timeControlStatus {
+        case .playing: state = .playing
+        case .paused: state = .paused
+        case .waitingToPlayAtSpecifiedRate: state = .buffering
+        @unknown default: state = .playing
+        }
+        let seconds = player.currentTime().seconds
+        services.watchSync.send(.progress(state: state, position: seconds.isFinite ? seconds : lastPosition, duration: knownDuration, at: Date()))
     }
 
     private func save(_ position: TimeInterval) {

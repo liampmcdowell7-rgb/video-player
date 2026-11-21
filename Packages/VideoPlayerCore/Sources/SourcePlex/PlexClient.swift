@@ -22,6 +22,8 @@ public actor PlexClient: MediaSource {
     /// playback within this time cost no new library requests; a file added on the server shows up after it.
     private let treeLifetime: TimeInterval
     private let now: @Sendable () -> Date
+    /// Writes watch state to this server (R308, R309); same address, token and transport as the client.
+    private let writer: PlexWatchWriter
 
     /// Parts skipped because their file is outside every section folder (shown nowhere; counted for the status line).
     public private(set) var skippedParts = 0
@@ -34,6 +36,7 @@ public actor PlexClient: MediaSource {
         self.baseURL = baseURL
         self.token = token
         self.http = PlexHTTP(identity: identity, transport: transport)
+        self.writer = PlexWatchWriter(baseURL: baseURL, token: token, identity: identity, transport: transport)
         self.pageSize = max(1, pageSize)
         self.treeLifetime = treeLifetime
         self.now = now
@@ -220,6 +223,15 @@ public actor PlexClient: MediaSource {
         }
         guard let url = URL(string: key, relativeTo: baseURL)?.absoluteURL else { throw SourceError.notFound }
         return url
+    }
+}
+
+// R309: the app's watch sync asks a Plex source for its writer and for the ratingKey of a file.
+extension PlexClient: ServerWatchSource {
+    public nonisolated var watchWriter: any ServerWatchWriting { writer }
+
+    public func serverItemKey(at path: String) async throws -> String? {
+        try await serverItem(at: path)?.metadata.ratingKey
     }
 }
 
