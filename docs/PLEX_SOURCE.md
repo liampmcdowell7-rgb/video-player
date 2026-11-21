@@ -35,11 +35,11 @@ already on the `names-allowlist` in docs/NAMES.md); no Plex logo, colour or look
 | Source | Result |
 |---|---|
 | Plex developer home, https://developer.plex.tv/ | Read in full (authentication: PIN and JWT flows, resources, headers) |
-| Plex Media Server API, https://developer.plex.tv/pms/ | Read in part. The page text returned to the fetch stops partway through the Library section; the bodies of the library-section, on-deck/hubs, transcoder and timeline/scrobble operations were **not** returned (only their names in the table of contents). A second reader was refused by the site's robots.txt and was not retried. |
+| Plex Media Server API, https://developer.plex.tv/pms/ | 20 Nov 2026: read in part (the page text returned to the fetch stops partway through the Library section; a second reader was refused by the site's robots.txt and was not retried). **21 Nov 2026:** the page was opened in a browser and the OpenAPI file it offers for download ("Download OpenAPI specification", `info.version` "1.2.3") was read: the Timeline operations (`/:/timeline`, `/:/scrobble`, `/:/unscrobble`), the Transcoder group (`/{transcodeType}/:/transcode/universal/decision`, `start.*`, `fallback`), `/status/sessions/terminate` and the Profile Augmentations text are now **(read)**; quotes in sections 5, 6 and 9 come from that file. Nothing else from it is claimed. |
 | Plex Support, direct play and direct stream, https://support.plex.tv/articles/200250387-streaming-media-direct-play-and-direct-stream/ | **Not read**: HTTP 403 (the same as the earlier attempt recorded in docs/SOURCES.md, Plex B7) |
 | Apple, AVPlayer, https://developer.apple.com/documentation/avfoundation/avplayer | Read: AVPlayer plays "local and remote file-based media, such as QuickTime movies and MP3 audio files, as well as audiovisual media served using HTTP Live Streaming"; tvOS 9.0+ |
 | Apple, AVFileType, https://developer.apple.com/documentation/avfoundation/avfiletype | Read: the listed video file types are `mov`, `mp4`, `m4v` (and 3GPP); Matroska is not listed |
-| Apple, HLS Authoring Specification for Apple Devices, https://developer.apple.com/documentation/http-live-streaming/hls-authoring-specification-for-apple-devices | Read in part (the tvOS-specific section only as a summary, not verbatim) |
+| Apple, HLS Authoring Specification for Apple Devices, https://developer.apple.com/documentation/http-live-streaming/hls-authoring-specification-for-apple-devices | 20 Nov 2026: read in part (the tvOS-specific section only as a summary). **21 Nov 2026:** read verbatim except the body of the HDR example playlist and the end of the revision history |
 
 Rule for this document: an endpoint, parameter or behaviour quoted from a page read verbatim is marked **(read)**.
 Everything else is marked **UNVERIFIED** and must be checked against the PMS reference (or recorded fixtures from a real
@@ -204,9 +204,12 @@ Routes, in order (R271):
    file today. The picture stays the original stream (no re-encode), so quality matches WebDAV. Needs ranged reads of the
    Part URL (UNVERIFIED on Plex; Jellyfin's `static=true` stream supports `Range`).
 3. **Plex's HLS transcode, stated fallback only** (when 1 and 2 cannot play: an unsupported video codec such as MPEG-2 or
-   VC-1, or a server that refuses ranges). The universal transcoder (`/video/:/transcode/universal/start.m3u8` with
-   `protocol=hls`, `directPlay`, `directStream`) is **UNVERIFIED**: its body was not in the text read; only the
-   `X-Plex-Client-Profile-Extra` parameter "for the universal transcode endpoint" was read. The player shows a plain
+   VC-1, or a server that refuses ranges). The universal transcoder, read 21 Nov 2026 in the OpenAPI file: `GET
+   /{transcodeType}/:/transcode/universal/decision` "Make a decision on media playback based on client profile, and
+   requested settings such as bandwidth and resolution" and `GET /{transcodeType}/:/transcode/universal/start.*` "Starts
+   the transcoder and returns the corresponding streaming resource document" (answer types include
+   `application/vnd.apple.mpegurl`), with `protocol` one of `http`, `hls`, `dash`, and `directPlay`, `directStream`,
+   `directStreamAudio` as 0 or 1 (read). Not built: see "Later: server conversion" below. The player shows a plain
    "Converted by the server" line in the info panel so the owner knows quality is reduced. Whether Plex's "Direct Stream"
    (remux without re-encode) can be requested this way is UNVERIFIED (the Plex Support page was not readable).
 
@@ -220,14 +223,80 @@ avoided by asking for WebVTT where the API allows it (UNVERIFIED).
 starts, and no request ever goes to a transcode or decision path (a test checks it). One client per server address is
 shared by the app and its listing is reused for five minutes, so starting playback does not read the whole library again.
 
+### Later: server conversion (R305 a, decided by the owner 21 Nov 2026 for later; nothing built)
+
+What was read on 21 Nov 2026 (OpenAPI file of https://developer.plex.tv/pms/, and Apple's HLS Authoring Specification):
+
+- Decision: `GET /{transcodeType}/:/transcode/universal/decision`, `transcodeType` one of `video`, `music`, `audio`,
+  `subtitles`. Query parameters include `path` ("Internal PMS path of the media to transcode"), `protocol`, `directPlay`,
+  `directStream`, `directStreamAudio`, `mediaIndex`, `partIndex`, `videoBitrate`, `peakBitrate`, `videoResolution`,
+  `videoQuality`, `audioChannelCount`, `offset`, `subtitles`, `transcodeSessionId`. Headers: `X-Plex-Client-Identifier`
+  (required), `X-Plex-Client-Profile-Extra`, `X-Plex-Client-Profile-Name` ("Generally should only be used to specify the
+  Generic profile"), `X-Plex-Session-Identifier`. The answer carries `generalDecisionCode`, `directPlayDecisionCode`,
+  `transcodeDecisionCode` with their `Text`, and `availableBandwidth` (read); what each code value means is not stated.
+- Start: `GET /{transcodeType}/:/transcode/universal/start.*` with the same parameters; answers
+  `application/vnd.apple.mpegurl` or `video/x-matroska` (read).
+- Fallback: `POST /{transcodeType}/:/transcode/universal/fallback` with `transcodeSessionId`, "Manually trigger a
+  transcoder fallback ex: HEVC to h.264 or hw to sw" (read).
+- Codec limits: `X-Plex-Client-Profile-Extra`, url-encoded directives joined by "+": `add-transcode-target(type=…&context=
+  streaming|static&protocol=hls|http|…&container=…&videoCodec=…&audioCodec=…)`, `add-limitation(scope=…&scopeName=…&type=
+  match|notMatch|upperBound|lowerBound&name=…&value=…)`, `add-direct-play-profile`, `add-transcode-target-codec`,
+  `append-transcode-target-codec`, `add-settings` (read).
+- Apple (read verbatim): video "MUST be encoded using H.264/AVC, HEVC/H.265, Dolby Vision, or AV1"; tvOS H.264 "MUST be
+  less than or equal to High Profile, Level 5.1"; "The container format for HEVC video MUST be fMP4"; H.264 in fMP4 or
+  MPEG transport streams; "Your EXT-X-STREAM-INF tag MUST always provide the CODECS attribute"; "Video segments MUST start
+  with an IDR frame". Audio lists AAC, AC-3, E-AC-3 (and others); DTS is not mentioned anywhere on the page.
+
+Stage plan (each offline first, then the owner's device check):
+1. Decision request and a tvOS profile string (H.264, HEVC only in fMP4; AAC, AC-3, E-AC-3; `protocol=hls`), the
+   decision answer read from hand-written fixtures.
+2. A "server conversion" playback route instead of today's refusal for MPEG-2 and VC-1: start request, session
+   identifier, the playlist through the app's own loopback server, ending the session when playback stops.
+3. The fallback call when the player fails, and a plain "Converted by the Plex server" line in the info panel.
+4. Device only: AVPlayer plays the playlist, seeking, picture quality, server load, sessions ended.
+
+Open problems:
+- **No documented stop call.** No `/transcode/universal/stop` path is in the OpenAPI file (the text does not contain it).
+  The only documented end is `POST /status/sessions/terminate` with `sessionId`, "Terminate a playback session kicking off
+  the user": the wrong tool for a client ending its own session. Whether an unused session ends by itself, and when:
+  UNVERIFIED. No ping or keep-alive operation is documented either.
+- **Re-encoding cost on the owner's PC.** MPEG-2 and VC-1 cannot be repackaged for the Apple TV; the server must re-encode
+  the whole video while it plays. Whether the owner's server uses hardware for it is not on these pages (UNVERIFIED).
+- **The token in HLS.** AVPlayer fetches the playlist and every segment itself, so the app cannot add the token header to
+  those requests through a documented API. Plex allows every `X-Plex-` header "as query string arguments" (read), but that
+  puts the token in addresses and logs (R300; R305 alternative d). The plan keeps the header: the playlist and segments go
+  through the app's own loopback server (the one the remux already uses), which adds the header (UNVERIFIED with Plex).
+- **Highest quality.** The OpenAPI file describes `videoQuality` (0 to 99) as "Target photo quality" and gives
+  `videoResolution` a pattern that allows only one digit on each side; how to ask for the original quality is UNVERIFIED.
+- Whether Plex's playlists carry the `CODECS` attribute Apple requires, and which segment container they use: UNVERIFIED.
+
 ## 6. Watched state and resume position
 
 Recommended (R272): **read once, then local only** for the first stages. When an item is first indexed, Plex's resume
 position and watched flag (UNVERIFIED field names `viewOffset`, `viewCount`) seed the app's `WatchState` if the app has
 none for that item; after that the app's own records (synced through iCloud like every source) are the truth, and the app
-writes nothing back to the server. Reason: writing to the server needs the timeline and scrobble endpoints, whose
-parameters were not in the text read ("Report media timeline", "Mark an item as played", "Mark an item as unplayed" are
-names only), and wrong writes would change the Plex history on other devices.
+writes nothing back to the server. Reason given on 20 Nov 2026: writing to the server needs the timeline and scrobble
+endpoints, whose parameters were not in the text read then, and wrong writes would change the Plex history on other
+devices. The parameters were read on 21 Nov 2026 (below) and the owner chose two-way (R306 b).
+
+Read 21 Nov 2026 (OpenAPI file of https://developer.plex.tv/pms/):
+- `POST /:/timeline`, "Report media timeline": "This endpoint is hit during media playback for an item. It must be hit
+  whenever the play state changes, or in the absence of a play state change, in a regular fashion (generally this means
+  every 10 seconds on a LAN/WAN, and every 20 seconds over cellular)." Query: `key` ("The details key for the item"),
+  `ratingKey`, `state` (`stopped`, `buffering`, `playing`, `paused`), `time` ("The current time offset of playback in
+  ms"), `duration` (ms), `continuing` (0 or 1, with `stopped`), `playQueueItemID`, `offline` (0 or 1, "used to indicate
+  that a timeline is being synced from being offline, as opposed to being live"), `updated` ("Used when a sync client
+  comes online and is syncing media timelines, holds the time at which the playback state was last updated"), and
+  playback statistics. Header `X-Plex-Client-Identifier` required ("Unique per client"); `X-Plex-Session-Identifier`
+  optional ("Unique per client playback session"). Answers 200 or 400.
+- `PUT /:/scrobble`, "Mark an item as played": "this does not create any view history of this item but rather just sets
+  the state as played. The client must provide either the `key` or `uri` query parameter … applications should use PUT".
+  Query: `identifier` (required, "Typically `com.plexapp.plugins.library`"), `key` ("This is the `ratingKey` found in
+  metadata items"), `uri`. `PUT /:/unscrobble`, "Mark an item as unplayed", the same parameters. Answers 200, 400, 404.
+- Media-Providers: the timeline feature "may additionally specify the `scrobbleKey` and `unscrobbleKey` attributes", and
+  clients should "read them from the feature keys directly".
+- Not documented: any rule for conflicts (the app and Plex both changed), whether `time` in a timeline becomes the item's
+  `viewOffset`, and whether a `stopped` timeline near the end creates a history entry: UNVERIFIED.
 
 Alternatives (R272): (a) fully read-only, never seed; (b) two-way: report progress with the timeline call while playing
 and mark watched at 95 % (`LibraryWatchRules.watchedFraction`) with scrobble, as a later stage after recorded fixtures
@@ -237,6 +306,13 @@ prove the parameters.
 source, a played item (`viewCount` above 0 and no resume point) is marked watched and an item stopped at 30 seconds or more
 resumes there, only where the app has recorded nothing; the source then carries the option `seeded=done` and is never
 seeded again. No timeline, scrobble or any other write is sent (a test fails on any request but GET or HEAD to the server).
+
+**Decided by the owner, 21 Nov 2026 (R306 b): two-way watch state, top priority, built offline in three stages.**
+(1) a write client for the three calls above, token in a header only, paths from the server's feature keys with the
+documented paths as the fallback; (2) wiring to the player and to the app's own Mark as Watched and Unwatched, behind a
+per-source switch "Sync Watched Status with Plex", off by default; (3) newer change wins (Plex's `lastViewedAt` against
+the app's own change time) and a queue for writes made while the server cannot be reached, replayed with `offline=1` and
+`updated`. With the switch off the stage 6 behaviour above stays exactly as it is. Stage 4 is the owner's device check.
 
 ## 7. Test plan per stage (no real server, no network)
 
@@ -274,6 +350,8 @@ docs/DEVICE_TEST_CHECKLIST_SOURCES.md when the stage is built.
 6. Watch-state seed (read once).
 7. Later, each after its own decision: the Plex-first metadata layer with TMDB filling gaps (R270; or the TMDB-first
    alternative), external subtitle streams, the HLS transcode fallback, two-way watch state, the JWT sign-in.
+   Owner, 21 Nov 2026: two-way watch state decided, top priority (R306 b; section 6); the HLS transcode fallback decided
+   for later (R305 a; section 5, "Later: server conversion").
 
 Every stage keeps WebDAV untouched: no change to `SourceWebDAV`, and the WebDAV tests must pass unchanged in each commit.
 
@@ -285,15 +363,15 @@ server) before building on it. "Checked 20 Nov 2026" says what that page gave th
 | Item | Page that should answer it | Checked 20 Nov 2026 |
 |---|---|---|
 | Library endpoints and field names (`/library/sections`, `/library/sections/{id}/all`, `viewOffset`, `viewCount`, `lastViewedAt`, `Stream`/`streamType`) | https://developer.plex.tv/pms/#tag/Library (and its "Get a stream" operation); https://developer.plex.tv/pms/#section/API-Info/Media-Queries | Section loads ("Library endpoints which are outside of the Media Provider API"); `/library/sections` appears only as a sample URL; the other names were not in the text returned; "Get a stream" body not returned |
-| Transcoder endpoint and parameters (`/video/:/transcode/universal/start.m3u8`, decision, Direct Stream) | https://developer.plex.tv/pms/ Transcoder group ("Make a decision on media playback", "Start A Transcoding Session"); https://developer.plex.tv/pms/#section/API-Info/Profile-Augmentations; Plex Support "Streaming Media: Direct Play and Direct Stream", https://support.plex.tv/articles/200250387-streaming-media-direct-play-and-direct-stream/ | Operation names only, bodies not returned; Profile-Augmentations read (`X-Plex-Client-Profile-Extra`); the support article returned HTTP 403 earlier and was not fetched again |
-| Timeline and scrobble (`/:/timeline`, `/:/scrobble`, `/:/unscrobble`) | https://developer.plex.tv/pms/ Media Provider > Timeline ("Report media timeline", "Mark an item as played", "Mark an item as unplayed"); https://developer.plex.tv/pms/#section/API-Info/Media-Providers | Names only; Media-Providers says the timeline feature "may additionally specify the scrobbleKey and unscrobbleKey attributes"; paths not found |
+| Transcoder endpoint and parameters (`/video/:/transcode/universal/start.m3u8`, decision, Direct Stream) | https://developer.plex.tv/pms/ Transcoder group ("Make a decision on media playback", "Start A Transcoding Session"); https://developer.plex.tv/pms/#section/API-Info/Profile-Augmentations; Plex Support "Streaming Media: Direct Play and Direct Stream", https://support.plex.tv/articles/200250387-streaming-media-direct-play-and-direct-stream/ | 20 Nov: operation names only; Profile-Augmentations read (`X-Plex-Client-Profile-Extra`); the support article returned HTTP 403 earlier and was not fetched again. **21 Nov 2026, OpenAPI file: decision, start, fallback and Profile Augmentations read** (section 5, "Later: server conversion"). Still UNVERIFIED: a stop call (none documented), decision code meanings, highest-quality parameters, the playlist's `CODECS` and segment container |
+| Timeline and scrobble (`/:/timeline`, `/:/scrobble`, `/:/unscrobble`) | https://developer.plex.tv/pms/ Media Provider > Timeline ("Report media timeline", "Mark an item as played", "Mark an item as unplayed"); https://developer.plex.tv/pms/#section/API-Info/Media-Providers | 20 Nov: names only. **21 Nov 2026, OpenAPI file: read** (paths, methods, parameters and the 10-second rhythm, quoted in section 6). Still UNVERIFIED: conflict handling (not documented), whether `time` becomes `viewOffset`, whether a stopped timeline creates history, the exact form of the server's feature keys |
 | Server-list identification (telling servers apart from other resources, e.g. `provides`) | https://developer.plex.tv/pms/#section/API-Info/Authenticating-with-Plex ("Talking to PMS"); https://developer.plex.tv/pms/#tag/General/operation/securityGetResources | `provides=server` not found; connections carry `local` and `relay`; the `clientIdentifier` sample is from the server's own `/security/resources`, not the plex.tv list |
 | HTTPS certificate validation on tvOS (`*.plex.direct`) | Plex Support "How to Use Secure Server Connections", https://support.plex.tv/articles/206225077-how-to-use-secure-server-connections/; https://developer.plex.tv/pms/#tag/General/operation/getSlash (`"certificate": true`); Apple's side only on a device | Plex: certificates via Let's Encrypt, server setting defaults to "Preferred". That tvOS accepts them: needs a device run |
 | Remote access and connection choice | Plex Support "Remote Access", https://support.plex.tv/articles/200289506-remote-access/; "Troubleshooting Remote Access", https://support.plex.tv/articles/200931138-troubleshooting-remote-access/; "Accessing a Server through Relay", https://support.plex.tv/articles/216766168-accessing-a-server-through-relay/ | First two read: setup and port forwarding only, no client connection-choice rule; relay article not fetched |
 | Token as header or URL parameter | https://developer.plex.tv/pms/#section/API-Info/Headers | Read: "all `X-Plex-` headers can also be sent as query string arguments". Which form AVPlayer needs for ranged reads: device run |
 | PIN lifetime | https://developer.plex.tv/pms/#section/API-Info/Authenticating-with-Plex (Legacy, step 4 "Generate a PIN") | Read: short PIN has "a much shorter lifetime", no number; the 7-day figure is for JWTs |
 | Local no-auth networks (alternative (b) only) | Plex Support "Authentication for Local Network Access", https://support.plex.tv/articles/200890058-authentication-for-local-network-access/ | HTTP 403, not read |
-| tvOS codec limits | Apple, HLS Authoring Specification for Apple Devices, https://developer.apple.com/documentation/http-live-streaming/hls-authoring-specification-for-apple-devices (tvOS section) | Read only as a summary earlier; not re-read |
+| tvOS codec limits | Apple, HLS Authoring Specification for Apple Devices, https://developer.apple.com/documentation/http-live-streaming/hls-authoring-specification-for-apple-devices (tvOS section) | **21 Nov 2026: read verbatim**, tvOS amendments included (H.264 at most High Profile Level 5.1; SDR trick play streams; no audio-only variants) |
 | Token storage (Keychain) | Apple, Keychain services, https://developer.apple.com/documentation/security/keychain-services | The link as given (`.../security/keychain_services`) did not load through the documentation reader (page not found); the hyphenated address loaded: "Securely store small chunks of data on behalf of the user." Nothing more was needed from it for this plan |
 
 ## 10. Screens and their design reference (owner's principle, R332; applied in R301)
