@@ -252,3 +252,13 @@ SwiftUI" (the SwiftUI page `/documentation/swiftui/lockups` still does not load:
 | T10 | Not built: a season picker changes the show page's structure; the TV app's pattern is not on any Apple page read (R338). |
 | T11 | Built in part (R337): system `searchSuggestions` from the titles already found. Recent searches (storage) and landscape result lockups (a backdrop lookup per result, more online requests) are for the owner (R338). |
 | T12 | Not built: Select on a Discover card toggling the watchlist is behaviour, not presentation (R338). |
+| T4 | Not changed: owner decision R258 (Decided) is not reopened (R338). |
+| T5 | Not changed: the TV app's pattern for active filters is not on any page read (R338). |
+| T13 | Not changed: no Apple page read gives the proportions (R338). |
+| T14 | Not changed: the owner's rule S1 (R338). |
+| T15 | Not changed: the player is being changed by the Plex work now; moving the overlay is for the owner (R338). |
+| T16 | Not changed: moving Skip Points and Stats into content tabs is a change to the player's actions (R338). |
+| T17 | Not changed: an Episodes tab needs new data and behaviour in the player (R338). |
+| T18 | Kept as a known exception: the system player does not draw picture subtitles. |
+| T19 | Not changed: playback behaviour (R338). |
+| T20 | Not changed: the Plex work's own decision (R302, R338). |
