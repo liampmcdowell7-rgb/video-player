@@ -1,6 +1,11 @@
-# Plex as a source type: research and plan (not built)
+# Plex as a source type: research, plan and build status
 
-Status: **PLAN ONLY, nothing built.** No app code, no test server, no Plex account was used. Every decision below is
+**Build status (owner's request of 20 Nov 2026 to build Plex; R300 onwards).** Stage 1 (client, models, fake server; R300)
+and stage 2 (the sign-in code page; R302) are built and tested offline with hand-written fixtures; later stages are listed
+in section 8. Nothing was compiled for tvOS and no Plex server or plex.tv was contacted. Section 10 names, per screen,
+the Apple screen it follows (R301).
+
+Original status of the plan below: **PLAN ONLY, nothing built.** No app code, no test server, no Plex account was used. Every decision below is
 PROVISIONAL and listed in OPEN_QUESTIONS.md (R267 to R272) for the owner to confirm or change. Owner answers of 20 Nov
 2026: sign-in (R267) follows the owner's wording, and R12 (B7) "no plex.tv sign-in", R19 "local-only mode if it works,
 otherwise blocked" and the Plex part of R30 "account-blocked" are marked SUPERSEDED (kept as history). Metadata (R270) was
@@ -39,7 +44,8 @@ server the owner provides) before the stage that uses it is built.
 
 ## 1. Sign-in on an Apple TV
 
-**Owner's answer (R267, PROVISIONAL): "however Infuse does it right now"** (the owner's words; that app signs in with
+**Owner's answer (R267, PROVISIONAL): sign in the way a leading third-party tvOS player for personal libraries does it
+today** (the owner named that app; the name is left out under the brandless rule, R332 and R301; that app signs in with
 the owner's Plex account through plex.tv). Recorded as: **plex.tv account sign-in with a PIN or link code, then a server
 chosen from the account's server list** (section 2). PROVISIONAL because it follows the owner's wording; the exact flow of
 the app the owner named has not been verified (nothing of it was read). A manual server-address-plus-token path is **not**
@@ -269,3 +275,18 @@ server) before building on it. "Checked 20 Nov 2026" says what that page gave th
 | Local no-auth networks (alternative (b) only) | Plex Support "Authentication for Local Network Access", https://support.plex.tv/articles/200890058-authentication-for-local-network-access/ | HTTP 403, not read |
 | tvOS codec limits | Apple, HLS Authoring Specification for Apple Devices, https://developer.apple.com/documentation/http-live-streaming/hls-authoring-specification-for-apple-devices (tvOS section) | Read only as a summary earlier; not re-read |
 | Token storage (Keychain) | Apple, Keychain services, https://developer.apple.com/documentation/security/keychain-services | The link as given (`.../security/keychain_services`) did not load through the documentation reader (page not found); the hyphenated address loaded: "Securely store small chunks of data on behalf of the user." Nothing more was needed from it for this plan |
+
+## 10. Screens and their design reference (owner's principle, R332; applied in R301)
+
+Adding a source has no equivalent in Apple's TV app, so the Plex setup screens follow **tvOS Settings**; the Plex
+library uses the app's existing Home, Movies, Shows and detail screens, whose gaps against the TV app are listed in
+docs/HIG_AUDIT.md, section "Against Apple's TV app" (T1 to T19). Pages read 20 Nov 2026: HIG Designing for tvOS, Managing
+accounts, Materials, Collections, Tab bars, Playing video, Searching; apple.com/apple-tv-app. The SwiftUI page
+`/documentation/swiftui/lockups` did not load ("Apple documentation page not found"). Nothing here was seen on a screen.
+
+| Screen | Follows | What is different, and why |
+|---|---|---|
+| Plex sign-in code page (`PlexSetupView`, stage 2, R302) | tvOS Settings (adding a source) | A full-screen page with the code as its largest text, not a Settings form: HIG Managing accounts, tvOS, "Prefer letting people use another device to sign up or authenticate" and "Minimize data entry"; Designing for tvOS: people sit "often 8 feet or more" away. Says how it signs in and why ("Always identify the authentication method you offer"; "Display this message in your sign-in view"). "plex.tv/link" is plain text, no logo or Plex look. Whether tvOS Settings has a page of this exact shape is UNVERIFIED (no Apple page read shows one). The QR code is an alternative only (R302). |
+| Plex server list (stage 3, R303) | tvOS Settings list | Planned: a system `List`, one row per server, the name and "Local" or "Remote" as secondary text, no custom rows (rule L2). |
+| Plex library, detail and player | The TV app screens the app already has (Home shelves, movie and show pages, the system player) | No Plex-specific screen: Plex items appear in the same screens as every other source, so the TV app gaps T1 to T19 apply to them unchanged and are fixed (or not) for all sources at once. |
+| "Cannot play this file" (stage 5, R305) | The app's existing playback error (system alert) | One calm sentence; the server transcode is not built (R271 kept open). |

@@ -52,6 +52,8 @@ targets:
       - package: VideoPlayerCore
         product: SourceOneDrive
       - package: VideoPlayerCore
+        product: SourcePlex
+      - package: VideoPlayerCore
         product: SourceRangeProxy
       - package: VideoPlayerCore
         product: RemuxEngine
