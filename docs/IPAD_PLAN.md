@@ -34,8 +34,8 @@ Apple TV through Plex Media Server on the owner's PC: docs/PLEX_SOURCE.md, owner
 
 iPad work starts only after **all three** of these:
 1. the tvOS TestFlight build is installed on the Apple TV and verified by the owner;
-2. the text-field bug is fixed (OPEN_QUESTIONS.md R273: diagnosed, a pixel check added in commit 08195f5, **not fixed
-   yet**);
+2. the text-field bug is fixed (OPEN_QUESTIONS.md R273: the fix is **built** (PROVISIONAL) but **unverified**: not yet
+   seen in a screenshot or on a device; the next step is the screenshot check 11-form-webdav-FIELDS-AT-REST);
 3. the Plex source is working (docs/PLEX_SOURCE.md stages 1 to 6).
 
 **No iPad code before then.** Not even a target in project.yml.

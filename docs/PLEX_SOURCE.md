@@ -222,10 +222,10 @@ Plex server, `scripts/record-mediaserver-fixtures.sh` already redacts tokens for
 
 | Stage | Tests (all offline) |
 |---|---|
-| 1 Sign-in | PIN create, poll until `authToken`, expired PIN, `authToken` null until claimed, headers sent (client id, product), token never in logs or errors (fake plex.tv endpoints) |
-| 2 Servers | resources JSON with local, remote and relay connections; order chosen; relay skipped unless allowed; all down = offline state |
-| 3 Browse | sections, paged children (21+ items to prove paging), shows to seasons to episodes, tree paths built from `Part.file`, XML response refused (we always ask for JSON) |
-| 4 Model | mapping table above, `tmdb://` to `tmdbID`, ms to seconds, same file on WebDAV and Plex gives one item key, WebDAV tests unchanged |
+| 1 Skeleton | client headers (client identifier, product, JSON `Accept`), decoding of the models read on the PMS page, the fake server answers; Plex still blocked in the app |
+| 2 Sign-in | PIN create, poll until `authToken`, expired PIN, `authToken` null until claimed, headers sent (client id, product), token never in logs or errors (fake plex.tv endpoints) |
+| 3 Servers | resources JSON with local, remote and relay connections; order chosen; relay skipped unless allowed; all down = offline state |
+| 4 Browse and index | sections, paged children (21+ items to prove paging), shows to seasons to episodes, tree paths built from `Part.file`, XML response refused (we always ask for JSON); model: mapping table above, `tmdb://` to `tmdbID`, ms to seconds, same file on WebDAV and Plex gives one item key, WebDAV tests unchanged |
 | 5 Play | route choice per container and codec (mp4 HEVC direct, mkv DTS remux, MPEG-2 transcode fallback), ranged reads through the fake server (206, 416), token header present, token absent from every logged URL |
 | 6 Watch seed | seeding only when the app has no record; never overwrites; no write requests sent (the fake server fails the test on any POST/PUT to timeline or scrobble) |
 | UI | Add a Source shows Plex as available; existing UI fixture `10-add-source-types-HIERARCHY.txt` and the tests that assert Plex is blocked (`SourceWiringTests` lines 63, 86, 96, 119; `SourceStatusTests` lines 26 to 28) change in the same stage that unblocks it; design lint: "Plex" only as allowlisted plain text, no "Works with", no logo |
