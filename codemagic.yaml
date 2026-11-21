@@ -11,15 +11,20 @@
 # `asc-testflight`, which the owner adds in Codemagic (docs/TESTFLIGHT.md, Codemagic route). Codemagic: the integration
 # "will expose necessary environment variables during the build" for the CLI tools.
 #
-# SIGNING: ONE certificate, reused. `ios_signing` names, by its Codemagic reference name, the owner's one stored Apple
-# Distribution certificate "Balance Ahead distribution" (Team settings > codemagic.yaml settings > Code signing
-# identities > iOS certificates; it already signs the owner's other two apps). Codemagic's signing page (read 20 Nov 2026,
-# https://docs.codemagic.io/yaml-code-signing/signing-ios/): "list the references of the uploaded files under the
-# `provisioning_profiles` and `certificates` fields"; the keychain steps "are not required as those are automatically
-# fetched during the build process". UNVERIFIED: the page does not say whether `certificates` may be given without
-# `provisioning_profiles`; tvOS profiles are not stored in Codemagic, so scripts/cm-testflight.sh signing finds or makes
-# them. This workflow NEVER creates, generates, revokes or deletes a certificate or a key (the pre-push check and
-# scripts/test-ci-codemagic.sh refuse the commands that would).
+# SIGNING: ONE certificate, reused. `ios_signing` uses Codemagic's form `distribution_type: app_store` +
+# `bundle_identifier: com.liamp.videoplayer`. Codemagic's signing page (read again 20 Nov 2026,
+# https://docs.codemagic.io/yaml-code-signing/signing-ios/): "To fetch all uploaded signing files matching a specific
+# distribution type and bundle identifier during the build"; "Codemagic will fetch any uploaded certificates and profiles
+# matching the extensions as well"; with these two fields "it is not allowed to configure `provisioning_profiles` and
+# `certificates` fields". So Codemagic installs the owner's stored Apple Distribution certificate (the one that already
+# signs the owner's other two apps) by type and bundle identifier; scripts/cm-testflight.sh signing then checks that exactly one
+# App Store Connect certificate matches the keychain's identity, otherwise it stops. The earlier form
+# `certificates: - <reference name>` alone was rejected by Codemagic's validator on 20 Nov 2026 ("Either distribution
+# profile and bundle identifier or provisioning profiles (and optionally certificates) must be provided"). UNVERIFIED: what
+# Codemagic does when no tvOS profile is stored for the bundle identifier (fail or warn), and whether it then still
+# installs the certificate; the signing step makes the tvOS profiles after it. This workflow NEVER creates, generates,
+# revokes or deletes a certificate or a key (the pre-push check and scripts/test-ci-codemagic.sh refuse the commands
+# that would).
 #
 # LOGS: every command's output goes to a file on the build machine; the log shows only result lines and, on failure, the
 # error lines, redacted (scripts/cm-testflight.sh redact, then scripts/ci-testflight-log.sh): no key, certificate,
@@ -44,8 +49,8 @@ workflows:
     environment:
       xcode: "27.2"
       ios_signing:
-        certificates:
-          - "Balance Ahead distribution"
+        distribution_type: app_store
+        bundle_identifier: com.liamp.videoplayer
       vars:
         # The same pinned XcodeGen as .github/workflows/compile-check.yml (the self-test checks they are equal).
         XCODEGEN_VERSION: "2.46.0"

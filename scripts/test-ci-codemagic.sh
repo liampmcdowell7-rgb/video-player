@@ -33,8 +33,8 @@ c("xcode is exactly 27.2 (a string)", wf.get("environment", {}).get("xcode") == 
 c("the only integration is app_store_connect: asc-testflight", wf.get("integrations") == {"app_store_connect": "asc-testflight"})
 env = wf.get("environment", {})
 c("no environment groups (no secrets)", "groups" not in env)
-c("ios_signing names exactly the one stored certificate 'Balance Ahead distribution' and nothing else",
-  env.get("ios_signing") == {"certificates": ["Balance Ahead distribution"]})
+c("ios_signing is exactly distribution_type app_store and bundle_identifier com.liamp.videoplayer",
+  env.get("ios_signing") == {"distribution_type": "app_store", "bundle_identifier": "com.liamp.videoplayer"})
 pub = wf.get("publishing", {})
 c("publishing: only app_store_connect", list(pub.keys()) == ["app_store_connect"])
 c("publishing: auth integration, submit_to_testflight false, nothing else",
@@ -143,7 +143,7 @@ EOF
   [ "$rc" -eq 0 ] && [ "$(cat "$t/cid")" = CERTSTORED1 ] && ! printf '%s' "$out" | grep -qE 'CERT|Sample|ZZ0' \
     && ok "cert-id: picks the App Store Connect certificate whose SHA-1 is the keychain identity; prints no ID or name" || bad "cert-id: $rc $out"
   out="$(python3 "$SG" cert-id "$t/certs.json" "$t/identities-none.txt" "$t/x" "$t/y")"; rc=$?
-  [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'Balance Ahead distribution' && ok "cert-id: no identity in the keychain stops the build and names the ios_signing reference" || bad "cert-id none: $rc $out"
+  [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'distribution_type app_store' && ok "cert-id: no identity in the keychain stops the build and names the ios_signing form" || bad "cert-id none: $rc $out"
   python3 - "$t" <<'EOF'
 import json, sys; t = sys.argv[1]; d = json.load(open(t + "/certs.json")); d["data"] = d["data"][:1]; json.dump(d, open(t + "/certs-other.json", "w"))
 EOF
@@ -207,12 +207,12 @@ sed 's/xcode: "27.2"/xcode: latest/' "$Y" | refused "xcode: latest" "exact versi
 sed 's/instance_type: mac_mini_m2/instance_type: mac_mini_m4/' "$Y" | refused "mac_mini_m4 (billed)" "mac_mini_m2"
 { cat "$Y"; printf '  second:\n    name: x\n'; } | refused "a second workflow" "workflows"
 sed 's/        auth: integration/        api_key: $X/' "$Y" | refused "an API key instead of the integration" "names an API key"
-sed 's/"Balance Ahead distribution"/"Another certificate"/' "$Y" | refused "another certificate reference" "ios_signing must be exactly"
-sed 's/^          - "Balance Ahead distribution"/          - "Balance Ahead distribution"\n          - "Second certificate"/' "$Y" | refused "a second certificate" "ios_signing must be exactly"
-sed 's/^        certificates:/        provisioning_profiles:\n          - some_profile\n        certificates:/' "$Y" | refused "a provisioning profile reference" "ios_signing must be exactly"
-sed 's/^        certificates:/        distribution_type: app_store\n        certificates:/' "$Y" | refused "distribution_type in ios_signing" "ios_signing must be exactly"
-sed '/^      ios_signing:/,/Balance Ahead distribution/d' "$Y" | refused "a missing ios_signing section" "exactly one ios_signing"
-sed 's/^          - "Balance Ahead distribution"/          - certificate: "Balance Ahead distribution"\n            environment_variable: CERT_PATH/' "$Y" | refused "a certificate file-path variable" "ios_signing must be exactly"
+sed 's/^        distribution_type: app_store$/        certificates:\n          - "Stored certificate"/; /^        bundle_identifier:/d' "$Y" | refused "certificates only (the form Codemagic's validator rejects)" "ios_signing must be exactly"
+sed 's/^        distribution_type: app_store$/        provisioning_profiles:\n          - some_profile/; /^        bundle_identifier:/d' "$Y" | refused "a provisioning profile reference" "ios_signing must be exactly"
+sed 's/distribution_type: app_store/distribution_type: ad_hoc/' "$Y" | refused "another distribution_type (ad_hoc)" "ios_signing must be exactly"
+sed 's/bundle_identifier: com.liamp.videoplayer/bundle_identifier: com.liamp.other/' "$Y" | refused "another bundle identifier" "ios_signing must be exactly"
+sed 's/^        bundle_identifier: com.liamp.videoplayer$/        bundle_identifier: com.liamp.videoplayer\n        certificates:\n          - "Stored certificate"/' "$Y" | refused "both forms mixed (type + certificates)" "ios_signing must be exactly"
+sed '/^      ios_signing:/,/^        bundle_identifier:/d' "$Y" | refused "a missing ios_signing section" "exactly one ios_signing"
 scan_script() { # $1 = description, stdin = a scripts/cm-extra.sh body
   local r="$t/repo-$RANDOM" o; mkdir -p "$r/scripts"; cp scripts/pre-push-check.sh "$r/scripts/"; cp "$Y" "$r/codemagic.yaml"
   cat > "$r/scripts/cm-extra.sh"; git -C "$r" init -q 2>/dev/null; o="$(cd "$r" && bash scripts/pre-push-check.sh 2>&1)"

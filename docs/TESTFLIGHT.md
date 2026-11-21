@@ -40,10 +40,11 @@ Names from Codemagic's pages read on 20 Nov 2026 (listed under Sources at the en
   **Save**. (To change it later: **Manage keys** next to Developer Portal.) The key stays in Codemagic, encrypted; it is
   never in the repository.
   **Certificate (nothing to add):** the build signs with your ONE existing Apple Distribution certificate, stored in
-  Codemagic as **Balance Ahead distribution** (team settings > **codemagic.yaml settings** > **Code signing
-  identities** > **iOS certificates**; team admin needed to see it). `codemagic.yaml` names it by that reference name, so
-  keep the name exactly as it is. The build never makes, revokes or deletes a certificate or a key, and it does not touch
-  your other apps.
+  Codemagic (team settings > **codemagic.yaml settings** > **Code signing identities** > **iOS certificates**; team admin
+  needed to see it). `codemagic.yaml` does not name it: Codemagic installs your stored distribution certificate by type
+  and bundle identifier (`distribution_type: app_store`, `bundle_identifier: com.liamp.videoplayer`); the signing step
+  then checks that exactly one App Store Connect certificate matches it, otherwise it stops. The build never makes,
+  revokes or deletes a certificate or a key, and it does not touch your other apps.
 - **C5. YOU (Codemagic website)** — start the build: open the app and click **Start new build**. In **Specify build
   configuration** choose the branch `main` and the workflow **tvOS TestFlight (manual)**, then start it *(unverified:
   the name of the final button)*. Nothing starts by itself: the file has no trigger. It stops itself at 30 minutes. An
@@ -54,10 +55,11 @@ Names from Codemagic's pages read on 20 Nov 2026 (listed under Sources at the en
   (the tvOS 27.2 SDK, the same Xcode as the GitHub runner):
   Signing and the profile check come first: they read only App Store Connect and the keychain, so a signing problem
   stops the build in about 2 minutes *(an estimate, not measured)*, before the long package setup.
-  1. Signing: Codemagic installs the stored certificate **Balance Ahead distribution** (`ios_signing` in
-     `codemagic.yaml`). The step finds that same certificate in App Store Connect (by comparing fingerprints, through the
-     integration), then for `com.liamp.videoplayer` and `com.liamp.videoplayer.topshelf` reuses an existing active
-     **tvOS App Store** profile that carries it; only if there is none does it make a new profile with it
+  1. Signing: Codemagic installs your stored distribution certificate by type and bundle identifier (`ios_signing` in
+     `codemagic.yaml`). The step then checks that exactly one App Store Connect certificate matches the keychain's
+     identity (by comparing fingerprints, through the integration), otherwise it stops; then for
+     `com.liamp.videoplayer` and `com.liamp.videoplayer.topshelf` it reuses an existing active **tvOS App Store** profile
+     that carries it; only if there is none does it make a new profile with it
      (`app-store-connect profiles create --type TVOS_APP_STORE`). No devices. It never makes a key or a certificate and
      never revokes or deletes anything (the pre-push check and its self-test refuse such commands).
   2. Checks the two profiles: the app's must carry the iCloud container `iCloud.com.liamp.videoplayer` and the App Group
@@ -79,8 +81,8 @@ Names from Codemagic's pages read on 20 Nov 2026 (listed under Sources at the en
     new build (C5). The build reuses only *active* profiles; whether Apple marks the old profile inactive after the
     change is *(unverified)*: if the same line comes back, tell me rather than deleting anything.
   - **"no code signing identity in this machine's keychain"** or **"0 App Store Connect certificate(s) match"**: the
-    stored certificate was not installed or not found. Check that **Balance Ahead distribution** is still listed under
-    **iOS certificates** (C4) with exactly that name, then send me the lines. Do not make a new certificate for this.
+    stored certificate was not installed or not found. Check that your distribution certificate is still listed under
+    **iOS certificates** (C4), then send me the lines. Do not make a new certificate for this.
 - **C8. YOU (Apple website and Apple TV)** — steps 23 to 26 below: wait for Processing, add yourself as an **internal
   tester** (Internal Testing group, automatic distribution), install TestFlight on the Apple TV and the build.
 - **C9. YOU** — for every later build: C5 only (and C8 if you want it on the Apple TV).
@@ -250,9 +252,10 @@ screenshot or a chat. They go only into GitHub's encrypted secrets (step 16).
 - Codemagic, native iOS quick start: https://docs.codemagic.io/yaml-quick-start/building-a-native-ios-app (**Add
   application**, **Finish: Add application**, **Check for configuration file**, `xcode-project use-profiles`).
 - Codemagic, signing iOS apps and alternative code signing methods: https://docs.codemagic.io/yaml-code-signing/signing-ios/
-  and https://docs.codemagic.io/yaml-code-signing/alternative-code-signing-methods.md (`ios_signing` lists "the
-  references of the uploaded files under the `provisioning_profiles` and `certificates` fields"; keychain steps "are not
-  required"; **Code signing identities**, **iOS certificates**, **Reference name**, team admin needed; with the
+  and https://docs.codemagic.io/yaml-code-signing/alternative-code-signing-methods.md (`ios_signing` with
+  `distribution_type` and `bundle_identifier` fetches "all uploaded signing files matching a specific distribution type
+  and bundle identifier", "any uploaded certificates and profiles matching the extensions as well", and then "it is not
+  allowed to configure `provisioning_profiles` and `certificates` fields"; keychain steps "are not required"; **Code signing identities**, **iOS certificates**, **Reference name**, team admin needed; with the
   integration "the certificate private key has to be exported too" for `fetch-signing-files`, which this route therefore
   does not use; the integration "will expose necessary environment variables during the build").
 - Codemagic CLI tools: https://github.com/codemagic-ci-cd/cli-tools/tree/master/docs (`certificates list` with `--json`;

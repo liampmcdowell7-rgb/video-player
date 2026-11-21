@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Codemagic only (codemagic.yaml, OPEN_QUESTIONS R266). Helpers for the signing step of scripts/cm-testflight.sh. They
 read files the Codemagic CLI wrote and never call a server themselves. NOTHING HERE MAKES, REVOKES OR DELETES A
-CERTIFICATE OR A KEY: the certificate is the owner's stored "Balance Ahead distribution" (codemagic.yaml ios_signing).
+CERTIFICATE OR A KEY: the certificate is the owner's stored distribution certificate, which Codemagic installs by type
+and bundle identifier (codemagic.yaml ios_signing: distribution_type app_store, bundle_identifier).
 
   cm-signing.py cert-id CERTS_JSON IDENTITIES CERT_ID_OUT CERT_SHA1_OUT
       CERTS_JSON: `app-store-connect certificates list --json`; IDENTITIES: `security find-identity -v -p codesigning`.
@@ -83,9 +84,10 @@ def cert_id(certs_json, identities, id_out, sha_out):
     with open(identities, errors="replace") as f:
         keychain = set(h.upper() for h in re.findall(r"\b([0-9A-Fa-f]{40})\b", f.read()))
     if not keychain:
-        print("SIGNING ERROR: no code signing identity in this machine's keychain: the certificate named in "
-              "codemagic.yaml ios_signing (\"Balance Ahead distribution\") was not installed (Codemagic: Team settings > "
-              "codemagic.yaml settings > Code signing identities > iOS certificates)")
+        print("SIGNING ERROR: no code signing identity in this machine's keychain: Codemagic did not install the stored "
+              "distribution certificate (codemagic.yaml ios_signing: distribution_type app_store, bundle_identifier "
+              "com.liamp.videoplayer; Codemagic: Team settings > codemagic.yaml settings > Code signing identities > "
+              "iOS certificates)")
         return 1
     matches = []
     for r in resources(certs_json):

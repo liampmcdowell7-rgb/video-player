@@ -2,10 +2,11 @@
 # Codemagic only (codemagic.yaml, workflow tvos-testflight; OPEN_QUESTIONS R266, PROVISIONAL). One build step per call:
 #   cm-testflight.sh prepare         check the vendored files, install the pinned XcodeGen (SHA-256), generate, resolve:
 #                                    scripts/ci-prepare.sh, exactly as the GitHub compile check does
-#   cm-testflight.sh signing         reuses the ONE stored Apple Distribution certificate that codemagic.yaml ios_signing
-#                                    installs ("Balance Ahead distribution"): finds it in App Store Connect by its SHA-1,
-#                                    then for EACH bundle ID takes an existing active TVOS_APP_STORE profile that carries
-#                                    it, or makes one profile with it (scripts/cm-signing.py). It never makes a key or a
+#   cm-testflight.sh signing         Codemagic installs the owner's stored distribution certificate by type and bundle
+#                                    identifier (codemagic.yaml ios_signing); this step checks that exactly one App Store
+#                                    Connect certificate matches the keychain's identity (SHA-1), otherwise it stops; then
+#                                    for EACH bundle ID takes an existing active TVOS_APP_STORE profile that carries it, or
+#                                    makes one profile with it (scripts/cm-signing.py). It never makes a key or a
 #                                    certificate and never revokes or deletes anything (the self-test checks this).
 #   cm-testflight.sh check-profiles  scripts/cm-profile-check.py dir (iCloud container and App Group of the chosen two)
 #   cm-testflight.sh archive         `xcode-project use-profiles` (the chosen profiles only), a check that both targets now
@@ -57,8 +58,8 @@ case "$step" in
     exit "$rc" ;;
 
   signing)
-    # Reuses the owner's ONE stored Apple Distribution certificate ("Balance Ahead distribution", codemagic.yaml
-    # ios_signing; Codemagic installs it with its private key). This step makes no key and no certificate, and revokes or
+    # Reuses the owner's ONE stored Apple Distribution certificate, which Codemagic installs with its private key by type
+    # and bundle identifier (codemagic.yaml ios_signing). This step makes no key and no certificate, and revokes or
     # deletes nothing: it only reads App Store Connect and, when no usable profile exists, makes a profile.
     umask 077
     S="$W/signing"; rm -rf "$S"; mkdir -p "$S/chosen"
