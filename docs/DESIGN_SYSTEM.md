@@ -1,5 +1,29 @@
 # Design system: native tvOS 27 with Liquid Glass
 
+## Guiding principle (owner's decision, 20 Nov 2026; OPEN_QUESTIONS R332, Decided)
+
+Applies to every screen and every stage from now on.
+
+1. **Design reference: Apple's TV app on tvOS 27.** Match its layout, navigation, components, typography, spacing, focus
+   behaviour and Liquid Glass materials as closely as the system components allow: shelves and lockups (posters, episode
+   cards, Up Next / Continue Watching), the show and movie pages, season and episode lists, search with the inline
+   keyboard, and the player with its info, audio and subtitle panels. Where the TV app has no equivalent screen (adding a
+   source, settings), follow **tvOS Settings**. Native system components only; never imitate a system look with custom
+   drawing.
+2. **Functionality reference: a leading third-party tvOS video player for personal libraries** (a media-server source and
+   network shares, direct play at full quality, rich metadata, a media-server sign-in by a code entered on another
+   device). Match that feature set, and exceed it where the owner asked (automatic intro and credits skip, binge playback,
+   iPhone Now Playing control; docs/PLAYBACK_AUTOSKIP_NOWPLAYING.md).
+3. **Brandless repository:** no third-party app is named anywhere in the repository (code, docs, commit messages, R
+   rows); features are described generically. Apple's TV app and tvOS Settings may be named as the design reference, and
+   the HIG is cited. (Data providers and technologies stay plain-text names under docs/NAMES.md.)
+
+How it is applied: every design note names, per screen, the TV app screen or tvOS Settings screen it follows, and what
+is different and why (first: docs/SOURCE_SETUP_DESIGN.md). Gaps of the screens not yet changed are listed in
+docs/HIG_AUDIT.md, section "Against Apple's TV app". Only Apple's pages are cited; a tvOS 27 detail not read on an Apple
+page is UNVERIFIED. If the owner sends photos of the TV app, they become the primary reference over any written
+description.
+
 **Standard (user decision, 2026-11-17):** the app must be indistinguishable from the system apps: native components first, Liquid Glass from the SDK, system values only, system focus engine only, tvOS navigation conventions, `AVPlayerViewController` for playback, neutral icon art.
 
 **Status of everything below:** written from Apple's pages and checked by `scripts/design-lint.sh` (static text checks). **Nothing has been compiled, run in a Simulator or seen on an Apple TV.** Visual fidelity to the system apps cannot be proven until a build is compiled and looked at on a real Apple TV (docs/DEVICE_TEST_CHECKLIST_VISUAL.md). Every decision here is **PROVISIONAL** with its alternative visible, and is mirrored in OPEN_QUESTIONS.md by the parent.

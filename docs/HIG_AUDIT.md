@@ -187,3 +187,44 @@ tested on any screen: **unproven everywhere**, and nothing was run with those se
 
 ### Top Shelf
 - 18, 12: unproven (Top Shelf). Not reachable from UI tests (R161).
+
+## Against Apple's TV app (guiding principle R332; audit of 20 Nov 2026; no fixes made)
+
+Scope: every screen that the source setup redesign (docs/SOURCE_SETUP_DESIGN.md, R320 to R331) does not change. Method:
+the source code of each screen against Apple's pages read on 20 Nov 2026 (apple.com/apple-tv-app; HIG Designing for
+tvOS, Materials, Collections, Tab bars, Playing video, Searching, Lockups). The SwiftUI page
+`/documentation/swiftui/lockups` and `/documentation/tvui` did not load ("Apple documentation page not found"); the HIG
+Lockups page names only TVUIKit views (`TVLockupView`, `TVPosterView`, `TVCardView`, `TVMonogramContentView`,
+`TVCaptionButtonView`) and no SwiftUI equivalent. Nothing here was seen on a screen. Where the TV app's own pattern is
+not stated on any of those pages, the cell says **UNVERIFIED (from memory)**; a photo of the TV app from the owner
+replaces it. Apple's pages do not give shelf spacing, type sizes, the season and episode layout, Continue Watching or Up
+Next, the player's info, audio and subtitle panels, or the search keyboard.
+
+| # | Screen | Fault | The TV app's pattern (source) |
+|---|---|---|---|
+| T1 | Home, Movies, Shows, Discover: portrait cards (`PosterCard`, `SeriesCard`, `DiscoverCard`) | Title and subtitle are always shown, under the artwork and outside the focusable button | Posters: "an optional title and subtitle, which are hidden until the poster comes into focus" (HIG Lockups) |
+| T2 | Home Continue Watching, show page episodes (`PosterCard` wide, `EpisodeCard`) | `.buttonStyle(.borderless)` with `.hoverEffect(.highlight)` attached to the artwork by hand, and a custom PreferenceKey (`equalCaptionRow`) to equalise caption heights: a lockup put together by hand | A lockup is content, header and footer that "expand and contract together as the lockup gets focus" (HIG Lockups). SwiftUI equivalent: not named on any page read (UNVERIFIED which SwiftUI style gives it) |
+| T3 | All shelves and grids (`CardRow`, `PosterGridLayout`, Discover) | Spacing hard-coded: 40 pt between cards, 100 pt between grid rows, cards sized by `containerRelativeFrame(count: 6 / 3 / 4)` | "leave enough room between lockups to avoid overlapping" and "Use consistent lockup sizes within a row" (HIG Lockups); the TV app's actual spacing and cards per row: UNVERIFIED (no page gives values) |
+| T4 | Movies, Shows grid toolbar (`GridToolbar`, `ToolbarIconGroup`) | `GlassEffectContainer` around a custom equal-width `Layout` inside the scrolling content | "Don't use Liquid Glass in the content layer" (HIG Materials). The TV app's Library tab is a split view with the tab bar pinned (HIG Tab bars); its sidebar of categories in place of sort and filter menus: UNVERIFIED (from memory) |
+| T5 | Movies, Shows (`FilterChipsRow`) | A row of default buttons with an `xmark` symbol, one per active filter: a chip row the TV app has no equivalent of (UNVERIFIED) | No such control on any page read; TV app: UNVERIFIED (from memory, it has no filter chips) |
+| T6 | Movie page, show page (`BackdropView`) | The backdrop is drawn at 40 % opacity (15 % with Reduce Transparency) behind the text, with no dimming layer | "Deliver beautiful, edge-to-edge artwork" (Designing for tvOS); for bright content behind controls "consider adding a dark dimming layer of 35% opacity" (HIG Materials). TV app: artwork at full strength, text over a dimmed lower part: UNVERIFIED (from memory) |
+| T7 | Movie page, show page (Play focus) | `.defaultFocus($playFocused, true)` and also `playFocused = true` in a `.task`, a second, programmatic focus move | Focus is moved only by people (HIG Focus and selection, quoted in docs/SOURCE_SETUP_DESIGN.md); `.defaultFocus` alone is the pattern |
+| T8 | Movie page, show page (`CastShelf`) | Circles clipped by hand (`clipShape(Circle())`), `.focusable()` with no action, no initials when there is no photo | Monograms "identify people, usually the cast and crew… If an image isn't available, the person's initials appear" (HIG Lockups); selecting a person in the TV app opens their page: UNVERIFIED (from memory) |
+| T9 | Movie page (`MediaInfoSection`) | A `Grid` with `Divider`s, the whole block one focusable item | "Consider using a table instead of a collection for text" (HIG Collections); the TV app's "information" section layout: UNVERIFIED (from memory) |
+| T10 | Show page (`SeasonsList`) | Every season is its own shelf, stacked down the page; no season picker | TV app: one episode shelf with the seasons as a choice above it: UNVERIFIED (from memory; no page read describes it) |
+| T11 | Search (`SearchView`) | No suggestions and no recent searches; results reuse the five-column poster grid | "display a personʼs recent searches before they start typing or offer predictive search suggestions" (`searchSuggestions(_:)`), and "provide a way for people to clear" search history (HIG Searching). Search as a dedicated tab already matches ("In apps that use Tab bars, like Photos and Apple TV, search is a dedicated tab") |
+| T12 | Discover in Search (`DiscoverCard`) | Select on the artwork toggles the watchlist; the card's primary action is an action, not opening the title | No page read states it; in the TV app Select on a poster opens the title's page and adding to a list is a secondary action: UNVERIFIED (from memory) |
+| T13 | Files and Settings (`PaneColumns`) | Title and summary on the left half, the list on the right half, each half the same width | tvOS Settings: a picture or title on the left, the list on the right: UNVERIFIED (from memory; no page read gives the proportions) |
+| T14 | Files, Settings and grids (`FittingText` with `fadesAtRest`, `MarqueeText`) | Overflowing text is masked with a gradient at rest and scrolled by a UIKit `UILabel` marquee on focus: custom drawing | No page read describes how system rows show long text on tvOS (UNVERIFIED). Note: this exists because of the owner's rule S1 (CLAUDE.md); any change needs the owner |
+| T15 | Player (`StatsOverlayView`) | A SwiftUI panel with `.regularMaterial` and orange warning values, pinned over the video | tvOS: "Defer to content when displaying logos or noninteractive overlays above video" (HIG Playing video) |
+| T16 | Player (`transportBarCustomMenuItems`) | Mark Skip Points (a menu of seven items) and Playback Stats live in the transport bar | "Use a transport control to support a playback-related action …; use custom content tabs to display supplementary information" and "make sure your actions don't take more than a step or two" (HIG Playing video) |
+| T17 | Player (no `customInfoViewControllers`) | No content tabs: for an episode there is no Episodes tab under the transport controls | "Below the transport controls, the video player displays content tabs, like Info, Episodes, or Chapters" (HIG Playing video) |
+| T18 | Player (`PictureSubtitleOverlay`) | Picture subtitles are drawn by the app in `contentOverlayView` | Custom drawing, but with a reason: the system player does not draw picture-based subtitles (from the code's comments; UNVERIFIED on an Apple page). Kept as a known exception |
+| T19 | Player (`ProposalPresenter`) | `automaticAcceptanceInterval = .nan`; the app runs the Up Next countdown itself | System content proposal with its own countdown is the stock pattern (AVKit); why the app runs its own: see docs/PLAYBACK_AUTOSKIP_NOWPLAYING.md. TV app's Up Next look: UNVERIFIED |
+
+Matches (no gap found in code): the system `TabView` tab bar with Search as a tab (HIG Tab bars, Searching); one
+`NavigationStack` per tab; the stock `AVPlayerViewController` with `externalMetadata` (HIG Playing video: "Use the system
+video player"); audio and text subtitle choice left to the system player's menus; skip intro as the system
+`contextualActions`; system `.contextMenu` on cards; system alerts and confirmation dialogs; `ContentUnavailableView`
+for empty states. Liquid Glass appears only where the system applies it (tab bar, focused buttons and images: HIG
+Materials, tvOS), except T4.

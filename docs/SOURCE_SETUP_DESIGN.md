@@ -35,6 +35,24 @@ Quoted lines are exact. **NOT STATED** means the page was read and says nothing 
 tvOS Settings itself has no Apple developer page; "the tvOS Settings pattern" below is the owner's description (one row per
 field, label leading, value trailing, Select opens a keyboard page) and is UNVERIFIED against an Apple document.
 
+## Reference per screen (guiding principle, R332)
+
+Apple's TV app has no screen for adding a source, so every screen here follows **tvOS Settings** (docs/DESIGN_SYSTEM.md,
+top section). The tvOS Settings screen named for each is the owner's description and memory of tvOS Settings, not an
+Apple page: **UNVERIFIED** until the owner's photos or a device check. Apple's pages read for the TV app (apple.com/apple-tv-app,
+HIG Lockups, Playing video, Tab bars) say nothing about adding a source or account setup.
+
+| Screen | Follows (tvOS Settings) | What differs, and why |
+|---|---|---|
+| Add a Source (10) | A Settings list of choices that pushes a page per choice (Settings > Network > Wi-Fi: networks found, then other entries) | A Cancel button at the end, because the list opens as a full-screen task: HIG Modality asks for "a button in the main content view" (R324). Search Your Network is the first row, like the found networks at the top of the Wi-Fi list (R326) |
+| Each form (11 to 19) | A Settings page of value rows, each pushing an entry page (Settings > Network > Wi-Fi > Other Network; Settings > Users and Accounts) | Connect as one prominent button at the end of the list (HIG Buttons); tvOS Settings asks for one value per page in sequence instead (UNVERIFIED), which would mean a fixed order and more pages for an optional field. The "Optional: …" footer (R322): no tvOS Settings equivalent known |
+| A field's entry page (R321) | The Settings page with one text field and the linear keyboard (Wi-Fi password entry) | Heading and field are app-built (a `VStack`, the field name, one sentence, the system field): the system page that Settings uses has no public SwiftUI equivalent on any page read (UNVERIFIED) |
+| Keyboard screen | The system keyboard screen, unchanged | None: the system draws it. Its heading text comes from the field (R262, R321); which part it shows is UNVERIFIED |
+| Search Your Network (21) | Settings > Network > Wi-Fi while searching: found items as rows, a searching line | The searching line is a section footer, not a row with a spinner (rule L3; R328). Whether Settings shows a spinner row: UNVERIFIED |
+| Server Details | A Settings detail page of value rows (Settings > Network > a network's details) | Shown as a section of the form, not its own page, so Connect stays one press away (R328) |
+| Not available types (20), About Source Types, About pages (R329) | Settings > General > About and the legal text pages: a list that pushes a page of text | The About page text rows are focusable so the page scrolls with the remote (the same exception as About and License Texts in Settings; HIG Focus and selection: "people can bring focus to every element") |
+| Larger Text, Bold Text | The system text sizes in Settings > Accessibility | No difference intended: rows grow, nothing is cut (HIG Layout: "table rows … may need to grow in height") |
+
 ## Screen by screen
 
 ### Forms 11 to 19 (R320, R321, R322, R323)

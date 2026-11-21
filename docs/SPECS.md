@@ -1,5 +1,7 @@
 # Specs index
 
+**Guiding principle (owner, 20 Nov 2026, R332):** design reference Apple's TV app on tvOS 27 (tvOS Settings where the TV app has no equivalent), native system components only; functionality reference a leading third-party tvOS player for personal libraries, never named in the repository. Full text: docs/DESIGN_SYSTEM.md, top section.
+
 | Document | What it covers |
 |---|---|
 | README.md | What the project is |
