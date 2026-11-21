@@ -233,3 +233,15 @@ video player"); audio and text subtitle choice left to the system player's menus
 `contextualActions`; system `.contextMenu` on cards; system alerts and confirmation dialogs; `ContentUnavailableView`
 for empty states. Liquid Glass appears only where the system applies it (tab bar, focused buttons and images: HIG
 Materials, tvOS), except T4.
+
+### Status of T1 to T20 (fixes of 21 Nov 2026, presentation only)
+
+Apple sources read 21 Nov 2026: HIG Designing for tvOS, Lockups, Collections, Materials, Playing video, Searching, Tab bars;
+SwiftUI `PrimitiveButtonStyle.borderless`, `HoverEffect.highlight` and the sample "Creating a tvOS media catalog app in
+SwiftUI" (the SwiftUI page `/documentation/swiftui/lockups` still does not load: "Apple documentation page not found").
+
+| # | Status |
+|---|---|
+| T1 | Built (R335): portrait cards are one `.borderless` lockup with the title inside the button. Titles stay visible at rest (Apple's SwiftUI sample shows them; rule S1); hiding them until focus is R335 alternative (a). |
+| T2 | Matches Apple's sample (`.borderless`, `hoverEffect(.highlight)` on a custom artwork view): no change. The caption-height key stays (R264). |
+| T3 | Matches Apple's sample (40 pt, `containerRelativeFrame(count: 6, spacing: 40)`): no change. 100 pt between grid rows: UNVERIFIED. |

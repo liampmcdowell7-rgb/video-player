@@ -100,7 +100,9 @@ test04_LibraryScreens	52-card-long-press-menu
 test04_LibraryScreens	50-home-continue-watching-caption
 test04_LibraryScreens	50-home-continue-watching-caption-later
 test04_LibraryScreens	53-movies
+test04_LibraryScreens	53-movies-focused
 test04_LibraryScreens	54-shows
+test04_LibraryScreens	54-shows-focused
 test04_LibraryScreens	55-show-page
 test04_LibraryScreens	55-show-page-scrolled-1
 test04_LibraryScreens	55-show-page-scrolled-2

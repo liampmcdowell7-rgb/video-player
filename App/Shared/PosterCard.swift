@@ -1,7 +1,8 @@
 import SwiftUI
 import AppLogic
 
-/// One title in a row or grid: the poster is the button (system `.card` style, Liquid Glass on focus), the text sits below it.
+/// One title in a row or grid: ONE lockup, the artwork and its text inside one system `.borderless` button (R335; Liquid
+/// Glass on the artwork on focus, Apple: "applies a Liquid Glass effect to the first image of the button's content").
 ///
 /// Every card has the same parts in the same places (screenshot review item 4: posters in one grid row sat at different
 /// heights because cards with fewer text lines were centred): the title, the second line and the badge line are always laid
@@ -11,7 +12,7 @@ import AppLogic
 /// #34 5a (OPEN_QUESTIONS R229, PROVISIONAL): the Continue Watching card (`wide`) puts its title and second lines INSIDE the
 /// button, Apple's tvOS content lockup ("Creating a tvOS media catalog app in SwiftUI": `.borderless`, image and title in the
 /// label, the title moves out of the way as the image scales up), exactly as the episode card (`EpisodeCard`,
-/// SeasonsList.swift, #30), so the whole lockup is the focused item. Portrait cards are unchanged.
+/// SeasonsList.swift, #30), so the whole lockup is the focused item. R335: portrait cards too.
 /// #36 group 1 d: the earlier claim that the system then SCROLLS a long title (the marquee) is withdrawn: the third run of
 /// 20 Nov showed 50 and 50-later identical with the title cut mid-word.
 ///
@@ -50,20 +51,30 @@ struct PosterCard: View {
                 .accessibilityValue(card.subtitle ?? "")
                 .cardContextMenu(card)
             } else {
+                // R335 (PROVISIONAL, docs/HIG_AUDIT.md T1, T2): the portrait card is the same lockup as the wide one, as
+                // Apple's sample builds a poster ("Creating a tvOS media catalog app in SwiftUI": `.borderless`, "Provide a
+                // separate `Image` and `Text` view in the button's label closure"; the title "automatically move[s] out of
+                // the way of the button's image as it scales up on focus"). Before: a `.card` button around the artwork and
+                // the caption outside it.
                 NavigationLink(value: Route.item(card.id)) {
-                    artwork
+                    VStack(alignment: .leading) {
+                        artwork
+                            // design-lint:allow R335: Apple's tvOS media catalog sample attaches the borderless lockup's highlight by hand to a custom artwork view; the system effect, not our own
+                            .hoverEffect(.highlight)
+                        // #17 C: the text keeps a side padding, so it never touches the card's edge (Larger Text screenshot
+                        // 80: titles ended 2-3 px from it). The system's default padding; FittingLine measures the width
+                        // inside it.
+                        VStack(alignment: .leading) {
+                            FittingText(card.title, style: .caption)
+                            secondLines
+                        }
+                        .padding(.horizontal)
+                    }
                 }
-                .buttonStyle(.card)
+                .buttonStyle(.borderless)
                 .accessibilityLabel(card.title)
                 .accessibilityValue(card.subtitle ?? "")
                 .cardContextMenu(card)
-                // #17 C: the text keeps a side padding, so it never touches the card's edge (Larger Text screenshot 80: titles
-                // ended 2-3 px from it). The system's default padding; FittingLine measures the width inside it.
-                VStack(alignment: .leading) {
-                    FittingText(card.title, style: .caption)
-                    secondLines
-                }
-                .padding(.horizontal)
             }
         }
     }

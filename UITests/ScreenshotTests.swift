@@ -353,6 +353,28 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(result.passed, "\(name)-later: " + result.verdict)
     }
 
+    /// R335 (docs/HIG_AUDIT.md T1, T2): Down from the tab bar onto the first portrait card, its picture
+    /// ("<name>", the system lift on a borderless lockup), and the "-LOCKUP" note: the caption (the StaticText with the
+    /// focused card's title) must be inside the focused card (`ScreenRules.captionInLockup`). A caption that is not exposed
+    /// in the tree is reported, not failed (whether tvOS 27 exposes the label's text inside the button: UNVERIFIED).
+    func lockupCheck(_ name: String, in app: XCUIApplication) {
+        // Down past the library toolbar (Sort, Filter, ...) onto the first card of the grid.
+        var focused: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        for _ in 0..<4 where !focused.label.hasPrefix("Sample") {
+            XCUIRemote.shared.press(.down); sleep(1)
+            focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        }
+        guard focused.exists, focused.label.hasPrefix("Sample") else {
+            return notReached(name, "No sample card took the focus after Down (focus on \(focusedLabel(in: app))).")
+        }
+        settle(); shot(name)
+        let title: String = focused.label
+        let text: XCUIElement = app.staticTexts.matching(NSPredicate(format: "label == %@", title)).firstMatch
+        let result: CheckResult = ScreenRules.captionInLockup(focused: AXRect(focused.frame), caption: text.exists ? AXRect(text.frame) : nil, title: title)
+        note(name + "-LOCKUP", result.text)
+        if text.exists { XCTAssertTrue(result.passed, "\(name): " + result.verdict) }
+    }
+
     /// The caption check for a focused card: the caption is the StaticText containing `caption`, its column the focused
     /// card's width less the caption's left inset on both sides (the caption is leading-aligned with equal side paddings).
     func captionCheck(_ caption: String, in app: XCUIApplication, screenshot: XCUIScreenshot) -> CheckResult {
@@ -1067,7 +1089,10 @@ final class ScreenshotTests: XCTestCase {
 
         for (n, tab) in [("53", "movies"), ("54", "shows")] {
             app = launch("-UITestFixtures", tab: tab)
-            if waitForScreen("screen.\(tab)", in: app), waitFor("Sample", in: app, timeout: 60) { settle(); shot("\(n)-\(tab)") } else { notReached("\(n)-\(tab)", "No sample title appeared.") }
+            if waitForScreen("screen.\(tab)", in: app), waitFor("Sample", in: app, timeout: 60) {
+                settle(); shot("\(n)-\(tab)")
+                lockupCheck("\(n)-\(tab)-focused", in: app)
+            } else { notReached("\(n)-\(tab)", "No sample title appeared.") }
             app.terminate()
         }
 
