@@ -353,6 +353,17 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(result.passed, "\(name)-later: " + result.verdict)
     }
 
+    /// R339 (docs/HIG_AUDIT.md T10): the show page has its season tabs and lists ONE season's episodes. The note -SEASONS
+    /// lists the seasons whose cards are on screen; it fails when there is not exactly one.
+    func seasonTabsCheck(_ name: String, in app: XCUIApplication) {
+        let tabs: Bool = app.segmentedControls[ControlID.seasonTabs].exists || app.buttons[ControlID.seasonTabs].exists
+        let labels: [String] = app.buttons.allElementsBoundByIndex.map(\.label)
+        let result: CheckResult = ScreenRules.oneSeasonListed(cardLabels: labels)
+        note("\(name)-SEASONS", (tabs ? "season tabs found" : "SEASON TABS NOT FOUND") + "\n" + result.text)
+        XCTAssertTrue(tabs, "\(name): the season tabs are missing")
+        XCTAssertTrue(result.passed, "\(name): " + result.text)
+    }
+
     /// R335 (docs/HIG_AUDIT.md T1, T2): Down from the tab bar onto the first portrait card, its picture
     /// ("<name>", the system lift on a borderless lockup), and the "-LOCKUP" note: the caption (the StaticText with the
     /// focused card's title) must be inside the focused card (`ScreenRules.captionInLockup`). A caption that is not exposed
@@ -1108,12 +1119,19 @@ final class ScreenshotTests: XCTestCase {
             note("55-show-page-CARDS", cards.text)
             XCTAssertTrue(cards.passed, "55-show-page: " + cards.verdict)
             checkGap("55-show-page", tree: pageTree, anchors: [ControlID.play, ControlID.more], kinds: ["StaticText"], minimum: 40, what: "buttons to the first season heading")
+            // R339 (docs/HIG_AUDIT.md T10): the season tabs, and the episodes of ONE season under them.
+            seasonTabsCheck("55-show-page", in: app)
             // #15 item 1.6: the scrolled states of the show page (each must differ from the one before).
             for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); let mustChange: String? = step == 1 ? "Down on the show page" : nil; shot("55-show-page-scrolled-\(step)", mustChangeAfter: mustChange, endOfScroll: step == 1 ? nil : "Down on the show page") }
             for _ in 0..<2 { XCUIRemote.shared.press(.up) }; sleep(1)
-            // Seasons are sections of the show page (there is no separate season page); move down to season 2.
-            if focus(control("S2", in: app), in: app) || focus(control("Season 2", in: app), in: app) { settle(); shot("56-show-season-2-episode-row", endOfScroll: "moving the focus to the season 2 row") }
-            else { notReached("56-show-season-2-episode-row", "Could not move the focus to a season 2 episode row.") }
+            // R339: seasons are tabs above one episode list. Focus on the Season 2 tab selects it (HIG Segmented controls, tvOS);
+            // then the list holds season 2's episodes only.
+            let seasonTwo: XCUIElement = app.segmentedControls[ControlID.seasonTabs].buttons["Season 2"]
+            if focus(seasonTwo.exists ? seasonTwo : control("Season 2", in: app), in: app), waitFor("S2 E1", in: app, timeout: 10) {
+                settle(); seasonTabsCheck("56-show-season-2-tab", in: app)
+                if focus(control("S2 E1", in: app), in: app) { settle(); shot("56-show-season-2-episode-row", endOfScroll: "moving the focus to the season 2 row") }
+                else { notReached("56-show-season-2-episode-row", "Could not move the focus to a season 2 episode (focus on \(focusedLabel(in: app))).") }
+            } else { notReached("56-show-season-2-episode-row", "The Season 2 tab did not show season 2's episodes (focus on \(focusedLabel(in: app))).") }
             // #30 Part 2 / #36 group 4 (R264): S2 E3 has the longest caption. It wraps at the readable floor instead of being
             // cut; the two pictures 3 s apart must be identical with the caption whole (default text size).
             if focus(control("S2 E3", in: app), in: app) || focus(control("S2 E3, A very long episode title that is wider than any episode card on the show page", in: app), in: app) {

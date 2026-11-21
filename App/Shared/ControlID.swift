@@ -21,6 +21,8 @@ enum ControlID {
     static let startOver = "control.startOver"
     static let extras = "control.extras"
     static let more = "control.more"
+    /// R339: the show page's season tabs (segmented or menu picker).
+    static let seasonTabs = "control.seasonTabs"
     static let versions = "control.versions"
     static let goToTitle = "control.goToTitle"
     static let fullLicenceTexts = "control.fullLicenceTexts"

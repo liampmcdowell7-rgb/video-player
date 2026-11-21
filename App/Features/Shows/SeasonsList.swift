@@ -2,8 +2,14 @@ import SwiftUI
 import AppLogic
 
 /// The show page (#15 5.1, 5.2): backdrop, the title (or its title logo, #15 Part 9), the synopsis, Play and More as buttons,
-/// the cast (#22 B: synopsis and cast as on the movie page, nothing when there are no details), then one shelf of 16:9
-/// episode cards per season.
+/// the season tabs and the chosen season's 16:9 episode cards, then the cast (#22 B: synopsis and cast as on the movie page,
+/// nothing when there are no details).
+///
+/// R339 (owner decision of 21 Nov 2026, docs/HIG_AUDIT.md T10): seasons are a row of tabs above ONE episode list, as Apple's
+/// TV app does (AppLogic `SeasonTabs`): the system segmented picker for two to seven seasons (HIG Segmented controls, tvOS:
+/// "Segments become selected when focus moves to them"; "Aim for no more than about five to seven segments"), the system
+/// menu picker above seven, the season's name as the heading for one. The tab shown first is the season Play starts in. This
+/// replaces R189's shelf per season (its text below is history). How the segmented picker looks on tvOS 27 is UNVERIFIED.
 ///
 /// 5.1: only the show-wide mark that changes something is offered, inside More; the "X of Y watched" summary is secondary
 /// text under each season's name (R180). 5.2 (OPEN_QUESTIONS R189, PROVISIONAL): every season is its own shelf, so no
@@ -20,6 +26,12 @@ struct SeasonsList: View {
     /// key, no match, or both empty) draws nothing: no empty band (rule L6).
     @State private var details: TitleDetails?
     @FocusState private var playFocused: Bool
+    /// R339: the season the person chose with the tabs; nil until they choose (then `SeasonTabs.shown` picks).
+    @State private var chosenSeason: Int?
+
+    private var shownSeason: SeasonSection? {
+        SeasonTabs.shown(content.seasons, chosen: chosenSeason, resumeEpisodeID: content.resumeEpisodeID)
+    }
 
     var body: some View {
         ScrollView {
@@ -35,28 +47,26 @@ struct SeasonsList: View {
                 actions
                     // #33 I (OPEN_QUESTIONS R239, PROVISIONAL): room between the button row and the first season heading.
                     .padding(.bottom, DetailPageLayout.belowActions)
-                // #25 B7 (OPEN_QUESTIONS R193, the alternative now taken, still PROVISIONAL): the episode shelves right after
-                // Play, the cast after the last season.
-                ForEach(content.seasons) { season in
-                    VStack(alignment: .leading) {
-                        Text(season.title)
-                            .font(.headline)
-                            .accessibilityAddTraits(.isHeader)
-                        StatusText(season.summary)
-                        ScrollView(.horizontal) {
-                            // design-lint:allow HIG Layout, 40 pt horizontal spacing between cards (docs/DESIGN_SYSTEM.md section 4)
-                            LazyHStack(alignment: .top, spacing: 40) {
-                                ForEach(season.episodes) { episode in
-                                    EpisodeCard(episode: episode, model: model)
-                                        // design-lint:allow HIG Layout, four columns of the grid width for 16:9 episode cards (R189)
-                                        .containerRelativeFrame(.horizontal, count: 4, spacing: 40)
-                                }
+                // #25 B7 (OPEN_QUESTIONS R193, the alternative now taken, still PROVISIONAL): the episodes right after Play,
+                // the cast after them. R339: the season tabs, then the chosen season's episodes.
+                seasonTabs
+                if let season = shownSeason {
+                    StatusText(season.summary)
+                    ScrollView(.horizontal) {
+                        // design-lint:allow HIG Layout, 40 pt horizontal spacing between cards (docs/DESIGN_SYSTEM.md section 4)
+                        LazyHStack(alignment: .top, spacing: 40) {
+                            ForEach(season.episodes) { episode in
+                                EpisodeCard(episode: episode, model: model)
+                                    // design-lint:allow HIG Layout, four columns of the grid width for 16:9 episode cards (R189)
+                                    .containerRelativeFrame(.horizontal, count: 4, spacing: 40)
                             }
-                            // #36 group 4 (R264): every episode card of the season the same caption height.
-                            .equalCaptionRow()
                         }
-                        .scrollClipDisabled()
+                        // #36 group 4 (R264): every episode card of the season the same caption height.
+                        .equalCaptionRow()
                     }
+                    .scrollClipDisabled()
+                    // R339: another season starts at its first episode.
+                    .id(season.season)
                 }
                 if let cast = details?.cast, !cast.isEmpty {
                     CastShelf(cast: cast)
@@ -73,6 +83,31 @@ struct SeasonsList: View {
             details = await services.online.details(key: "series-\(seriesID)")
         }
         .pushedScreen(content.seriesTitle)
+    }
+
+    /// R339: the system picker for the seasons (segmented or menu, `SeasonTabs.style`), or the one season's name.
+    @ViewBuilder private var seasonTabs: some View {
+        let choice = Binding<Int>(get: { shownSeason?.season ?? 0 }, set: { chosenSeason = $0 })
+        switch SeasonTabs.style(seasonCount: content.seasons.count) {
+        case .heading:
+            if let season = shownSeason {
+                Text(season.title)
+                    .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
+            }
+        case .segmented:
+            Picker("Season", selection: choice) {
+                ForEach(content.seasons) { Text($0.title).tag($0.season) }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier(ControlID.seasonTabs)
+        case .menu:
+            Picker("Season", selection: choice) {
+                ForEach(content.seasons) { Text($0.title).tag($0.season) }
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier(ControlID.seasonTabs)
+        }
     }
 
     private var actions: some View {
