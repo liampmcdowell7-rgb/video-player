@@ -13,8 +13,9 @@ struct CardRow: View {
                 // design-lint:allow HIG Layout, 40 pt horizontal spacing between posters (docs/DESIGN_SYSTEM.md section 4)
                 LazyHStack(alignment: .top, spacing: 40) {
                     ForEach(row.cards) { card in
-                        if row.id == .continueWatching {
+                        if row.id.usesLandscapeCards {
                             // #15 4.1 (R185, PROVISIONAL): Continue Watching uses 16:9 cards, three to a screen width.
+                            // R349 (item C): Next Up too, as the TV app's "Up Next" (AppLogic `usesLandscapeCards`).
                             PosterCard(card: card, wide: true)
                                 // design-lint:allow HIG Layout, 40 pt spacing; three 16:9 cards span the same width as six posters (R185)
                                 .containerRelativeFrame(.horizontal, count: 3, spacing: 40)

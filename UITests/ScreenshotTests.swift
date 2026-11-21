@@ -175,6 +175,16 @@ final class ScreenshotTests: XCTestCase {
         }
     }
 
+    /// R313: the player names the sample episode with its season and episode number in the TV app's form ("S1, E1"), in the
+    /// transport bar's subtitle and the Info tab. A missing code is recorded as not reached, with what the screen shows.
+    func episodeCodeCheck(_ picture: String, in app: XCUIApplication) {
+        let code: String = "S1, E1"
+        if waitFor(code, in: app, timeout: 3) { note(picture + "-EPISODE-CODE", "\u{201C}\(code)\u{201D}: found") }
+        else {
+            notReached(picture + "-EPISODE-CODE", "No text containing \u{201C}\(code)\u{201D} on screen.\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
+        }
+    }
+
     /// A screen that was not reached: a note with the reason, and a screenshot of what IS on screen instead (when the app
     /// is in front), named "NN-name-NOT-REACHED", so the reason can be seen.
     func notReached(_ name: String, _ reason: String) {
@@ -532,6 +542,29 @@ final class ScreenshotTests: XCTestCase {
         note(name + "-RESELECT", "Up presses to the tab bar: \(presses)\ntab focused: \(onTab)\n\(verdict)")
         shot(name)
         XCTAssertTrue(passed, "\(name): " + verdict)
+    }
+
+    /// R349 (owner's device test of build 5, item C): Home leads with the featured area (artwork, title, one metadata line,
+    /// Play or Resume, More) and its Continue Watching and Next Up shelves have landscape cards. Writes "<name>-FEATURED";
+    /// a missing featured area or Play fails the test (the sample library always has a title to feature).
+    func homeFeaturedCheck(_ name: String, in app: XCUIApplication) {
+        let area: XCUIElement = app.descendants(matching: .any).matching(identifier: "home.featured").firstMatch
+        let play: XCUIElement = app.descendants(matching: .any).matching(identifier: "control.featuredPlay").firstMatch
+        let more: XCUIElement = app.descendants(matching: .any).matching(identifier: "control.featuredMore").firstMatch
+        var lines: [String] = ["featured area: \(area.exists) \(area.exists ? "\(area.frame)" : "")",
+                               "Play: \(play.exists) “\(play.exists ? play.label : "")”, More: \(more.exists)"]
+        let window: CGRect = app.windows.firstMatch.frame
+        if area.exists, window.height > 0 {
+            lines.append("featured height \(Int(area.frame.height)) of \(Int(window.height)) (planned two thirds, R349)")
+        }
+        for shelf in ["Continue Watching", "Next Up", "Recently Added"] {
+            let header: XCUIElement = app.staticTexts[shelf]
+            lines.append("shelf \(shelf): \(header.exists ? "shown" : "not on screen")")
+        }
+        let passed: Bool = area.exists && play.exists && more.exists
+        lines.append(passed ? "FEATURED OK" : "FEATURED AREA MISSING")
+        note(name + "-FEATURED", lines.joined(separator: "\n"))
+        XCTAssertTrue(passed, "\(name): the featured area, its Play or its More is missing")
     }
 
     /// #36 group 5: what each press of the last `moveFocusToEnd` or `focus` did, one line per press ("3 Down: “Plex” {…}").
@@ -1188,11 +1221,15 @@ final class ScreenshotTests: XCTestCase {
 
     func test04_LibraryScreens() {
         var app = launch("-UITestFixtures", tab: "home")
-        if waitForScreen("screen.home", in: app), waitFor("Sample", in: app, timeout: 60) { settle(); shot("50-home-rows"); XCUIRemote.shared.press(.down); sleep(1); shot("51-home-rows-lower") }
+        if waitForScreen("screen.home", in: app), waitFor("Sample", in: app, timeout: 60) { settle(); shot("50-home-rows"); homeFeaturedCheck("50-home-rows", in: app); XCUIRemote.shared.press(.down); sleep(1); shot("51-home-rows-lower") }
         else { notReached("50-home-rows", "No sample title appeared on Home within 60 s (the sample library did not load).") }
         // The card long-press menu on the focused Home card. #25 A3: the focus starts on the tab bar, so move it into the
         // content first, and wait for the menu's items before the picture.
         if focusContent(in: app) {
+            // R349: the focus enters Home on the featured area's Play; one Down reaches the first shelf's card.
+            if app.descendants(matching: .any).matching(identifier: "home.featured").firstMatch.exists {
+                XCUIRemote.shared.press(.down); usleep(600_000)
+            }
             XCUIRemote.shared.press(.select, forDuration: 1.5)
             if waitForAny(["Mark as Watched", "Mark as Unwatched"], in: app) != nil { sleep(1); shot("52-card-long-press-menu") }
             else { notReached("52-card-long-press-menu", "The long-press menu did not open (no “Mark as Watched/Unwatched” item; focus on \(focusedLabel(in: app))).\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))") }
@@ -1413,8 +1450,10 @@ final class ScreenshotTests: XCTestCase {
 
         // The transport bar and controls: one press of Play/Pause pauses and shows them.
         XCUIRemote.shared.press(.playPause); sleep(2); shot("23-player-controls")
+        episodeCodeCheck("23-player-controls", in: app)
         // The info panel: down from the transport bar.
         XCUIRemote.shared.press(.down); sleep(2); shot("24-player-info-panel")
+        episodeCodeCheck("24-player-info-panel", in: app)
         // R340 (docs/HIG_AUDIT.md T15 to T17): the app's content tabs in the info panel, Episodes and Playback Stats
         // (`customInfoViewControllers`). Notes, not failures: how tvOS 27 exposes the tab titles is not on any Apple page read.
         let tabNames: [String] = ["Episodes", "Playback Stats"]

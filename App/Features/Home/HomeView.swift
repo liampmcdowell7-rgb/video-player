@@ -1,7 +1,8 @@
 import SwiftUI
 import AppLogic
 
-/// Home: Continue Watching, Next Up, Recently Added. Rows the user turned off in Settings are left out.
+/// Home: the featured title, then Continue Watching, Next Up, Recently Added (R349, HomeRows). Rows the user turned off in
+/// Settings are left out, and the featured title is picked from the rows that show.
 struct HomeView: View {
     @Environment(AppServices.self) private var services
     @State private var model: ScreenModel<HomeViewModel>?

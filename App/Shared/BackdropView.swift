@@ -16,6 +16,9 @@ import AppLogic
 /// change its appearance"); its exact look on tvOS 27 is UNVERIFIED.
 struct BackdropView: View {
     let artworkKey: String
+    /// R349: `.page` (movie and show pages: the material over the whole picture, R336) or `.featured` (Home's featured
+    /// area: the picture clear at the top, the material rising over its lower part, where the title and buttons are).
+    var style: BackdropStyle = .page
     @Environment(AppServices.self) private var services
     @State private var result: ArtworkResult = .none
 
@@ -39,8 +42,19 @@ struct BackdropView: View {
                 if case .success(let image) = phase {
                     image.resizable().aspectRatio(contentMode: .fill)
                         .overlay {
-                            // design-lint:allow R336: the system regular material over the full-strength backdrop, Apple's tvOS media catalog sample's product page (a standard material in the content layer, HIG Materials; not glass)
-                            Rectangle().fill(.regularMaterial)
+                            switch style {
+                            case .page:
+                                // design-lint:allow R336: the system regular material over the full-strength backdrop, Apple's tvOS media catalog sample's product page (a standard material in the content layer, HIG Materials; not glass)
+                                Rectangle().fill(.regularMaterial)
+                            case .featured:
+                                // design-lint:allow R349: the system regular material over the lower part of Home's featured artwork only, so its title, metadata and buttons stay readable while the top of the picture stays clear (the TV app's featured area); the mask is the material's shape, not a colour of ours
+                                Rectangle().fill(.regularMaterial)
+                                    .mask {
+                                        LinearGradient(stops: [.init(color: .clear, location: BackdropStyle.featuredClearTop),
+                                                               .init(color: .primary, location: 1)],
+                                                       startPoint: .top, endPoint: .bottom)
+                                    }
+                            }
                         }
                 }
             }
@@ -48,4 +62,14 @@ struct BackdropView: View {
             EmptyView()
         }
     }
+}
+
+/// R349: how the backdrop's picture is covered (see `BackdropView.style`).
+enum BackdropStyle {
+    case page
+    case featured
+
+    /// R349 (PROVISIONAL): the featured artwork is fully clear above this share of its height; the material rises from
+    /// there to the bottom edge. Our choice (Apple publishes none); the owner's photos of the TV app decide.
+    static let featuredClearTop: CGFloat = 0.35
 }

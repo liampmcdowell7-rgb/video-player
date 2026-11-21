@@ -21,6 +21,10 @@ enum ControlID {
     static let startOver = "control.startOver"
     static let extras = "control.extras"
     static let more = "control.more"
+    /// R349: Home's featured area and its two buttons.
+    static let featured = "home.featured"
+    static let featuredPlay = "control.featuredPlay"
+    static let featuredMore = "control.featuredMore"
     /// R339: the show page's season tabs (segmented or menu picker).
     static let seasonTabs = "control.seasonTabs"
     /// R340: the system Up Next card's buttons.
