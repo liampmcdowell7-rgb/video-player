@@ -2041,6 +2041,8 @@ final class ScreenshotTests: XCTestCase {
         }
         settle(); shot("11-form-webdav-entry-name")
         let pageHeading: Bool = app.staticTexts.matching(NSPredicate(format: "label == %@", "Name")).firstMatch.exists
+        // R352 (item 3): the example is in the entry page's description now, not the field's prompt.
+        let exampleInDescription: Bool = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "For example, Living Room.")).firstMatch.exists
         if !field.hasFocus { _ = focus(field, in: app, maxPresses: 5) }
         XCUIRemote.shared.press(.select)
         guard app.keyboards.firstMatch.waitForExistence(timeout: 10) else {
@@ -2056,10 +2058,13 @@ final class ScreenshotTests: XCTestCase {
         let inputs: [String] = (app.textFields.allElementsBoundByIndex + app.searchFields.allElementsBoundByIndex).map {
             "\u{201C}\($0.label)\u{201D} placeholder \u{201C}\($0.placeholderValue ?? "")\u{201D} \($0.frame)"
         }
-        note("11-form-webdav-KEYBOARD-HEADING", "entry page heading \u{201C}Name\u{201D}: " + (pageHeading ? "shown" : "NOT SHOWN") + "\n" + result.text
+        var exampleLine: String = "entry page description with the example: NOT SHOWN"
+        if exampleInDescription { exampleLine = "entry page description with the example: shown" }
+        note("11-form-webdav-KEYBOARD-HEADING", "entry page heading \u{201C}Name\u{201D}: " + (pageHeading ? "shown" : "NOT SHOWN") + "\n" + exampleLine + "\n" + result.text
              + "\ntext fields on the keyboard screen:\n" + inputs.joined(separator: "\n"))
         hierarchy(name, of: app)
         XCTAssertTrue(pageHeading, "\(name): the entry page has no \u{201C}Name\u{201D} heading")
+        XCTAssertTrue(exampleInDescription, "\(name): the entry page's description does not give the example (R352)")
         XCTAssertTrue(result.passed, "\(name): " + result.verdict)
         back()
         back()

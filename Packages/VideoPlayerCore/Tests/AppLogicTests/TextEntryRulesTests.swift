@@ -61,4 +61,13 @@ final class TextEntryRulesTests: XCTestCase {
         }
         XCTAssertEqual(TextEntryRules.summary("Last Episode"), "Type the last episode on the keyboard.")
     }
+
+    // R352 (item 3): the example is in the entry page's description, never the field's prompt (tvOS 27 drew the prompt as
+    // the keyboard screen's heading).
+    func testTheExampleGoesIntoTheDescription() {
+        XCTAssertEqual(TextEntryRules.description("Type the name on the keyboard.", example: "Living Room"),
+                       "Type the name on the keyboard. For example, Living Room.")
+        XCTAssertEqual(TextEntryRules.description("Type the name on the keyboard.", example: nil), "Type the name on the keyboard.")
+        XCTAssertEqual(TextEntryRules.description("Type the name on the keyboard.", example: "  "), "Type the name on the keyboard.")
+    }
 }

@@ -19,6 +19,15 @@ public enum TextEntryRules {
         return value
     }
 
+    /// R352 (compile run of 21 Nov 2026, R262): an entry page's description with its example, when the field has one:
+    /// "Type the name on the keyboard. For example, Living Room." The example is no longer the text field's prompt, which
+    /// tvOS 27 drew as the KEYBOARD screen's heading (11-form-webdav-keyboard-name showed "Living Room" where the field's
+    /// name belongs).
+    public static func description(_ summary: String, example: String?) -> String {
+        guard let example = example?.trimmingCharacters(in: .whitespaces), !example.isEmpty else { return summary }
+        return summary + " For example, " + example + "."
+    }
+
     /// The one sentence under an entry page's heading ("Type the title on the keyboard.").
     public static func summary(_ title: String) -> String {
         "Type the \(title.lowercased()) on the keyboard."

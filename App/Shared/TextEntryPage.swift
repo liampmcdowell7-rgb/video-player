@@ -44,9 +44,11 @@ struct TextEntryRow: View {
 /// linear virtual keyboard when people select a text field using the Siri Remote"); Done or Return (`onSubmit`) stores the
 /// value and goes back. Back without Done keeps the old value.
 ///
-/// R262 fix: the field's TITLE is the name and its prompt is the example. Which of the two tvOS 27 draws as the keyboard
-/// screen's heading is not on Apple's pages (TextField: "Each text field style determines where and when the text field
-/// uses a prompt and label"): UNVERIFIED until the `-KEYBOARD-HEADING` check of the next run.
+/// R262, R352: the field's TITLE is the name and it has NO prompt. The run of 21 Nov 2026 showed that tvOS 27 draws the
+/// prompt as the keyboard screen's heading (11-form-webdav-keyboard-name: "Living Room", the example, above the keyboard).
+/// The example is now in the page's description ("Type the name on the keyboard. For example, Living Room.",
+/// `TextEntryRules.description`). That the keyboard screen then shows the field's name is UNVERIFIED until the
+/// `-KEYBOARD-HEADING` check of the next run.
 ///
 /// No Form here: the one field on the page is not a row, so it is not a box inside a row platter (R320).
 struct TextEntryPage: View {
@@ -75,7 +77,7 @@ struct TextEntryPage: View {
         VStack(alignment: .leading) {
             FittingText(title, style: .title2)
                 .accessibilityAddTraits(.isHeader)
-            Text(summary)
+            Text(TextEntryRules.description(summary, example: example))
                 .foregroundStyle(ReadableSecondary.style)
                 .fixedSize(horizontal: false, vertical: true)
             field
@@ -95,18 +97,14 @@ struct TextEntryPage: View {
         .toolbarVisibility(.hidden, for: .navigationBar)
     }
 
-    private var prompt: Text? {
-        example.map { Text($0) }
-    }
-
     @ViewBuilder
     private var field: some View {
         if entry.isSecret {
-            SecureField(title, text: $typed, prompt: prompt)
+            SecureField(title, text: $typed)
                 .textContentType(contentType)
                 .onSubmit(done)
         } else {
-            TextField(title, text: $typed, prompt: prompt)
+            TextField(title, text: $typed)
                 .keyboardType(keyboardType)
                 .textContentType(contentType)
                 .textInputAutocapitalization(entry.capitalizesWords ? .words : .never)
