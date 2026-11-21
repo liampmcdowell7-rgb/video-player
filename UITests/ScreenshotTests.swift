@@ -481,6 +481,17 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(result.passed, "\(name): " + result.text)
     }
 
+    /// R365 (item 13): "<name>-HEADING": the whole-synopsis page shows the title above the text.
+    func synopsisHeadingCheck(_ name: String, title: String, in app: XCUIApplication) {
+        let heading: XCUIElement = app.staticTexts.matching(NSPredicate(format: "label == %@", title)).firstMatch
+        let text: XCUIElement = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Sample synopsis")).firstMatch
+        let above: Bool = heading.exists && text.exists && heading.frame.minY < text.frame.minY
+        note(name + "-HEADING", (above ? "HEADING OK" : "NO TITLE ABOVE THE TEXT")
+             + "\ntitle \u{201C}\(title)\u{201D}: " + (heading.exists ? "\(heading.frame)" : "not found")
+             + "\ntext: " + (text.exists ? "\(text.frame)" : "not found"))
+        XCTAssertTrue(above, "\(name): the title \u{201C}\(title)\u{201D} is not the heading above the synopsis")
+    }
+
     /// R341: "<name>-TITLES": the person page lists Sample Actor 1's six sample titles (five movies, one show) as cards.
     func personPageCheck(_ name: String, in app: XCUIApplication) {
         let wanted: [String] = (1...5).map { "Sample Movie \($0)" } + ["Sample Show 1"]
@@ -1658,7 +1669,7 @@ final class ScreenshotTests: XCTestCase {
         var app = launch("-UITestFixtures", open: "Sample Movie 4")
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 4", in: app), waitFor("Sample synopsis", in: app, timeout: 10) {
             settle(); shot("77-movie-long-synopsis")
-            if open("Sample synopsis", in: app, name: "77-movie-long-synopsis-page") { settle(); shot("77-movie-long-synopsis-page"); back() }
+            if open("Sample synopsis", in: app, name: "77-movie-long-synopsis-page") { settle(); shot("77-movie-long-synopsis-page"); synopsisHeadingCheck("77-movie-long-synopsis-page", title: "Sample Movie 4", in: app); back() }
             for _ in 0..<4 { XCUIRemote.shared.press(.down) }; sleep(1); shot("77-movie-long-synopsis-cast")
             // R341 (docs/HIG_AUDIT.md T8): Select on a cast entry opens that person's page, the library's titles with them in
             // the same poster grid. Sample Actor 1 is in Sample Movie 1 to 5 and Sample Show 1 (UITestFixtureDetails).
@@ -1687,7 +1698,7 @@ final class ScreenshotTests: XCTestCase {
         if waitForScreen("screen.series", in: app, timeout: 60), waitFor("Season 1", in: app, timeout: 20), waitFor("Sample synopsis", in: app, timeout: 10) {
             checkResponsive("test13-show-page-responsive", text: "Season 1", in: app)
             settle(); shot("77-show-long-synopsis")
-            if open("Sample synopsis", in: app, name: "77-show-long-synopsis-page") { settle(); shot("77-show-long-synopsis-page"); back() }
+            if open("Sample synopsis", in: app, name: "77-show-long-synopsis-page") { settle(); shot("77-show-long-synopsis-page"); synopsisHeadingCheck("77-show-long-synopsis-page", title: "Sample Show 1", in: app); back() }
             // #25 B7: the cast is after the episode shelves now; Down until the focus stops reaches it (the last shelf).
             _ = moveFocusToEnd(in: app, maxPresses: 12); sleep(1); shot("77-show-long-synopsis-cast")
         } else { hierarchy("77-show-long-synopsis", of: app); notReached("77-show-long-synopsis", "The show page or its fake synopsis did not appear.") }
