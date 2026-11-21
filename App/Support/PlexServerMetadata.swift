@@ -30,6 +30,15 @@ struct PlexServerMetadata: ServerMetadataProviding {
         return nil
     }
 
+    /// R374: Jellyfin's and Emby's `OfficialRating` from one single-item request, when their list lacked it. The answer is
+    /// kept in the library by the caller (`SourceRatings.storedRating`), so this runs once per title.
+    func requestContentRating(for file: StoredFile) async throws -> String? {
+        let source = await sourceFor(file.sourceID)
+        if let jellyfin = source as? JellyfinClient { return try await jellyfin.requestOfficialRating(at: file.path) }
+        if let emby = source as? EmbyClient { return try await emby.requestOfficialRating(at: file.path) }
+        throw SourceError.unsupported("no item request")
+    }
+
     func poster(for file: StoredFile) async -> ServerPicture? {
         guard let plex = await sourceFor(file.sourceID) as? PlexClient,
               let item = (try? await plex.serverItem(at: file.path)) ?? nil,

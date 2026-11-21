@@ -31,7 +31,19 @@ public struct EmbyScanPolicy: Equatable, Sendable {
 
 struct EMAuthResult: Decodable {
     var accessToken: String?
-    enum CodingKeys: String, CodingKey { case accessToken = "AccessToken" }
+    /// R374: the signed-in user's id (`User.Id`), needed for the single-item endpoint. The recorded sign-in
+    /// (Tests/.../Fixtures/authenticate.json) has `User` as one object; anything else is ignored, never a failed sign-in.
+    var userID: String?
+    enum CodingKeys: String, CodingKey { case accessToken = "AccessToken", user = "User" }
+    private struct UserRef: Decodable {
+        var id: String?
+        enum CodingKeys: String, CodingKey { case id = "Id" }
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        accessToken = try c.decodeIfPresent(String.self, forKey: .accessToken)
+        userID = (try? c.decodeIfPresent(UserRef.self, forKey: .user))?.id
+    }
 }
 
 struct EMItemsPage: Decodable {
@@ -47,9 +59,12 @@ struct EMItem: Decodable {
     var mediaSources: [EMMediaSource]?
     /// "Movie", "Episode", "Video"...: what the server\'s own library calls the item (docs/SORTING.md).
     var type: String?
-    /// R374: the item's official content rating ("PG-13", "TV-MA"), the API's `OfficialRating` field (https://dev.emby.media/reference/RestAPI/ItemsService/getItems.html, BaseItemDto, read
-    /// 21 Nov 2026: "The official rating", a string). It is not one of the `Fields` values, so it is not asked for by
-    /// name; whether the server sends it with the items list without being asked is UNVERIFIED (no server here).
+    /// R374: the item's official content rating ("PG-13", "TV-MA"), `BaseItemDto.OfficialRating` ("The official rating.", a
+    /// string; https://dev.emby.media/reference/RestAPI/ItemsService/getItems.html, read 21 Nov 2026). It is NOT one of the
+    /// `Fields` options listed for the items endpoints, so it cannot be added to `Fields`. The docs say list queries return
+    /// "only a minimal amount of information" and a single item "the entire object"
+    /// (https://dev.emby.media/doc/restapi/Item-Information.html); the client therefore asks the single-item endpoint
+    /// (`GET /Users/{UserId}/Items/{Id}`) when the list did not carry it (`EmbyClient.requestOfficialRating(at:)`).
     var officialRating: String?
     enum CodingKeys: String, CodingKey {
         case id = "Id", path = "Path", etag = "Etag", mediaSources = "MediaSources", type = "Type"

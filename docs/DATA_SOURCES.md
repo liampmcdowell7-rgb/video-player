@@ -168,12 +168,14 @@ BBFC rating, P1981 FSK film rating, P3156 Australian Classification, P3216 Class
 property for the US TV Parental Guidelines was found. Content descriptors are shown only with Wikidata's own rating.
 The source's own rating (R374) is, in order: the media server's field, Plex `contentRating`, Jellyfin `OfficialRating`
 (API page https://api.jellyfin.org, BaseItemDto) and Emby `OfficialRating` (https://dev.emby.media, ItemsService getItems,
-BaseItemDto), read from the item list the client already holds; then the title's own NFO file (`<mpaa>`, else
+BaseItemDto), from the item list the client already holds; when the list lacks it (it is not a `Fields` value on either
+API, and Emby's docs say lists are "minimal" while a single item is "the entire object"), from ONE single-item request
+(Jellyfin `GET /Items/{itemId}`, Emby `GET /Users/{UserId}/Items/{Id}` with the user id from the sign-in), kept in the
+library; then the title's own NFO file (`<mpaa>`, else
 `<certification>`, in the `<movie>` or `<episodedetails>` document), the `.nfo` next to the video with the same name,
 read once when the page is first opened and kept in the library (`items.content_rating`, schema 7; "" records a file
-without a rating). UNVERIFIED: whether Jellyfin and Emby send `OfficialRating` in the items list without it being asked
-for in `Fields` (it is not a `Fields` value; no server here), and that the JSON key is spelled exactly so on a live
-server. Limits: a folder-wide `movie.nfo` or `tvshow.nfo` is not read, and a changed NFO file is not read again.
+without a rating). UNVERIFIED (the pages do not say): which properties a list response carries without `Fields`; Emby with
+a pasted token has no user id, so no single-item request is made. Limits: a folder-wide `movie.nfo` or `tvshow.nfo` is not read, and a changed NFO file is not read again.
 Rejected: Common Sense Media (its API needs a partnership agreement, its reviews are copyrighted, and it would be a new
 outside contact).
 

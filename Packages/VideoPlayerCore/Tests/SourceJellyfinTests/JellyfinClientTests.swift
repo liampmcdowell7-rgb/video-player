@@ -331,6 +331,26 @@ final class JellyfinClientTests: XCTestCase {
         XCTAssertEqual(second, "PG-13")
         XCTAssertNil(none)
     }
+
+    // R374 (FIXTURE: hand-written items, invented ratings): the list carries no `OfficialRating`; the single-item endpoint
+    // does (the docs: lists are minimal). One request for the rating; a rating the list carried needs none.
+    func testTheRatingComesFromTheSingleItemEndpointWhenTheListLacksIt() async throws {
+        let item = makeItem(id: "r1", sources: [(id: "r1", path: "/media/Movies/Rated Film/Rated Film.mkv", size: 10)])
+        var listed = makeItem(id: "p1", sources: [(id: "p1", path: "/media/Movies/Listed Film/Listed Film.mkv", size: 10)])
+        listed["OfficialRating"] = "PG"
+        let server = try FakeJellyfinServer(items: [item, listed], folders: folders([("Movies", ["/media/Movies"])]))
+        server.fullItemFields["r1"] = ["OfficialRating": "TV-14"]
+        let source = client(server)
+        let fromList = try await source.officialRating(at: "/Movies/Rated Film/Rated Film.mkv")
+        XCTAssertNil(fromList, "the list does not carry it")
+        let requested = try await source.requestOfficialRating(at: "/Movies/Rated Film/Rated Film.mkv")
+        XCTAssertEqual(requested, "TV-14")
+        XCTAssertEqual(server.requests.filter { $0.url.path.hasSuffix("/Items/r1") }.count, 1)
+
+        let listedRating = try await source.requestOfficialRating(at: "/Movies/Listed Film/Listed Film.mkv")
+        XCTAssertEqual(listedRating, "PG")
+        XCTAssertFalse(server.requests.contains { $0.url.path.hasSuffix("/Items/p1") }, "no request when the list had it")
+    }
 }
 
 /// Wraps a transport and answers a ranged GET with the whole file (status 200).

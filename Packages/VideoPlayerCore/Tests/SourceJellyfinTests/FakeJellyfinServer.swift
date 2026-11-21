@@ -12,6 +12,8 @@ final class FakeJellyfinServer: HTTPTransport, @unchecked Sendable {
     var items: [[String: Any]]
     var foldersData: Data
     var foldersStatus = 200
+    /// R374: fields only the single-item endpoint returns (keyed by item id), as the docs say list queries are minimal.
+    var fullItemFields: [String: [String: Any]] = [:]
     var password = "testpass-local"
     /// Counts returned for `Limit=0` requests, one per request; the last one repeats.
     var countSequence: [Int]?
@@ -59,6 +61,14 @@ final class FakeJellyfinServer: HTTPTransport, @unchecked Sendable {
 
         if path.hasSuffix("/Library/VirtualFolders") {
             return HTTPResponse(statusCode: foldersStatus, body: foldersStatus == 200 ? foldersData : Data())
+        }
+        if let range = path.range(of: "/Items/"), true {
+            let id = String(path[range.upperBound...])
+            guard !id.contains("/"), var item = items.first(where: { ($0["Id"] as? String) == id }) else {
+                return HTTPResponse(statusCode: 404)
+            }
+            item.merge(fullItemFields[id] ?? [:]) { _, full in full }
+            return json(item)
         }
         if path.hasSuffix("/Items") {
             if query["Limit"] == "0" {

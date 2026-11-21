@@ -165,9 +165,19 @@ public actor JellyfinClient: MediaSource {
     }
 
     /// R374: the server's official content rating of the item this file belongs to (its `OfficialRating`), from the item
-    /// list the client already holds; nil when the server gave none. No extra request.
+    /// list the client already holds; nil when the list did not carry it. No extra request.
     public func officialRating(at path: String) async throws -> String? {
         try await file(at: path).officialRating
+    }
+
+    /// R374: the item's `OfficialRating` from the list when it carried one, else from ONE single-item request (`GET /Items/{itemId}`);
+    /// nil when the server has none. The caller keeps the answer in the library, so it is asked once per title.
+    public func requestOfficialRating(at path: String) async throws -> String? {
+        let node = try await file(at: path)
+        if let rating = node.officialRating { return rating }
+        guard let itemID = node.itemID else { throw SourceError.unsupported("not a file") }
+        let item: JFItem = try await getJSON("/Items/\(encode(itemID))")
+        return item.officialRating
     }
 
     private func file(at path: String) async throws -> JFTree.Node {

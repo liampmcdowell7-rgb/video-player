@@ -22,6 +22,15 @@ final class SourceRatingsTests: XCTestCase {
             lock.withLock { ratingAsked.append(file.sourceID) }
             return ratings[file.sourceID]
         }
+        /// R374: the single-item request's answer; nil: the server has none; `failing`: it cannot be asked now.
+        var requested: String?
+        var failing = false
+        private(set) var requests = 0
+        func requestContentRating(for file: StoredFile) async throws -> String? {
+            lock.withLock { requests += 1 }
+            if failing { throw SourceError.unsupported("offline") }
+            return requested
+        }
     }
 
     private final class Reader: SidecarReading, @unchecked Sendable {
@@ -163,5 +172,73 @@ final class SourceRatingsTests: XCTestCase {
         let result = await service.details(key: "item-\(id)")
         XCTAssertEqual(result.details?.contentRating, "PG-13")
         XCTAssertEqual(result.used, [.source])
+    }
+
+    func testWhenTheListLacksItOneRequestIsMadeAndTheAnswerKept() async throws {
+        for kind in [SourceKind.jellyfin, .emby] {
+            let (store, id, reader) = try await library(kind: kind, nfo: Self.movieNFO)
+            let server = RatingServer()
+            server.requested = "TV-MA"
+            let layer = SourceDetailsLayer(store: store, server: server, reader: reader)
+            let first = await layer.details(key: "item-\(id)")
+            XCTAssertEqual(first?.contentRating, "TV-MA", "\(kind): the server's answer before the NFO file")
+            let stored = try await store.item(id: id)
+            XCTAssertEqual(stored?.contentRating, "TV-MA", "\(kind)")
+            let again = await layer.details(key: "item-\(id)")
+            XCTAssertEqual(again?.contentRating, "TV-MA")
+            XCTAssertEqual(server.requests, 1, "\(kind): asked once")
+            XCTAssertTrue(reader.reads.isEmpty, "\(kind): the NFO file is not needed")
+        }
+    }
+
+    func testAServerWithoutARatingIsRecordedAndTheNFOFileFillsIn() async throws {
+        let (store, id, reader) = try await library(kind: .emby, nfo: Self.movieNFO)
+        let server = RatingServer()
+        let layer = SourceDetailsLayer(store: store, server: server, reader: reader)
+        let first = await layer.details(key: "item-\(id)")
+        XCTAssertEqual(first?.contentRating, "PG-13")
+        let stored = try await store.item(id: id)
+        XCTAssertEqual(stored?.contentRating, "Rated PG-13")
+        _ = await layer.details(key: "item-\(id)")
+        XCTAssertEqual(server.requests, 1)
+        XCTAssertEqual(reader.reads.count, 1)
+    }
+
+    func testAServerWithoutARatingAndNoNFOIsRecordedAsNone() async throws {
+        let (store, id, reader) = try await library(kind: .jellyfin, nfo: nil)
+        let server = RatingServer()
+        let layer = SourceDetailsLayer(store: store, server: server, reader: reader)
+        let none = await layer.details(key: "item-\(id)")
+        XCTAssertNil(none)
+        let stored = try await store.item(id: id)
+        XCTAssertEqual(stored?.contentRating, "", "the server answered: none")
+        _ = await layer.details(key: "item-\(id)")
+        XCTAssertEqual(server.requests, 1, "not asked again")
+    }
+
+    func testAFailedRequestIsNotKeptAndIsTriedAgain() async throws {
+        let (store, id, reader) = try await library(kind: .jellyfin, nfo: nil)
+        let server = RatingServer()
+        server.failing = true
+        let layer = SourceDetailsLayer(store: store, server: server, reader: reader)
+        _ = await layer.details(key: "item-\(id)")
+        let stored = try await store.item(id: id)
+        XCTAssertNil(stored?.contentRating)
+        server.failing = false
+        server.requested = "PG"
+        let later = await layer.details(key: "item-\(id)")
+        XCTAssertEqual(later?.contentRating, "PG")
+        XCTAssertEqual(server.requests, 2)
+    }
+
+    func testPlexAndWebDAVMakeNoSingleItemRequest() async throws {
+        for kind in [SourceKind.plex, .webdav] {
+            let (store, id, reader) = try await library(kind: kind, nfo: nil)
+            let server = RatingServer()
+            server.requested = "R"
+            _ = await SourceDetailsLayer(store: store, server: server, reader: reader).details(key: "item-\(id)")
+            XCTAssertEqual(server.requests, 0, "\(kind)")
+        }
+        XCTAssertEqual(ServerMetadataKinds.requested, [.jellyfin, .emby])
     }
 }

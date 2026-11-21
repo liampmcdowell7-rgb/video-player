@@ -23,13 +23,18 @@ public protocol ServerMetadataProviding: Sendable {
     /// The server's poster (a movie) or still (an episode) for this file, or nil.
     func poster(for file: StoredFile) async -> ServerPicture?
     /// R371: the server's content rating of the title this file belongs to ("PG-13", "TV-MA"), as the server writes it, or nil.
-    /// R374: Plex `contentRating`, Jellyfin and Emby `OfficialRating`.
+    /// R374: Plex `contentRating`, Jellyfin and Emby `OfficialRating`, from the list the client holds (no request).
     func contentRating(for file: StoredFile) async -> String?
+    /// R374: the rating asked of the server with ONE request for this file's item (Jellyfin and Emby: the single-item
+    /// endpoint), for when the list did not carry it. Nil: the server has none. Throws when it cannot be asked now.
+    func requestContentRating(for file: StoredFile) async throws -> String?
 }
 
 public extension ServerMetadataProviding {
     /// R371: a server that keeps no rating answers nil.
     func contentRating(for file: StoredFile) async -> String? { nil }
+    /// R374: a server that cannot be asked about one item.
+    func requestContentRating(for file: StoredFile) async throws -> String? { throw SourceError.unsupported("no item request") }
 }
 
 /// Source kinds whose server metadata is used (R307). Only Plex today: Jellyfin and Emby keep their order (R210).
@@ -38,6 +43,8 @@ public enum ServerMetadataKinds {
     /// R374: kinds whose server's own content rating is used (the rating's source layer). Only the rating: Jellyfin and
     /// Emby keep their synopsis and artwork order (R210).
     public static let rating: Set<SourceKind> = [.plex, .jellyfin, .emby]
+    /// R374: kinds whose server is asked for one item's rating when the list lacks it (once per title, then kept).
+    public static let requested: Set<SourceKind> = [.jellyfin, .emby]
 
     /// The file of an item to ask the server about, when that file comes from a source of a used kind.
     static func file(forItem item: LibraryItem, store: any LibraryStore, kinds: Set<SourceKind> = used) async -> StoredFile? {

@@ -15,6 +15,8 @@ public actor EmbyClient: MediaSource {
     private let scanPolicy: EmbyScanPolicy
 
     private var token: String?
+    /// R374: the signed-in user's id, from the sign-in response; nil with a pasted token.
+    private var userID: String?
     private var treeTask: Task<EMTree, Error>?
     private var knownSizes: [String: Int64] = [:]
 
@@ -167,9 +169,23 @@ public actor EmbyClient: MediaSource {
     }
 
     /// R374: the server's official content rating of the item this file belongs to (its `OfficialRating`), from the item
-    /// list the client already holds; nil when the server gave none. No extra request.
+    /// list the client already holds; nil when the list did not carry it. No extra request.
     public func officialRating(at path: String) async throws -> String? {
         try await file(at: path).officialRating
+    }
+
+    /// R374: the item's `OfficialRating` from the list when it carried one, else from ONE single-item request (`GET /Users/{UserId}/Items/{Id}`);
+    /// nil when the server has none. The caller keeps the answer in the library, so it is asked once per title.
+    public func requestOfficialRating(at path: String) async throws -> String? {
+        let node = try await file(at: path)
+        if let rating = node.officialRating { return rating }
+        guard let itemID = node.itemID else { throw SourceError.unsupported("not a file") }
+        _ = try await currentToken()
+        // The user's id comes from the sign-in; a pasted token gives none, and no documented endpoint returns the current
+        // user for a token (https://dev.emby.media/reference/RestAPI/UserService.html), so there is no request then.
+        guard let userID else { throw SourceError.unsupported("no user id for the single-item endpoint") }
+        let item: EMItem = try await getJSON("/Users/\(encode(userID))/Items/\(encode(itemID))")
+        return item.officialRating
     }
 
     private func file(at path: String) async throws -> EMTree.Node {
@@ -306,6 +322,7 @@ public actor EmbyClient: MediaSource {
         }
         guard let result = try? JSONDecoder().decode(EMAuthResult.self, from: response.body),
               let value = result.accessToken, !value.isEmpty else { throw SourceError.malformedResponse }
+        userID = result.userID
         return value
     }
 

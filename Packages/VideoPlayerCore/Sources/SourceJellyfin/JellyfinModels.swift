@@ -31,7 +31,19 @@ public struct JellyfinScanPolicy: Equatable, Sendable {
 
 struct JFAuthResult: Decodable {
     var accessToken: String?
-    enum CodingKeys: String, CodingKey { case accessToken = "AccessToken" }
+    /// R374: the signed-in user's id (`User.Id`), needed for the single-item endpoint. The recorded sign-in
+    /// (Tests/.../Fixtures/authenticate.json) has `User` as one object; anything else is ignored, never a failed sign-in.
+    var userID: String?
+    enum CodingKeys: String, CodingKey { case accessToken = "AccessToken", user = "User" }
+    private struct UserRef: Decodable {
+        var id: String?
+        enum CodingKeys: String, CodingKey { case id = "Id" }
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        accessToken = try c.decodeIfPresent(String.self, forKey: .accessToken)
+        userID = (try? c.decodeIfPresent(UserRef.self, forKey: .user))?.id
+    }
 }
 
 struct JFItemsPage: Decodable {
@@ -47,9 +59,12 @@ struct JFItem: Decodable {
     var mediaSources: [JFMediaSource]?
     /// "Movie", "Episode", "Video"...: what the server\'s own library calls the item (docs/SORTING.md).
     var type: String?
-    /// R374: the item's official content rating ("PG-13", "TV-MA"), the API's `OfficialRating` field (https://api.jellyfin.org/openapi/jellyfin-openapi-stable.json, BaseItemDto, read
-    /// 21 Nov 2026: "The official rating", a string). It is not one of the `Fields` values, so it is not asked for by
-    /// name; whether the server sends it with the items list without being asked is UNVERIFIED (no server here).
+    /// R374: the item's official content rating ("PG-13", "TV-MA"), `BaseItemDto.OfficialRating` ("Gets or sets the official
+    /// rating.", a nullable string) in the API's OpenAPI file (https://api.jellyfin.org/openapi/jellyfin-openapi-stable.json,
+    /// version 12.4.0, read 21 Nov 2026). It is NOT a value of `ItemFields`, the type of the items endpoint's `Fields`
+    /// parameter, so it cannot be added to `Fields`. The file names no set of properties sent without `Fields`; the client
+    /// therefore asks the single-item endpoint (`GET /Items/{itemId}`, "Gets an item from a user's library.", returns
+    /// `BaseItemDto`) when the list did not carry it (`JellyfinClient.requestOfficialRating(at:)`).
     var officialRating: String?
     enum CodingKeys: String, CodingKey {
         case id = "Id", path = "Path", etag = "Etag", mediaSources = "MediaSources", type = "Type"
