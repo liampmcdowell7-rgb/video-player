@@ -33,12 +33,12 @@ struct SourceKindListView: View {
                 }
             }
             Section("Not Available Yet") {
-                // #33 L (OPEN_QUESTIONS R238, PROVISIONAL): each row opens "About Source Types", where the reason is. As plain
-                // text the rows took no focus, so the focus could not move past them: the run of 20 Nov stopped on “Emby” (20)
-                // and never reached About Source Types or Cancel below them (10-add-source-learn-more), nor could a person.
+                // #33 L (OPEN_QUESTIONS R238, PROVISIONAL): each row is a focusable link (as plain text the focus could not move
+                // past them: the run of 20 Nov stopped on the last row (20)). R329 (PROVISIONAL): it opens that type's own
+                // About page (why it is not available, what to use instead), no longer the one long text about every type.
                 ForEach(kinds.filter { !$0.isAvailable }) { info in
                     NavigationLink {
-                        LongTextPage(title: SourceSetupText.learnMoreTitle, text: SourceSetupText.learnMore(kinds))
+                        SourceAboutPage(info: info)
                     } label: {
                         SourceKindRow(info: info)
                     }
@@ -46,8 +46,13 @@ struct SourceKindListView: View {
                 }
             }
             Section {
-                LearnMoreLink(title: SourceSetupText.learnMoreTitle, text: SourceSetupText.learnMore(kinds))
-                    .accessibilityIdentifier(ControlID.learnMore)
+                // R329: About Source Types is a list of the types, each opening its About page (a hierarchy of lists).
+                NavigationLink {
+                    SourceTypesAboutView(kinds: kinds)
+                } label: {
+                    SlotLabel(SourceSetupText.learnMoreTitle, systemImage: "info.circle")
+                }
+                .accessibilityIdentifier(ControlID.learnMore)
                 // #36 S-C (R255): a bezeled button, not a row; plain bordered (nothing on this page is the main action).
                 TaskButtonRow {
                     TaskButton("Cancel", role: .cancel, action: onCancel)

@@ -29,6 +29,7 @@ test02_AddASource	21-search-your-network-server-details
 test02_AddASource	12-form-smb-network-search
 test02_AddASource	12-form-smb-network-found
 test02_AddASource	10-add-source-learn-more
+test02_AddASource	10-add-source-about-webdav
 test03_Settings	30-settings
 test03_Settings	31-settings-playback
 test03_Settings	32-settings-home-screen

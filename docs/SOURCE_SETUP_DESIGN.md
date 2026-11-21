@@ -147,7 +147,9 @@ HIG Lockups, Playing video, Tab bars) say nothing about adding a source or accou
 - **Pattern:** a hierarchy of lists (Lists and tables: "iOS Settings uses a hierarchy of lists"). About Source Types is a
   Form with one row per type; each row opens that type's About page: a Form with the type's summary, then rows for what was
   tested, what was not, or why it cannot be set up yet and what to use instead. A row for a type that is not available
-  opens its own About page directly. A form's "About WebDAV" row opens the same page.
+  opens its own About page directly. A form's "About WebDAV" row opens the same page. As built: the page header is the
+  type's summary, then the sections "Tested" and "Not Tested", or "Not Available Yet" with the reason (AppLogic
+  `SourceAboutText`, built from the catalog; a test checks that every type's summary and caveat are still on its page).
 - **UNVERIFIED:** that a text row made focusable (so the remote can scroll a long page at Larger Text) gets the system
   highlight and not an odd look.
 

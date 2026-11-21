@@ -20,12 +20,6 @@ struct SourceFormView: View {
     private var info: SourceKindInfo { SourceCatalog.info(for: draft.kind, oneDriveClientID: SourceConfiguration.oneDriveClientID) }
     private var problems: [FieldProblem] { attempted ? SourceDraftValidator.problems(draft) : [] }
     private var phase: SetupPhase { model?.screen.phase ?? .editing }
-    /// The Learn More text: the status line, then the caveat when there is one (#29: typed steps, no mixed-optional array).
-    private var aboutText: String {
-        let status: String = info.statusLine + "."
-        guard let caveat: String = info.caveat else { return status }
-        return status + " " + caveat
-    }
     /// The fields' section footer (R322, R327): after Connect, what is wrong with each field (each names its field), one per
     /// line; then, always, the one line that names the optional fields. Plain text, never an alert for validation.
     private var footerText: String {
@@ -90,8 +84,13 @@ struct SourceFormView: View {
                 TaskButtonRow {
                     connectRow
                 }
-                LearnMoreLink(title: "About \(info.title)", text: aboutText)
-                    .accessibilityIdentifier(ControlID.learnMore)
+                // R329 (PROVISIONAL): the same About page as About Source Types opens for this type.
+                NavigationLink {
+                    SourceAboutPage(info: info)
+                } label: {
+                    SlotLabel(SourceAboutText.title(info), systemImage: "info.circle")
+                }
+                .accessibilityIdentifier(ControlID.learnMore)
             }
         }
         // R325: the first focus (Apple, defaultFocus(_:_:priority:), tvOS 16.0+: focus goes there "when the view is first

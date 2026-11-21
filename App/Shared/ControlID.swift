@@ -48,4 +48,6 @@ enum ControlID {
 
     /// One row per source type in Add a Source: "sourceKind.webdav", "sourceKind.directLink", ... (`SourceKind.rawValue`).
     static func sourceKind(_ rawValue: String) -> String { "sourceKind." + rawValue }
+    /// R329: a type's row on About Source Types (opens that type's About page).
+    static func sourceAbout(_ rawValue: String) -> String { "sourceAbout." + rawValue }
 }

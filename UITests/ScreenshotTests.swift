@@ -629,7 +629,20 @@ final class ScreenshotTests: XCTestCase {
         }
         // #25 B1: the type notes moved to "About Source Types" (Learn More); its page, once.
         if open("About Source Types", id: ControlID.learnMore, in: app, name: "10-add-source-learn-more") {
-            settle(); shot("10-add-source-learn-more"); back()
+            settle(); shot("10-add-source-learn-more")
+            // R329: About Source Types is a list of the types; the WebDAV row opens WebDAV's own About page, whose heading is
+            // "About WebDAV" with a "Tested" section ("10-add-source-about-webdav", "-ABOUT-PAGE" note).
+            let about: String = "10-add-source-about-webdav"
+            if open("WebDAV", id: ControlID.sourceAbout("webdav"), in: app, name: about) {
+                settle(); shot(about)
+                let heading: Bool = app.staticTexts.matching(NSPredicate(format: "label == %@", "About WebDAV")).firstMatch.exists
+                let tested: Bool = app.staticTexts.matching(NSPredicate(format: "label ==[c] %@", "Tested")).firstMatch.exists
+                note(about + "-ABOUT-PAGE", "heading \u{201C}About WebDAV\u{201D}: " + (heading ? "shown OK" : "NOT SHOWN")
+                     + "\nsection \u{201C}Tested\u{201D}: " + (tested ? "shown OK" : "NOT SHOWN"))
+                XCTAssertTrue(heading, "\(about): the type's About page has no \u{201C}About WebDAV\u{201D} heading")
+                back()
+            }
+            back()
         }
         app.terminate()
 
