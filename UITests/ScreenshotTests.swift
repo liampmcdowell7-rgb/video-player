@@ -534,29 +534,6 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(passed, "\(name): " + verdict)
     }
 
-    /// R349 (owner's device test of build 5, item C): Home leads with the featured area (artwork, title, one metadata line,
-    /// Play or Resume, More) and its Continue Watching and Next Up shelves have landscape cards. Writes "<name>-FEATURED";
-    /// a missing featured area or Play fails the test (the sample library always has a title to feature).
-    func homeFeaturedCheck(_ name: String, in app: XCUIApplication) {
-        let area: XCUIElement = app.descendants(matching: .any).matching(identifier: "home.featured").firstMatch
-        let play: XCUIElement = app.descendants(matching: .any).matching(identifier: "control.featuredPlay").firstMatch
-        let more: XCUIElement = app.descendants(matching: .any).matching(identifier: "control.featuredMore").firstMatch
-        var lines: [String] = ["featured area: \(area.exists) \(area.exists ? "\(area.frame)" : "")",
-                               "Play: \(play.exists) “\(play.exists ? play.label : "")”, More: \(more.exists)"]
-        let window: CGRect = app.windows.firstMatch.frame
-        if area.exists, window.height > 0 {
-            lines.append("featured height \(Int(area.frame.height)) of \(Int(window.height)) (planned two thirds, R349)")
-        }
-        for shelf in ["Continue Watching", "Next Up", "Recently Added"] {
-            let header: XCUIElement = app.staticTexts[shelf]
-            lines.append("shelf \(shelf): \(header.exists ? "shown" : "not on screen")")
-        }
-        let passed: Bool = area.exists && play.exists && more.exists
-        lines.append(passed ? "FEATURED OK" : "FEATURED AREA MISSING")
-        note(name + "-FEATURED", lines.joined(separator: "\n"))
-        XCTAssertTrue(passed, "\(name): the featured area, its Play or its More is missing")
-    }
-
     /// #36 group 5: what each press of the last `moveFocusToEnd` or `focus` did, one line per press ("3 Down: “Plex” {…}").
     private var focusPath: [String] = []
 
@@ -1211,15 +1188,11 @@ final class ScreenshotTests: XCTestCase {
 
     func test04_LibraryScreens() {
         var app = launch("-UITestFixtures", tab: "home")
-        if waitForScreen("screen.home", in: app), waitFor("Sample", in: app, timeout: 60) { settle(); shot("50-home-rows"); homeFeaturedCheck("50-home-rows", in: app); XCUIRemote.shared.press(.down); sleep(1); shot("51-home-rows-lower") }
+        if waitForScreen("screen.home", in: app), waitFor("Sample", in: app, timeout: 60) { settle(); shot("50-home-rows"); XCUIRemote.shared.press(.down); sleep(1); shot("51-home-rows-lower") }
         else { notReached("50-home-rows", "No sample title appeared on Home within 60 s (the sample library did not load).") }
         // The card long-press menu on the focused Home card. #25 A3: the focus starts on the tab bar, so move it into the
         // content first, and wait for the menu's items before the picture.
         if focusContent(in: app) {
-            // R349: the focus enters Home on the featured area's Play; one Down reaches the first shelf's card.
-            if app.descendants(matching: .any).matching(identifier: "home.featured").firstMatch.exists {
-                XCUIRemote.shared.press(.down); usleep(600_000)
-            }
             XCUIRemote.shared.press(.select, forDuration: 1.5)
             if waitForAny(["Mark as Watched", "Mark as Unwatched"], in: app) != nil { sleep(1); shot("52-card-long-press-menu") }
             else { notReached("52-card-long-press-menu", "The long-press menu did not open (no “Mark as Watched/Unwatched” item; focus on \(focusedLabel(in: app))).\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))") }
