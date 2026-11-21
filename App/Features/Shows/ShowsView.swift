@@ -59,7 +59,7 @@ struct ShowsView: View {
     }
 }
 
-/// The row above the Shows grid, in the Movies order (`GridControls`), and the filter buttons under it.
+/// The row above the Shows grid, in the Movies order (`GridControls`).
 private struct ShowsControls: View {
     let model: ScreenModel<ShowsViewModel>
     let targets: [JumpTarget]
@@ -71,9 +71,9 @@ private struct ShowsControls: View {
         VStack(alignment: .leading) {
             // #25 B2: the same one-line row as Movies, with the same More menu when it does not fit.
             // #32 D (R233): Sort, Filter and Saved Views as one group of symbols, Needs Review and Jump to Letter as the second.
+            // R344 (docs/HIG_AUDIT.md T5): Sort and Filter are one menu; no filter chips under the row.
             GridToolbar(count: model.screen.countText) {
-                SortMenu(model: model)
-                FilterMenu(model: model)
+                SortFilterMenu(model: model)
             } savedViews: {
                 SavedViewsMenu(model: model, onSave: onSave)
             } tools: {
@@ -83,9 +83,6 @@ private struct ShowsControls: View {
                 SavedViewsMenu(model: model, onSave: onSave)
                 NeedsReviewMenuItem(count: reviewCount)
                 jumpMenu
-            }
-            if !model.screen.chips.isEmpty {
-                FilterChipsRow(model: model)
             }
         }
     }

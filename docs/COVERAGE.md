@@ -289,7 +289,7 @@ stray-folder guard 1, playback-status doc table 1 (474 rows).
 | Binding rule: your library only | built and tested | Home/Movies/Shows/Files/Search read only the library | MetadataOnline `LibraryOnlyTests`, docs/METADATA.md section 2 |
 | Discover, inside the Search tab while the field is empty (sections, Show Discover setting; R167 option (c), PROVISIONAL) | partly | see G18; the move is fixed in code, verify in next screenshots (06, 75) | docs/ARTWORK_DISCOVER.md, AppLogic/AppTabs.swift |
 | 1 Instant, scalable library | built and tested (logic); UI built, device-only | scheduled refresh (G21); cold-launch time unmeasured on a device | docs/LIBRARY_INDEX.md, App/Features/Movies/AlphabetJumpMenu.swift |
-| 2 Combined sort and filter, saved views | built, device-only | | App/Features/Movies/{FilterMenu,SortMenu,SavedViewsMenu}.swift |
+| 2 Combined sort and filter, saved views | built, device-only | | App/Features/Movies/{SortFilterMenu,SavedViewsMenu}.swift (R344) |
 | 3 Direct file browsing | built, device-only | | App/Features/Files/ |
 | 4 Continue Watching, Next Up, watched marks, resume, long-press actions, retention setting | partly | long-press actions (G19) | App/Features/Home/, HomeScreenSettingsView.swift |
 | 5 Setup: Bonjour, connection test, sync of sources, credentials, favorites, filters, watch state | built, device-only | CloudKit and Keychain never run (R65, R71) | docs/SOURCES_WIRING.md, docs/STORAGE_MODEL.md |

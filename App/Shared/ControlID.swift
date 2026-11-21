@@ -10,8 +10,8 @@
 /// Controls the system draws (the player's Skip Intro contextual action, its Subtitles and Audio menus, the Up Next card)
 /// cannot carry an identifier: `UIAction` has no accessibility identifier. The tests find those by their label.
 enum ControlID {
-    static let sort = "control.sort"
-    static let filter = "control.filter"
+    /// R344: the one Sort and Filter menu of Movies and Shows (before: `control.sort` and `control.filter`).
+    static let sortAndFilter = "control.sortAndFilter"
     static let savedViews = "control.savedViews"
     static let needsReview = "control.needsReview"
     static let jumpToLetter = "control.jumpToLetter"

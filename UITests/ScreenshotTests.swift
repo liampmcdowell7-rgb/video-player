@@ -1497,8 +1497,8 @@ final class ScreenshotTests: XCTestCase {
         }
     }
 
-    /// One toolbar and its menus: "<prefix><suffix>", then "<prefix>-sort-menu<suffix>", "-filter-menu", "-filter-submenu"
-    /// (the Resolution group open) and "-saved-views-menu" (with no saved view: what the Save View button opens).
+    /// One toolbar and its menus: "<prefix><suffix>", then "<prefix>-sort-filter-menu<suffix>" (R344), "-sort-submenu",
+    /// "-filter-submenu" (the Resolution group open) and "-saved-views-menu" (with no saved view: what the Save View button opens).
     func toolbarShots(tab: String, prefix: String, suffix: String, extra: [String]) {
         let app = launch("-UITestFixtures", tab: tab, extra: extra)
         guard waitForScreen("screen.\(tab)", in: app), waitFor("Sample", in: app, timeout: 60) else {
@@ -1509,18 +1509,20 @@ final class ScreenshotTests: XCTestCase {
         checkGap(prefix + suffix, tree: app.debugDescription, anchors: Array(Self.toolbarControlIDs), kinds: ["Button", "Cell"], minimum: 60, what: "toolbar to the first card row")
         // What is on screen with every menu closed: a menu's items are what appears on top of it.
         let closed: Set<String> = Set(controlLabels(in: app).map { $0.0 })
-        if openToolbarControl("Sort", id: ControlID.sort, in: app, name: prefix + "-sort-menu" + suffix) {
-            sleep(1); shot(prefix + "-sort-menu" + suffix)
-            checkMenu(prefix + "-sort-menu" + suffix, expected: ["Title", "Year", "Date Added"], before: closed, in: app)
-            back(); _ = focusContent(in: app)
-        }
-        if openToolbarControl("Filter", id: ControlID.filter, in: app, name: prefix + "-filter-menu" + suffix) {
-            sleep(1); shot(prefix + "-filter-menu" + suffix)
-            checkMenu(prefix + "-filter-menu" + suffix, expected: ["Watched", "Resolution", "Dynamic Range", "Sound", "Clear All Filters"], before: closed, in: app)
-            let filterOpen: Set<String> = Set(controlLabels(in: app).map { $0.0 })
+        // R344 (docs/HIG_AUDIT.md T5): one Sort and Filter menu: "Sort By (…)", the four filter groups and Clear All Filters
+        // on its first level; the sort pickers and each group's toggles in submenus.
+        if openToolbarControl("Sort and Filter", id: ControlID.sortAndFilter, in: app, name: prefix + "-sort-filter-menu" + suffix) {
+            sleep(1); shot(prefix + "-sort-filter-menu" + suffix)
+            checkMenu(prefix + "-sort-filter-menu" + suffix, expected: ["Sort By", "Watched", "Resolution", "Dynamic Range", "Sound", "Clear All Filters"], before: closed, in: app)
+            let menuOpen: Set<String> = Set(controlLabels(in: app).map { $0.0 })
+            if open("Sort By", in: app, name: prefix + "-sort-submenu" + suffix) {
+                sleep(1); shot(prefix + "-sort-submenu" + suffix)
+                checkMenu(prefix + "-sort-submenu" + suffix, expected: ["Title", "Year", "Date Added"], before: menuOpen, in: app)
+                back()
+            }
             if open("Resolution", in: app, name: prefix + "-filter-submenu" + suffix) {
                 sleep(1); shot(prefix + "-filter-submenu" + suffix)
-                checkMenu(prefix + "-filter-submenu" + suffix, expected: [], before: filterOpen, in: app)
+                checkMenu(prefix + "-filter-submenu" + suffix, expected: [], before: menuOpen, in: app)
                 back()
             }
             back(); _ = focusContent(in: app)
@@ -1539,7 +1541,7 @@ final class ScreenshotTests: XCTestCase {
     /// the default size and at Larger Text; proven in ScreenChecksTests on the run's frames, 76 vs 60, which fail). When the
     /// row is collapsed (the More menu, R200) only the first group is checked.
     func checkToolbarGroups(_ name: String, in app: XCUIApplication) {
-        let first: [(String, String)] = [("Sort", ControlID.sort), ("Filter", ControlID.filter), ("Saved Views", ControlID.savedViews), ("More", ControlID.moreControls)]
+        let first: [(String, String)] = [("Sort and Filter", ControlID.sortAndFilter), ("Saved Views", ControlID.savedViews), ("More", ControlID.moreControls)]
         let second: [(String, String)] = [("Needs Review", ControlID.needsReview), ("Jump to Letter", ControlID.jumpToLetter)]
         func frames(_ list: [(String, String)]) -> [(String, AXRect)] {
             list.compactMap { (label: String, id: String) -> (String, AXRect)? in
@@ -1561,7 +1563,7 @@ final class ScreenshotTests: XCTestCase {
     }
 
     /// #33 C: the toolbar's own controls, which are never menu items.
-    static let toolbarControlIDs: Set<String> = [ControlID.sort, ControlID.filter, ControlID.savedViews, ControlID.moreControls,
+    static let toolbarControlIDs: Set<String> = [ControlID.sortAndFilter, ControlID.savedViews, ControlID.moreControls,
                                                 ControlID.needsReview, ControlID.jumpToLetter]
 
     /// #33 C: every labelled Cell, MenuItem, Button and Switch on screen, outside the tab bar and not a toolbar control, read

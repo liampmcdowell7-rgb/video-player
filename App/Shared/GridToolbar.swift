@@ -23,7 +23,7 @@ import SwiftUI
 /// (`collapsed`), and Sort, Filter, More and the count stay on the line.
 struct GridToolbar<ViewControls: View, SavedViews: View, Tools: View, Collapsed: View>: View {
     let count: String?
-    /// Always on the line: Sort and Filter.
+    /// Always on the line: the Sort and Filter menu (R344).
     @ViewBuilder var viewControls: ViewControls
     /// On the line, after Filter, when the row fits: the Saved Views menu or button.
     @ViewBuilder var savedViews: SavedViews

@@ -51,14 +51,14 @@ The placeholder symbol drawn when a card has no picture.
 `film` and `tv` themselves are proven by the tab bar; what screenshot 08 must show is that the two new menu items have
 their icon.
 
-## Movies and Shows toolbar (App/Features/Movies/: SortMenu, FilterMenu, SavedViewsMenu, AlphabetJumpMenu, FilterChipsRow)
+## Movies and Shows toolbar (App/Features/Movies/: SortFilterMenu, SavedViewsMenu, AlphabetJumpMenu; R344: no filter chips)
 
 The same views on Movies (53) and Shows (07, #21 F reuses them; no new names).
 
 | Symbol | Where | Status |
 |---|---|---|
-| `arrow.up.arrow.down` | Sort menu; "Show Largest First" / "Show Smallest First" | in screenshots (53, 07) |
-| `line.3.horizontal.decrease.circle` | Filter menu | in screenshots (53, 07) |
+| `arrow.up.arrow.down` | Sort menu (R344: gone; sort is the "Sort By" submenu of the Sort and Filter menu) | not in the toolbar since R344 (still the symbol of How This Was Sorted on the movie page) |
+| `line.3.horizontal.decrease.circle` | Sort and Filter menu (R344; filled while a filter is on) | in screenshots (53, 07) |
 | `bookmark` | Saved Views menu | in screenshots (53, 07) |
 | `plus` | Save Current View | not in a screenshot (menu content; 07-shows-toolbar-saved-views-menu should show it) |
 | `trash` | Delete a Saved View | not in a screenshot |
