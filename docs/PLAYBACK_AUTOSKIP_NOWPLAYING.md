@@ -50,6 +50,10 @@ uses the system `AVContentProposal` with automatic acceptance off (`automaticAcc
 **Missing, found in the audit:** `PlayerCoordinator.handle` acts only on seek and mark-watched; the advance effect falls
 into `default: break`, so **the next episode never starts**; the overlay's `tick()` is never called, so a countdown never
 fires; the overlay's effects reach `handle` twice (a seek may run twice). These are bugs to fix in the binge stage.
+**Fixed by R340 (owner decision of 21 Nov 2026):** the advance effect now plays the next item (`PlayerCoordinator.play`,
+`PlayerScreen` resolves it and the old playback stops first, so its position is saved and the watch sync is told);
+the effects reach `handle` once (through the overlay's sink only); the countdown is the system's own
+(`AVContentProposal.automaticAcceptanceInterval`, the logic in Ask mode), so the overlay's `tick()` is no longer needed.
 
 **Settings > Playback** (`App/Features/Settings/PlaybackSettingsView.swift`, `@AppStorage`): Auto-Play Next Episode (on:
 when credits begin; off: ask), Show Skip Buttons (on), Playback Stats button (on), Remember Track Choice per Show (on),
@@ -95,6 +99,17 @@ countdown and accepts at its end ("Set this value to nan to disable"); the app s
 `AVContentProposalViewController` for the card; the player delegate is told when a proposal is presented, accepted or
 rejected (`shouldPresent`, `didAccept`, `didReject`). `MPNowPlayingInfoPropertyCreditsStartTime` tells the system where
 the credits start. The HIG "Playing video" page has no guidance on next episode or skip buttons.
+
+**R340 (built, owner decision of 21 Nov 2026):** the system Up Next. The playback logic runs in Ask mode
+(`PlayerSessionFactory.systemUpNextSettings`): it presents the card at the credits start (or the end) and waits. With
+Auto-Play Next Episode on, the proposal's `automaticAcceptanceInterval` makes the system accept 10 s after the card
+appears (`UpNextCard.acceptanceInterval`; negative while the credits run, as Apple's article uses -1.0); off, it is NaN.
+The card is `UpNextProposalController` (an `AVContentProposalViewController` subclass, the layout of Apple's article:
+the video at 960 x 540 at the top, Play Now and Cancel below; the countdown text read from the playhead). Accept, by a
+press or by the system, reaches the logic through the delegate's `didAccept`; the advance plays the next item, which
+resumes at its saved position. UNVERIFIED until a run on tvOS 27: whether the system's own acceptance calls `didAccept`,
+whether the system also draws a countdown on the card, and the card's look. Not built here: the countdown row, the 0 s
+"straight to the next episode", "Are you still watching".
 
 Plan: a separate **Auto-Play Next Episode** switch (exists) plus the existing modes, now with a countdown row. With
 Auto-Play on: at the credits start (or the end, when no credits segment exists) the proposal card appears with the

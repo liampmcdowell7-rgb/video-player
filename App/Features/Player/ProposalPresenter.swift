@@ -4,21 +4,32 @@ import AppLogic
 
 /// Presents the next episode through the system's content proposal (the Up Next card of the system player). The
 /// player delegate reports Play Now and Cancel back to `handler`.
+///
+/// R340 (owner decision of 21 Nov 2026 in R338, docs/HIG_AUDIT.md T19): the countdown is the system's own. The playback logic
+/// runs in Ask mode (it presents and waits, `PlayerSessionFactory.systemUpNextSettings`); with Auto-Play Next Episode on, the
+/// proposal's `automaticAcceptanceInterval` makes the system accept `UpNextCard.countdownSeconds` after the card appears
+/// (Apple: "The interval between the time playback ends and automatic acceptance"; negative while the credits still run,
+/// as Apple's article uses -1.0). Off: NaN, the card waits. Whether the system's acceptance calls the delegate's
+/// `didAccept` like a press does: UNVERIFIED until a run.
 final class ProposalPresenter: UpNextProposalPresenting, @unchecked Sendable {
     weak var handler: (any UpNextProposalHandler)?
     @MainActor weak var item: AVPlayerItem?
+    /// Settings > Playback > Auto-Play Next Episode.
+    @MainActor var autoPlay = true
 
     func present(_ proposal: UpNextProposal) {
         Task { @MainActor [weak self] in
-            guard let item = self?.item else { return }
-            let content = AVContentProposal(contentTimeForTransition: item.currentTime(), title: proposal.episodeTitle, previewImage: nil)
-            // The countdown is run by the playback logic from the credits start, so the system's own countdown stays off.
-            content.automaticAcceptanceInterval = .nan
+            guard let self, let item = self.item else { return }
+            let title: String = [proposal.episodeCode, proposal.episodeTitle].compactMap { $0 }.joined(separator: " · ")
+            let content = AVContentProposal(contentTimeForTransition: item.currentTime(), title: title, previewImage: nil)
+            let duration: Double = item.duration.seconds
+            content.automaticAcceptanceInterval = UpNextCard.acceptanceInterval(
+                autoPlay: self.autoPlay, position: item.currentTime().seconds, duration: duration.isFinite ? duration : nil)
             item.nextContentProposal = content
         }
     }
 
-    /// The system card has no text slot for a countdown, so there is nothing to update.
+    /// The countdown is the system's (R340); the card reads it from the playhead, so there is nothing to update.
     func updateCountdown(seconds: Int?) {}
 
     func dismiss() {

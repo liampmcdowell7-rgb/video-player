@@ -23,6 +23,9 @@ enum ControlID {
     static let more = "control.more"
     /// R339: the show page's season tabs (segmented or menu picker).
     static let seasonTabs = "control.seasonTabs"
+    /// R340: the system Up Next card's buttons.
+    static let upNextPlayNow = "control.upNextPlayNow"
+    static let upNextCancel = "control.upNextCancel"
     static let versions = "control.versions"
     static let goToTitle = "control.goToTitle"
     static let fullLicenceTexts = "control.fullLicenceTexts"

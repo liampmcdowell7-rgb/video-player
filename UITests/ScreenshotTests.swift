@@ -1262,6 +1262,11 @@ final class ScreenshotTests: XCTestCase {
         // #36 8 T5: the S1 E1 card by its full spoken label (the button's label is "S1 E1, A quiet beginning"), so no other
         // control can match; the focus is checked on that card before Select, and the path goes into the note.
         let episodeLabel: String = "S1 E1, A quiet beginning"
+        // R339: one season's episodes under the season tabs; S1 E1 is under Season 1 (focus selects a tab).
+        if !app.buttons[episodeLabel].exists {
+            let seasonOne: XCUIElement = app.segmentedControls[ControlID.seasonTabs].buttons["Season 1"]
+            _ = focus(seasonOne.exists ? seasonOne : control("Season 1", in: app), in: app); sleep(1)
+        }
         guard open(episodeLabel, in: app, name: "22-player-skip-intro"), waitForScreen("screen.item", in: app, timeout: 20) else {
             notReached("22-player-skip-intro", "The S01E01 page did not open (focus on \(focusedLabel(in: app))).\n" + focusPathText())
             app.terminate(); return
@@ -1277,7 +1282,16 @@ final class ScreenshotTests: XCTestCase {
         XCUIRemote.shared.press(.playPause); sleep(2); shot("23-player-controls")
         // The info panel: down from the transport bar.
         XCUIRemote.shared.press(.down); sleep(2); shot("24-player-info-panel")
-        XCUIRemote.shared.press(.up); sleep(1)
+        // R340 (docs/HIG_AUDIT.md T15 to T17): the app's content tabs in the info panel, Episodes and Playback Stats
+        // (`customInfoViewControllers`). Notes, not failures: how tvOS 27 exposes the tab titles is not on any Apple page read.
+        let tabNames: [String] = ["Episodes", "Playback Stats"]
+        note("24-player-info-panel-TABS", tabNames.map { "\($0): " + (waitFor($0, in: app, timeout: 3) ? "found" : "NOT FOUND") }.joined(separator: "\n"))
+        for (picture, tab) in [("24-player-episodes-tab", "Episodes"), ("24-player-stats-tab", "Playback Stats")] {
+            if focus(control(tab, in: app), in: app) { sleep(2); shot(picture) }
+            else { notReached(picture, "The \u{201C}\(tab)\u{201D} tab could not take the focus (focus on \(focusedLabel(in: app))).") }
+        }
+        // Back up to the transport bar (the info panel closes).
+        for _ in 0..<2 { XCUIRemote.shared.press(.up); sleep(1) }
         // The audio and subtitle menus of the system player (two tracks each, English and French).
         for (number, label) in [("25-player-audio-menu", "Audio"), ("26-player-subtitles-menu", "Subtitles")] {
             // #25 A3: the system player's own menus carry no identifier we can set; by label. The picture waits for the
@@ -1291,7 +1305,18 @@ final class ScreenshotTests: XCTestCase {
 
         // Next Episode: play on to the end of the clip; the Up Next card names Sample Show 1 S01E02 ("The long way round").
         XCUIRemote.shared.press(.playPause)
-        if waitFor("The long way round", in: app, timeout: 60) { sleep(1); shot("27-player-next-episode") }
+        if waitFor("The long way round", in: app, timeout: 60) {
+            sleep(1); shot("27-player-next-episode")
+            // R340 (docs/HIG_AUDIT.md T19): the system Up Next card (`UpNextProposalController`); Play Now starts S01E02. Before
+            // R340 the accept was dropped and nothing started. The note says what followed (the sample library has no clip for
+            // S01E02, so a "cannot play" alert over the show page also shows that the advance ran).
+            if open("Play Now", id: ControlID.upNextPlayNow, in: app, name: "27-player-after-play-now") {
+                sleep(5); shot("27-player-after-play-now")
+                let alert: XCUIElement = app.alerts.firstMatch
+                note("27-player-after-play-now-ADVANCE", "alert: " + (alert.exists ? alert.label : "none")
+                     + "\nUp Next still up: \(app.buttons[ControlID.upNextPlayNow].exists)\nfocus: \(focusedLabel(in: app))")
+            }
+        }
         else { shot("27-player-next-episode-missing"); notReached("27-player-next-episode", "No Up Next card for S01E02 by the end of the clip.") }
         app.terminate()
     }

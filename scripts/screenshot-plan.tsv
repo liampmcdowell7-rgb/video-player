@@ -74,9 +74,12 @@ test10_SortingScreens	69-source-sort-by-filename-focused-larger-text
 test12_PlayerWithSampleClip	22-player-skip-intro
 test12_PlayerWithSampleClip	23-player-controls
 test12_PlayerWithSampleClip	24-player-info-panel
+test12_PlayerWithSampleClip	24-player-episodes-tab
+test12_PlayerWithSampleClip	24-player-stats-tab
 test12_PlayerWithSampleClip	25-player-audio-menu
 test12_PlayerWithSampleClip	26-player-subtitles-menu
 test12_PlayerWithSampleClip	27-player-next-episode
+test12_PlayerWithSampleClip	27-player-after-play-now
 test05_FilesSearchDiscover	70-files-sources
 test05_FilesSearchDiscover	71-files-root
 test05_FilesSearchDiscover	72-files-folder

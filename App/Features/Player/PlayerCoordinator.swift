@@ -9,8 +9,15 @@ import AppLogic
 import PlaybackLogic
 import PlaybackStatus
 
-/// Owns one playback: the player, the progress saving, the Now Playing entry, the Playback Stats overlay, the picture subtitle
-/// menu, the mark menu and (when segment data exists) the skip button and Up Next. The system player draws everything else.
+/// Owns one playback: the player, the progress saving, the Now Playing entry, the info panel's Episodes and Playback Stats
+/// tabs, the picture subtitle menu, the mark menu and (when segment data exists) the skip button and Up Next. The system
+/// player draws everything else.
+///
+/// R340 (owner decision of 21 Nov 2026 in R338, docs/HIG_AUDIT.md T15 to T19): Playback Stats moved from an overlay over
+/// the picture into an info panel tab; an Episodes tab; the system Up Next (`AVContentProposal` with its own
+/// `automaticAcceptanceInterval`, the card `UpNextProposalController`); and the advance step that was dropped (`handle` let
+/// `.advance` fall into `default`, so the next episode never started) now plays the next item through `onPlayItem`. The
+/// overlay's effects reach `handle` once, through its sink (before, the returned copy was handled too, so a seek ran twice).
 ///
 /// Two ways in: a file the system player opens itself (`resolved.remux == nil`), or a converted playback where `resolved.url` is the
 /// loopback address of `resolved.remux` (docs/PLAYBACK_WIRING.md).
@@ -43,7 +50,9 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     /// R309: the play state and a one-second clock for the Plex watch sync (it sends at most every 10 seconds, at once on a change).
     private var playStateObservation: NSKeyValueObservation?
     private var timelineTimer: Timer?
-    private var statsHost: UIHostingController<StatsOverlayView>?
+    /// R340: the Episodes tab's content (nil for a film); loaded once at the start.
+    private var episodes: PlayerEpisodes.Content?
+    private var advanced = false
     private var lastSaved: TimeInterval = 0
     private var lastPosition: TimeInterval = 0
     private var stopped = false
@@ -51,6 +60,9 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
 
     /// Called once when the player item fails after it was handed over (the screen shows the reason).
     var onFailure: (PlaybackFailure) -> Void = { _ in }
+    /// R340: play another library item in place of this one (Up Next accepted, or an episode chosen in the Episodes tab).
+    /// The screen ends this playback (`stop`, which saves the position and tells the watch sync) and starts the next.
+    var onPlayItem: (Int64) -> Void = { _ in }
 
     init(resolved: ResolvedPlayback, itemID: Int64, services: AppServices) {
         self.resolved = resolved
@@ -87,7 +99,12 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         // Picture in Picture: on for both ways in. In converted playback the loopback server keeps serving while the app is in the
         // background, so it keeps playing (decision D3, PROVISIONAL; the fallback player, when it exists, gets none).
         controller.allowsPictureInPicturePlayback = true
-        installStatsOverlay(in: controller)
+        stats.onShown = { [weak self] in
+            guard let self, !self.stopped else { return }
+            self.stats.update(from: self.probe, player: self.player)
+        }
+        installInfoPanels()
+        proposalPresenter.autoPlay = SegmentsWiring.autoPlayNextEpisode
         if let remux = resolved.remux, pictureModel != nil, let container = controller.contentOverlayView {
             pictureOverlay = PictureSubtitleOverlay(playback: remux, container: container)
         }
@@ -134,6 +151,9 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
             await self.probe.load()
             await self.probe.refreshAudioSelection()
             self.reloadOverlay()
+            // R340: the Episodes tab once the season is read.
+            self.episodes = await PlayerEpisodes.load(itemID: self.itemID, store: self.services.store)
+            self.installInfoPanels()
         }
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main) { [weak self] time in
             let seconds = time.seconds
@@ -178,7 +198,8 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         showImportantNoticeIfNeeded()
         // Everything below runs once a second, as before the quarter-second clock was needed for picture subtitles.
         guard Int(seconds) != wholeSecondBefore else { return }
-        if let overlay { handle(overlay.playhead(seconds, kind: .natural)) }
+        // R340: the effects arrive once, through the overlay's sink (`reloadOverlay`).
+        _ = overlay?.playhead(seconds, kind: .natural)
         if seconds - lastSaved >= 15 {
             lastSaved = seconds
             save(seconds)
@@ -200,7 +221,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         guard !stopped else { return }
         pictureOverlay?.didSeek()
         let seconds = player.currentTime().seconds
-        if seconds.isFinite, let overlay { handle(overlay.playhead(seconds, kind: .seek)) }
+        if seconds.isFinite { _ = overlay?.playhead(seconds, kind: .seek) }
     }
 
     private func finished() {
@@ -208,7 +229,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         let id = itemID
         let services = self.services
         Task { await services.setWatched(id, true) }
-        if let overlay { handle(overlay.ended()) }
+        _ = overlay?.ended()
     }
 
     /// The person chose (or the system chose) another subtitle or audio option.
@@ -289,10 +310,20 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
                 let id = itemID
                 let services = self.services
                 Task { await services.setWatched(id, true) }
+            case .advance:
+                // R340: the next episode starts (it was dropped here before, so it never did).
+                if let next = SegmentsWiring.itemID(for: effect) { play(next) }
             default:
                 break
             }
         }
+    }
+
+    /// R340: hands another item to the screen, once per playback.
+    private func play(_ next: Int64) {
+        guard !stopped, !advanced, next != itemID else { return }
+        advanced = true
+        onPlayItem(next)
     }
 
     // MARK: Skip button and Up Next
@@ -327,9 +358,6 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         var items: [UIMenuElement] = []
         if let model = pictureModel { items.append(pictureMenu(model)) }
         if let markController { items += SegmentsWiring.markMenuItems(for: markController) }
-        if UserDefaults.standard.object(forKey: SettingsKey.showPlaybackStatsButton.rawValue) as? Bool ?? true {
-            items.append(statsAction())
-        }
         controller.transportBarCustomMenuItems = items
     }
 
@@ -368,40 +396,32 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         }
     }
 
-    // MARK: Playback Stats overlay
+    // MARK: Info panel (R340)
 
-    private func statsAction() -> UIAction {
-        UIAction(title: "Playback Stats", image: UIImage(systemName: "chart.bar")) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.toggleStats() }
+    /// The content tabs under the transport controls: Episodes (an episode only), then Playback Stats (Settings > Playback >
+    /// Show Playback Stats in the Player). Built again when the season has been read.
+    private func installInfoPanels() {
+        guard let controller, !stopped else { return }
+        var tabs: [UIViewController] = []
+        if let episodes {
+            tabs.append(PlayerInfoPanels.controller(title: PlayerEpisodes.tabTitle, services: services) {
+                PlayerEpisodesPanel(content: episodes, onPlay: { [weak self] id in self?.play(id) })
+            })
         }
-    }
-
-    private func toggleStats() {
-        stats.isVisible.toggle()
-        statsHost?.view.isHidden = !stats.isVisible
-        if stats.isVisible { stats.update(from: probe, player: player) }
-    }
-
-    private func installStatsOverlay(in controller: AVPlayerViewController) {
-        guard let container = controller.contentOverlayView else { return }
-        let host = UIHostingController(rootView: StatsOverlayView(model: stats))
-        host.sizingOptions = .intrinsicContentSize
-        host.view.backgroundColor = .clear
-        host.view.isHidden = true
-        host.view.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(host.view)
-        NSLayoutConstraint.activate([
-            host.view.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
-            host.view.trailingAnchor.constraint(equalTo: container.safeAreaLayoutGuide.trailingAnchor),
-        ])
-        controller.addChild(host)
-        host.didMove(toParent: controller)
-        statsHost = host
+        if UserDefaults.standard.object(forKey: SettingsKey.showPlaybackStatsButton.rawValue) as? Bool ?? true {
+            tabs.append(PlayerInfoPanels.controller(title: "Playback Stats", services: services) { StatsPanelView(model: stats) })
+        }
+        controller.customInfoViewControllers = tabs
     }
 
     // MARK: Up Next (system content proposals)
 
-    func playerViewController(_ playerViewController: AVPlayerViewController, shouldPresent proposal: AVContentProposal) -> Bool { true }
+    /// R340: the card is the app's `AVContentProposalViewController` subclass (Apple's article "Presenting content proposals
+    /// in tvOS": set it as `contentProposalViewController` here).
+    func playerViewController(_ playerViewController: AVPlayerViewController, shouldPresent proposal: AVContentProposal) -> Bool {
+        playerViewController.contentProposalViewController = UpNextProposalController()
+        return true
+    }
 
     func playerViewController(_ playerViewController: AVPlayerViewController, didAccept proposal: AVContentProposal) {
         proposalPresenter.handler?.proposalAccepted()

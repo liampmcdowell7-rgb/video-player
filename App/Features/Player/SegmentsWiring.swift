@@ -22,7 +22,8 @@ enum SegmentsWiring {
         return PlayerSessionFactory.controller(
             segments: segments, duration: duration,
             skip: PlayerSessionFactory.skipSettings(showSkipButtons: flag(.showSkipButtons)),
-            nextEpisode: PlayerSessionFactory.nextEpisodeSettings(autoPlay: flag(.autoPlayNextEpisode)),
+            // R340: the logic presents and waits; the system's Up Next counts down (ProposalPresenter).
+            nextEpisode: PlayerSessionFactory.systemUpNextSettings(),
             feed: feed, clock: MonotonicClock(), upNextPresenter: upNextPresenter, skipPresenter: skipPresenter, sink: sink)
     }
 
@@ -42,6 +43,9 @@ enum SegmentsWiring {
     static func markMenuItems(for controller: PlayerMarkController) -> [UIMenuElement] {
         [PlayerMarkMenu.menu(for: controller)]
     }
+
+    /// Settings > Playback > Auto-Play Next Episode (on by default): the system Up Next accepts by itself.
+    static var autoPlayNextEpisode: Bool { flag(.autoPlayNextEpisode) }
 
     private static func flag(_ key: SettingsKey) -> Bool {
         UserDefaults.standard.object(forKey: key.rawValue) as? Bool ?? true

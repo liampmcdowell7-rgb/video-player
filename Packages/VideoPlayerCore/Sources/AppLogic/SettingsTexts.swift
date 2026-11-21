@@ -18,7 +18,8 @@ public enum SettingsTexts {
     public static let skipShort = "Skip buttons appear only for titles with intro, recap or credits markers."
     public static let skipLearnMoreTitle = "About Skip Markers"
     public static let skipFull = "Skip buttons and the next-episode card appear only for titles that have intro, recap or credits markers. Markers come from chapters named Intro, Recap or Credits in MKV files, from .edl or .segments.json files next to the video, and from positions you mark yourself in the player. Markers from online lookups or from analysing the video are not available yet."
-    public static let statsFooter = "Playback Stats adds one item to the player’s menu. It is off on screen until you open it."
+    /// R340: a tab of the player's info panel now, never over the picture.
+    public static let statsFooter = "Playback Stats adds a tab to the player’s info panel, one swipe down while playing. It never covers the picture."
     public static let trueHDShort = "Off plays Dolby TrueHD losslessly. On plays its lossy Dolby Digital 5.1 core instead."
     public static let trueHDLearnMoreTitle = "About Dolby TrueHD"
     public static let trueHDFull = "Off: Dolby TrueHD is decoded in full, losslessly, in its own channel layout up to 7.1 (Atmos plays as its 7.1 bed). On: tracks that carry a Dolby Digital core play that 5.1 core instead, which is lossy. Applies to the next title you play."
