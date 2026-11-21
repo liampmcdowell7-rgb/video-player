@@ -525,6 +525,9 @@ public enum ScreenRules {
 
     /// How close (in points) to the right edge of its column a caption's ink may come before it counts as cut off.
     public static let captionEdge: Double = 6
+    /// R293: a caption taller than this has wrapped onto two or more lines (one line of Caption, 25 pt, or Caption 2,
+    /// 23 pt, is about 30 pt high; two lines are 58 pt in the fourth run of 20 Nov).
+    public static let captionOneLineMaxHeight: Double = 44
 
     /// #36 group 4 (OPEN_QUESTIONS R264, PROVISIONAL): the caption of a card is drawn whole, not cut at its column's right
     /// edge. `column` is the space the caption may use (the card's width less its side paddings), `text` the caption's own
@@ -543,6 +546,15 @@ public enum ScreenRules {
         }
         if text.width < column.width - 1 {
             lines.append("the caption is narrower than its column: laid out at its own width")
+            lines.append("CAPTION WHOLE OK")
+            return CheckResult(passed: true, lines: lines)
+        }
+        // R293: a caption that wrapped was broken into lines by the system at its column's width, so its ink may reach
+        // the right edge without anything being cut (fourth run of 20 Nov: 50-later "...Than Any / Card Is Wide" and
+        // 56-later "...title that / is wider than any episode card on the / show page", both whole in the pictures, failed
+        // with 9 and 27 pixels in the last 6 pt). The edge rule stays for one-line captions.
+        if text.height > captionOneLineMaxHeight {
+            lines.append("the caption wrapped onto more than one line (\(Int(text.height)) pt high): broken into lines at the column's width")
             lines.append("CAPTION WHOLE OK")
             return CheckResult(passed: true, lines: lines)
         }

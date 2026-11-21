@@ -1150,4 +1150,16 @@ final class ScreenChecksTests: XCTestCase {
         XCTAssertTrue(result.text.contains("SOMETHING SHOWS THROUGH"), result.text)
     }
 
+    /// R293: a caption that wrapped (two lines, 58 pt, as 50-later of the fourth run) is whole even when its ink reaches the
+    /// column's right edge; a one-line caption with ink at the edge is still cut.
+    func testAWrappedCaptionWithInkAtTheEdgeIsWhole() {
+        var image = RGBImage(width: 400, height: 80, fill: RGB(r: 55, g: 37, b: 64))
+        for x in stride(from: 16, to: 384, by: 7) { for y in 10..<66 { image.set(x, y, RGB(r: 250, g: 250, b: 250)) } }
+        let column = AXRect(x: 16, y: 8, width: 368, height: 58)
+        let wrapped: CheckResult = ScreenRules.captionFits(image, scale: 1, column: column, text: column)
+        XCTAssertTrue(wrapped.passed, wrapped.text)
+        XCTAssertTrue(wrapped.text.contains("wrapped onto more than one line"), wrapped.text)
+        let oneLine = AXRect(x: 16, y: 8, width: 368, height: 30)
+        XCTAssertFalse(ScreenRules.captionFits(image, scale: 1, column: oneLine, text: oneLine).passed)
+    }
 }
