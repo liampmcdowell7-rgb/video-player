@@ -2,15 +2,17 @@
 # Codemagic only (codemagic.yaml, workflow tvos-testflight; OPEN_QUESTIONS R266, PROVISIONAL). One build step per call:
 #   cm-testflight.sh prepare         check the vendored files, install the pinned XcodeGen (SHA-256), generate, resolve:
 #                                    scripts/ci-prepare.sh, exactly as the GitHub compile check does
-#   cm-testflight.sh signing         a private key made here (openssl, mode 600), then for EACH bundle ID
-#                                    `app-store-connect fetch-signing-files --type TVOS_APP_STORE --create` (Apple
-#                                    Distribution certificate + App Store profile, no devices); keychain; key deleted
-#   cm-testflight.sh check-profiles  scripts/cm-profile-check.py installed (iCloud container and App Group)
-#   cm-testflight.sh archive         `xcode-project use-profiles` (one profile per target), a check that both targets now
+#   cm-testflight.sh signing         reuses the ONE stored Apple Distribution certificate that codemagic.yaml ios_signing
+#                                    installs ("Balance Ahead distribution"): finds it in App Store Connect by its SHA-1,
+#                                    then for EACH bundle ID takes an existing active TVOS_APP_STORE profile that carries
+#                                    it, or makes one profile with it (scripts/cm-signing.py). It never makes a key or a
+#                                    certificate and never revokes or deletes anything (the self-test checks this).
+#   cm-testflight.sh check-profiles  scripts/cm-profile-check.py dir (iCloud container and App Group of the chosen two)
+#   cm-testflight.sh archive         `xcode-project use-profiles` (the chosen profiles only), a check that both targets now
 #                                    sign manually with a profile, the build number, `xcodebuild archive` (Release, tvOS)
 #   cm-testflight.sh export          `xcodebuild -exportArchive` with the generated export options (method app-store)
 #   cm-testflight.sh redact          stdin to stdout with the extra redaction below (used by the self-test)
-# Codemagic's CLI tools (app-store-connect, keychain, xcode-project) are on its build machines; the App Store Connect
+# Codemagic's CLI tools (app-store-connect, xcode-project) are on its build machines; the App Store Connect
 # integration `asc-testflight` gives them the API key (codemagic.yaml). The repository is public: every command writes to
 # a file in a private temporary folder; the log shows only result lines and, on failure, the error lines, redacted twice
 # (here: serial numbers, display names, long hex and base64 runs; then scripts/ci-testflight-log.sh: signing identities
@@ -55,37 +57,60 @@ case "$step" in
     exit "$rc" ;;
 
   signing)
+    # Reuses the owner's ONE stored Apple Distribution certificate ("Balance Ahead distribution", codemagic.yaml
+    # ios_signing; Codemagic installs it with its private key). This step makes no key and no certificate, and revokes or
+    # deletes nothing: it only reads App Store Connect and, when no usable profile exists, makes a profile.
     umask 077
-    key="$W/dist-key.pem"
-    trap 'rm -f "$key"' EXIT
-    if ! openssl genrsa -out "$key" 2048 > /dev/null 2>&1; then echo "SIGNING ERROR: openssl genrsa failed"; exit 1; fi
-    chmod 600 "$key"
-    echo "SIGNING: private key made for this build (RSA 2048, mode 600, deleted at the end of this step)"
-    keychain initialize > "$W/logs/keychain-init.log" 2>&1; rc=$?
-    [ "$rc" -eq 0 ] || { show "$W/logs/keychain-init.log" "keychain initialize" "$rc"; exit "$rc"; }
+    S="$W/signing"; rm -rf "$S"; mkdir -p "$S/chosen"
+    security find-identity -v -p codesigning > "$S/identities.txt" 2>&1
+    app-store-connect certificates list --json > "$S/certs.json" 2> "$W/logs/certs.log"; rc=$?
+    [ "$rc" -eq 0 ] || { show "$W/logs/certs.log" "List certificates" "$rc"; exit "$rc"; }
+    python3 scripts/cm-signing.py cert-id "$S/certs.json" "$S/identities.txt" "$S/cert-id" "$S/cert-sha1" || exit 1
+    cid="$(cat "$S/cert-id")"
     for id in "$APP_ID" "$TOPSHELF_ID"; do
+      d="$S/$id"; mkdir -p "$d/existing" "$d/new"
       # --strict-match-identifier: without it "com.example.app also matches ... com.example.app.extension" (CLI docs).
-      # --platform is left at its default IOS: the CLI's --platform has no tvOS value; the tvOS choice is the --type.
-      app-store-connect fetch-signing-files "$id" --type TVOS_APP_STORE --strict-match-identifier --create \
-        --certificate-key "@file:$key" > "$W/logs/fetch-$id.log" 2>&1; rc=$?
-      if [ "$rc" -ne 0 ]; then show "$W/logs/fetch-$id.log" "Signing files for $id" "$rc"; exit "$rc"; fi
-      echo "SIGNING: Apple Distribution certificate and TVOS_APP_STORE profile ready for $id"
+      app-store-connect bundle-ids list --bundle-id-identifier "$id" --strict-match-identifier --json \
+        > "$d/bundle.json" 2> "$W/logs/bundle-$id.log"; rc=$?
+      [ "$rc" -eq 0 ] || { show "$W/logs/bundle-$id.log" "Bundle ID $id" "$rc"; exit "$rc"; }
+      python3 scripts/cm-signing.py bundle-rid "$d/bundle.json" "$id" "$d/rid" || exit 1
+      rid="$(cat "$d/rid")"
+      app-store-connect bundle-ids profiles --bundle-ids "$rid" --type TVOS_APP_STORE --state ACTIVE --json \
+        > "$d/profiles.json" 2> "$W/logs/profiles-$id.log"; rc=$?
+      [ "$rc" -eq 0 ] || { show "$W/logs/profiles-$id.log" "Profiles for $id" "$rc"; exit "$rc"; }
+      python3 scripts/cm-signing.py profile-ids "$d/profiles.json" "$d/profile-ids" || exit 1
+      while IFS= read -r pid; do
+        [ -n "$pid" ] || continue
+        app-store-connect profiles get "$pid" --save --profiles-dir "$d/existing" > "$W/logs/get-$id.log" 2>&1; rc=$?
+        [ "$rc" -eq 0 ] || { show "$W/logs/get-$id.log" "Download a profile for $id" "$rc"; exit "$rc"; }
+      done < "$d/profile-ids"
+      # Prefer an existing profile: active, App Store, tvOS, this bundle ID, with the stored certificate, valid > 1 day.
+      python3 scripts/cm-signing.py pick "$d/existing" "$id" "$S/cert-sha1" "$S/chosen"; rc=$?
+      if [ "$rc" -eq 3 ]; then
+        echo "SIGNING: no usable TVOS_APP_STORE profile for $id with the stored certificate; making one (profile only)"
+        app-store-connect profiles create "$rid" --certificate-ids "$cid" --type TVOS_APP_STORE \
+          --name "Video Player tvOS App Store $id $(date -u +%Y%m%d%H%M)" --save --profiles-dir "$d/new" \
+          > "$W/logs/create-$id.log" 2>&1; rc=$?
+        [ "$rc" -eq 0 ] || { show "$W/logs/create-$id.log" "Make a profile for $id" "$rc"; exit "$rc"; }
+        python3 scripts/cm-signing.py pick "$d/new" "$id" "$S/cert-sha1" "$S/chosen"; rc=$?
+        [ "$rc" -eq 0 ] || { echo "SIGNING ERROR: the new profile for $id does not carry the stored certificate"; exit 1; }
+      elif [ "$rc" -ne 0 ]; then
+        exit "$rc"
+      fi
     done
-    keychain add-certificates > "$W/logs/keychain-add.log" 2>&1; rc=$?
-    [ "$rc" -eq 0 ] || { show "$W/logs/keychain-add.log" "keychain add-certificates" "$rc"; exit "$rc"; }
-    n=0
-    for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
-      for f in "$d"/*.mobileprovision; do [ -f "$f" ] && n=$((n + 1)); done
+    # Xcode reads profiles from these folders; the build machine is fresh, so these two are the only ones there.
+    for dir in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+      mkdir -p "$dir" && cp "$S/chosen"/*.mobileprovision "$dir/"
     done
-    echo "SIGNING: certificate added to the build keychain; $n provisioning profile file(s) on this machine"
+    echo "SIGNING: $(ls "$S/chosen" | wc -l | tr -d ' ') profile(s) installed; no key or certificate was made"
     exit 0 ;;
 
   check-profiles)
-    python3 scripts/cm-profile-check.py installed
+    python3 scripts/cm-profile-check.py dir "$W/signing/chosen"
     exit $? ;;
 
   archive)
-    xcode-project use-profiles --project VideoPlayer.xcodeproj \
+    xcode-project use-profiles --project VideoPlayer.xcodeproj --profile "$W/signing/chosen/*.mobileprovision" \
       --custom-export-options '{"method": "app-store", "uploadSymbols": true, "manageAppVersionAndBuildNumber": false}' \
       > "$W/logs/use-profiles.log" 2>&1; rc=$?
     [ "$rc" -eq 0 ] || { show "$W/logs/use-profiles.log" "xcode-project use-profiles" "$rc"; exit "$rc"; }

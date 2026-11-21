@@ -9,10 +9,17 @@
 #
 # SECRETS: none in this file and none in the repository. The only name here is the App Store Connect integration
 # `asc-testflight`, which the owner adds in Codemagic (docs/TESTFLIGHT.md, Codemagic route). Codemagic: the integration
-# "will expose necessary environment variables during the build" for the CLI tools. The distribution certificate's
-# private key is made at run time (openssl, mode 600) and deleted after use, so each run makes a NEW Apple Distribution
-# certificate (Codemagic: a new one is created "if there isn't one that already matches this private key"); see R266 for
-# what that means and the alternative.
+# "will expose necessary environment variables during the build" for the CLI tools.
+#
+# SIGNING: ONE certificate, reused. `ios_signing` names, by its Codemagic reference name, the owner's one stored Apple
+# Distribution certificate "Balance Ahead distribution" (Team settings > codemagic.yaml settings > Code signing
+# identities > iOS certificates; it already signs the owner's other two apps). Codemagic's signing page (read 20 Nov 2026,
+# https://docs.codemagic.io/yaml-code-signing/signing-ios/): "list the references of the uploaded files under the
+# `provisioning_profiles` and `certificates` fields"; the keychain steps "are not required as those are automatically
+# fetched during the build process". UNVERIFIED: the page does not say whether `certificates` may be given without
+# `provisioning_profiles`; tvOS profiles are not stored in Codemagic, so scripts/cm-testflight.sh signing finds or makes
+# them. This workflow NEVER creates, generates, revokes or deletes a certificate or a key (the pre-push check and
+# scripts/test-ci-codemagic.sh refuse the commands that would).
 #
 # LOGS: every command's output goes to a file on the build machine; the log shows only result lines and, on failure, the
 # error lines, redacted (scripts/cm-testflight.sh redact, then scripts/ci-testflight-log.sh): no key, certificate,
@@ -23,8 +30,9 @@
 # 11.2)"), the same Xcode as the GitHub runner. Never `latest` or `edge`: `edge` is 27.3 (27C5020n) and may be a beta.
 #
 # MINUTES: max_build_duration 30 (Codemagic: minutes, "min 1, max 120"), so a hang stops at 30 minutes. mac_mini_m2 is the
-# machine of the free plan (mac_mini_m4 needs billing). OPEN_QUESTIONS R105 recorded 494 of 500 free minutes used in
-# November; whether the monthly total has reset is not known here. Estimated run: 15 to 25 minutes (NOT measured).
+# machine of the free plan (mac_mini_m4 needs billing). OPEN_QUESTIONS R105: on 20 November 2026 the Codemagic Billing
+# page showed 506 of 500 free macOS minutes used, so builds bill as overage until the reset; the owner decides when to
+# start a build. Estimated run: 15 to 25 minutes (NOT measured).
 
 workflows:
   tvos-testflight:
@@ -35,6 +43,9 @@ workflows:
       app_store_connect: asc-testflight
     environment:
       xcode: "27.2"
+      ios_signing:
+        certificates:
+          - "Balance Ahead distribution"
       vars:
         # The same pinned XcodeGen as .github/workflows/compile-check.yml (the self-test checks they are equal).
         XCODEGEN_VERSION: "2.46.0"
@@ -42,7 +53,7 @@ workflows:
     scripts:
       - name: Prepare (check vendored files, pinned XcodeGen, generate, resolve packages)
         script: bash scripts/cm-testflight.sh prepare
-      - name: Signing files (Apple Distribution certificate, TVOS_APP_STORE profiles for the app and Top Shelf)
+      - name: Signing files (the stored certificate; existing or new TVOS_APP_STORE profiles for the app and Top Shelf)
         script: bash scripts/cm-testflight.sh signing
       - name: Check the profiles' iCloud container and App Group
         script: bash scripts/cm-testflight.sh check-profiles

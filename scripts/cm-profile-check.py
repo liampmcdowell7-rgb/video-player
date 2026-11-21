@@ -4,6 +4,7 @@ capabilities project.yml asks for, or the archive fails later with a less clear 
 
   cm-profile-check.py installed             reads the profiles installed on this machine (the folders the Codemagic CLI
                                             saves to), picks each target's App Store profile and checks it
+  cm-profile-check.py dir DIR               the same for the profiles in DIR (the two the signing step chose)
   cm-profile-check.py plists APP TOPSHELF   checks two decoded profile plists (the Linux self-test)
 
 Checked: the app's profile has the iCloud container iCloud.com.liamp.videoplayer and the App Group
@@ -70,10 +71,10 @@ def decode(path):
         return None
 
 
-def installed_profiles(home):
+def installed_profiles(home, dirs=None):
     found = {}
-    for rel in PROFILE_DIRS:
-        for path in sorted(glob.glob(os.path.join(home, rel, "*.mobileprovision"))):
+    for folder in (dirs if dirs is not None else [os.path.join(home, rel) for rel in PROFILE_DIRS]):
+        for path in sorted(glob.glob(os.path.join(folder, "*.mobileprovision"))):
             plist = decode(path)
             if not plist or not is_app_store(plist):
                 continue
@@ -106,8 +107,8 @@ def main(argv):
             with open(p, "rb") as f:
                 loaded.append(plistlib.load(f))
         return report(*loaded)
-    if len(argv) == 2 and argv[1] == "installed":
-        found = installed_profiles(os.path.expanduser("~"))
+    if (len(argv) == 2 and argv[1] == "installed") or (len(argv) == 3 and argv[1] == "dir"):
+        found = installed_profiles(os.path.expanduser("~"), [argv[2]] if argv[1] == "dir" else None)
         absent = [b for b in (APP_ID, TOPSHELF_ID) if b not in found]
         for b in absent:
             print("PROFILE CHECK ERROR: no App Store profile for %s is installed on this machine (the signing step "
