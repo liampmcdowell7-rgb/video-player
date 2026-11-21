@@ -1630,12 +1630,25 @@ final class ScreenshotTests: XCTestCase {
         episodeCodeCheck("24-player-info-panel", in: app)
         // R340 (docs/HIG_AUDIT.md T15 to T17): the app's content tabs in the info panel, Episodes and Playback Stats
         // (`customInfoViewControllers`). Notes, not failures: how tvOS 27 exposes the tab titles is not on any Apple page read.
+        // R368 (compile run of 21 Nov 2026, item 9(c)): run 8's picture 24-player-info-panel DRAWS the three tabs (Info,
+        // Episodes, Playback Stats), but no element with those labels was in the tree ("NOT FOUND"), so the by-label focus
+        // could not reach them and the focus stayed in the Info content ("Play, From Beginning"). The tabs are the system
+        // player's own row: they are reached the way a person does, Up from the panel's content onto the tab row, then Right
+        // once per tab. The note records the focused label after each press, and the panel's tree for the next fix.
+        hierarchy("24-player-info-panel", of: app)
         let tabNames: [String] = ["Episodes", "Playback Stats"]
-        note("24-player-info-panel-TABS", tabNames.map { "\($0): " + (waitFor($0, in: app, timeout: 3) ? "found" : "NOT FOUND") }.joined(separator: "\n"))
+        var tabLines: [String] = tabNames.map { "\($0) in the tree: " + (waitFor($0, in: app, timeout: 3) ? "found" : "NOT FOUND") }
+        XCUIRemote.shared.press(.up); sleep(1)
+        tabLines.append("after Up: focus on \(focusedLabel(in: app))")
         for (picture, tab) in [("24-player-episodes-tab", "Episodes"), ("24-player-stats-tab", "Playback Stats")] {
-            if focus(control(tab, in: app), in: app) { sleep(2); shot(picture) }
-            else { notReached(picture, "The \u{201C}\(tab)\u{201D} tab could not take the focus (focus on \(focusedLabel(in: app))).") }
+            XCUIRemote.shared.press(.right); sleep(2)
+            let now: String = focusedLabel(in: app)
+            tabLines.append("after Right toward \u{201C}\(tab)\u{201D}: focus on \(now)")
+            shot(picture)
         }
+        note("24-player-info-panel-TABS", tabLines.joined(separator: "\n"))
+        // R368, item 9(d): where test12 stops (run 8 took no 25, 26 or 27 picture and left no note saying why).
+        note("test12-progress", "24 done; next 25-player-audio-menu")
         // Back up to the transport bar (the info panel closes).
         for _ in 0..<2 { XCUIRemote.shared.press(.up); sleep(1) }
         // The audio and subtitle menus of the system player (two tracks each, English and French).
@@ -1649,6 +1662,7 @@ final class ScreenshotTests: XCTestCase {
             else { shot(number + "-missing") }
         }
 
+        note("test12-progress", "24, 25 and 26 done; next 27-player-next-episode")
         // Next Episode: play on to the end of the clip; the Up Next card names Sample Show 1 S01E02 ("The long way round").
         XCUIRemote.shared.press(.playPause)
         if waitFor("The long way round", in: app, timeout: 60) {
