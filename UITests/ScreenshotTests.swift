@@ -371,6 +371,26 @@ final class ScreenshotTests: XCTestCase {
         return false
     }
 
+    /// R388 follow-up (item 13 of the owner's review of the run on fd9731f): moves the focus to a CARD of Home's first
+    /// shelf. Since R388 Home opens with the focus on the featured title's Play, so a Select or a long press sent "from
+    /// launch" plays the title instead of opening a card's menu (08-card-long-press-go-to showed the failure alert).
+    /// First into the content (`focusContent`, for a run that still starts in the sidebar), then Down while the focus is
+    /// on the featured Play or More or anywhere inside the featured area. True when the focus is on something below it.
+    /// Nothing is selected here.
+    func focusFirstHomeCard(in app: XCUIApplication, maxPresses: Int = 4) -> Bool {
+        guard focusContent(in: app) else { return false }
+        let featured: XCUIElement = app.descendants(matching: .any).matching(identifier: "home.featured").firstMatch
+        for _ in 0...maxPresses {
+            let focused: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+            guard focused.exists else { return false }
+            let onFeaturedControl: Bool = focused.identifier == "control.featuredPlay" || focused.identifier == "control.featuredMore"
+            let inFeatured: Bool = featured.exists && featured.frame.contains(CGPoint(x: focused.frame.midX, y: focused.frame.midY))
+            if !onFeaturedControl && !inFeatured { return true }
+            XCUIRemote.shared.press(.down); usleep(600_000)
+        }
+        return false
+    }
+
     /// The label of the element that has the focus now ("none" when nothing has it), for NOT-REACHED reasons.
     func focusedLabel(in app: XCUIApplication) -> String {
         let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
@@ -765,9 +785,23 @@ final class ScreenshotTests: XCTestCase {
     /// "S1, E1" line above the episode's title, Play, and the row of the season's other episodes (its heading) below Play.
     /// Writes "<name>-EPISODE"; a missing part or one out of order fails the test (soft, the player steps still run).
     /// The hero picture (the episode's still) cannot be read from the tree and stays on the device checklist.
+    /// Item 7 of the owner's review of the run on fd9731f: the run reported "no title". The page's own container carries
+    /// the title as its label (`pushedScreen`), and the title text is a header, which the tree may not list as a static
+    /// text; so the title is any element with that label that is not the page itself (lower than half the window).
+    /// Also checked now: the season row starts on the first screen (it peeks under the hero), and the Information
+    /// heading, with the table of specs under it, does not.
     func episodePageCheck(_ name: String, code: String, title: String, season: String, in app: XCUIApplication) {
+        let window: CGRect = app.windows.firstMatch.frame
         let codeLine: XCUIElement = app.staticTexts[code]
-        let titleText: XCUIElement = app.staticTexts[title]
+        var titleText: XCUIElement = app.staticTexts[title]
+        if !titleText.exists {
+            for candidate in app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", title)).allElementsBoundByIndex.prefix(8)
+            where candidate.exists && candidate.frame.height > 0 && candidate.frame.height < window.height / 2 {
+                titleText = candidate
+                break
+            }
+        }
+        let information: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Information")).firstMatch
         let play: XCUIElement = app.descendants(matching: .any).matching(identifier: "control.play").firstMatch
         let row: XCUIElement = app.staticTexts[season]
         var lines: [String] = []
@@ -778,6 +812,13 @@ final class ScreenshotTests: XCTestCase {
         if row.exists { lines.append("“\(season)” row at y \(Int(row.frame.minY))") } else { problems.append("no row of the season's other episodes") }
         if codeLine.exists, titleText.exists, codeLine.frame.minY >= titleText.frame.minY { problems.append("the code line is not above the title") }
         if play.exists, row.exists, row.frame.minY <= play.frame.minY { problems.append("the season row is not below Play") }
+        if row.exists, window.height > 0, row.frame.minY >= window.maxY { problems.append("the season row does not show on the first screen") }
+        if information.exists, window.height > 0, information.frame.height > 0 {
+            lines.append("“Information” at y \(Int(information.frame.minY)) (window height \(Int(window.height)))")
+            if information.frame.minY < window.maxY { problems.append("Information, the table of specs, is on the first screen") }
+        } else {
+            lines.append("“Information”: not in the tree yet (below the first screen)")
+        }
         let verdict: String = problems.isEmpty ? "EPISODE PAGE OK" : "EPISODE PAGE PROBLEM: " + problems.joined(separator: "; ")
         lines.append(verdict)
         note(name + "-EPISODE", lines.joined(separator: "\n"))
@@ -817,6 +858,11 @@ final class ScreenshotTests: XCTestCase {
             lines.append("metadata line: not found by identifier")
             if rating != nil { problems.append("no metadata line to hold the rating") }
         }
+        // R391 (shared fault 1): badges of one line stand close together (`ScreenRules.badgeGaps`; the run on fd9731f
+        // measured 65 to 72 pt between them).
+        let gaps: CheckResult = ScreenRules.badgeGaps(badges: frames.map { (pair: (String, CGRect)) -> (String, AXRect) in (pair.0, AXRect(pair.1)) })
+        lines += gaps.lines
+        if !gaps.passed { problems.append(gaps.verdict) }
         let verdict: String = problems.isEmpty ? "BADGES NOT CUT" : "BADGES PROBLEM: " + problems.joined(separator: "; ")
         lines.append(verdict)
         note(name + "-BADGES", lines.joined(separator: "\n"))
@@ -1546,15 +1592,13 @@ final class ScreenshotTests: XCTestCase {
         else { notReached("50-home-rows", "No sample title appeared on Home within 60 s (the sample library did not load).") }
         // The card long-press menu on the focused Home card. #25 A3: the focus starts on the tab bar, so move it into the
         // content first, and wait for the menu's items before the picture.
-        if focusContent(in: app) {
-            // R349: the focus enters Home on the featured area's Play; one Down reaches the first shelf's card.
-            if app.descendants(matching: .any).matching(identifier: "home.featured").firstMatch.exists {
-                XCUIRemote.shared.press(.down); usleep(600_000)
-            }
+        // R388 follow-up (item 13): onto a card whatever has the focus now (the featured Play at launch, a card after the
+        // Down above); never a long press on Play.
+        if focusFirstHomeCard(in: app) {
             XCUIRemote.shared.press(.select, forDuration: 1.5)
             if waitForAny(["Mark as Watched", "Mark as Unwatched"], in: app) != nil { sleep(1); shot("52-card-long-press-menu") }
             else { notReached("52-card-long-press-menu", "The long-press menu did not open (no “Mark as Watched/Unwatched” item; focus on \(focusedLabel(in: app))).\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))") }
-        } else { notReached("52-card-long-press-menu", "The focus could not leave the tab bar for a card (focus on \(focusedLabel(in: app))).") }
+        } else { notReached("52-card-long-press-menu", "The focus could not be moved to a card of the first shelf (focus on \(focusedLabel(in: app))).") }
         app.terminate()
 
         // #36 group 1 d (R264): Sample Movie 7 (the long title, 20 % watched) is in Continue Watching; its wide card is focused,
@@ -1764,7 +1808,12 @@ final class ScreenshotTests: XCTestCase {
             app.terminate(); return
         }
         settle()
+        // Item 7 of the owner's review of the run on fd9731f: the run had no picture of the episode page. The first
+        // screen, the check, then the page scrolled once (Down from Play), and back up to Play.
+        shot("22-episode-page")
         episodePageCheck("22-episode-page", code: "S1, E1", title: "A quiet beginning", season: "Season 1", in: app)
+        XCUIRemote.shared.press(.down); sleep(1); shot("22-episode-page-scrolled-1")
+        XCUIRemote.shared.press(.up); sleep(1)
         // S01E01 is watched in the sample library, so its button says "Play Again" ("Play" matches it).
         guard open("Play", id: ControlID.play, in: app, name: "22-player-skip-intro") else { app.terminate(); return }
         // The clip is written on first use (a few seconds), then plays; Skip Intro shows from 2 s to 20 s.
@@ -2052,8 +2101,16 @@ final class ScreenshotTests: XCTestCase {
         let window: CGRect = app.windows.firstMatch.frame
         let result: CheckResult = ScreenRules.systemToolbar(items: items, expected: bar.map { $0.0 },
                                                             window: AXRect(window), firstContentY: card.exists ? Double(card.frame.minY) : nil)
-        note(name + "-GROUPS", result.text)
+        // R391 (shared fault 3): the three controls are the same size (`ScreenRules.equalSizes`; the run on fd9731f
+        // measured 108 x 66, 98 x 81 and 100 x 63). A focused control may be drawn larger, so the one with the focus is
+        // left out of the comparison.
+        let focusedElement: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        let focusedID: String = focusedElement.exists ? focusedElement.identifier : ""
+        let focusedName: String? = bar.first { (pair: (String, String)) -> Bool in pair.1 == focusedID }?.0
+        let sizes: CheckResult = ScreenRules.equalSizes(items: items.filter { (item: (String, AXRect)) -> Bool in item.0 != focusedName })
+        note(name + "-GROUPS", result.text + "\n" + sizes.text + (focusedName.map { "\n(focused, not compared: \($0))" } ?? ""))
         XCTAssertTrue(result.passed, "\(name): " + result.verdict)
+        XCTAssertTrue(sizes.passed, "\(name): " + sizes.verdict)
     }
 
     /// #33 I (R239): a vertical gap (`ScreenRules.gapBelow`), written as "<name>-GAP"; fails below `minimum`.
@@ -2098,10 +2155,11 @@ final class ScreenshotTests: XCTestCase {
         let app = launch("-UITestFixtures", tab: "home")
         if waitForScreen("screen.home", in: app), waitFor("Sample", in: app, timeout: 60) {
             settle()
-            // #25 A3: into the content first (the focus starts on the tab bar), then the long press; the picture waits
-            // for the menu's Go to item, so it shows the menu open.
-            guard focusContent(in: app) else {
-                notReached("08-card-long-press-go-to", "The focus could not leave the tab bar for a card (focus on \(focusedLabel(in: app)))."); app.terminate(); return
+            // #25 A3: onto a card first, then the long press; the picture waits for the menu's Go to item, so it shows
+            // the menu open. R388 follow-up (item 13): the focus starts on the featured Play since R388, and the long
+            // press there started playback (the run on fd9731f: this picture showed the playback failure alert).
+            guard focusFirstHomeCard(in: app) else {
+                notReached("08-card-long-press-go-to", "The focus could not be moved to a card of the first shelf (focus on \(focusedLabel(in: app)))."); app.terminate(); return
             }
             XCUIRemote.shared.press(.select, forDuration: 1.5)
             guard let label = waitForAny(["Go to Show", "Go to Movie"], in: app) else {

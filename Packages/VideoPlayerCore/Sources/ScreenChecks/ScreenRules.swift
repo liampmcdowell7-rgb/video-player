@@ -216,6 +216,55 @@ public enum ScreenRules {
         return CheckResult(passed: problems.isEmpty, lines: lines)
     }
 
+    // MARK: R391: the shared faults of the run on fd9731f
+
+    /// R391 (shared fault 1): badges of one line stand close together. `badges` are the frames of the "badge." elements
+    /// of a screen. Badges whose vertical centres are within 4 pt are one line; inside a line, read from the left, the
+    /// gap between two neighbours must be at most `maximum` (the run on fd9731f measured 60 to 72 pt; the app gives 8 and
+    /// 12 pt, `BadgeSpacing`, a little more at Larger Text). A lone badge passes. No badge at all passes too: whether a
+    /// screen must have badges is `badgesNotCutCheck`'s question.
+    public static func badgeGaps(badges: [(String, AXRect)], maximum: Double = 24) -> CheckResult {
+        var lines: [String] = []
+        var problems: [String] = []
+        var rows: [[(String, AXRect)]] = []
+        for badge in badges.sorted(by: { (a: (String, AXRect), b: (String, AXRect)) -> Bool in a.1.y < b.1.y }) {
+            let centre: Double = badge.1.y + badge.1.height / 2
+            if let last = rows.last?.first, abs(last.1.y + last.1.height / 2 - centre) <= 4 {
+                rows[rows.count - 1].append(badge)
+            } else {
+                rows.append([badge])
+            }
+        }
+        for row in rows {
+            let ordered: [(String, AXRect)] = row.sorted { (a: (String, AXRect), b: (String, AXRect)) -> Bool in a.1.x < b.1.x }
+            let gaps: [Double] = zip(ordered, ordered.dropFirst()).map { (pair: ((String, AXRect), (String, AXRect))) -> Double in
+                pair.1.1.x - pair.0.1.maxX
+            }
+            lines.append("line at y \(Int(ordered[0].1.y)): " + ordered.map { $0.0 }.joined(separator: " | ") + "; gaps \(gaps.map { Int($0.rounded()) })")
+            for (index, gap) in gaps.enumerated() where gap > maximum {
+                problems.append("“\(ordered[index].0)” and “\(ordered[index + 1].0)” are \(Int(gap.rounded())) pt apart (at most \(Int(maximum)))")
+            }
+        }
+        lines.append(problems.isEmpty ? "BADGE GAPS OK" : "BADGE GAPS PROBLEM: " + problems.joined(separator: "; "))
+        return CheckResult(passed: problems.isEmpty, lines: lines)
+    }
+
+    /// R391 (shared fault 3): controls of one kind side by side are the same size (the toolbar buttons of Movies and
+    /// Shows measured 108 x 66, 98 x 81 and 100 x 63 in the run on fd9731f). Every width and every height must be within
+    /// `tolerance` of the first control's. Fewer than two controls pass (nothing to compare).
+    public static func equalSizes(items: [(String, AXRect)], tolerance: Double = 1) -> CheckResult {
+        var lines: [String] = items.map { "\($0.0)\t\(Int($0.1.width.rounded())) x \(Int($0.1.height.rounded()))" }
+        var problems: [String] = []
+        if let first = items.first {
+            for item in items.dropFirst()
+            where abs(item.1.width - first.1.width) > tolerance || abs(item.1.height - first.1.height) > tolerance {
+                problems.append("“\(item.0)” is \(Int(item.1.width.rounded())) x \(Int(item.1.height.rounded())), “\(first.0)” is \(Int(first.1.width.rounded())) x \(Int(first.1.height.rounded()))")
+            }
+        }
+        lines.append(problems.isEmpty ? "EQUAL SIZES OK" : "EQUAL SIZES PROBLEM: " + problems.joined(separator: "; "))
+        return CheckResult(passed: problems.isEmpty, lines: lines)
+    }
+
     // MARK: C: menus (test16)
 
     /// #33 C: the items of an open menu: the Cells, MenuItems, Buttons and Switches that were not on screen before the menu

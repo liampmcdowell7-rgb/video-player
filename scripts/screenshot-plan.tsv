@@ -72,6 +72,8 @@ test10_SortingScreens	67-sorted-how-larger-text
 test10_SortingScreens	68-card-long-press-move-larger-text
 test10_SortingScreens	69-source-sort-by-filename-larger-text
 test10_SortingScreens	69-source-sort-by-filename-focused-larger-text
+test12_PlayerWithSampleClip	22-episode-page
+test12_PlayerWithSampleClip	22-episode-page-scrolled-1
 test12_PlayerWithSampleClip	22-player-skip-intro
 test12_PlayerWithSampleClip	23-player-controls
 test12_PlayerWithSampleClip	24-player-info-panel
