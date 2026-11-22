@@ -75,10 +75,30 @@ final class ScreenshotTests: XCTestCase {
     /// #36 group 5a: when the screen does not come (test12 of the third run of 20 Nov: "Timed out while evaluating UI query"
     /// on screen.series), a picture of the screen is kept BEFORE the test goes on to fail: "<test>-WAIT-<id>", taken with
     /// XCUIScreen (the display, no query on the app).
-    func waitForScreen(_ id: String, in app: XCUIApplication, timeout: TimeInterval = 30) -> Bool {
+    /// R396 (docs/AUDIT_VISUAL_TVAPP.md H2, SF9): `leavesSidebar`. A launch with `-UITestTab` or `-UITestOpen` shows a
+    /// page nobody chose in the sidebar, and the focus is still IN the sidebar, which therefore stays open over the page
+    /// in the picture (03, 30, 70, 75-search-discover-cards, 07-shows-toolbar-larger-text, 95: a fault of the test's
+    /// launch, since a person reaches those tabs by choosing them). When the screen is there and the focus is inside the
+    /// sidebar, one Right moves it into the page, as a person would, and a "SIDEBAR-AT-<screen>" note says so. Home's
+    /// launch check passes false: there the focus must be in the content without help (R388).
+    func waitForScreen(_ id: String, in app: XCUIApplication, timeout: TimeInterval = 30, leavesSidebar: Bool = true) -> Bool {
         let found: Bool = app.descendants(matching: .any).matching(identifier: id).firstMatch.waitForExistence(timeout: timeout)
         if !found { pictureOfTheScreen("WAIT-" + id) }
+        if found && leavesSidebar { leaveSidebar(for: id, in: app) }
         return found
+    }
+
+    /// See `waitForScreen`. Nothing is pressed with a tab bar, with no sidebar in the tree, or with the focus already in
+    /// the page.
+    func leaveSidebar(for id: String, in app: XCUIApplication) {
+        guard usesSidebar(app) else { return }
+        let chrome: XCUIElement = navigationChrome(in: app)
+        guard chrome.exists else { return }
+        let focused: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        guard focused.exists, chrome.frame.contains(CGPoint(x: focused.frame.midX, y: focused.frame.midY)) else { return }
+        let before: String = focused.label
+        XCUIRemote.shared.press(.right); usleep(700_000)
+        note("SIDEBAR-AT-" + id, "The focus was in the sidebar (on “\(before)”) when \(id) appeared; one Right moved it to \(focusedLabel(in: app)).")
     }
 
     /// The display as it is, saved as "<test>-<what>.png" (no app query, so it works while the app is hung).
@@ -792,7 +812,8 @@ final class ScreenshotTests: XCTestCase {
     /// heading, with the table of specs under it, does not.
     func episodePageCheck(_ name: String, code: String, title: String, season: String, in app: XCUIApplication) {
         let window: CGRect = app.windows.firstMatch.frame
-        let codeLine: XCUIElement = app.staticTexts[code]
+        // R396 (audit E1, E2): the code is in the small line above the title, after the show's name.
+        let codeLine: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", code)).firstMatch
         var titleText: XCUIElement = app.staticTexts[title]
         if !titleText.exists {
             for candidate in app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", title)).allElementsBoundByIndex.prefix(8)
@@ -1588,7 +1609,8 @@ final class ScreenshotTests: XCTestCase {
 
     func test04_LibraryScreens() {
         var app = launch("-UITestFixtures", tab: "home")
-        if waitForScreen("screen.home", in: app), waitFor("Sample", in: app, timeout: 60) { settle(); shot("50-home-rows"); homeFeaturedCheck("50-home-rows", in: app); sidebarLaunchCheck("50-home-launch", in: app); XCUIRemote.shared.press(.down); sleep(1); shot("51-home-rows-lower") }
+        // R388: no help out of the sidebar here; `sidebarLaunchCheck` must see where the focus really starts.
+        if waitForScreen("screen.home", in: app, leavesSidebar: false), waitFor("Sample", in: app, timeout: 60) { settle(); shot("50-home-rows"); homeFeaturedCheck("50-home-rows", in: app); sidebarLaunchCheck("50-home-launch", in: app); XCUIRemote.shared.press(.down); sleep(1); shot("51-home-rows-lower") }
         else { notReached("50-home-rows", "No sample title appeared on Home within 60 s (the sample library did not load).") }
         // The card long-press menu on the focused Home card. #25 A3: the focus starts on the tab bar, so move it into the
         // content first, and wait for the menu's items before the picture.
@@ -1837,14 +1859,19 @@ final class ScreenshotTests: XCTestCase {
         // player's own row: they are reached the way a person does, Up from the panel's content onto the tab row, then Right
         // once per tab. The note records the focused label after each press, and the panel's tree for the next fix.
         hierarchy("24-player-info-panel", of: app)
+        // R396 (docs/AUDIT_VISUAL_TVAPP.md PL3, a test fault): the run's pictures of both tabs showed the transport
+        // controls with Subtitles or Audio focused. The Up pressed here first left the tab row for the transport bar,
+        // and the two Rights then walked along its round buttons. Apple's picture of the controls (A4) has the tabs as
+        // capsules right under the scrub bar, so Down from the bar lands ON the tab row: no Up now, only Right once per
+        // tab, and Select when the focus says it is on that tab (never on anything else).
         let tabNames: [String] = ["Episodes", "Playback Stats"]
         var tabLines: [String] = tabNames.map { "\($0) in the tree: " + (waitFor($0, in: app, timeout: 3) ? "found" : "NOT FOUND") }
-        XCUIRemote.shared.press(.up); sleep(1)
-        tabLines.append("after Up: focus on \(focusedLabel(in: app))")
+        tabLines.append("after Down: focus on \(focusedLabel(in: app))")
         for (picture, tab) in [("24-player-episodes-tab", "Episodes"), ("24-player-stats-tab", "Playback Stats")] {
             XCUIRemote.shared.press(.right); sleep(2)
             let now: String = focusedLabel(in: app)
             tabLines.append("after Right toward \u{201C}\(tab)\u{201D}: focus on \(now)")
+            if now.contains(tab) { XCUIRemote.shared.press(.select); sleep(2); tabLines.append("Select on \u{201C}\(tab)\u{201D}") }
             shot(picture)
         }
         note("24-player-info-panel-TABS", tabLines.joined(separator: "\n"))
