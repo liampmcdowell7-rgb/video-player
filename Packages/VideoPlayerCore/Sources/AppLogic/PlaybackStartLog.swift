@@ -102,26 +102,70 @@ public struct PlaybackProblem: Codable, Equatable, Sendable {
     /// The error, already redacted.
     public var error: String
     public var at: Date
+    /// R386: the system player's error (domain, code, underlying errors), already redacted; nil when there was none.
+    /// Optional, so a problem stored by an earlier version still decodes.
+    public var player: PlayerErrorReport?
+    /// R386: the player's last events, newest last, already redacted; nil or empty when the player never opened.
+    public var events: [PlaybackEvent]?
 
-    public init(step: PlaybackStep, sourceKind: String?, container: String?, codecs: String?, error: String, at: Date) {
+    public init(step: PlaybackStep, sourceKind: String?, container: String?, codecs: String?, error: String, at: Date,
+                player: PlayerErrorReport? = nil, events: [PlaybackEvent]? = nil) {
         self.step = step
         self.sourceKind = sourceKind
         self.container = container
         self.codecs = codecs
         self.error = error
         self.at = at
+        self.player = player
+        self.events = events
     }
 
-    /// The rows of the diagnostic section, label and value; unknown values say "Not known".
+    /// R386: the last event the player reported, with its time.
+    public var lastEvent: PlaybackEvent? { events?.last }
+
+    /// The rows of the diagnostic section, label and value; unknown values say "Not known". The error text is last.
     public var rows: [(label: String, value: String)] {
         [("Step", step.title),
          ("Source", sourceKind ?? Self.notKnown),
          ("Container", container ?? Self.notKnown),
          ("Codecs", codecs ?? Self.notKnown),
+         ("Error Code", player?.codeLine ?? Self.notKnown),
+         ("Underlying Error", player?.underlyingText ?? Self.notKnown),
+         ("Last Event", lastEvent?.line() ?? Self.notKnown),
          ("Error", error)]
     }
 
+    /// R386: the lines under the failure's sentence on the failure screen, in plain text the owner can photograph: the
+    /// system player's error domain and code, its message, each underlying error, and the last event with its time.
+    public func screenLines(timeZone: TimeZone = .current) -> [String] {
+        var lines: [String] = []
+        if let player {
+            lines.append("Error: " + player.codeLine)
+            if !player.message.isEmpty { lines.append("Message: " + player.message) }
+            for inner in player.underlying { lines.append("Underlying: " + inner) }
+        }
+        if let last = lastEvent { lines.append("Last event: " + last.line(timeZone: timeZone)) }
+        lines.append("Step: " + step.title)
+        return lines
+    }
+
+    /// R386: everything known, for the full report page in Settings (the recent events oldest first).
+    public func fullText(timeZone: TimeZone = .current) -> String {
+        var out = rows.map { "\($0.label): \($0.value)" }
+        if let player, !player.message.isEmpty { out.append("Player Message: " + player.message) }
+        let recent = events ?? []
+        if !recent.isEmpty {
+            out.append("")
+            out.append("Recent Events:")
+            out += recent.map { $0.line(timeZone: timeZone) }
+        }
+        out.append("")
+        out.append("Recorded: " + PlaybackEvent.time(at, timeZone: timeZone))
+        return out.joined(separator: "\n")
+    }
+
     public static let notKnown = "Not known"
+    public static let fullReportTitle = "Full Problem Report"
     public static let sectionTitle = "Last Playback Problem"
     public static let noneText = "No playback problem recorded on this Apple TV."
     public static let storageKey = "lastPlaybackProblem"
@@ -212,13 +256,25 @@ public final class PlaybackStartTracker: @unchecked Sendable {
 
     /// The problem for a failure at the running step. `detail` is the underlying error's own text, when it says more than
     /// the failure's sentence.
-    public func problem(_ failure: PlaybackFailure, detail: String? = nil, at date: Date = Date()) -> PlaybackProblem {
+    /// R386: `player` and `events` are kept too, every string redacted the same way.
+    public func problem(_ failure: PlaybackFailure, detail: String? = nil, player: PlayerErrorReport? = nil,
+                        events: [PlaybackEvent] = [], at date: Date = Date()) -> PlaybackProblem {
         lock.withLock {
             var text = failure.message
             if let detail, !detail.isEmpty, !text.contains(detail) { text += " (" + detail + ")" }
+            let secrets = self.secrets
+            let clean: (String) -> String = { PlaybackRedaction.redact($0, secrets: secrets) }
+            var kept = events
+            for i in kept.indices { kept[i].name = clean(kept[i].name) }
             return PlaybackProblem(step: current, sourceKind: sourceKind, container: container, codecs: codecs,
-                                   error: PlaybackRedaction.redact(text, secrets: secrets), at: date)
+                                   error: clean(text), at: date, player: player?.mapped(clean),
+                                   events: kept.isEmpty ? nil : kept)
         }
+    }
+
+    /// R386: the problem for `diagnostics` (the player's report and events).
+    public func problem(_ failure: PlaybackFailure, diagnostics: PlaybackDiagnostics, at date: Date = Date()) -> PlaybackProblem {
+        problem(failure, detail: diagnostics.detail, player: diagnostics.player, events: diagnostics.events, at: date)
     }
 
     /// Codec names joined for the row ("HEVC, E-AC-3"), empty names left out, each name once.

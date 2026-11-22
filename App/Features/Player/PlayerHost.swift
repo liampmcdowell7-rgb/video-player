@@ -12,8 +12,9 @@ struct PlayerHost: UIViewControllerRepresentable {
     let tracker: PlaybackStartTracker
     var onExit: () -> Void
     /// Called when the player item fails after it was handed over, or a step of its start runs past its limit; the screen
-    /// shows the reason. The second value is the system's own error text, for the diagnostic row (R311).
-    var onFailure: (PlaybackFailure, String?) -> Void = { _, _ in }
+    /// shows the reason. The second value is what the system player said (R311) and, R386, its error domain, code,
+    /// underlying errors and last events.
+    var onFailure: (PlaybackFailure, PlaybackDiagnostics) -> Void = { _, _ in }
     /// R340: play another item in place of this one (Up Next, the Episodes tab).
     var onPlayItem: (Int64) -> Void = { _ in }
 

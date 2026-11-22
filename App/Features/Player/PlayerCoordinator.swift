@@ -73,10 +73,22 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     private var noticeShown = false
     /// R316: the background reading of this episode's and the next one's audio (cancelled when playback stops).
     private var learning: Task<Void, Never>?
+    /// R386: what the player did, newest last, for the failure screen and Settings (the last event with its time).
+    private let events = PlaybackEventLog()
+    /// R386: when the player got the file (system uptime), for "n s after the player opened".
+    private var openedAt: TimeInterval = ProcessInfo.processInfo.systemUptime
+    /// R386: the playhead when play was asked for; the start counts as playing once it moves on (`PlaybackStartProgress`).
+    private var positionAtPlay: Double?
+    /// R386: the error of `failedToPlayToEndTimeNotification`, when the system posted one.
+    private var endReport: PlayerErrorReport?
+    private var stallObserver: NSObjectProtocol?
+    private var failedEndObserver: NSObjectProtocol?
+    private var errorLogObserver: NSObjectProtocol?
 
     /// Called once when the player item fails after it was handed over, or a step of the start runs past its limit (the
-    /// screen shows the reason). The second value is the system's own error text for the diagnostic row (R311).
-    var onFailure: (PlaybackFailure, String?) -> Void = { _, _ in }
+    /// screen shows the reason). The second value holds the system's own error text for the diagnostic row (R311) and,
+    /// R386, the player's error domain, code and underlying errors and its last events.
+    var onFailure: (PlaybackFailure, PlaybackDiagnostics) -> Void = { _, _ in }
     /// R340: play another library item in place of this one (Up Next accepted, or an episode chosen in the Episodes tab).
     /// The screen ends this playback (`stop`, which saves the position and tells the watch sync) and starts the next.
     var onPlayItem: (Int64) -> Void = { _ in }
@@ -151,6 +163,8 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         try? AVAudioSession.sharedInstance().setActive(true)
         // R311: from here the item must become ready within its limit (checked once a second in `everySecond`).
         tracker.enter(.playerReady)
+        openedAt = ProcessInfo.processInfo.systemUptime
+        record("The player got the file")
         // `.initial`: a status the item reached before this line is seen too (R311).
         statusObservation = item.observe(\.status, options: [.initial, .new]) { [weak self] _, _ in
             Task { @MainActor [weak self] in self?.itemStatusChanged() }
@@ -176,6 +190,58 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         selectionObserver = NotificationCenter.default.addObserver(forName: AVPlayerItem.mediaSelectionDidChangeNotification, object: self.item, queue: .main) { [weak self] _ in
             Task { @MainActor [weak self] in await self?.selectionChanged() }
         }
+        // R386: recorded only, so the failure report says what the player did last; none of them changes playback.
+        // Apple: playbackStalledNotification is posted when "media doesn't arrive in time to continue playback";
+        // "Streaming-media playback continues ... File-based playback doesn't continue."
+        stallObserver = NotificationCenter.default.addObserver(forName: AVPlayerItem.playbackStalledNotification, object: self.item, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.record("Stalled: the media did not arrive in time") }
+        }
+        // Apple: failedToPlayToEndTimeNotification, its error under AVPlayerItemFailedToPlayToEndTimeErrorKey.
+        failedEndObserver = NotificationCenter.default.addObserver(forName: AVPlayerItem.failedToPlayToEndTimeNotification, object: self.item, queue: .main) { [weak self] note in
+            let report = (note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? NSError).map(PlayerErrorReport.init)
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.endReport = report
+                self.record("Failed to play to the end" + (report.map { ": " + $0.codeLine } ?? ""))
+            }
+        }
+        errorLogObserver = NotificationCenter.default.addObserver(forName: AVPlayerItem.newErrorLogEntryNotification, object: self.item, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, let entry = self.item.errorLog()?.events.last else { return }
+                self.record("Error log: " + PlayerErrorReport.line(domain: entry.errorDomain, code: entry.errorStatusCode,
+                                                                   message: entry.errorComment ?? ""))
+            }
+        }
+    }
+
+    /// R386: one event of this playback, with the playhead and the seconds since the player got the file.
+    private func record(_ name: String) {
+        let position = player.currentTime().seconds
+        events.record(name, position: position.isFinite ? position : nil,
+                      elapsed: ProcessInfo.processInfo.systemUptime - openedAt)
+    }
+
+    /// R386: the start is over once the player plays or the playhead moved on since play was asked for. Before, only a
+    /// CHANGE of the play state seen after `play()` ended it: a player already playing by then (Play pressed during the
+    /// move to the saved position) sent none, and the 30-second limit of "Starting playback" ended a playing video.
+    private func markPlayingIfStarted() {
+        guard !stopped, tracker.step.step == .startPlaying else { return }
+        let position = player.currentTime().seconds
+        guard PlaybackStartProgress.hasStarted(isPlaying: player.timeControlStatus == .playing, positionAtPlay: positionAtPlay,
+                                               position: position.isFinite ? position : nil) else { return }
+        tracker.enter(.playing)
+        record("Playing")
+    }
+
+    /// R386: the play state as the event log says it, with the system's reason for waiting.
+    private var playStateText: String {
+        switch player.timeControlStatus {
+        case .playing: return "Play state: playing"
+        case .paused: return "Play state: paused"
+        case .waitingToPlayAtSpecifiedRate:
+            return "Play state: waiting" + (player.reasonForWaitingToPlay.map { " (\($0.rawValue))" } ?? "")
+        @unknown default: return "Play state: \(player.timeControlStatus.rawValue)"
+        }
     }
 
     /// Runs once, when the item is ready to play (R311): the move to the saved position, play, then everything that may wait.
@@ -183,12 +249,18 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         let start = resolved.startAt
         if start > 1 {
             tracker.enter(.resumeSeek)
+            record("Moving to the saved position " + PlaybackEvent.clock(start))
             _ = await player.seek(to: CMTime(seconds: start, preferredTimescale: 600),
                                   toleranceBefore: CMTime(seconds: 2, preferredTimescale: 600), toleranceAfter: .zero)
             guard !stopped, !failed else { return }
         }
         tracker.enter(.startPlaying)
+        let here = player.currentTime().seconds
+        positionAtPlay = here.isFinite ? here : nil
+        record("Play asked for")
         player.play()
+        // R386: a player that was already playing sends no change of play state; check now as well.
+        markPlayingIfStarted()
         // The poster may need a download; it runs on its own so the skip button and Up Next set-up below never wait for it.
         Task { @MainActor [weak self] in await self?.addArtworkToMetadata() }
         // R319: the content rating may need the online details too, so it is added the same way, on its own.
@@ -204,6 +276,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
 
     private func playStateChanged() {
         guard !stopped else { return }
+        record(playStateText)
         // Playing, or paused after play was asked for (the person paused): the start is over and has no limit any more.
         if player.timeControlStatus != .waitingToPlayAtSpecifiedRate, tracker.step.step == .startPlaying { tracker.enter(.playing) }
         reportTimeline()
@@ -212,6 +285,8 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     /// The one-second clock: the time limit of the running start step (R311), then the timeline for the watch sync (R309).
     private func everySecond() {
         guard !stopped, !failed else { return }
+        // R386: a video that is playing or moving is past its start, whatever change of play state was or was not seen.
+        markPlayingIfStarted()
         let step = tracker.step.step
         if step != .playing, tracker.isOverdue {
             report(PlaybackFailures.startTimedOut(step, seconds: PlaybackStartDeadline.limit(for: step) ?? 0))
@@ -224,9 +299,23 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     private func report(_ failure: PlaybackFailure) {
         guard !stopped, !failed else { return }
         failed = true
+        // R386: read before the pause below adds an event of its own.
+        let diagnostics = PlaybackDiagnostics(detail: playerDetail, player: playerReport, events: events.recent)
         item.cancelPendingSeeks()
         player.pause()
-        onFailure(failure, playerDetail)
+        onFailure(failure, diagnostics)
+    }
+
+    /// R386: the system player's error for the failure screen: the item's error, else the one posted with
+    /// `failedToPlayToEndTimeNotification`, else the newest entry of the item's error log; nil when there is none (a step
+    /// of the start past its limit).
+    private var playerReport: PlayerErrorReport? {
+        if let error = item.error as NSError? { return PlayerErrorReport(error) }
+        if let endReport { return endReport }
+        if let entry = item.errorLog()?.events.last {
+            return PlayerErrorReport(domain: entry.errorDomain, code: entry.errorStatusCode, message: entry.errorComment ?? "")
+        }
+        return nil
     }
 
     /// What the system player said about the problem, for the diagnostic row (tokens are removed by the tracker).
@@ -247,7 +336,9 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         playStateObservation?.invalidate()
         timelineTimer?.invalidate()
         if let timeObserver { player.removeTimeObserver(timeObserver) }
-        for token in [endObserver, jumpObserver, selectionObserver] { if let token { NotificationCenter.default.removeObserver(token) } }
+        for token in [endObserver, jumpObserver, selectionObserver, stallObserver, failedEndObserver, errorLogObserver] {
+            if let token { NotificationCenter.default.removeObserver(token) }
+        }
         player.pause()
         learning?.cancel()
         _ = overlay?.stopped()
@@ -265,6 +356,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         guard seconds.isFinite, !stopped else { return }
         let wholeSecondBefore = Int(lastPosition)
         lastPosition = seconds
+        markPlayingIfStarted()
         pictureOverlay?.tick(seconds)
         showImportantNoticeIfNeeded()
         // Everything below runs once a second, as before the quarter-second clock was needed for picture subtitles.
@@ -290,6 +382,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
 
     private func jumped() {
         guard !stopped else { return }
+        record("Time jumped")
         pictureOverlay?.didSeek()
         let seconds = player.currentTime().seconds
         if seconds.isFinite { _ = overlay?.playhead(seconds, kind: .seek) }
@@ -297,6 +390,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
 
     private func finished() {
         guard !stopped else { return }
+        record("Played to the end")
         let id = itemID
         let services = self.services
         Task { await services.setWatched(id, true) }
@@ -316,6 +410,11 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
 
     private func itemStatusChanged() {
         guard !stopped, !failed else { return }
+        switch item.status {
+        case .readyToPlay: record("Item status: ready to play")
+        case .failed: record("Item status: failed" + ((item.error as NSError?).map { ": \($0.domain) \($0.code)" } ?? ""))
+        default: record("Item status: \(item.status.rawValue)")
+        }
         switch item.status {
         case .failed:
             report(Self.failure(for: item.error))

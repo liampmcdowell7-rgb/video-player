@@ -91,7 +91,9 @@ final class PlaybackStartLogTests: XCTestCase {
         XCTAssertTrue(problem.error.hasPrefix(failure.message))
         XCTAssertFalse(problem.error.contains("abcd1234token"))
         XCTAssertTrue(problem.error.contains(PlaybackRedaction.placeholder))
-        XCTAssertEqual(problem.rows.map(\.label), ["Step", "Source", "Container", "Codecs", "Error"])
+        // R386: the player's error code, its underlying errors and the last event joined the rows; the error text stays last.
+        XCTAssertEqual(problem.rows.map(\.label), ["Step", "Source", "Container", "Codecs", "Error Code", "Underlying Error",
+                                                   "Last Event", "Error"])
     }
 
     func testDescribeKeepsWhatWasKnownAndUnknownSaysSo() {

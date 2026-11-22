@@ -24,6 +24,8 @@ struct PlayerScreen: View {
     @State private var start = PlayerStartModel()
     /// Set when the screen went away; nothing is shown after that.
     @State private var closed = false
+    /// R386: the problem behind the alert, whose lines (error domain and code, underlying errors, last event) the alert shows.
+    @State private var problem: PlaybackProblem?
 
     private var current: PlayRequest { playing ?? request }
 
@@ -47,8 +49,11 @@ struct PlayerScreen: View {
                 }
                 Button("Done", role: .cancel) { dismiss() }
             } message: { failure in
-                // R313: an episode's error starts with which episode it was ("Show · S1, E3 · Name").
-                Text([start.tracker.itemLine, failure.text].compactMap { $0 }.joined(separator: "\n\n"))
+                // R313: an episode's error starts with which episode it was ("Show · S1, E3 · Name"). R386: then the system
+                // player's error domain and code, its underlying errors and the last event with its time, as plain text
+                // the owner can read off the TV and photograph.
+                let details: String? = problem.map { $0.screenLines().joined(separator: "\n") }
+                Text([start.tracker.itemLine, failure.text, details].compactMap { $0 }.joined(separator: "\n\n"))
             }
             .onDisappear { closed = true }
     }
@@ -63,11 +68,11 @@ struct PlayerScreen: View {
         case .ready(let resolved):
             PlayerHost(resolved: resolved, itemID: current.itemID, services: services, tracker: start.tracker,
                        onExit: { dismiss() },
-                       onFailure: { failure, detail in
+                       onFailure: { failure, diagnostics in
                            // The player stopped by itself (a stream the decoder rejected, a step past its limit): the reason
                            // replaces the black screen.
                            resolved.remux?.stop()
-                           fail(failure, detail: detail)
+                           fail(failure, diagnostics: diagnostics)
                        },
                        onPlayItem: { next in
                            // R340: this player is taken down (its coordinator stops: position saved, watch sync told),
@@ -92,13 +97,16 @@ struct PlayerScreen: View {
     }
 
     /// Keeps the problem for Settings > Playback and shows the reason here (never a silent close while the screen is up).
-    private func fail(_ failure: PlaybackFailure, detail: String? = nil) {
-        PlaybackProblemLog.save(start.tracker.problem(failure, detail: detail))
+    private func fail(_ failure: PlaybackFailure, diagnostics: PlaybackDiagnostics = PlaybackDiagnostics()) {
+        let kept = start.tracker.problem(failure, diagnostics: diagnostics)
+        PlaybackProblemLog.save(kept)
         guard PlaybackFailurePolicy.shows(failure, screenClosed: closed) else { return }
+        problem = kept
         phase = .failed(failure)
     }
 
     private func tryAgain() {
+        problem = nil
         playing = PlayRequest(itemID: current.itemID, fromStart: current.fromStart)
         phase = .loading
     }
@@ -127,7 +135,11 @@ struct PlayerScreen: View {
             tracker.enter(.openPlayer)
             phase = .ready(resolved)
         case .failed(let error):
-            fail(PlaybackFailureMapper.failure(for: error), detail: Self.detail(of: error))
+            // R386: an error of the system or a source (not one of the app's plain failures) is shown with its domain,
+            // code and underlying errors too.
+            let plain = error is PlaybackFailure || error is PlaybackError
+            fail(PlaybackFailureMapper.failure(for: error),
+                 diagnostics: PlaybackDiagnostics(detail: Self.detail(of: error), player: plain ? nil : PlayerErrorReport(error as NSError)))
         case .overdue(let step, let seconds):
             fail(PlaybackFailures.startTimedOut(step, seconds: seconds))
         }
