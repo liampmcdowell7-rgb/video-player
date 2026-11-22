@@ -48,6 +48,8 @@ struct PlayerEpisodesPanel: View {
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal)
+                            // R393: the row's equal height is reserved by the text block, under its last line.
+                            .equalCaptionBlock()
                         }
                     }
                     .buttonStyle(.borderless)

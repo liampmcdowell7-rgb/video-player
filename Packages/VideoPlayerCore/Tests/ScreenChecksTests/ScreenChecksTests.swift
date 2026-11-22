@@ -529,8 +529,15 @@ final class ScreenChecksTests: XCTestCase {
         XCTAssertTrue(caption.contains("oneLine(TVTextStyle.caption2)"), "the caption does not try one line at the floor next")
         XCTAssertFalse(caption.contains("@State private var natural"), "the caption still switches on a measured state (R354)")
         XCTAssertTrue(caption.contains("TVTextStyle.caption2.font"), "the wrapped caption is not at the floor size (Caption 2)")
-        XCTAssertTrue(caption.contains(".frame(minHeight: reserved"), "the caption does not take the row's reserved height")
-        XCTAssertTrue(caption.contains(".preference(key: CaptionHeightKey.self"), "the caption does not report its height")
+        // R393 (item 6 c): the card's whole text block reserves the row's height, not the title alone, so a short title
+        // has no gap before the line under it.
+        XCTAssertFalse(caption.contains(".frame(minHeight: reserved"), "the title alone still reserves the row's height (a gap under a short title)")
+        let blockStart: String.Index = try XCTUnwrap(poster.range(of: "struct EqualCaptionBlock: ViewModifier {")?.lowerBound, "no EqualCaptionBlock")
+        let block: String = String(try XCTUnwrap(Self.braceBody(of: poster, after: blockStart), "the EqualCaptionBlock body"))
+        XCTAssertTrue(block.contains(".frame(minHeight: reserved"), "the text block does not take the row's reserved height")
+        XCTAssertTrue(block.contains(".preference(key: CaptionHeightKey.self"), "the text block does not report its height")
+        XCTAssertTrue(poster.contains(".equalCaptionBlock()"), "the Continue Watching card's text block reserves no height")
+        XCTAssertTrue(seasons.contains(".equalCaptionBlock()"), "the episode card's text block reserves no height")
         XCTAssertTrue(seasons.contains(".equalCaptionRow()"), "the season rows do not reserve one caption height")
         XCTAssertTrue(row.contains(".equalCaptionRow()"), "the Home rows do not reserve one caption height")
         XCTAssertEqual(seasons.components(separatedBy: ".fixedSize(horizontal: false, vertical: true)").count - 1, 1, "the episode still's height is not fixed")

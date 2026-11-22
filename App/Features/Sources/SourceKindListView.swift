@@ -19,8 +19,10 @@ struct SourceKindListView: View {
     var body: some View {
         TaskPage(title: "Add a Source", summary: SourceSetupText.listSummary) {
             Section("Find on Your Network") {
+                // R391 (shared fault 2): no row of this page has a symbol (before, this row and Learn More had one and
+                // the source types had none, so the titles started at two places).
                 NavigationLink(value: SetupRoute.discovery) {
-                    RowLabel("Search Your Network", systemImage: "wifi")
+                    FittingText("Search Your Network")
                 }
                 .accessibilityIdentifier(ControlID.searchYourNetwork)
             }
@@ -50,7 +52,7 @@ struct SourceKindListView: View {
                 NavigationLink {
                     SourceTypesAboutView(kinds: kinds)
                 } label: {
-                    SlotLabel(SourceSetupText.learnMoreTitle, systemImage: "info.circle")
+                    FittingText(SourceSetupText.learnMoreTitle)
                 }
                 .accessibilityIdentifier(ControlID.learnMore)
                 // #36 S-C (R255): a bezeled button, not a row; plain bordered (nothing on this page is the main action).

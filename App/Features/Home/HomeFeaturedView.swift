@@ -19,13 +19,13 @@ struct HomeFeaturedView: View {
         VStack(alignment: .leading) {
             // The title logo when there is one (Settings > Accessibility "Title Logos"), the name otherwise (TitleHeader).
             TitleHeader(title: featured.card.title, artworkKey: featured.titleArtworkKey)
-            HStack {
-                FittingLine(line: featured.metadata, style: .callout)
-                    .foregroundStyle(ReadableSecondary.style)
-                // R371: the content rating after the metadata, as on the title's page.
-                if let rating {
-                    RatingBadge(rating: rating)
-                }
+            // R391 (shared fault 1): the rating badge sits right after the metadata (`BadgeSpacing`). Before, the line
+            // took the whole width (`FittingLine` fills it to measure itself) and pushed the badge to the far edge.
+            // The system picks the first that fits: the line at its own width with the badge after it, else the line
+            // filling the width and shrinking or dropping parts (rule S1).
+            ViewThatFits(in: .horizontal) {
+                metadataLine(ownWidth: true)
+                metadataLine(ownWidth: false)
             }
             // #25 B5: one height for the row's buttons (ActionRow), the system Label in each (ActionLabel).
             ActionRow {
@@ -43,6 +43,11 @@ struct HomeFeaturedView: View {
                 .buttonStyle(.bordered)
                 .accessibilityIdentifier(ControlID.featuredMore)
             }
+            // R393 (item 9 of the owner's review of the run on fd9731f; PROVISIONAL): room between the buttons and the
+            // first shelf's heading, which stood 20 pt under them. The same 40 pt as under the buttons of a movie or
+            // show page (`DetailPageLayout.belowActions`, R239). The sample gives no number for it: its header is a
+            // stack filling 0.8 of the height with the buttons inside.
+            .padding(.bottom, DetailPageLayout.belowActions)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         .containerRelativeFrame(.vertical) { (length: CGFloat, _: Axis) -> CGFloat in
@@ -59,6 +64,18 @@ struct HomeFeaturedView: View {
         // sidebar, which expands, and nothing moved it to the page. The first featured title right after launch asks for it.
         .task {
             if HomeLaunchFocus.state.claim(at: ProcessInfo.processInfo.systemUptime) { playFocused = true }
+        }
+    }
+
+    private func metadataLine(ownWidth: Bool) -> some View {
+        HStack(spacing: CGFloat(BadgeSpacing.betweenGroups)) {
+            FittingLine(line: featured.metadata, style: .callout)
+                .foregroundStyle(ReadableSecondary.style)
+                .fixedSize(horizontal: ownWidth, vertical: false)
+            // R371: the content rating after the metadata, as on the title's page.
+            if let rating {
+                RatingBadge(rating: rating)
+            }
         }
     }
 

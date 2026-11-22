@@ -56,11 +56,18 @@ extension View {
 }
 
 /// #32 D (R233), R375: a toolbar control shown as its SF Symbol only, the system's own icon-only label style. The title is
-/// still the label's text, so VoiceOver and the UI tests find the control by name. No frame of our own (R258's equal width
-/// is gone with `EqualWidthHStack`).
+/// still the label's text, so VoiceOver and the UI tests find the control by name.
+/// R391 (owner's review of the run on fd9731f, shared fault 3; PROVISIONAL): every toolbar control draws its symbol in the
+/// SAME text-scaled square (`SymbolSlot.body`), so the three controls have one size. Cause of the fault: each control was
+/// as large as its own symbol, and the three symbols have different shapes (the run measured 108 x 66, 98 x 81 and
+/// 100 x 63, further apart at Larger Text). The square is the one frame of ours here; no Apple page gives a way to make
+/// toolbar items equal, and the app's own rule is "elements side by side have equal size". The spacing between the
+/// controls and their place stay the system's (`ToolbarItemGroup`, `.primaryAction`); the 60 pt between them in the run
+/// is the system's own spacing.
 struct ToolbarSymbol: View {
     let title: String
     let systemImage: String
+    @ScaledMetric(relativeTo: .body) private var side: CGFloat = SymbolSlot.body
 
     init(_ title: String, systemImage: String) {
         self.title = title
@@ -68,8 +75,13 @@ struct ToolbarSymbol: View {
     }
 
     var body: some View {
-        Label(title, systemImage: systemImage)
-            .labelStyle(.iconOnly)
+        Label {
+            Text(title)
+        } icon: {
+            Image(systemName: systemImage)
+                .frame(width: side, height: side) // design-lint:allow R391: one text-scaled square for every toolbar symbol, so controls side by side are the same size (the equal-size rule)
+        }
+        .labelStyle(.iconOnly)
     }
 }
 
@@ -84,6 +96,10 @@ struct GridCountLine: View {
             FittingText(count)
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier(ControlID.gridCount)
+                // R392 (item 4 of the owner's review of the run on fd9731f): room under the count for the focused card
+                // of the first row, which grew over it. No Apple page gives this gap; AppLogic
+                // `ProductPageSpacing.aboveFirstGridRow` derives it from HIG Layout's 100 pt between grid rows.
+                .padding(.bottom, CGFloat(ProductPageSpacing.aboveFirstGridRow))
         }
     }
 }

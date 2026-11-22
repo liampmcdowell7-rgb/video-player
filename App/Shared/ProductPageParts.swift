@@ -23,8 +23,10 @@ struct ProductMetadataLine: View {
         .accessibilityIdentifier("product.metadataLine")
     }
 
+    /// R391: the text, the rating and the badges are ONE tight group at the leading edge (`BadgeSpacing`), not the
+    /// system's default stack spacing, which is wide on tvOS (the run on fd9731f: 60 to 72 pt between the parts).
     private func line(_ shown: [FormatBadgeItem]) -> some View {
-        HStack {
+        HStack(spacing: CGFloat(BadgeSpacing.betweenGroups)) {
             if !facts.isEmpty {
                 FittingText(facts, style: .callout)
                     .foregroundStyle(ReadableSecondary.style)
@@ -39,14 +41,18 @@ struct ProductMetadataLine: View {
 
 /// R373 (owner's review of R370, 21 Nov 2026, option a): the badges side by side, the groups told apart only by their
 /// order (resolution, HDR, audio and channels, video codec, container; `FormatBadges.all`) and by a wider gap where one
-/// group ends and the next begins. Inside a group the system's default spacing of an `HStack`; between groups that
-/// spacing plus `groupGap`, which scales with the text size.
+/// group ends and the next begins.
+/// R391 (owner's review of the run on fd9731f, shared fault 1; PROVISIONAL): the spacing is given (AppLogic
+/// `BadgeSpacing`: 8 pt inside a group, 12 pt between groups), each badge at its own width, the row as wide as its
+/// badges. Before, the `HStack` gave no spacing, so it took the system's default, which is wide on tvOS: the run measured
+/// 65 to 72 pt between badges, and on a card "4K" and "Dolby Vision" ended at opposite edges. There was no `Spacer`,
+/// `maxWidth: .infinity` or equal-width slot in the row; the spacing alone spread it.
 struct BadgeGroups: View {
     let badges: [FormatBadgeItem]
-    @ScaledMetric(relativeTo: .caption) private var groupGap: CGFloat = 12
+    @ScaledMetric(relativeTo: .caption) private var groupGap: CGFloat = CGFloat(BadgeSpacing.groupExtra)
 
     var body: some View {
-        HStack {
+        HStack(spacing: CGFloat(BadgeSpacing.inGroup)) {
             ForEach(Array(badges.enumerated()), id: \.element) { (index: Int, badge: FormatBadgeItem) in
                 FormatBadge(item: badge)
                     .padding(.leading, index > 0 && Self.startsGroup(badge, after: badges[index - 1]) ? groupGap : 0)

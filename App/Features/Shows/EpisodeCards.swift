@@ -88,17 +88,25 @@ struct EpisodeCard: View {
             // #25 B7: always "S2, E1 · Title" (R358: the player's form) (the title is "Episode 1" when the file names none, never the code again).
             // #36 group 4 (R264): shrinks to the floor, then wraps, never cut; the row's tallest caption height.
             CardCaption(text: episode.code + " · " + episode.title)
-            HStack {
+            // R391 (shared fault 1): one tight group at the leading edge (`BadgeSpacing`). Before: an `HStack` at the
+            // system's default spacing (the run on fd9731f: "43 min" and "1080p" 60 pt apart) and a fixed 44 pt slot for
+            // the watched mark (`SymbolColumn`), drawn or not.
+            HStack(spacing: CGFloat(BadgeSpacing.betweenGroups)) {
                 if let runtime = episode.runtimeText {
                     FittingText(runtime, style: .caption2)
                         .foregroundStyle(.secondary)
                 }
                 // R370: the episode's own badges (resolution, HDR, Dolby Atmos), dropped from the end where space is short.
                 BadgeRow(badges: episode.badges)
-                // #15 D5: the watched mark keeps its slot.
-                SymbolColumn(systemImage: "checkmark.circle", isShown: episode.isWatched, accessibilityText: "Watched")
+                if episode.isWatched {
+                    Image(systemName: "checkmark.circle")
+                        .font(.caption2)
+                        .accessibilityLabel("Watched")
+                }
             }
         }
         .padding(.horizontal)
+        // R393 (item 6 c): the row's equal height is reserved under the runtime line, not between the title and it.
+        .equalCaptionBlock()
     }
 }

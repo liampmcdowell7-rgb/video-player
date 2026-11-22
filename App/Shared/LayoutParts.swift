@@ -4,22 +4,27 @@ import AppLogic
 // The shared layout parts of #15 (rules L3, L5, L10, D2, D5). One place for each pattern, so every screen draws it the same
 // way. docs/DESIGN_SYSTEM.md, "Shared layout parts".
 
-/// The width of the symbol slot in labels and value columns, scaled with the text size (Larger Text grows it). PROVISIONAL
-/// (OPEN_QUESTIONS R177): a symbol at the body style is about this wide, so every symbol sits in the same slot.
+/// The side of the square a toolbar symbol is drawn in (`ToolbarSymbol`), scaled with the text size. PROVISIONAL
+/// (OPEN_QUESTIONS R177, R391): a symbol at the body style is about this wide. Since R391 no list row uses it (the rows
+/// are the system `Label`) and the watched mark has no slot (`SymbolColumn` is gone).
 enum SymbolSlot {
     static let body: CGFloat = 44
 }
 
-/// L10 and D2: a symbol and a title that never touch, with the symbol in a fixed, text-scaled slot. Buttons of one kind
-/// therefore have one height and their titles start at the same place, whatever the symbol's own shape (`play.fill` is
-/// taller than `ellipsis`). The system lays out the row (`HStack` with the default spacing); the title follows rule S1.
+/// The symbol and title of a list row: the SYSTEM `Label`, so the gap between the symbol and the title and the width kept
+/// for the symbol are the system's own (Apple, `Label`: "A standard label for user interface items, consisting of an icon
+/// with a title"; `LabelStyle.titleAndIcon`: "shows both the title and icon of the label using a system-standard layout").
+/// R391 (owner's review of the run on fd9731f, shared fault 2): before, an `HStack` of our own at the system's default
+/// stack spacing (wide on tvOS) with the symbol centred in a fixed 44 pt slot (`SymbolSlot`, R177): the run showed the
+/// symbol 60 to 80 pt from its title in Settings, Files and Add a Source. No frame, spacing or `LabelStyle` of ours is left.
+/// History: #15 L10 moved these rows OFF the system `Label` because its symbol touched the title in the screenshots of
+/// that time; whether that is still so is UNVERIFIED until a run, and is alternative (b) of R391.
 struct SlotLabel: View {
     let title: String
     let systemImage: String
     var style: TVTextStyle = .body
     /// #15 7.3: an optional secondary line under the title, aligned with the title, not the symbol.
     var detail: String? = nil
-    @ScaledMetric(relativeTo: .body) private var slot: CGFloat = SymbolSlot.body
 
     /// R355 (item 6): the Files list row asks for a name that wraps at the floor instead of being cut; other rows do not.
     var wrapsAtFloor: Bool = false
@@ -33,11 +38,7 @@ struct SlotLabel: View {
     }
 
     var body: some View {
-        HStack {
-            Image(systemName: systemImage)
-                .foregroundStyle(.primary)
-                .frame(width: slot, height: slot)
-                .accessibilityHidden(true)
+        Label {
             VStack(alignment: .leading) {
                 FittingText(title, style: style, wrapsAtFloor: wrapsAtFloor)
                 if let detail {
@@ -45,6 +46,10 @@ struct SlotLabel: View {
                         .foregroundStyle(.secondary)
                 }
             }
+        } icon: {
+            Image(systemName: systemImage)
+                .foregroundStyle(.primary)
+                .accessibilityHidden(true)
         }
         .accessibilityElement(children: .combine)
     }
@@ -86,22 +91,6 @@ struct ActionRow<Content: View>: View {
             content
         }
         .fixedSize(horizontal: false, vertical: true)
-    }
-}
-
-/// D5: a value-column symbol (the watched check) that always takes its slot, drawn or not, so the columns of a list line up.
-struct SymbolColumn: View {
-    let systemImage: String
-    let isShown: Bool
-    let accessibilityText: String
-    @ScaledMetric(relativeTo: .body) private var slot: CGFloat = SymbolSlot.body
-
-    var body: some View {
-        Image(systemName: systemImage)
-            .frame(width: slot)
-            .opacity(isShown ? 1 : 0)
-            .accessibilityLabel(accessibilityText)
-            .accessibilityHidden(!isShown)
     }
 }
 

@@ -47,6 +47,8 @@ struct PosterCard: View {
                         secondLines
                     }
                     .padding(.horizontal)
+                    // R393 (item 6 c): the row's equal height is reserved under the last line, not under the title.
+                    .equalCaptionBlock()
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel(card.title)
@@ -118,10 +120,11 @@ struct PosterCard: View {
 /// Height: the caption reports its own height (`CaptionHeightKey`) and every card of the row takes the tallest one
 /// (`reservedCaptionHeight`, set by `equalCaptionRow`), so the cards of a row stay exactly equal. The width is the
 /// column's (`maxWidth: .infinity`) and never depends on the height (#31, R231).
+/// R393 (owner's review of the run on fd9731f, item 6 c): the caption no longer reserves the row's height itself. That
+/// put the spare height between a short title and the line under it (the runtime). The card's whole text block reserves
+/// it now (`equalCaptionBlock`), so the lines stay together and the spare height is under the last one.
 struct CardCaption: View {
     let text: String
-    @State private var ownHeight: CGFloat = 0
-    @Environment(\.reservedCaptionHeight) private var reserved: CGFloat
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
@@ -133,11 +136,6 @@ struct CardCaption: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { (height: CGFloat) in
-            if abs(height - ownHeight) >= 0.5 { ownHeight = height }
-        }
-        .preference(key: CaptionHeightKey.self, value: ownHeight)
-        .frame(minHeight: reserved, alignment: .topLeading)
     }
 
     /// One line in `style`; `ViewThatFits` uses it only when its natural width fits, so it is never cut (rule S1).
@@ -180,5 +178,27 @@ extension View {
     /// #36 group 4 (R264): see `EqualCaptionRow`.
     func equalCaptionRow() -> some View {
         modifier(EqualCaptionRow())
+    }
+
+    /// R393: see `EqualCaptionBlock`.
+    func equalCaptionBlock() -> some View {
+        modifier(EqualCaptionBlock())
+    }
+}
+
+/// R393 (item 6 c of the owner's review of the run on fd9731f): the text block under a lockup's artwork (title, second
+/// lines) reports its own height (`CaptionHeightKey`) and takes the tallest one of its row (`reservedCaptionHeight`),
+/// its lines at the top. The cards of a row stay exactly equal (R264), and a short title has no gap under it.
+struct EqualCaptionBlock: ViewModifier {
+    @State private var ownHeight: CGFloat = 0
+    @Environment(\.reservedCaptionHeight) private var reserved: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { (height: CGFloat) in
+                if abs(height - ownHeight) >= 0.5 { ownHeight = height }
+            }
+            .preference(key: CaptionHeightKey.self, value: ownHeight)
+            .frame(minHeight: reserved, alignment: .topLeading)
     }
 }

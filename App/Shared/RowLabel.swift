@@ -2,10 +2,10 @@ import SwiftUI
 
 /// The title and symbol of a list row.
 ///
-/// #15 L10: the screenshots showed the symbol touching the title with the system `Label` in these rows, so the row now uses
-/// `SlotLabel` (App/Shared/LayoutParts.swift): the system `HStack` spacing between symbol and title, and the symbol in a
-/// fixed, text-scaled slot so every row's title starts at the same place. A custom `LabelStyle` is not used (design-lint
-/// rule `custom-focus`). PROVISIONAL, OPEN_QUESTIONS R177. Fixed in code, verify in next screenshots.
+/// R391 (owner's review of the run on fd9731f, shared fault 2): the row is the system `Label` again (`SlotLabel`,
+/// App/Shared/LayoutParts.swift), so the gap between the symbol and the title is the system's. History: #15 L10 had
+/// replaced the `Label` with an `HStack` and a fixed 44 pt symbol slot (R177), which put the symbol 60 to 80 pt from the
+/// title. A custom `LabelStyle` is not used (design-lint rule `custom-focus`).
 ///
 /// The symbol takes the same hierarchical foreground as the title (`.primary`), so when the focused row turns light the
 /// glyph turns dark with the text (screenshot review item 6). The title follows rule S1 (`FittingText`).
