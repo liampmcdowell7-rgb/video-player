@@ -10,15 +10,15 @@ extension ScreenChecksTests {
         return String(try XCTUnwrap(Self.braceBody(of: source, after: start), "the body of \(declaration)"))
     }
 
-    /// R400 (item 1): the dark grey of a task cover is drawn by the page INSIDE the cover's navigation stack, with the
-    /// Form's own scroll background hidden; every page a cover can show takes it.
+    /// R400 (item 1): the dark grey of a task cover is drawn by the page INSIDE the cover's navigation stack; every page a
+    /// cover can show takes it. R412: without `scrollContentBackground`, whose Apple page lists no tvOS.
     func testTaskCoverPagesDrawTheGreyInsideTheirNavigationStack() throws {
         guard let pane = try appSource("App/Shared/SettingsPane.swift"),
               let entry = try appSource("App/Shared/TextEntryPage.swift"),
               let long = try appSource("App/Shared/LongTextPage.swift") else { return }
         let background: String = try reviewBody(of: "struct TaskCoverPageBackground: ViewModifier {", in: pane)
         XCTAssertTrue(background.contains("@Environment(\\.isInTaskCover)"), "the grey is not limited to task covers")
-        XCTAssertTrue(background.contains(".scrollContentBackground(.hidden)"), "the Form's own background still covers the grey")
+        XCTAssertFalse(background.contains(".scrollContentBackground("), "scrollContentBackground is not available on tvOS (R412)")
         XCTAssertTrue(background.contains(".background(.regularMaterial, ignoresSafeAreaEdges: .all)"), "no material behind the page")
         XCTAssertTrue(background.contains(".background(BackgroundStyle(), ignoresSafeAreaEdges: .all)"), "the page is not opaque under the material")
         if let material = background.range(of: ".regularMaterial"), let opaque = background.range(of: "BackgroundStyle()") {

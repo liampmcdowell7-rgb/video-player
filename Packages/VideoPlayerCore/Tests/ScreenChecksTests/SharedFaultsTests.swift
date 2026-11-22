@@ -188,7 +188,7 @@ extension ScreenChecksTests {
 /// string literals on one line are skipped too ("Artwork" in a toggle title is not the type).
 extension ScreenChecksTests {
     /// The repository root (VP_PROJECT_ROOT, else up from this file), as `appSource`.
-    private func projectRoot() throws -> URL? {
+    func projectRoot() throws -> URL? {
         guard try appSource("App/Shared/GridToolbar.swift") != nil else { return nil }
         if let root = ProcessInfo.processInfo.environment["VP_PROJECT_ROOT"], !root.isEmpty,
            FileManager.default.fileExists(atPath: root + "/App/Shared/GridToolbar.swift") {
@@ -199,7 +199,7 @@ extension ScreenChecksTests {
     }
 
     /// Every `.swift` file below `directory`, as (path relative to `root`, text).
-    private func swiftFiles(in directory: String, root: URL) throws -> [(String, String)] {
+    func swiftFiles(in directory: String, root: URL) throws -> [(String, String)] {
         let base: URL = root.appendingPathComponent(directory)
         guard let walker = FileManager.default.enumerator(atPath: base.path) else { return [] }
         var out: [(String, String)] = []

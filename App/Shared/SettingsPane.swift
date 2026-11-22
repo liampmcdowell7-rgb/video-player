@@ -363,8 +363,12 @@ extension View {
 /// holds (SourceSetupFlow, FixMatchView, SaveViewSheet, SortMoveSheet, FileDetailsSheet). The stack and the pages it shows
 /// are above that root, so whatever they draw (the stack's own container, the `Form`'s scroll background) hid the material
 /// completely; the run shows no change at all, which fits an opaque layer above it. Which of those layers is the opaque
-/// one is NOT on an Apple page (UNVERIFIED): both are handled here. The page hides its `Form`'s scroll background
-/// (`scrollContentBackground(.hidden)`, tvOS 16.0+) and draws the material over the system background itself, full bleed.
+/// one is NOT on an Apple page (UNVERIFIED). The page draws the material over the system background itself, full bleed.
+/// R412 (compile check run #26 on a10f582: "'scrollContentBackground' is unavailable in tvOS"): the page no longer hides
+/// its `Form`'s scroll background; Apple's page for `scrollContentBackground(_:)` lists iOS, iPadOS, Mac Catalyst, macOS,
+/// visionOS and watchOS, no tvOS. Whether a tvOS `Form` draws an opaque background of its own is on no Apple page read
+/// (the `Form` page describes iOS and macOS only): UNVERIFIED, the next run's pictures decide. If it does, it hides this
+/// material and the covers stay black.
 /// Only inside a task cover (`isInTaskCover`); a tab's own pages keep the system's background.
 struct TaskCoverPageBackground: ViewModifier {
     @Environment(\.isInTaskCover) private var isInTaskCover: Bool
@@ -372,7 +376,6 @@ struct TaskCoverPageBackground: ViewModifier {
     func body(content: Content) -> some View {
         if isInTaskCover {
             content
-                .scrollContentBackground(.hidden)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 // design-lint:allow R400: the system regular material behind a task cover's page, inside its navigation stack; a standard material, no colour of ours
                 .background(.regularMaterial, ignoresSafeAreaEdges: .all)
