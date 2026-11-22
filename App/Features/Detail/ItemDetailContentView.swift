@@ -112,7 +112,13 @@ struct ItemDetailContentView: View {
                 }
                 // #15 Part 9: a movie's title logo when one is found and the setting is on; otherwise the text title.
                 TitleHeader(title: content.episodeTitle ?? content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil)
-                ContentAdviceLine(descriptors: details?.contentDescriptors ?? [])
+                // R404 (owner's review of the run on f0a67d3, item 6 b): nothing at all in the stack when there is no
+                // content advice. Picture 106 showed a blank band of about 60 pt between the title and the synopsis;
+                // the advice line is the only part between them that can draw nothing (Sample Movie 1 has none). Whether
+                // an empty child took the stack's spacing is UNVERIFIED: the new -TITLE-GAP note of 57 and 55 measures it.
+                if let advice = details?.contentDescriptors, !advice.isEmpty {
+                    ContentAdviceLine(descriptors: advice)
+                }
                 if let overview = details?.overview {
                     SynopsisLink(title: content.episodeTitle ?? content.title, text: overview, artworkKey: content.artworkKey,
                                  prefersEpisodeStill: content.kind == .episode)
@@ -230,6 +236,8 @@ struct SynopsisLink: View {
         // 650 pt, A4 about 658 pt). R392 had half the page (860 pt).
         .frame(maxWidth: CGFloat(RowSpacing.textColumn), alignment: .leading)
         .accessibilityHint("Shows the whole synopsis")
+        // R404: found by the -TITLE-GAP note of the UI tests.
+        .accessibilityIdentifier("product.synopsis")
         .taskCover(isPresented: $showsWholeText) {
             SynopsisCover(title: title, text: text, artworkKey: artworkKey, prefersEpisodeStill: prefersEpisodeStill)
         }
@@ -249,6 +257,7 @@ struct StarringBlock: View {
             .font(.caption)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
+            // R404 (item 6 a): the lines break only between names (`ProductPage.starring` keeps each name whole).
             .frame(maxWidth: CGFloat(RowSpacing.creditsWidth), alignment: .leading)
             .accessibilityLabel(ProductPage.starringLabel + ": " + names)
             .accessibilityIdentifier("product.starring")

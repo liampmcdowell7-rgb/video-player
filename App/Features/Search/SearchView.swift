@@ -35,17 +35,31 @@ struct SearchView: View {
             if query.isEmpty, !RecentSearches.decode(recentStored).isEmpty {
                 HStack(spacing: CGFloat(RowSpacing.betweenActions)) {
                     ShelfHeader(RecentSearches.heading)
-                    Button(RecentSearches.clearTitle, systemImage: "xmark.circle", role: .destructive) { recentStored = "" }
+                    // R403 (owner's review of the run on f0a67d3, item 5; PROVISIONAL): the plain bordered button, as
+                    // every other secondary action. It had the destructive role, which tvOS drew as red text on a red
+                    // capsule (76-search-recent); no Apple page read in this session says a destructive button is drawn
+                    // so on tvOS, so the role is dropped. Clearing is undone by searching again.
+                    Button(RecentSearches.clearTitle, systemImage: "xmark.circle") { recentStored = "" }
+                        .buttonStyle(.bordered)
                         .accessibilityIdentifier(ControlID.clearRecentSearches)
                 }
             }
-            switch content {
-            case .discover:
-                DiscoverView(loader: discover)
-            case .prompt, .libraryResults:
-                results
+            // R403: the page's own content fills the rest, at its normal place: a message centres itself in this space,
+            // results start at the top.
+            Group {
+                switch content {
+                case .discover:
+                    DiscoverView(loader: discover)
+                case .prompt, .libraryResults:
+                    results
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        // R403 (item 5): the stack fills the page from its top leading corner. Before, it was as large as its content
+        // and centred, so with a short message ("Discover Needs a Key") the heading and Clear stood in the middle of the
+        // page, right on the message.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .searchable(text: $query)
         .searchSuggestions {
             let recent: [String] = RecentSearches.shown(RecentSearches.decode(recentStored), query: query)

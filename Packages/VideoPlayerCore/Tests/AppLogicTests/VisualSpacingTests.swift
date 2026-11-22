@@ -34,6 +34,24 @@ final class VisualSpacingTests: XCTestCase {
         XCTAssertNil(ProductPage.starring(["", "  "]))
     }
 
+    /// R404 (owner's review of the run on f0a67d3, item 6 a): 106 wrapped "Sample Actor 1, / Sample Actor 2, Sample Actor
+    /// / 3". Inside a name every space is a no-break space, so the only break opportunities are after the commas.
+    func testTheStarringLineBreaksOnlyBetweenNames() throws {
+        let line: String = try XCTUnwrap(ProductPage.starring(["Sample Actor 1", "Sample Actor 2", "Sample Actor 3"]))
+        XCTAssertEqual(line, "Sample\u{00A0}Actor\u{00A0}1, Sample\u{00A0}Actor\u{00A0}2, Sample\u{00A0}Actor\u{00A0}3")
+        // The ordinary spaces left are exactly the two after the commas.
+        XCTAssertEqual(line.filter { $0 == " " }.count, 2)
+        XCTAssertEqual(line.components(separatedBy: ", ").map { $0.replacingOccurrences(of: "\u{00A0}", with: " ") },
+                       ["Sample Actor 1", "Sample Actor 2", "Sample Actor 3"])
+        XCTAssertEqual(ProductPage.keepWhole("Ana"), "Ana")
+    }
+
+    /// R402: the room a lifted lockup needs above and below a shelf is the grid count line's one value.
+    func testTheShelfFocusRoomIsTheGridCountLinesValue() {
+        XCTAssertEqual(RowSpacing.shelfFocusRoom, ProductPageSpacing.aboveFirstGridRow)
+        XCTAssertEqual(RowSpacing.shelfFocusRoom, 50)
+    }
+
     func testTheLineAboveAnEpisodesTitleIsTheShowThenTheCode() {
         XCTAssertEqual(ProductPage.episodeOverline(show: "Sample Show 1", code: "S1, E3"), "Sample Show 1 · S1, E3")
         XCTAssertEqual(ProductPage.episodeOverline(show: nil, code: "S1, E3"), "S1, E3")

@@ -22,7 +22,11 @@ struct CardRow: View {
 
     var body: some View {
         VStack(alignment: .leading) {
+            // R402 (owner's review of the run on f0a67d3, item 3; PROVISIONAL): room under the header for the lifted card
+            // (08-card-long-press-go-to: the focused Continue Watching card covered "Continue Watching"), as under the
+            // grid's count line (R392).
             ShelfHeader(row.title)
+                .padding(.bottom, CGFloat(RowSpacing.shelfFocusRoom))
             ScrollView(.horizontal) {
                 // design-lint:allow HIG Layout, 40 pt horizontal spacing between posters (docs/DESIGN_SYSTEM.md section 4)
                 LazyHStack(alignment: .top, spacing: 40) {
@@ -47,6 +51,13 @@ struct CardRow: View {
                 .equalCaptionRow()
             }
             .scrollClipDisabled()
+            // R402: the shelf is as tall as its cards with their tallest caption (`fixedSize` takes the content's own
+            // height, so a caption that wraps to three lines makes the shelf taller instead of running under the next
+            // header), plus room under it for the lifted card and its caption, which moves down as the artwork grows.
+            // Only the cards already laid out count (the stack is lazy): a longer caption further right grows the shelf
+            // when it is scrolled to. UNVERIFIED until a run (08, 50, 51).
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.bottom, CGFloat(RowSpacing.shelfFocusRoom))
         }
     }
 }

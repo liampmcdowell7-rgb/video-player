@@ -115,6 +115,15 @@ private struct DiscoverContentView: View {
                 }
             }
             .scrollClipDisabled()
+            // R402 (owner's review of the run on f0a67d3, item 4; PROVISIONAL): room above the cards for the lifted
+            // lockup, as on Home's shelves (`RowSpacing.shelfFocusRoom`).
+            .padding(.top, CGFloat(RowSpacing.shelfFocusRoom))
+            // R402 (item 4): the shelf is as tall as its cards with their tallest caption, plus room under it for the
+            // lifted lockup, so the focused card's caption no longer runs over the next shelf's header or the
+            // where-to-watch line under the last shelf (75-discover-card-menu, 75-search-discover-cards). UNVERIFIED
+            // until a run.
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.bottom, CGFloat(RowSpacing.shelfFocusRoom))
         }
     }
 }
@@ -144,10 +153,11 @@ private struct DiscoverCard: View {
                 // design-lint:allow R393: Apple's tvOS media catalog sample attaches the borderless lockup's highlight by hand to a custom artwork view; the system effect, not our own
                 .hoverEffect(.highlight)
             VStack(alignment: .leading) {
-                Text(title.title)
-                    .font(.caption)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
+                // R402 (item 4): rule S1, the same caption as every lockup (`CardCaption`): one line in Caption, else one
+                // line in Caption 2 (the floor), and only a title that does not fit even there wraps. R393 had every
+                // title wrap in Caption, so short titles broke ("Sample / Suggestion 1"). Titles of one shelf may now
+                // differ in size (R393's reason for one size; its alternative (f)).
+                CardCaption(text: title.title)
                 // Rule S1: "2021 · Because you watched …" on one line; the year goes first when it does not fit.
                 FittingLine(line: DiscoverCardText.detailLine(title), style: .caption2)
                     .foregroundStyle(.secondary)

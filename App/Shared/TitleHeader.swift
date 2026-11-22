@@ -41,6 +41,8 @@ struct TitleHeader: View {
             }
         }
         .accessibilityAddTraits(.isHeader)
+        // R404: found by the -TITLE-GAP note of the UI tests.
+        .accessibilityIdentifier("product.title")
         .task(id: "\(artworkKey ?? "")|\(showLogos)|\(services.online.keyRevision)") {
             guard showLogos, let artworkKey else { logo = nil; return }
             let candidates = await services.online.logoCandidates(key: artworkKey)

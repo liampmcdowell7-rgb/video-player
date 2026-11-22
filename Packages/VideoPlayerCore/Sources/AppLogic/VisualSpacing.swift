@@ -42,6 +42,11 @@ public enum RowSpacing {
     public static let landscapeShelfColumns: Int = 5
     /// The "Starring" block at the trailing edge of a product page's first screen. B1: x about 1430 to the margin.
     public static let creditsWidth: Double = 330
+    /// R402 (owner's review of the run on f0a67d3, items 3 and 4; PROVISIONAL): the room a lifted (focused) lockup needs
+    /// above and below its shelf, so it covers neither the shelf's own header nor the next one. The same value as under
+    /// the grid's count line (R392, `ProductPageSpacing.aboveFirstGridRow`: half of HIG Layout's 100 pt between rows),
+    /// one number for both places. No Apple page gives the growth of a focused lockup as a number.
+    public static var shelfFocusRoom: Double { ProductPageSpacing.aboveFirstGridRow }
 }
 
 /// R392 (PROVISIONAL): the widths and gaps of the product pages that no Apple page gives as a number for this place.
@@ -75,7 +80,14 @@ extension ProductPage {
     /// with no names. The library holds no director, so no "Director" line is drawn (never invented).
     public static func starring(_ names: [String], limit: Int = 3) -> String? {
         let shown: [String] = names.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.prefix(max(limit, 0)).map { $0 }
-        return shown.isEmpty ? nil : shown.joined(separator: ", ")
+        // R404 (owner's review of the run on f0a67d3, item 6 a): the block wrapped INSIDE a name ("Sample Actor / 3").
+        // The spaces within a name are no-break spaces (U+00A0), so the text breaks only after a comma, between names.
+        return shown.isEmpty ? nil : shown.map(keepWhole).joined(separator: ", ")
+    }
+
+    /// R404: `name` with every space a no-break space, so a line never breaks inside it.
+    public static func keepWhole(_ name: String) -> String {
+        name.replacingOccurrences(of: " ", with: "\u{00A0}")
     }
 
     public static let starringLabel = "Starring"
