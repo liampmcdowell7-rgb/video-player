@@ -1,4 +1,5 @@
 import SwiftUI
+import AppLogic
 
 /// R375 (owner's feedback on build 5, 21 Nov 2026; decided by the owner's standing rule R312: design follows Apple's TV
 /// app): the Movies and Shows controls are the SYSTEM toolbar, not a row of our own. History: #15 4.5 to #36 6 and R344

@@ -179,3 +179,111 @@ extension ScreenChecksTests {
         XCTAssertTrue(ScreenRules.equalSizes(items: []).passed)
     }
 }
+
+/// R399: the tvOS compile of 406ad8c failed on "cannot find 'ProductPageSpacing' in scope" in App/Shared/GridToolbar.swift:
+/// the file used an AppLogic type without `import AppLogic`. `scripts/parse-app.sh` is `swiftc -parse` (syntax only), so
+/// no Linux check saw it. This test reads the app's sources as text: every file under App/ that names a public type of the
+/// AppLogic package (the spacing enums of VisualSpacing.swift first) must import AppLogic. Names the app target declares
+/// itself are left out (the app's own type of that name is meant). Comments and
+/// string literals on one line are skipped too ("Artwork" in a toggle title is not the type).
+extension ScreenChecksTests {
+    /// The repository root (VP_PROJECT_ROOT, else up from this file), as `appSource`.
+    private func projectRoot() throws -> URL? {
+        guard try appSource("App/Shared/GridToolbar.swift") != nil else { return nil }
+        if let root = ProcessInfo.processInfo.environment["VP_PROJECT_ROOT"], !root.isEmpty,
+           FileManager.default.fileExists(atPath: root + "/App/Shared/GridToolbar.swift") {
+            return URL(fileURLWithPath: root)
+        }
+        return URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    }
+
+    /// Every `.swift` file below `directory`, as (path relative to `root`, text).
+    private func swiftFiles(in directory: String, root: URL) throws -> [(String, String)] {
+        let base: URL = root.appendingPathComponent(directory)
+        guard let walker = FileManager.default.enumerator(atPath: base.path) else { return [] }
+        var out: [(String, String)] = []
+        while let relative = walker.nextObject() as? String {
+            guard relative.hasSuffix(".swift") else { continue }
+            out.append((directory + "/" + relative, try String(contentsOf: base.appendingPathComponent(relative), encoding: .utf8)))
+        }
+        return out.sorted { (a: (String, String), b: (String, String)) -> Bool in a.0 < b.0 }
+    }
+
+    /// The type names `source` declares; `publicOnly` keeps the TOP-LEVEL `public` ones (a package's API that a file can
+    /// name bare: a nested type such as `TopShelfBuilder.Artwork` is reached through its outer type).
+    static func declaredTypes(in source: String, publicOnly: Bool) -> Set<String> {
+        let kinds: Set<String> = ["struct", "enum", "class", "protocol", "actor", "typealias"]
+        let modifiers: Set<String> = ["public", "private", "fileprivate", "internal", "final", "indirect", "open", "package"]
+        var names: Set<String> = []
+        for line in source.components(separatedBy: "\n") {
+            if publicOnly, let first = line.first, first == " " || first == "\t" { continue }
+            let words: [String] = line.split(whereSeparator: { $0 == " " || $0 == "\t" || $0 == ":" || $0 == "<" || $0 == "{" || $0 == "=" })
+                .map(String.init)
+            var index: Int = 0
+            var isPublic: Bool = false
+            while index < words.count, modifiers.contains(words[index]) {
+                if words[index] == "public" || words[index] == "open" { isPublic = true }
+                index += 1
+            }
+            guard index + 1 < words.count, kinds.contains(words[index]) else { continue }
+            if publicOnly && !isPublic { continue }
+            names.insert(words[index + 1])
+        }
+        return names
+    }
+
+    /// The AppLogic names `source` uses without importing AppLogic (empty when it imports it or uses none).
+    static func missingAppLogicImport(source: String, appLogicTypes: Set<String>, appTypes: Set<String>) -> [String] {
+        let lines: [String] = source.components(separatedBy: "\n")
+        if lines.contains(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("import AppLogic") }) { return [] }
+        let code: String = lines.map { (line: String) -> String in
+            var code: String = line
+            if let comment = code.range(of: "//") { code = String(code[..<comment.lowerBound]) }
+            // One-line string literals: every other run between quotes.
+            return code.components(separatedBy: "\"").enumerated().filter { $0.offset % 2 == 0 }.map { $0.element }.joined(separator: " ")
+        }.joined(separator: "\n")
+        let identifier: CharacterSet = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "_"))
+        let tokens: Set<String> = Set(code.components(separatedBy: identifier.inverted).filter { !$0.isEmpty })
+        return tokens.intersection(appLogicTypes.subtracting(appTypes)).sorted()
+    }
+
+    func testEveryAppFileThatUsesAnAppLogicTypeImportsAppLogic() throws {
+        guard let root = try projectRoot() else { return }
+        let logic: [(String, String)] = try swiftFiles(in: "Packages/VideoPlayerCore/Sources/AppLogic", root: root)
+        var logicTypes: Set<String> = []
+        for (_, text) in logic { logicTypes.formUnion(Self.declaredTypes(in: text, publicOnly: true)) }
+        let spacing: String = try XCTUnwrap(logic.first { $0.0.hasSuffix("/VisualSpacing.swift") }?.1, "no VisualSpacing.swift")
+        let spacingTypes: Set<String> = Self.declaredTypes(in: spacing, publicOnly: true)
+        XCTAssertTrue(spacingTypes.isSuperset(of: ["BadgeSpacing", "RowSpacing", "ProductPageSpacing"]), "the spacing enums moved: \(spacingTypes.sorted())")
+        XCTAssertTrue(logicTypes.isSuperset(of: spacingTypes), "the AppLogic list misses the spacing enums")
+
+        let app: [(String, String)] = try swiftFiles(in: "App", root: root)
+        XCTAssertGreaterThan(app.count, 50, "too few app files found under \(root.path)/App")
+        var appTypes: Set<String> = []
+        for (_, text) in app { appTypes.formUnion(Self.declaredTypes(in: text, publicOnly: false)) }
+        XCTAssertTrue(appTypes.intersection(spacingTypes).isEmpty, "the app target declares a spacing enum of its own: \(appTypes.intersection(spacingTypes).sorted())")
+
+        var problems: [String] = []
+        for (path, text) in app {
+            let missing: [String] = Self.missingAppLogicImport(source: text, appLogicTypes: logicTypes, appTypes: appTypes)
+            if !missing.isEmpty { problems.append("\(path) uses \(missing.joined(separator: ", ")) without import AppLogic") }
+        }
+        XCTAssertTrue(problems.isEmpty, problems.joined(separator: "\n"))
+    }
+
+    /// The fixture: GridToolbar.swift as it was at 406ad8c (no `import AppLogic`) fails; with the import it passes; a
+    /// name the app declares itself, or one only in a comment, does not count.
+    func testTheMissingImportOf406ad8cIsCaught() {
+        let logic: Set<String> = ["ProductPageSpacing", "BadgeSpacing", "StatusText"]
+        let broken: String = "import SwiftUI\n\nstruct GridCountLine: View {\n    var body: some View {\n        Text(count).padding(.bottom, CGFloat(ProductPageSpacing.aboveFirstGridRow))\n    }\n}\n"
+        XCTAssertEqual(Self.missingAppLogicImport(source: broken, appLogicTypes: logic, appTypes: []), ["ProductPageSpacing"])
+        let fixed: String = broken.replacingOccurrences(of: "import SwiftUI\n", with: "import SwiftUI\nimport AppLogic\n")
+        XCTAssertEqual(Self.missingAppLogicImport(source: fixed, appLogicTypes: logic, appTypes: []), [])
+        let own: String = "import SwiftUI\n// BadgeSpacing is AppLogic's\nstruct A: View { var body: some View { StatusText(text: \"\") } }\n"
+        XCTAssertEqual(Self.missingAppLogicImport(source: own, appLogicTypes: logic, appTypes: ["StatusText"]), [])
+        XCTAssertEqual(Self.declaredTypes(in: "public enum BadgeSpacing {\npublic struct Row: View {\nenum Hidden {\n    public struct Artwork {", publicOnly: true), ["BadgeSpacing", "Row"])
+        // BackupSettingsView: "Artwork" as a toggle title is text, not AppLogic's type.
+        XCTAssertEqual(Self.missingAppLogicImport(source: "SettingToggle(\"Artwork\", isOn: $on)", appLogicTypes: ["Artwork"], appTypes: []), [])
+    }
+}
