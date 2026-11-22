@@ -65,7 +65,9 @@ struct PlaybackSettingsView: View {
 
     /// R389: the long values (an error message, an underlying error, an event with its time) wrap under their label instead
     /// of shrinking to fit one line.
-    static let wrappedRows: Set<String> = ["Underlying Error", "Last Event", "Error"]
+    /// R390: the start result and each checkpoint ("Reached at 2.4 s · HEVC (hvc1), 3840 × 2160") wrap the same way.
+    static let wrappedRows: Set<String> = Set(["Underlying Error", "Last Event", "Error", "Start Result"]
+                                              + PlaybackCheckpointKind.allCases.map(\.title))
 }
 
 /// R389: a label with a long value under it, wrapped, never cut (rule L7). Read-only; the caller makes it focusable.

@@ -107,9 +107,12 @@ public struct PlaybackProblem: Codable, Equatable, Sendable {
     public var player: PlayerErrorReport?
     /// R386: the player's last events, newest last, already redacted; nil or empty when the player never opened.
     public var events: [PlaybackEvent]?
+    /// R390: the checkpoints of the start (file opened, item ready, first frame, ...) and the path; nil for a problem stored
+    /// by an earlier version.
+    public var checkpoints: PlaybackCheckpoints?
 
     public init(step: PlaybackStep, sourceKind: String?, container: String?, codecs: String?, error: String, at: Date,
-                player: PlayerErrorReport? = nil, events: [PlaybackEvent]? = nil) {
+                player: PlayerErrorReport? = nil, events: [PlaybackEvent]? = nil, checkpoints: PlaybackCheckpoints? = nil) {
         self.step = step
         self.sourceKind = sourceKind
         self.container = container
@@ -118,12 +121,14 @@ public struct PlaybackProblem: Codable, Equatable, Sendable {
         self.at = at
         self.player = player
         self.events = events
+        self.checkpoints = checkpoints
     }
 
     /// R386: the last event the player reported, with its time.
     public var lastEvent: PlaybackEvent? { events?.last }
 
     /// The rows of the diagnostic section, label and value; unknown values say "Not known". The error text is last.
+    /// R390: the path, the start result and each checkpoint (reached with its time, or not reached) come before it.
     public var rows: [(label: String, value: String)] {
         [("Step", step.title),
          ("Source", sourceKind ?? Self.notKnown),
@@ -131,8 +136,9 @@ public struct PlaybackProblem: Codable, Equatable, Sendable {
          ("Codecs", codecs ?? Self.notKnown),
          ("Error Code", player?.codeLine ?? Self.notKnown),
          ("Underlying Error", player?.underlyingText ?? Self.notKnown),
-         ("Last Event", lastEvent?.line() ?? Self.notKnown),
-         ("Error", error)]
+         ("Last Event", lastEvent?.line() ?? Self.notKnown)]
+            + (checkpoints?.rows ?? [])
+            + [("Error", error)]
     }
 
     /// R386: the lines under the failure's sentence on the failure screen, in plain text the owner can photograph: the
@@ -146,6 +152,8 @@ public struct PlaybackProblem: Codable, Equatable, Sendable {
         }
         if let last = lastEvent { lines.append("Last event: " + last.line(timeZone: timeZone)) }
         lines.append("Step: " + step.title)
+        // R390: how far the start got (never ready / ready, no frame / a frame, then stopped) and each checkpoint.
+        if let checkpoints { lines += checkpoints.screenLines }
         return lines
     }
 
@@ -153,6 +161,11 @@ public struct PlaybackProblem: Codable, Equatable, Sendable {
     public func fullText(timeZone: TimeZone = .current) -> String {
         var out = rows.map { "\($0.label): \($0.value)" }
         if let player, !player.message.isEmpty { out.append("Player Message: " + player.message) }
+        if let notes = checkpoints?.notes, !notes.isEmpty {
+            out.append("")
+            out.append("Notes:")
+            out += notes
+        }
         let recent = events ?? []
         if !recent.isEmpty {
             out.append("")
@@ -214,12 +227,41 @@ public final class PlaybackStartTracker: @unchecked Sendable {
     private var codecs: String?
     private var secrets: [String] = []
     private var line: String?
+    /// R390: the checkpoints of this start, timed from when the start was asked for (`startedAt`).
+    private var marks = PlaybackCheckpoints()
+    private let startedAt: Double
     private let clock: @Sendable () -> Double
 
     public init(clock: @escaping @Sendable () -> Double = { ProcessInfo.processInfo.systemUptime }) {
         self.clock = clock
-        self.since = clock()
+        let now = clock()
+        self.since = now
+        self.startedAt = now
     }
+
+    /// R390: marks a checkpoint reached now (the first time counts).
+    public func reach(_ kind: PlaybackCheckpointKind, detail: String? = nil) {
+        let now = clock()
+        lock.withLock { marks.reach(kind, at: now - startedAt, detail: detail) }
+    }
+
+    /// R390: what was found at a checkpoint that was not reached.
+    public func describe(_ kind: PlaybackCheckpointKind, detail: String) {
+        lock.withLock { marks.describe(kind, detail: detail) }
+    }
+
+    /// R390: a plain sentence for the report (a video track that cannot be shown, what the loopback served).
+    public func note(_ text: String) {
+        lock.withLock { marks.note(text) }
+    }
+
+    /// R390: which way the file reaches the player.
+    public func setPath(_ path: PlaybackPath) {
+        lock.withLock { marks.path = path }
+    }
+
+    /// R390: the checkpoints as they stand.
+    public var checkpoints: PlaybackCheckpoints { lock.withLock { marks } }
 
     /// The step running now and when it started (for the deadline check).
     public var step: (step: PlaybackStep, since: Double) { lock.withLock { (current, since) } }
@@ -268,7 +310,7 @@ public final class PlaybackStartTracker: @unchecked Sendable {
             for i in kept.indices { kept[i].name = clean(kept[i].name) }
             return PlaybackProblem(step: current, sourceKind: sourceKind, container: container, codecs: codecs,
                                    error: clean(text), at: date, player: player?.mapped(clean),
-                                   events: kept.isEmpty ? nil : kept)
+                                   events: kept.isEmpty ? nil : kept, checkpoints: marks.mapped(clean))
         }
     }
 

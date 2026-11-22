@@ -468,11 +468,17 @@ final class AppServices {
         var remux: RemuxPlayback?
         if let clip {
             location = clip
+            tracker?.setPath(.sample)
+            tracker?.reach(.fileOpened, detail: "Sample clip")
         } else if route == .remux {
             tracker?.enter(.openConverter)
-            let opened = try await RemuxPlayback.open(reader: try await sourceFactory.byteReader(for: file))
+            // R390: converted playback; the file counts as opened once its header is read, the loopback once it serves.
+            tracker?.setPath(.converted)
+            let opened = try await RemuxPlayback.open(reader: try await sourceFactory.byteReader(for: file),
+                                                      fileOpened: { tracker?.reach(.fileOpened, detail: "Header read by the converting player") })
             remux = opened
             location = opened.url
+            tracker?.reach(.loopbackReady)
             tracker?.describe(codecs: PlaybackStartTracker.codecText([opened.info.videoCodecString] + opened.info.audio.map(\.codecString)))
         } else {
             tracker?.enter(.getLink)
@@ -485,6 +491,9 @@ final class AppServices {
             headers = accessHeaders
             // The header values (a server token) never reach the stored problem text.
             tracker?.describe(secrets: Array(accessHeaders.values))
+            // R390: direct playback; the system player opens the link itself, so "opened" here means the link is known.
+            tracker?.setPath(.direct)
+            tracker?.reach(.fileOpened, detail: "Link from the source")
         }
         tracker?.enter(.readSegments)
         let card = CardBuilder.card(item)

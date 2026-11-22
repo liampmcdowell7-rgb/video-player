@@ -84,6 +84,10 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     private var stallObserver: NSObjectProtocol?
     private var failedEndObserver: NSObjectProtocol?
     private var errorLogObserver: NSObjectProtocol?
+    /// R390: the first frame, from `AVPlayerViewController.isReadyForDisplay` (Apple: "A Boolean value that indicates
+    /// whether the player item's first video frame is ready for display. This property is key-value observable.").
+    private var displayObservation: NSKeyValueObservation?
+    private var audioChecked = false
 
     /// Called once when the player item fails after it was handed over, or a step of the start runs past its limit (the
     /// screen shows the reason). The second value holds the system's own error text for the diagnostic row (R311) and,
@@ -107,6 +111,8 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         self.player = avPlayer
         self.probe = PlaybackProbe(item: playerItem, remux: resolved.remux)
         super.init()
+        // R390: the system player has its item from here.
+        tracker.reach(.itemCreated)
         skipPresenter.controllerProvider = { [weak self] in self?.controller }
         proposalPresenter.item = playerItem
         proposalPresenter.stillOnHand = { [services] id in await services.online.upNextStill(itemID: id) }
@@ -165,6 +171,12 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         tracker.enter(.playerReady)
         openedAt = ProcessInfo.processInfo.systemUptime
         record("The player got the file")
+        // R390: the first frame, observed from its first value.
+        displayObservation = controller?.observe(\.isReadyForDisplay, options: [.initial, .new]) { [weak self] _, change in
+            let ready = change.newValue ?? false
+            Task { @MainActor [weak self] in if ready { self?.firstFrameShown() } }
+        }
+        Task { @MainActor [weak self] in await self?.inspectVideoTrack() }
         // `.initial`: a status the item reached before this line is seen too (R311).
         statusObservation = item.observe(\.status, options: [.initial, .new]) { [weak self] _, _ in
             Task { @MainActor [weak self] in self?.itemStatusChanged() }
@@ -233,6 +245,92 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         record("Playing")
     }
 
+    // MARK: R390 checkpoints
+
+    private func firstFrameShown() {
+        guard !stopped else { return }
+        let size = item.presentationSize
+        tracker.reach(.firstFrame, detail: size.width > 0 ? "\(Int(size.width)) × \(Int(size.height))" : nil)
+        record("First frame ready for display")
+    }
+
+    /// The video track the system player will decode, in plain words, with what the system says when it cannot decode or
+    /// play it (`AVAssetTrack` `isDecodable`: "the system can decode the track"; `isPlayable`). Direct playback reads the
+    /// file's own track before the item is ready, so a track the Apple TV cannot show is named even when the item never
+    /// becomes ready. Converted playback names what the converting player serves (the stream's tracks are only listed once
+    /// the item is ready).
+    private func inspectVideoTrack() async {
+        if let remux = resolved.remux {
+            let info = remux.info
+            tracker.describe(.videoTrackFound, detail: PlaybackCheckpoints.videoTrackText(
+                codec: info.videoCodecString, width: info.width, height: info.height, decodable: nil, playable: nil))
+            return
+        }
+        guard let tracks = try? await item.asset.loadTracks(withMediaType: .video), !stopped else { return }
+        guard let track = tracks.first else {
+            tracker.describe(.videoTrackFound, detail: "The file has no video track the system player can read")
+            tracker.note("The system player found no video track in the file.")
+            return
+        }
+        var codec: String?
+        if let description = try? await track.load(.formatDescriptions).first {
+            codec = PlaybackCheckpoints.codecName(fourCC: PlaybackCheckpoints.fourCC(CMFormatDescriptionGetMediaSubType(description)))
+        }
+        let size = try? await track.load(.naturalSize)
+        let decodable = try? await track.load(.isDecodable)
+        let playable = try? await track.load(.isPlayable)
+        guard !stopped else { return }
+        let text = PlaybackCheckpoints.videoTrackText(codec: codec, width: size.map { Int($0.width) }, height: size.map { Int($0.height) },
+                                                      decodable: decodable, playable: playable)
+        tracker.reach(.videoTrackFound, detail: text)
+        if decodable == false || playable == false { tracker.note("Video track: " + text + ".") }
+    }
+
+    /// The tracks of the ready item: a video track (converted playback reaches the checkpoint here), and a note when the item
+    /// is ready with no video in it (a picture the system left out without an error).
+    private func checkReadyItemTracks() {
+        let video = item.tracks.filter { $0.assetTrack?.mediaType == .video }
+        if !video.isEmpty {
+            if resolved.remux != nil { tracker.reach(.videoTrackFound) }
+            if !video.contains(where: \.isEnabled) { tracker.note("The item's video track is turned off.") }
+        } else if !item.tracks.isEmpty {
+            tracker.note("The item is ready but holds no video track: the picture was left out.")
+        }
+    }
+
+    /// The playhead's distance from where play was asked for: the 5 s and 30 s checkpoints, and the audio one (an enabled
+    /// audio track while the playhead moves; whether sound reaches the TV is not something the player reports).
+    private func checkPlayhead(_ seconds: TimeInterval) {
+        guard let start = positionAtPlay else { return }
+        let moved = seconds - start
+        if moved >= 0.5, !audioChecked {
+            audioChecked = true
+            if let audio = item.tracks.first(where: { $0.assetTrack?.mediaType == .audio && $0.isEnabled }) {
+                tracker.reach(.audioStarted)
+                if let assetTrack = audio.assetTrack {
+                    Task { @MainActor [weak self] in
+                        guard let description = try? await assetTrack.load(.formatDescriptions).first else { return }
+                        let code = PlaybackCheckpoints.fourCC(CMFormatDescriptionGetMediaSubType(description))
+                        self?.tracker.reach(.audioStarted, detail: PlaybackCheckpoints.codecName(fourCC: code))
+                    }
+                }
+            } else {
+                tracker.describe(.audioStarted, detail: "No enabled audio track while the video moved")
+            }
+        }
+        if moved >= 5 { tracker.reach(.playheadMoved5) }
+        if moved >= 30 { tracker.reach(.playheadMoved30) }
+    }
+
+    /// Notes for the report at a failure: what the loopback served (converted), and a ready item with no video.
+    private func addFailureNotes() {
+        if item.status == .readyToPlay { checkReadyItemTracks() }
+        if let remux = resolved.remux {
+            let started = tracker.checkpoints.entry(.loopbackReady)?.seconds ?? 0
+            for line in remux.serveLines(serverStartedAt: started) { tracker.note(line) }
+        }
+    }
+
     /// R386: the play state as the event log says it, with the system's reason for waiting.
     private var playStateText: String {
         switch player.timeControlStatus {
@@ -299,6 +397,8 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     private func report(_ failure: PlaybackFailure) {
         guard !stopped, !failed else { return }
         failed = true
+        // R390: the loopback's answers and the item's tracks, read before the player is paused.
+        addFailureNotes()
         // R386: read before the pause below adds an event of its own.
         let diagnostics = PlaybackDiagnostics(detail: playerDetail, player: playerReport, events: events.recent)
         item.cancelPendingSeeks()
@@ -334,6 +434,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         stopped = true
         statusObservation?.invalidate()
         playStateObservation?.invalidate()
+        displayObservation?.invalidate()
         timelineTimer?.invalidate()
         if let timeObserver { player.removeTimeObserver(timeObserver) }
         for token in [endObserver, jumpObserver, selectionObserver, stallObserver, failedEndObserver, errorLogObserver] {
@@ -357,6 +458,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         let wholeSecondBefore = Int(lastPosition)
         lastPosition = seconds
         markPlayingIfStarted()
+        checkPlayhead(seconds)
         pictureOverlay?.tick(seconds)
         showImportantNoticeIfNeeded()
         // Everything below runs once a second, as before the quarter-second clock was needed for picture subtitles.
@@ -421,6 +523,9 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         case .readyToPlay:
             guard !begun else { return }
             begun = true
+            // R390: the item reached ready; its tracks are listed from here.
+            tracker.reach(.itemReady)
+            checkReadyItemTracks()
             Task { @MainActor [weak self] in await self?.begin() }
         default:
             break

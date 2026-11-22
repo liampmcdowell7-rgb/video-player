@@ -25,7 +25,8 @@ final class RemuxPlayback {
 
     /// Opens the file and starts the loopback server. Throws a `PlaybackFailure` (plain text and a what-to-do line) for any file
     /// the engine cannot handle; nothing is left running when it throws.
-    static func open(reader: any ByteRangeReader) async throws -> RemuxPlayback {
+    /// R390: `fileOpened` is called once the file's header is read, before the loopback server starts.
+    static func open(reader: any ByteRangeReader, fileOpened: @MainActor () -> Void = {}) async throws -> RemuxPlayback {
         // Profile 7 to 8.1 conversion is part of the engine options (AppLogic, docs/DOLBY_VISION.md).
         var options = RemuxPlaybackModel.engineOptions()
         // DTS, DTS-HD, Dolby TrueHD, MLP, Opus and Vorbis are decoded and repackaged as FLAC (docs/AUDIO_PIPELINE.md).
@@ -34,6 +35,10 @@ final class RemuxPlayback {
         options.audioTranscoder = DecodedAudioTranscoder(settings: DecodedAudioSettings(trueHDUseEmbeddedCore: useCore))
         let host = RemuxHost(reader: reader, options: options)
         do {
+            // `start` prepares the session too; prepared here first so the report can tell reading the file from starting
+            // the server (the second `prepare` returns the stored result).
+            _ = try await host.session.prepare()
+            fileOpened()
             let url = try await host.start()
             guard let info = host.info else { throw PlaybackFailures.damaged }
             return RemuxPlayback(host: host, url: url, info: info)
@@ -41,6 +46,16 @@ final class RemuxPlayback {
             await host.stop()
             throw PlaybackFailures.map(error)
         }
+    }
+
+    /// R390: the player's first requests to the loopback and their answers, timed on the start's clock (`serverStartedAt`
+    /// is when the server started, in seconds since the start was asked for), then the start's resources never asked for.
+    func serveLines(serverStartedAt: Double) -> [String] {
+        guard let log = host.serveLog else { return ["The loopback server never started."] }
+        var lines = log.lines(serverStartedAt: serverStartedAt).map { "Loopback " + $0 }
+        let missing = log.missing()
+        if !missing.isEmpty { lines.append("Loopback never asked for: " + missing.joined(separator: ", ")) }
+        return lines
     }
 
     func stop() {

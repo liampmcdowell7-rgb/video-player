@@ -92,8 +92,11 @@ final class PlaybackStartLogTests: XCTestCase {
         XCTAssertFalse(problem.error.contains("abcd1234token"))
         XCTAssertTrue(problem.error.contains(PlaybackRedaction.placeholder))
         // R386: the player's error code, its underlying errors and the last event joined the rows; the error text stays last.
+        // R390: each checkpoint of the start comes before it (no path yet, so the loopback row is left out).
         XCTAssertEqual(problem.rows.map(\.label), ["Step", "Source", "Container", "Codecs", "Error Code", "Underlying Error",
-                                                   "Last Event", "Error"])
+                                                   "Last Event", "File Opened", "Item Created", "Item Is Ready to Play",
+                                                   "Video Track Found", "First Frame Presented", "Audio Started",
+                                                   "Playhead at +5 s", "Playhead at +30 s", "Error"])
     }
 
     func testDescribeKeepsWhatWasKnownAndUnknownSaysSo() {

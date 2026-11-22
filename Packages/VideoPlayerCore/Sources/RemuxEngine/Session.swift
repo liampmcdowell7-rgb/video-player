@@ -705,6 +705,8 @@ public final class RemuxHost: @unchecked Sendable {
     public let server: any LoopbackServer
     public private(set) var masterURL: URL?
     public private(set) var info: RemuxMediaInfo?
+    /// R390: the first requests of the player and how they were answered (set when the server starts).
+    public private(set) var serveLog: LoopbackServeLog?
 
     public init(reader: any ByteRangeReader, options: RemuxOptions = RemuxOptions(), server: any LoopbackServer = POSIXLoopbackServer()) {
         self.session = MatroskaRemuxSession(reader: reader, options: options)
@@ -715,7 +717,20 @@ public final class RemuxHost: @unchecked Sendable {
     public func start() async throws -> URL {
         info = try await session.prepare()
         let s = session
-        let base = try server.start { request in try await s.resource(path: request.path) }
+        let log = LoopbackServeLog()
+        serveLog = log
+        let base = try server.start { request in
+            // R390: logged only; the answer is the session's, unchanged.
+            let token = log.asked(request.path)
+            do {
+                let response = try await s.resource(path: request.path)
+                log.answered(token, status: response.status)
+                return response
+            } catch {
+                log.failed(token, error: String(describing: error))
+                throw error
+            }
+        }
         let url = base.appendingPathComponent("master.m3u8")
         masterURL = url
         return url
