@@ -780,6 +780,30 @@ final class ScreenshotTests: XCTestCase {
         lines.append(verdict)
         note(name + "-PRODUCT", lines.joined(separator: "\n"))
         XCTAssertTrue(problems.isEmpty, "\(name): " + verdict)
+        titleGapNote(name, in: app)
+    }
+
+    /// R404 (owner's review of the run on f0a67d3, item 6 b): "<name>-TITLE-GAP", the space between the title's bottom
+    /// and the synopsis's top, with every element whose frame lies in that space. 106 showed a blank band of about 60 pt
+    /// on the movie page that the show page (108) does not have. A note only: the next run says whether it is gone and,
+    /// if not, what sits there.
+    func titleGapNote(_ name: String, in app: XCUIApplication) {
+        let title: XCUIElement = app.descendants(matching: .any).matching(identifier: "product.title").firstMatch
+        let synopsis: XCUIElement = app.descendants(matching: .any).matching(identifier: "product.synopsis").firstMatch
+        guard title.exists, synopsis.exists else {
+            note(name + "-TITLE-GAP", "title \(title.exists ? "found" : "NOT FOUND"), synopsis \(synopsis.exists ? "found" : "NOT FOUND")")
+            return
+        }
+        let top: CGFloat = title.frame.maxY
+        let bottom: CGFloat = synopsis.frame.minY
+        var lines: [String] = ["title \(title.frame)", "synopsis \(synopsis.frame)", "gap \(Int((bottom - top).rounded())) pt"]
+        if bottom > top {
+            for element in app.descendants(matching: .any).allElementsBoundByIndex.prefix(400)
+            where element.frame.height > 0 && element.frame.minY >= top - 1 && element.frame.maxY <= bottom + 1 {
+                lines.append("in the gap: \(element.elementType.rawValue) “\(element.label)” id \(element.identifier) \(element.frame)")
+            }
+        }
+        note(name + "-TITLE-GAP", lines.joined(separator: "\n"))
     }
 
     /// R388 (item B): at launch the focus is in Home's content (the sidebar collapsed), and the sidebar expanding and
@@ -799,9 +823,14 @@ final class ScreenshotTests: XCTestCase {
         if !focused.exists || inChrome { problems.append("the focus is not in the content at launch") }
         let atLaunch: CGFloat = featured.frame.minY
         lines.append("featured top at launch: \(Int(atLaunch))")
+        // R408 (owner's review of the run on f0a67d3, item 9: test04 stopped before this note was written): the note is
+        // written after every step, so a query that times out further on (it ends the test method) leaves what was
+        // seen until then, ending in "(stopped after: …)".
+        note(name + "-SIDEBAR", (lines + ["(stopped after: the launch check)"]).joined(separator: "\n"))
         XCUIRemote.shared.press(.left); sleep(1)
         let open: CGFloat = featured.frame.minY
         lines.append("sidebar opened (Left): focus \(focusedLabel(in: app)); sidebar frame \(navigationChrome(in: app).frame); featured top \(Int(open))")
+        note(name + "-SIDEBAR", (lines + ["(stopped after: Left)"]).joined(separator: "\n"))
         XCUIRemote.shared.press(.right); sleep(1)
         let closed: CGFloat = featured.frame.minY
         lines.append("sidebar closed (Right): focus \(focusedLabel(in: app)); sidebar frame \(navigationChrome(in: app).frame); featured top \(Int(closed))")
@@ -1052,12 +1081,40 @@ final class ScreenshotTests: XCTestCase {
     /// and Jump to Letter are items of its More menu (text-labelled actions apart from the symbols; tvOS has no
     /// `ToolbarSpacer`), so they are opened through More. Sort and Filter, Saved Views and More are on the bar.
     func openToolbarControl(_ text: String, id: String, in app: XCUIApplication, name: String) -> Bool {
+        // R405 (owner's review of the run on f0a67d3, item 7): first under the toolbar, then Up (`approachToolbar`).
+        approachToolbar(id: Self.moreMenuIDs.contains(id) ? ControlID.moreControls : id, in: app, name: name)
         if Self.moreMenuIDs.contains(id) {
             guard open("More", id: ControlID.moreControls, in: app, name: name) else { return false }
             sleep(1)
             return open(text, in: app, name: name)
         }
         return open(text, id: id, in: app, name: name)
+    }
+
+    /// R405 (item 7): the focus starts on the FIRST poster (top left) and the toolbar controls are at the top RIGHT. The
+    /// runs on fd9731f and f0a67d3 pressed Up from that poster (`focus` picks Up: the target's centre is far above) and
+    /// the focus stayed: nothing focusable lies above the left column. Nothing of the app blocks the way (the grid is one
+    /// focus section, R361; the count line takes no focus). A person moves Right along the first row to a card under the
+    /// toolbar, then presses Up. This does the Rights (at most 6, while the focused element ends left of the control) and
+    /// writes "<name>-TOOLBAR-PATH". Whether Up from that card reaches the control on tvOS 27 is UNVERIFIED: no Apple page
+    /// read (toolbar(content:), HIG Toolbars, which has "No additional considerations for tvOS") says how the focus
+    /// reaches a toolbar.
+    func approachToolbar(id: String, in app: XCUIApplication, name: String) {
+        let target: XCUIElement = app.descendants(matching: .any).matching(identifier: id).firstMatch
+        guard target.waitForExistence(timeout: 5) else { note(name + "-TOOLBAR-PATH", "control \(id) not in the tree"); return }
+        var lines: [String] = ["control \(id) at \(target.frame)"]
+        for _ in 0..<6 {
+            let focused: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+            guard focused.exists else { lines.append("nothing focused"); break }
+            lines.append("focus on “\(focused.label)” \(focused.frame)")
+            if focused.frame.maxY <= target.frame.maxY + 1 { lines.append("already in the bar"); break }
+            if focused.frame.maxX >= target.frame.minX { lines.append("under the control: Up is next"); break }
+            let before: CGRect = focused.frame
+            XCUIRemote.shared.press(.right); usleep(500_000)
+            let after: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+            if after.exists, after.frame == before { lines.append("Right did not move the focus"); break }
+        }
+        note(name + "-TOOLBAR-PATH", lines.joined(separator: "\n"))
     }
 
     /// R375: the controls that live in the library toolbar's More menu.
@@ -1851,7 +1908,23 @@ final class ScreenshotTests: XCTestCase {
         // S01E01 is watched in the sample library, so its button says "Play Again" ("Play" matches it).
         guard open("Play", id: ControlID.play, in: app, name: "22-player-skip-intro") else { app.terminate(); return }
         // The clip is written on first use (a few seconds), then plays; Skip Intro shows from 2 s to 20 s.
-        if waitFor("Skip Intro", in: app, timeout: 30) { sleep(1); shot("22-player-skip-intro") }
+        // R406 (owner's review of the run on f0a67d3, item 8): 22-player-skip-intro-missing showed the episode page with a
+        // spinner: the player's own loading view (`player.loading`, PlayerScreen), drawn over the page while the start
+        // resolves. So the player had not failed; it was still starting when the test gave up at 30 s, while the app's
+        // own limit for that step is 60 s (`PlaybackStartDeadline`). While the spinner is up the test now waits on, up to
+        // 70 s in all, and writes the spinner's step each time ("22-player-start-WAIT"). Why the sample clip's start
+        // took over 30 s is UNVERIFIED: the step in that note (and the run's own NOT-REACHED note) says where it was.
+        var started: Bool = waitFor("Skip Intro", in: app, timeout: 30)
+        var waitLines: [String] = []
+        let spinner: XCUIElement = app.descendants(matching: .any).matching(identifier: "player.loading").firstMatch
+        var waited: Int = 30
+        while !started, spinner.exists, waited < 70 {
+            waitLines.append("\(waited) s: still starting, step \(spinner.value as? String ?? "(no value)")")
+            started = waitFor("Skip Intro", in: app, timeout: 10)
+            waited += 10
+        }
+        if !waitLines.isEmpty { note("22-player-start-WAIT", (waitLines + [started ? "Skip Intro came" : "no Skip Intro after \(waited) s"]).joined(separator: "\n")) }
+        if started { sleep(1); shot("22-player-skip-intro") }
         else {
             shot("22-player-skip-intro-missing")
             notReached("22-player-skip-intro", "No “Skip Intro” within 30 s of Play. " + playerStartOutcome(in: app))
