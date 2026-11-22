@@ -40,7 +40,9 @@ struct SourceFormView: View {
                     NavigationLink {
                         DiscoveryView(kind: draft.kind, onPick: picked)
                     } label: {
-                        RowLabel("Search Your Network", systemImage: "wifi")
+                        // R401 (owner's review of the run on f0a67d3, item 2): no row of a source form has a symbol, as on Add a
+                        // Source (R391): this row and About had one, the field rows none, so the titles started at two places.
+                        FittingText("Search Your Network")
                     }
                     .accessibilityIdentifier(ControlID.formSearchYourNetwork)
                 }
@@ -88,7 +90,8 @@ struct SourceFormView: View {
                 NavigationLink {
                     SourceAboutPage(info: info)
                 } label: {
-                    SlotLabel(SourceAboutText.title(info), systemImage: "info.circle")
+                    // R401: no symbol (see Search Your Network above).
+                    FittingText(SourceAboutText.title(info))
                 }
                 .accessibilityIdentifier(ControlID.learnMore)
             }

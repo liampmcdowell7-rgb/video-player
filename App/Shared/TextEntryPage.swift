@@ -95,6 +95,10 @@ struct TextEntryPage: View {
         .defaultFocus($fieldFocused, true)
         .navigationTitle(title)
         .toolbarVisibility(.hidden, for: .navigationBar)
+        // R400: the cover's dark grey when the entry page is pushed inside a task cover (the source forms).
+        .taskCoverPageBackground()
+        // R407 (A11Y1): the UI-test overrides on the pushed page itself.
+        .uiTestAccessibilityOverrides()
     }
 
     @ViewBuilder

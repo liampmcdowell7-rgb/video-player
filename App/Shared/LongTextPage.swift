@@ -25,5 +25,7 @@ struct LongTextPage: View {
         // design-lint:allow a long text page has no controls, so the scroll view itself takes focus for the Siri Remote to scroll it
         .focusable()
         .pushedScreen(title)
+        // R400: the cover's dark grey when pushed inside a task cover (About pages, Learn More).
+        .taskCoverPageBackground()
     }
 }

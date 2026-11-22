@@ -32,6 +32,11 @@ struct SettingsPane<Content: View>: View {
         }
         .navigationTitle(title)
         .toolbarVisibility(.hidden, for: .navigationBar)
+        // R400: the cover's dark grey, inside its navigation stack (How This Was Sorted, Move).
+        .taskCoverPageBackground()
+        // R407 (A11Y1): the UI-test overrides on the page itself, which is pushed (every Settings page) or inside a
+        // cover's navigation stack (see RouteDestinations).
+        .uiTestAccessibilityOverrides()
     }
 }
 
@@ -106,6 +111,11 @@ struct TaskPage<Content: View>: View {
         .scrollEdgeEffectStyle(.soft, for: .all)
         .navigationTitle(title)
         .toolbarVisibility(.hidden, for: .navigationBar)
+        // R400: the cover's dark grey, inside its navigation stack (Add a Source, the forms, File Details, Save View,
+        // Fix Match).
+        .taskCoverPageBackground()
+        // R407 (A11Y1): the UI-test overrides on the page itself (pushed inside a cover's navigation stack).
+        .uiTestAccessibilityOverrides()
     }
 }
 
@@ -344,5 +354,38 @@ extension View {
     func readableRow() -> some View {
         // design-lint:allow a read-only Settings row takes the system focus so the Siri Remote can reach it and the list scrolls to it (#24 C, R389)
         self.focusable()
+    }
+}
+
+/// R400 (owner's review of the run on f0a67d3, item 1; PROVISIONAL): the dark grey of a task cover, drawn by the PAGE inside
+/// the cover's `NavigationStack`, not around the stack. Cause of the flat black covers (10 to 21, 93, 94, 99, 100, 110, 111):
+/// R397 put the material on the cover's root (`TaskCoverChrome`), which is OUTSIDE the `NavigationStack` that every cover
+/// holds (SourceSetupFlow, FixMatchView, SaveViewSheet, SortMoveSheet, FileDetailsSheet). The stack and the pages it shows
+/// are above that root, so whatever they draw (the stack's own container, the `Form`'s scroll background) hid the material
+/// completely; the run shows no change at all, which fits an opaque layer above it. Which of those layers is the opaque
+/// one is NOT on an Apple page (UNVERIFIED): both are handled here. The page hides its `Form`'s scroll background
+/// (`scrollContentBackground(.hidden)`, tvOS 16.0+) and draws the material over the system background itself, full bleed.
+/// Only inside a task cover (`isInTaskCover`); a tab's own pages keep the system's background.
+struct TaskCoverPageBackground: ViewModifier {
+    @Environment(\.isInTaskCover) private var isInTaskCover: Bool
+
+    func body(content: Content) -> some View {
+        if isInTaskCover {
+            content
+                .scrollContentBackground(.hidden)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // design-lint:allow R400: the system regular material behind a task cover's page, inside its navigation stack; a standard material, no colour of ours
+                .background(.regularMaterial, ignoresSafeAreaEdges: .all)
+                .background(BackgroundStyle(), ignoresSafeAreaEdges: .all)
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    /// R400: see `TaskCoverPageBackground`.
+    func taskCoverPageBackground() -> some View {
+        modifier(TaskCoverPageBackground())
     }
 }

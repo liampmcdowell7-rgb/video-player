@@ -231,6 +231,9 @@ extension View {
             // screen and is not applied to each child element.
             .accessibilityElement(children: .contain)
             .screenHeader(title)
+            // R407 (A11Y1): the UI-test overrides on every pushed page that names itself here (pages opened by a
+            // `NavigationLink` with an inline destination are not `Route` destinations; see RouteDestinations).
+            .uiTestAccessibilityOverrides()
     }
 
     /// The screen's name, spoken as a header when VoiceOver enters the screen (the container keeps its children).
