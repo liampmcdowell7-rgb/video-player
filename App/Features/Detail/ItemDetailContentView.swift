@@ -127,13 +127,19 @@ struct ItemDetailContentView: View {
 
 /// Three lines of the synopsis; selecting it opens the whole text (rule L5: the complete text one press away, so nothing is
 /// cut off for good). Shared by the movie page and the show page (#22 B).
+/// R377 (audit docs/AUDIT_INVENTED_UI.md #1, owner 21 Nov 2026, rule R312): the whole text is a full-screen cover, as in
+/// Apple's media catalog sample (a `.plain` button whose action sets a flag that presents `fullScreenCover` with the
+/// description), no longer a pushed page. The cover keeps the R365 heading and the one focusable block (LongTextPage) so
+/// the remote scrolls it. `taskCover` adds what every cover here has (opaque background, modal trait, CoverPresence).
+/// UNVERIFIED (not on the sample's page): that Menu closes the cover on tvOS, and how the cover looks.
 struct SynopsisLink: View {
     let title: String
     let text: String
+    @State private var showsWholeText = false
 
     var body: some View {
-        NavigationLink {
-            LongTextPage(title: title, text: text)
+        Button {
+            showsWholeText = true
         } label: {
             Text(text)
                 .font(.callout)
@@ -142,6 +148,9 @@ struct SynopsisLink: View {
         }
         .buttonStyle(.plain)
         .accessibilityHint("Shows the whole synopsis")
+        .taskCover(isPresented: $showsWholeText) {
+            LongTextPage(title: title, text: text)
+        }
     }
 }
 
@@ -163,7 +172,8 @@ struct CastShelf: View {
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
             ScrollView(.horizontal) {
-                LazyHStack(alignment: .top) {
+                // design-lint:allow HIG Layout, 40 pt spacing as every shelf of Apple's media catalog sample (R377, audit #10)
+                LazyHStack(alignment: .top, spacing: 40) {
                     ForEach(cast) { person in
                         NavigationLink(value: Route.person(person.name)) {
                             VStack {

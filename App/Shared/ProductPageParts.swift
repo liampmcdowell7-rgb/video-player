@@ -144,9 +144,11 @@ struct BadgeOutline: View {
 
 /// R350 (PROVISIONAL, alternatives in OPEN_QUESTIONS): the hero area of a movie or show page fills this share of the first
 /// screen, its content at the bottom, so the artwork shows above the title as on the TV app's product page and the top of
-/// the next section shows below it. A share of the page's own height, not a point size; Apple publishes no number.
+/// the next section shows below it. A share of the page's own height, not a point size.
+/// R377 (audit docs/AUDIT_INVENTED_UI.md #3, owner 21 Nov 2026, rule R312): 0.8, the value of Apple's media catalog sample
+/// (`length * 0.8`). Was 0.85 (R350).
 enum ProductPageLayout {
-    static let heroFraction: CGFloat = 0.85
+    static let heroFraction: CGFloat = 0.8
 }
 
 extension View {

@@ -94,22 +94,31 @@ struct FittingText: View {
     /// R355: the line in its style when it fits, else one line at the 23 pt floor (Caption 2), else the floor size wrapped
     /// onto as many lines as it needs. The system `ViewThatFits` chooses in one layout pass, with no measured state (as
     /// `CardCaption`, R354), so the row takes the wrapped height in the same pass.
+    /// R378: the three steps and their order are AppLogic `TextFitting.wrapLadder` (Linux tests of the choice).
     private var wrapping: some View {
-        ViewThatFits(in: .horizontal) {
-            oneLine(style)
-            oneLine(.caption2)
-            Text(text)
-                .font(TVTextStyle.caption2.font)
-                .fixedSize(horizontal: false, vertical: true)
+        let ladder: [TextFitStep] = TextFitting.wrapLadder(style)
+        return ViewThatFits(in: .horizontal) {
+            fitStep(ladder[0])
+            fitStep(ladder[1])
+            fitStep(ladder[2])
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// One line in `style`; `ViewThatFits` uses it only when its natural width fits, so it is never cut (rule S1).
-    private func oneLine(_ lineStyle: TVTextStyle) -> some View {
-        Text(text)
-            .font(lineStyle.font)
-            .lineLimit(1) // design-lint:allow R355: offered to ViewThatFits only at its natural width, so it is never cut (rule S1)
+    /// One step of the ladder: one line offered to `ViewThatFits` only at its natural width, so it is never cut (rule S1),
+    /// or the style wrapped onto as many lines as it needs.
+    @ViewBuilder
+    private func fitStep(_ step: TextFitStep) -> some View {
+        switch step {
+        case .oneLine(let lineStyle):
+            Text(text)
+                .font(lineStyle.font)
+                .lineLimit(1) // design-lint:allow R355: offered to ViewThatFits only at its natural width, so it is never cut (rule S1)
+        case .wrapped(let wrapStyle):
+            Text(text)
+                .font(wrapStyle.font)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     @ViewBuilder
@@ -156,9 +165,9 @@ struct FittingText: View {
         return .infinity
     }
 
-    /// True when the text does not fit its width even at the readable floor (R229).
+    /// True when the text does not fit its width even at the readable floor (R229). R378: AppLogic `TextFitting.isTooLong`.
     static func isTooLong(natural: Double, available: Double, readable: Double) -> Bool {
-        natural > 0 && available > 0 && available < natural * readable
+        TextFitting.isTooLong(natural: natural, available: available, readable: readable)
     }
 }
 

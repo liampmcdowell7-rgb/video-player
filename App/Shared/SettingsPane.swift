@@ -202,13 +202,16 @@ final class CoverPresence {
     /// The one counter of the app (R292): RootView, every task cover and every page screen read this same instance.
     static let shared: CoverPresence = CoverPresence()
 
-    private(set) var openCovers: Int = 0
+    /// R378: the counting itself is AppLogic `CoverCount` (Linux tests), unchanged in behaviour.
+    private var count = CoverCount()
 
-    var isCovered: Bool { openCovers > 0 }
+    var openCovers: Int { count.open }
 
-    func opened() { openCovers += 1 }
+    var isCovered: Bool { count.isCovered }
 
-    func closed() { openCovers = max(0, openCovers - 1) }
+    func opened() { count.opened() }
+
+    func closed() { count.closed() }
 }
 
 /// The title (one line, rule S1) and the one sentence of a `TaskPage`, in the system section-header position. The sentence

@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// The page behind `LearnMoreLink` (and "What Is Sent"): the full text in a bounded, readable column. It has no controls,
+/// The page behind `LearnMoreLink` (and "What Is Sent"), and the whole synopsis in its full-screen cover (R377): the full
+/// text in a bounded, readable column. It has no controls,
 /// so the scroll view takes focus and the remote scrolls it, as on the licence pages.
 struct LongTextPage: View {
     let title: String

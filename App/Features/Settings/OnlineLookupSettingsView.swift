@@ -108,7 +108,7 @@ private struct KeyRow: View {
 
     var body: some View {
         Section {
-            ValueRow(label, value: saved == nil ? OnlineLookupText.keyNotSet : OnlineLookupText.keyOn)
+            ValueRow(label, value: KeyEntryFlow.status(hasKey: saved != nil))
                 .accessibilityIdentifier(ControlID.keyRow(kind.rawValue))
             if let saved {
                 // Masked as text, never the whole key (OnlineKeyStore.masked: dots and the last four characters).
@@ -124,16 +124,16 @@ private struct KeyRow: View {
             // inside the row platter.
             // R364 (compile run of 21 Nov 2026, item 12): Done on the entry page saves the key; there is no Save Key button.
             // The entry page's Done already confirms the key, so a second button after it asked for the same thing twice.
-            // Back without Done saves nothing (TextEntryPage).
-            TextEntryRow(title: saved == nil ? OnlineLookupText.enterKey : OnlineLookupText.replaceKey, value: $entry,
+            // Back without Done saves nothing (TextEntryPage). R378: the rules are AppLogic `KeyEntryFlow` (Linux tests).
+            TextEntryRow(title: KeyEntryFlow.entryTitle(hasKey: saved != nil), value: $entry,
                          entry: TextEntryRules.keyEntry, summary: TextEntryRules.keySummary(label),
                          identifier: ControlID.keyEntry(kind.rawValue)) { _, after in
-                guard !after.isEmpty, !working else { return }
+                guard KeyEntryFlow.savesOnDone(entered: after, working: working) else { return }
                 Task { await save() }
             }
         } footer: {
             // L3: the result of Save or Remove is footer text, not a row.
-            Text(message.map { $0 + " " + help } ?? help)
+            Text(KeyEntryFlow.footer(message: message, help: help))
         }
         .confirmationDialog("Remove the \(label) key?", isPresented: $confirmRemove) {
             Button("Remove Key", role: .destructive) { Task { await remove() } }
@@ -149,7 +149,7 @@ private struct KeyRow: View {
         do {
             try await services.online.saveKey(entry, for: kind)
             entry = ""
-            message = "Key saved."
+            message = KeyEntryFlow.savedMessage
             services.libraryRevision += 1
         } catch {
             // The error text never contains the key (OnlineKeyError descriptions are fixed sentences).
@@ -160,7 +160,7 @@ private struct KeyRow: View {
     private func remove() async {
         do {
             try await services.online.removeKey(kind)
-            message = "Key removed."
+            message = KeyEntryFlow.removedMessage
             services.libraryRevision += 1
         } catch {
             message = error.localizedDescription

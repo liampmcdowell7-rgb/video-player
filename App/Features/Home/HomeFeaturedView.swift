@@ -5,7 +5,7 @@ import AppLogic
 /// Home screen of Apple's TV app on tvOS 27 (docs/DESIGN_SYSTEM.md "Reference screens"): the title's large artwork across
 /// the full width (drawn behind the page by `HomeRows`, R357), and over its lower part the title logo (or the name), ONE line of metadata, then Play (or Resume) and
 /// More. More opens the title's page. Which title: AppLogic `HomeFeatured.pick` (Continue Watching first).
-/// The area is two thirds of the screen's height (`HomeFeaturedLayout.heightFraction`), so the first shelf shows below it
+/// The area is 0.8 of the screen's height (`HomeFeaturedLayout.heightFraction`, R377), so the first shelf shows below it
 /// and the person can see there is more (HIG Designing for tvOS: "Deliver beautiful, edge-to-edge artwork").
 struct HomeFeaturedView: View {
     let featured: HomeFeatured
@@ -68,7 +68,9 @@ struct HomeFeaturedView: View {
 }
 
 /// R349 (PROVISIONAL, alternatives in OPEN_QUESTIONS): the featured area's share of the screen height. Not a point size: the
-/// TV app's featured area fills most of the first screen and lets the first shelf show under it; Apple publishes no number.
+/// TV app's featured area fills most of the first screen and lets the first shelf show under it.
+/// R377 (audit docs/AUDIT_INVENTED_UI.md #2, owner 21 Nov 2026, rule R312): 0.8, the value of Apple's media catalog sample
+/// (its header is `containerRelativeFrame(.vertical)` at `length * 0.8`). Was 2/3 (R349).
 enum HomeFeaturedLayout {
-    static let heightFraction: CGFloat = 2.0 / 3.0
+    static let heightFraction: CGFloat = 0.8
 }
