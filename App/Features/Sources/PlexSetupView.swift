@@ -52,15 +52,14 @@ struct PlexSetupView: View {
         case .code(let code):
             codePage(code: code.code, link: code.linkText)
         case .codeExpired:
-            VStack {
-                Text(PlexSetupText.signInTitle)
-                    .font(.title2)
-                    .accessibilityAddTraits(.isHeader)
+            // R382 (owner's audit #22): the system's empty-state view, as for "no servers" below; same texts and action.
+            ContentUnavailableView {
+                Label(PlexSetupText.signInTitle, systemImage: "clock")
+            } description: {
                 Text(PlexSetupText.expired)
-                    .foregroundStyle(.secondary)
+            } actions: {
                 Button(PlexSetupText.newCode) { attempt += 1 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .loadingServers:
             spinner(PlexSetupText.loadingServers)
         case .servers(let servers):

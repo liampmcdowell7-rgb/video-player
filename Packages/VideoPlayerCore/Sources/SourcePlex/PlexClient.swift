@@ -18,6 +18,8 @@ public actor PlexClient: MediaSource {
     private let pageSize: Int
     private var treeTask: Task<PlexTree, Error>?
     private var treeStarted: Date?
+    /// R380: the last listing read completely (kept after it expires), for answers that must not start a request.
+    private var heldTree: PlexTree?
     /// How long a listing of the server is reused before it is read again (R305): browsing, scanning and starting
     /// playback within this time cost no new library requests; a file added on the server shows up after it.
     private let treeLifetime: TimeInterval
@@ -128,6 +130,17 @@ public actor PlexClient: MediaSource {
                               viewCount: node.viewCount, lastViewedAt: node.lastViewedAt)
     }
 
+    /// R380: the item's `contentRating` from the last listing this client finished reading, whatever its age; nil when no
+    /// listing has been read yet. Never starts a request (the player sets this rating before playback starts).
+    public func heldContentRating(at path: String) -> String? {
+        heldTree?.node(at: path)?.metadata?.contentRating
+    }
+
+    /// R383: the item's `thumb` path from the last listing read, without a request; nil when no listing is held.
+    public func heldThumb(at path: String) -> String? {
+        heldTree?.node(at: path)?.metadata?.thumb
+    }
+
     /// Every file with the server's view of it (for the one-time watch-state seed, R306).
     public func serverItems() async throws -> [String: PlexServerItem] {
         let tree = try await currentTree()
@@ -170,6 +183,7 @@ public actor PlexClient: MediaSource {
         do {
             let tree = try await task.value
             skippedParts = tree.skippedParts
+            heldTree = tree
             return tree
         } catch {
             treeTask = nil

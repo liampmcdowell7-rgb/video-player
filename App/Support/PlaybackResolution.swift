@@ -21,6 +21,8 @@ struct ResolvedPlayback: @unchecked Sendable {
     var file: StoredFile?
     /// R319: the details key whose content rating the Info tab shows ("series-N" for an episode, `PlayerRating.detailsKey`).
     var ratingKey: String?
+    /// R380: the rating set on the item before playback starts (`PlayerRating.atStart`), nil when none was on hand.
+    var startRating: PlayerRating.Choice?
 }
 
 /// Why an item cannot be played. Every case maps to plain text and a what-to-do line (`failure`); the text is the whole message.

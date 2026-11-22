@@ -18,13 +18,23 @@ final class ProposalPresenter: UpNextProposalPresenting, @unchecked Sendable {
     @MainActor var autoPlay = true
     /// The show's name, for the card's line "Show · S1, E4 · Episode name" (R313).
     @MainActor var seriesTitle: String?
+    /// R383: the next episode's still from the artwork cache (no request), nil when none is on hand.
+    @MainActor var stillOnHand: (@MainActor (Int64) async -> Data?)?
 
     func present(_ proposal: UpNextProposal) {
         Task { @MainActor [weak self] in
-            guard let self, let item = self.item else { return }
+            guard let self, self.item != nil else { return }
             // R313: the system card shows "Up Next" above this line.
             let title: String = PlayerEpisodeText.upNextLine(proposal, show: self.seriesTitle)
-            let content = AVContentProposal(contentTimeForTransition: item.currentTime(), title: title, previewImage: nil)
+            // R383 (audit #11): Apple's previewImage page asks for "a frame from the proposed video, not the poster
+            // artwork", so only the episode's still is used, and only when it is already cached; otherwise no picture.
+            var image: UIImage?
+            if let id = UpNextPreview.itemID(previewKey: proposal.previewKey), let still = self.stillOnHand,
+               let data = await still(id) {
+                image = UIImage(data: data)
+            }
+            guard let item = self.item else { return }
+            let content = AVContentProposal(contentTimeForTransition: item.currentTime(), title: title, previewImage: image)
             let duration: Double = item.duration.seconds
             content.automaticAcceptanceInterval = UpNextCard.acceptanceInterval(
                 autoPlay: self.autoPlay, position: item.currentTime().seconds, duration: duration.isFinite ? duration : nil)

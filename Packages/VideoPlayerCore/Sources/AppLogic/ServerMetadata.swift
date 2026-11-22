@@ -28,6 +28,12 @@ public protocol ServerMetadataProviding: Sendable {
     /// R374: the rating asked of the server with ONE request for this file's item (Jellyfin and Emby: the single-item
     /// endpoint), for when the list did not carry it. Nil: the server has none. Throws when it cannot be asked now.
     func requestContentRating(for file: StoredFile) async throws -> String?
+    /// R380: the rating from a listing the client has already read, without starting a request (nil when none is held).
+    /// Used before playback starts, which must never wait on the network.
+    func heldContentRating(for file: StoredFile) async -> String?
+    /// R383: the `ServerPicture.cacheKey` of this file's picture (an episode's still) from a listing the client already
+    /// holds, without a request; nil when none is held. Used to find a picture already in the artwork cache.
+    func heldPictureCacheKey(for file: StoredFile) async -> String?
 }
 
 public extension ServerMetadataProviding {
@@ -35,6 +41,11 @@ public extension ServerMetadataProviding {
     func contentRating(for file: StoredFile) async -> String? { nil }
     /// R374: a server that cannot be asked about one item.
     func requestContentRating(for file: StoredFile) async throws -> String? { throw SourceError.unsupported("no item request") }
+    /// R380: the server's rating only from a listing the client already holds; never a request. A server that keeps
+    /// no listing answers nil.
+    func heldContentRating(for file: StoredFile) async -> String? { nil }
+    /// R383: a server that keeps no listing answers nil.
+    func heldPictureCacheKey(for file: StoredFile) async -> String? { nil }
 }
 
 /// Source kinds whose server metadata is used (R307). Only Plex today: Jellyfin and Emby keep their order (R210).

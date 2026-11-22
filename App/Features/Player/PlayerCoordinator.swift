@@ -97,6 +97,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         super.init()
         skipPresenter.controllerProvider = { [weak self] in self?.controller }
         proposalPresenter.item = playerItem
+        proposalPresenter.stillOnHand = { [services] id in await services.online.upNextStill(itemID: id) }
         proposalPresenter.seriesTitle = resolved.content.seriesTitle
         if let remux = resolved.remux {
             let model = PictureSubtitleMenuModel(info: remux.info.pictureSubtitles)
@@ -546,6 +547,8 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         }
         add(.commonIdentifierTitle, resolved.title)
         if let subtitle = resolved.subtitle { add(.iTunesMetadataTrackSubTitle, subtitle) }
+        // R380: the rating on hand goes on the item before playback starts, so the content restrictions can use it.
+        if let rating = resolved.startRating { add(.iTunesMetadataContentRating, rating.value) }
         return items
     }
 
@@ -577,15 +580,20 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     /// value is R371's rating, the badge text ("PG-13"); no item when there is none. Now Playing: MPNowPlayingInfoCenter has
     /// no content-rating key, and the system owns the entry on tvOS (R317), so the app adds nothing there. Whether the Info
     /// tab shows an item added after playback started is the same device check as the artwork's.
+    ///
+    /// R380 (PROVISIONAL): a rating on hand is already on the item from before the start (`metadata(for:)`). The lookup's
+    /// answer replaces it only when `PlayerRating.afterLookup` says so (none at start, or an answer from a layer at least
+    /// as strong); the old rating item is removed first, so the item never carries two ratings.
     private func addRatingToMetadata() async {
         guard let key = resolved.ratingKey else { return }
-        let details = await services.online.details(key: key)
-        guard let rating = PlayerRating.metadataValue(details?.contentRating), !stopped else { return }
+        let answer = await services.online.layeredDetails(key: key)
+        guard let choice = PlayerRating.afterLookup(current: resolved.startRating, answer: answer.details?.contentRating,
+                                                    answerLayer: answer.ratingLayer), !stopped else { return }
         let entry = AVMutableMetadataItem()
         entry.identifier = .iTunesMetadataContentRating
-        entry.value = rating as NSString
+        entry.value = choice.value as NSString
         entry.extendedLanguageTag = "und"
-        item.externalMetadata.append(entry)
+        item.externalMetadata = item.externalMetadata.filter { $0.identifier != .iTunesMetadataContentRating } + [entry]
     }
 }
 

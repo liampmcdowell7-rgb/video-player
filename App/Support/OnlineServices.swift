@@ -170,16 +170,36 @@ final class OnlineServices {
     /// PROVISIONAL R210): the source's own details (Plex's synopsis for Plex files, R307; none for other sources), then
     /// Wikidata while Free Data Sources is on, then TMDB with the user's key. Nil when no layer has anything.
     func details(key: String) async -> TitleDetails? {
+        await layeredDetails(key: key).details
+    }
+
+    /// The same details with the layer each part came from (R380: the player needs the rating's layer to decide whether it
+    /// replaces the rating set before playback started).
+    func layeredDetails(key: String) async -> LayeredDetails {
         #if DEBUG
         // #21 D: the screenshot job's fake synopsis and cast (no key, no network). Not compiled into Release.
-        if UITestMode.current == .fixtures { return await UITestFixtureDetails.details(key: key, store: store) }
+        if UITestMode.current == .fixtures {
+            return LayeredDetails(details: await UITestFixtureDetails.details(key: key, store: store), used: [])
+        }
         #endif
         // #29: typed steps; the closures are built in AppLogic (OnlineComposition.swift), where the package tests cover them.
         var tmdbSource: (any TitleDetailsSource)? = nil
         if hasCatalogueKey { tmdbSource = resolver }
         let service: LayeredDetailsService = LayeredDetailsService.online(store: store, wikidata: wikidata, tmdb: tmdbSource, server: server, region: region, reader: reader)
-        let layered: LayeredDetails = await service.details(key: key)
-        return layered.details
+        return await service.details(key: key)
+    }
+
+    /// R380: the source's own rating for a file, only from what the source client already holds (no request).
+    func heldSourceRating(for file: StoredFile) async -> String? {
+        await server?.heldContentRating(for: file)
+    }
+
+    /// R383: the next episode's still for the Up Next card, only from the artwork cache (nothing read from a source, no
+    /// request); nil when it is not cached or the bytes are not a usable image (`UpNextPreview`).
+    func upNextStill(itemID: Int64) async -> Data? {
+        guard let url = await UpNextPreview.cachedStill(itemID: itemID, store: store, cache: diskCache, server: server),
+              let data = try? Data(contentsOf: url), UpNextPreview.usable(data) else { return nil }
+        return data
     }
 
     /// R341 (Decided by the owner, 21 Nov 2026): a title's synopsis and cast from what is already stored on this Apple TV,

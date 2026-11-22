@@ -500,6 +500,9 @@ final class AppServices {
         resolved.remux = remux
         resolved.file = file
         resolved.ratingKey = PlayerRating.detailsKey(for: item)
+        // R380: the rating already on hand, no request: Plex's from the listing its client holds, else the library's own.
+        resolved.startRating = PlayerRating.atStart(sourceRating: await online.heldSourceRating(for: file),
+                                                    storedRating: item.contentRating)
         return resolved
     }
 

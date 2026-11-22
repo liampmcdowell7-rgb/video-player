@@ -154,7 +154,7 @@ public actor ArtworkEngine {
 
     /// A media server's picture through the same cache as sidecars (its key changes when the server's picture changes).
     private func cached(_ picture: ServerPicture) async -> ArtworkResult? {
-        let key = "server|" + picture.cacheKey
+        let key = Self.serverCacheKey(picture.cacheKey)
         if let url = cache.url(forKey: key) { return .file(url) }
         guard let data = try? await picture.fetch(Self.maxSidecarBytes), !data.isEmpty, data.count <= Self.maxSidecarBytes,
               let url = try? cache.store(data, key: key) else { return nil }
@@ -329,6 +329,9 @@ public actor ArtworkEngine {
 
     /// The artwork cache key of a picture read from a source. The iCloud backup uses the same function to tell which cached
     /// pictures belong to files the index still holds (docs/BACKUP.md), so the two can never disagree.
+    /// The disk-cache key of a media server's picture (R383: also read by `UpNextPreview.cachedStill`).
+    public static func serverCacheKey(_ pictureKey: String) -> String { "server|" + pictureKey }
+
     public static func sidecarCacheKey(sourceID: String, path: String, size: Int64?, modified: Date?, etag: String?) -> String {
         "sidecar|\(sourceID)|\(path)|\(size ?? -1)|\(Int(modified?.timeIntervalSince1970 ?? 0))|\(etag ?? "")"
     }
