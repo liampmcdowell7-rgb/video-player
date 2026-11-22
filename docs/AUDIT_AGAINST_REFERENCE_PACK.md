@@ -1,5 +1,8 @@
 # Audit against the reference pack (21 Nov 2026)
 
+> **Replaced for visual questions.** For spacing, sizes, layout and look, docs/AUDIT_VISUAL_TVAPP.md (picture against
+> picture, measured, on fd9731f) replaces this audit. This one still answers "is there a system component for this".
+
 Read-only. The screens in docs/REFERENCE_PACK.md checked against their Apple pages, mainly the ones
 docs/AUDIT_INVENTED_UI.md did not reach: the player and its info panel, Up Next, each Settings page, Add a Source and
 its forms, Discover, Needs Review, Move and the person page. Line numbers are at commit 0adccb8. Other sessions were

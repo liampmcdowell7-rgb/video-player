@@ -1,5 +1,8 @@
 # Audit: where the app draws its own UI (21 Nov 2026)
 
+> **Replaced for visual questions.** For spacing, sizes, layout and look, docs/AUDIT_VISUAL_TVAPP.md (picture against
+> picture, measured, on fd9731f) replaces this audit. This one still answers "is there a system component for this".
+
 Read-only audit of every screen under `App/` at commit c8f278d. Nothing in the code was changed. Nothing here has been
 compiled or run on tvOS (R318). Line numbers are at c8f278d; two other sessions were editing `App/Features/Player`,
 `App/Shell` and `App/Support` at the time, so lines in those folders may have moved.

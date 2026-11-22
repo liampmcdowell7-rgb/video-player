@@ -143,6 +143,7 @@ No session titled "Designing for tvOS" or "What's new in tvOS" was found.
 Each line: the page, then what to take for that screen. Full links are in section 1.
 
 ### App shell: sidebar (Home, Movies, Shows, Files, Search, Settings)
+- Picture (tvOS 26): https://support.apple.com/guide/tv/navigate-the-apple-tv-app-atvb59b423ba/26/tvos/26 (the sidebar open; AUDIT_VISUAL_TVAPP A2); the sidebar on https://www.apple.com/apple-tv-app/ (hero image).
 - SwiftUI tabview, tab, tabsection, tabviewstyle/sidebaradaptable: the sidebar and its Library section; no customization on tvOS.
 - HIG sidebars: content extends beneath the sidebar.
 - HIG tab-bars: Back returns focus to the navigation; its tvOS text predates the sidebar (UNVERIFIED how much still applies).
@@ -151,6 +152,7 @@ Each line: the page, then what to take for that screen. Full links are in sectio
 - HIG remotes: Back opens the parent screen.
 
 ### Home
+- Picture (tvOS 26): https://support.apple.com/guide/tv/tv-app-at-a-glance-atvb6339cf5a/26/tvos/26 (Home with a featured series; measured in docs/AUDIT_VISUAL_TVAPP.md A1).
 - HIG designing-for-tvos: edge-to-edge artwork, content first.
 - Sample [StackView], [Show content above and below the fold], [Snap at the fold point]: hero header then shelves; the header at 0.8 of the screen height (the only Apple source for a hero fraction; see Gaps), `focusSection`, material gradient.
 - Sample [Display content shelves], [Create content lockups]: shelf and lockup code.
@@ -158,6 +160,7 @@ Each line: the page, then what to take for that screen. Full links are in sectio
 - HIG layout: safe area and spacing; HIG materials: material over artwork; HIG loading: placeholders early.
 
 ### Movies and Shows (grids, Sort and Filter, saved views, A to Z)
+- Picture (tvOS 26): https://support.apple.com/guide/tv/view-movies-and-tv-shows-in-your-library-atvba6a2c11c/26/tvos/26 (Library: category list, 6-column poster grid, no captions; AUDIT_VISUAL_TVAPP A3).
 - HIG collections and HIG layout: grid columns and gaps (layout's 2-to-9-column table).
 - SwiftUI lazyvgrid, primitivebuttonstyle/borderless, view/focussection().
 - HIG toolbars, SwiftUI view/toolbar(content:): the system toolbar for Sort and Filter.
@@ -171,6 +174,7 @@ Each line: the page, then what to take for that screen. Full links are in sectio
 - SwiftUI contentunavailableview: an empty folder.
 
 ### Search
+- Pictures: none of the TV app (the guide's "Find things to watch" has icons only). Apple's sample app's search: https://developer.apple.com/videos/play/wwdc2024/10207/ at 13:35 (AUDIT_VISUAL_TVAPP C1).
 - HIG searching and HIG search-fields: one search tab, keyboard screen, suggestions.
 - SwiftUI view/searchable(text:placement:prompt:), lazyvgrid, contentunavailableview (`.search`).
 - Sample [Search for content]: 4-column grid of borderless lockups with suggestions.
@@ -195,6 +199,7 @@ Each line: the page, then what to take for that screen. Full links are in sectio
 - HIG alerts: alerts only when a choice is needed.
 
 ### Movie page and show page (product pages, seasons, episodes, cast, Information)
+- Pictures: a movie page on https://www.apple.com/apple-tv-app/ (image tv_screen_mission_imposible…_large.jpg; AUDIT_VISUAL_TVAPP B1); a show page behind Picture in Picture on https://support.apple.com/guide/tv/control-video-playback-atvb7944597f/26/tvos/26 (image 0f124851; A4); circular person lockups on https://developer.apple.com/design/human-interface-guidelines/lockups (D3). No picture of an episode page, the description page or the Information section.
 - Sample [Provide product highlight pages]: blurred artwork, equal-width buttons, description opening a `fullScreenCover`.
 - Sample [Show content above and below the fold]: hero area and material gradient.
 - SwiftUI borderedprominentbuttonstyle, view/fullscreencover(…), view/defaultfocus(…), view/focussection(), view/focusable(_:).
@@ -205,6 +210,7 @@ Each line: the page, then what to take for that screen. Full links are in sectio
 - HIG materials, HIG images: material over artwork; layered artwork.
 
 ### Person page
+- Pictures: none of the TV app; circular person lockups on https://developer.apple.com/design/human-interface-guidelines/lockups (D3).
 - Sample [Create content lockups]: circle lockup for the person; borderless lockups for titles.
 - SwiftUI lazyvgrid or lazyhstack, primitivebuttonstyle/card where the lockups are dense.
 
@@ -218,6 +224,7 @@ Each line: the page, then what to take for that screen. Full links are in sectio
   shelf or line with nothing focusable next to it in that direction cannot be reached; `focusSection()` helps.
 
 ### Player and its info panel
+- Pictures: player controls on https://support.apple.com/guide/tv/control-video-playback-atvb7944597f/26/tvos/26 (image cf29160a; AUDIT_VISUAL_TVAPP A4); an Info tab on https://developer.apple.com/design/human-interface-guidelines/materials (D5); a tvOS alert on https://developer.apple.com/design/human-interface-guidelines/alerts (D4). No picture of an Episodes or Stats tab.
 - HIG playing-video: system player, no resume question, detail screen after playback, spinner only after 2 s.
 - AVKit avplayerviewcontroller and the article "Customizing the tvOS playback experience".
 - AVKit custominfoviewcontrollers: the info panel's tabs (Info, Episodes, Playback Stats).
