@@ -7,6 +7,12 @@ import AppLogic
 /// format badges, `ProductMetadataLine`), the description, the buttons. Below it: Cast & Crew, then "Information", every
 /// technical row of the file, always fully shown, most important first. Everything reachable is a button, a menu or a
 /// focusable block, so the remote can scroll to all of it.
+///
+/// R387 (PROVISIONAL; owner's device test, item A): an episode gets the same page, not a second design: the episode's own
+/// still as the hero picture (the show's backdrop only without one), the show's name, "S1, E3" (R358's form) above the
+/// episode's title, the metadata line (runtime, the source's rating, the episode's rating or else the show's, the format
+/// badges), the source's synopsis in the same cover, the same buttons, then a row of the season's other episodes (the show
+/// page's shelf), the cast when the source gives one, and Information. A part with no data is left out.
 struct ItemDetailContentView: View {
     let content: ItemDetailContent
     let model: ScreenModel<ItemDetailViewModel>
@@ -19,11 +25,34 @@ struct ItemDetailContentView: View {
     @FocusState private var playFocused: Bool
     /// R350: the height of the page's scroll view, so the hero area fills the first screen (`ProductPageLayout`).
     @State private var pageHeight: CGFloat = 0
+    /// R387: the show's age rating, asked for only when an episode has none of its own (`EpisodePage.needsSeriesRating`).
+    @State private var seriesRating: String?
+    /// R387: the episode's show, for the row of the season's other episodes (the show page's model, so a card's context
+    /// menu marks it watched as on the show page). Nil for a movie.
+    @State private var seasonModel: ScreenModel<SeasonsViewModel>?
+
+    /// R387: the rating on the metadata line: the title's own, else (an episode) its show's.
+    private var rating: String? { EpisodePage.rating(episode: details?.contentRating, series: seriesRating) }
+
+    /// R387: the season's other episodes; nil (no row) for a movie, before the show is loaded, or for a lone episode.
+    private var otherEpisodes: SeasonSection? {
+        guard content.kind == .episode, let seasons = seasonModel?.screen.state.content?.seasons else { return nil }
+        return EpisodePage.otherEpisodes(in: seasons, season: content.season, currentID: content.itemID)
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading) {
                 hero
+                // R387: as on the show page, the episodes right after the hero, then the cast.
+                if let other = otherEpisodes, let seasonModel {
+                    VStack(alignment: .leading) {
+                        Text(other.title)
+                            .font(.headline)
+                            .accessibilityAddTraits(.isHeader)
+                        EpisodeShelfRow(episodes: other.episodes, model: seasonModel)
+                    }
+                }
                 if let cast = details?.cast, !cast.isEmpty {
                     CastShelf(cast: cast)
                 }
@@ -45,9 +74,23 @@ struct ItemDetailContentView: View {
         // (`-UITestOpen`, a Top Shelf link) gets the focus the tab bar had, and `defaultFocus` alone only picks where the
         // focus lands when it moves INTO the page. Asking for Play once the page is on screen moves it there.
         .task(id: content.itemID) { playFocused = true }
-        .background { BackdropView(artworkKey: content.artworkKey, style: .hero) }
+        .background { BackdropView(artworkKey: content.artworkKey, style: .hero, prefersEpisodeStill: content.kind == .episode) }
         .task(id: "\(content.artworkKey)|\(services.online.keyRevision)") {
-            details = content.kind == .movie ? await services.online.details(key: content.artworkKey) : nil
+            // R387: an episode asks too; only the source's own layer answers for one (Wikidata and TMDB give nothing).
+            let own = await services.online.details(key: content.artworkKey)
+            details = own
+            if EpisodePage.needsSeriesRating(kind: content.kind, seriesID: content.seriesID, ownRating: own?.contentRating),
+               let seriesID = content.seriesID {
+                seriesRating = await services.online.details(key: "series-\(seriesID)")?.contentRating
+            } else {
+                seriesRating = nil
+            }
+        }
+        // R387: the show's seasons for the row of other episodes, again when the library or this episode's mark changes.
+        .task(id: "\(content.seriesID ?? 0)|\(services.libraryRevision)|\(content.isWatched)") {
+            guard content.kind == .episode, let seriesID = content.seriesID else { seasonModel = nil; return }
+            if seasonModel == nil { seasonModel = ScreenModel(SeasonsViewModel(store: services.store, seriesID: seriesID)) }
+            await seasonModel?.run { await $0.load() }
         }
         .pushedScreen(content.title)
     }
@@ -58,11 +101,15 @@ struct ItemDetailContentView: View {
             if let series = content.seriesTitle, let seriesID = content.seriesID {
                 NavigationLink(series, value: Route.series(seriesID))
             }
+            // R387: an episode's "S1, E3" on its own line above its title (rule S1: one line, scaled to fit).
+            if let code = content.episodeCode {
+                FittingText(code, style: .headline)
+            }
             // #15 Part 9: a movie's title logo when one is found and the setting is on; otherwise the text title (rule S1).
             TitleHeader(title: content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil)
             // R350: ONE line, the facts then the outlined format badges (dropped from the end when it does not fit).
-            if !content.facts.isEmpty || !content.badges.isEmpty || details?.contentRating != nil {
-                ProductMetadataLine(facts: content.facts, rating: details?.contentRating, badges: content.badges)
+            if !content.facts.isEmpty || !content.badges.isEmpty || rating != nil {
+                ProductMetadataLine(facts: content.facts, rating: rating, badges: content.badges)
             }
             ContentAdviceLine(descriptors: details?.contentDescriptors ?? [])
             if let overview = details?.overview {

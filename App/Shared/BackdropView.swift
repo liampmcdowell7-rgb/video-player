@@ -20,6 +20,9 @@ struct BackdropView: View {
     /// the material rising over its lower part, where the title and buttons are) or `.page` (the material over the whole
     /// picture, R336; no screen uses it since R350, kept as R350's alternative (a)).
     var style: BackdropStyle = .page
+    /// R387: the episode page's hero is the episode's own still (`OnlineServices.episodeStill`), not the show's backdrop;
+    /// the show's backdrop only when the episode has no still, never its poster.
+    var prefersEpisodeStill = false
     @Environment(AppServices.self) private var services
     @State private var result: ArtworkResult = .none
 
@@ -31,8 +34,19 @@ struct BackdropView: View {
             .ignoresSafeArea()
             .accessibilityHidden(true)
             .task(id: "\(artworkKey)|\(services.online.keyRevision)") {
-                result = await services.online.backdrop(key: artworkKey)
+                result = await load()
             }
+    }
+
+    private func load() async -> ArtworkResult {
+        if prefersEpisodeStill {
+            let still = await services.online.episodeStill(key: artworkKey)
+            switch still {
+            case .file, .remote: return still
+            case .none: break
+            }
+        }
+        return await services.online.backdrop(key: artworkKey)
     }
 
     @ViewBuilder

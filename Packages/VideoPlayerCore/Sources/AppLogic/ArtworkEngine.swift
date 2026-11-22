@@ -128,9 +128,18 @@ public actor ArtworkEngine {
         return result
     }
 
+    /// R387: an episode's own picture only, the hero of the episode page: its still next to the file (thumb, then its own
+    /// poster), then the media server's picture of the episode. Never the show folder's artwork or the show's online
+    /// poster, which `resolve(key:)` falls back to for a card; with none, `.none` and the page uses the show's backdrop.
+    /// `.none` for a movie or a series key.
+    public func episodeStill(key text: String) async -> ArtworkResult {
+        guard case .item(let id)? = ArtworkKey(text), let item = try? await store.item(id: id), item.kind == .episode else { return .none }
+        return (try? await resolveItem(id, stillOnly: true)) ?? .none
+    }
+
     // MARK: Items
 
-    private func resolveItem(_ id: Int64) async throws -> ArtworkResult {
+    private func resolveItem(_ id: Int64, stillOnly: Bool = false) async throws -> ArtworkResult {
         guard let item = try await store.item(id: id) else { return .none }
         let versions = try await store.versions(of: id)
         let file = versions.first { $0.id == item.preferredFileID } ?? versions.first
@@ -143,11 +152,13 @@ public actor ArtworkEngine {
             } else {
                 let found = SidecarImageFinder.images(forEpisode: file.name, in: entries)
                 if let hit = found.thumb ?? found.poster, let r = await cached(hit, file.sourceID) { return r }
-                if let seriesID = item.seriesID, let r = try await showFolderArtwork(seriesID: seriesID) { return r }
+                if !stillOnly, let seriesID = item.seriesID, let r = try await showFolderArtwork(seriesID: seriesID) { return r }
             }
         }
         if let server, let serverFile = await ServerMetadataKinds.file(forItem: item, store: store),
            let picture = await server.poster(for: serverFile), let r = await cached(picture) { return r }
+        // R387: an episode's online "poster" is its show's poster (TMDBArtworkProvider asks by the series), not a still.
+        if stillOnly { return .none }
         if let url = await online?.posterURL(forItem: item, file: file) { return .remote(url) }
         return .none
     }

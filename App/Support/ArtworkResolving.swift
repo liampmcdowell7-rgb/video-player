@@ -11,6 +11,8 @@ protocol ArtworkResolving: TitleDetailsSource {
     func logoCandidates(key: String, userLanguage: String?) async -> [LogoCandidate]
     /// The wide picture behind a movie or show page (#15 6.2).
     func backdrop(key: String, userLanguage: String?) async -> ArtworkResult
+    /// R387: an episode's own still only, for the episode page's hero (`ArtworkEngine.episodeStill`).
+    func episodeStill(key: String) async -> ArtworkResult
     /// Synopsis and cast of a movie (#15 6.2), or nil.
     func details(key: String) async -> TitleDetails?
 }
@@ -22,6 +24,7 @@ struct EngineArtworkResolver: ArtworkResolving {
         await engine.logoCandidates(key: key, userLanguage: userLanguage)
     }
     func backdrop(key: String, userLanguage: String?) async -> ArtworkResult { await engine.backdrop(key: key, userLanguage: userLanguage) }
+    func episodeStill(key: String) async -> ArtworkResult { await engine.episodeStill(key: key) }
     func details(key: String) async -> TitleDetails? { await engine.details(key: key) }
 }
 

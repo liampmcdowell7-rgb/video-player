@@ -74,7 +74,20 @@ final class ItemDetailTests: XCTestCase {
         let content = try XCTUnwrap(vm.state.content)
         XCTAssertEqual(content.seriesTitle, "Show One")
         XCTAssertNotNil(content.seriesID)
-        XCTAssertTrue(content.facts.contains("2"), content.facts)
+        // R387: the code is its own line above the title, no longer the first fact.
+        XCTAssertEqual(content.episodeCode, "S1, E2")
+        XCTAssertEqual(content.season, 1)
+        XCTAssertFalse(content.facts.contains("S1, E2"), content.facts)
+    }
+
+    func testAMovieHasNoEpisodeCodeOrSeason() async throws {
+        let rig = try LibraryRig.make()
+        try await rig.fill()
+        var vm = ItemDetailViewModel(store: rig.store, itemID: try await rig.movieID("Hexfall"))
+        await vm.load()
+        let content = try XCTUnwrap(vm.state.content)
+        XCTAssertNil(content.episodeCode)
+        XCTAssertNil(content.season)
     }
 
     func testAFailingStoreGivesAFailedStateNotACrash() async throws {

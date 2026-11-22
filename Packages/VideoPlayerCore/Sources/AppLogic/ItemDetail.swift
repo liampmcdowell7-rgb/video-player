@@ -43,7 +43,7 @@ public struct ItemDetailContent: Equatable, Sendable {
     public var title: String
     public var seriesID: Int64?
     public var seriesTitle: String?
-    /// "2020 · 1 h 52 min · ★ 7.8", or "S2 E4 · 41 min".
+    /// "2020 · 1 h 52 min · ★ 7.8", or "41 min · ★ 7.8" for an episode (R387: its code is `episodeCode`, its own line).
     public var facts: String
     /// R370: the headline badges of the metadata line (resolution, HDR, audio format).
     public var badges: [FormatBadgeItem]
@@ -61,6 +61,10 @@ public struct ItemDetailContent: Equatable, Sendable {
     public var mediaInfo: [MediaInfoRow] = []
     /// R370: every badge of the preferred file, for the top of Information.
     public var allBadges: [FormatBadgeItem] = []
+    /// R387: an episode's "S1, E3" (R358's form), the line above its title; nil for a movie or without numbers.
+    public var episodeCode: String? = nil
+    /// R387: an episode's season number, to find the row of the season's other episodes.
+    public var season: Int? = nil
 }
 
 public struct ItemDetailViewModel: Sendable {
@@ -133,7 +137,8 @@ public struct ItemDetailViewModel: Sendable {
                         tracks: FileTrackDetails? = nil) -> ItemDetailContent {
         let card = CardBuilder.card(item)
         var facts: [String] = []
-        if item.kind == .episode, let code = DisplayText.episodeCode(season: item.season, episode: item.episode, episodeEnd: item.episodeEnd) { facts.append(code) }
+        // R387: an episode's code is no longer the first fact; the page draws it as its own line above the title.
+        let episodeCode = item.kind == .episode ? DisplayText.episodeCode(season: item.season, episode: item.episode, episodeEnd: item.episodeEnd) : nil
         if item.kind == .movie, let y = item.year, y > 0 { facts.append(String(y)) }
         if let r = item.runtime ?? item.watch.duration, r > 0 { facts.append(DisplayText.runtime(r)) }
         if let rating = item.rating, rating > 0 { facts.append("★ " + String(format: "%.1f", rating)) }
@@ -170,7 +175,7 @@ public struct ItemDetailViewModel: Sendable {
                                  playTitle: playTitle, canStartOver: started,
                                  isWatched: item.watch.watched, isFavorite: item.watch.favorite, progress: progress, timeLeft: timeLeft,
                                  versions: versions, extras: extras, artworkKey: card.artworkKey, mediaInfo: mediaInfo,
-                                 allBadges: badges.all)
+                                 allBadges: badges.all, episodeCode: episodeCode, season: item.kind == .episode ? item.season : nil)
     }
 
     static func kindText(_ kind: FileKind) -> String {

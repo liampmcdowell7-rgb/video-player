@@ -730,6 +730,29 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(problems.isEmpty, "\(name): " + verdict)
     }
 
+    /// R387 (item A): the episode page is the product page with an episode's parts. From the tree only (no scrolling): the
+    /// "S1, E1" line above the episode's title, Play, and the row of the season's other episodes (its heading) below Play.
+    /// Writes "<name>-EPISODE"; a missing part or one out of order fails the test (soft, the player steps still run).
+    /// The hero picture (the episode's still) cannot be read from the tree and stays on the device checklist.
+    func episodePageCheck(_ name: String, code: String, title: String, season: String, in app: XCUIApplication) {
+        let codeLine: XCUIElement = app.staticTexts[code]
+        let titleText: XCUIElement = app.staticTexts[title]
+        let play: XCUIElement = app.descendants(matching: .any).matching(identifier: "control.play").firstMatch
+        let row: XCUIElement = app.staticTexts[season]
+        var lines: [String] = []
+        var problems: [String] = []
+        if codeLine.exists { lines.append("“\(code)” at y \(Int(codeLine.frame.minY))") } else { problems.append("no “\(code)” line") }
+        if titleText.exists { lines.append("“\(title)” at y \(Int(titleText.frame.minY))") } else { problems.append("no title") }
+        if play.exists { lines.append("Play at y \(Int(play.frame.minY))") } else { problems.append("no Play") }
+        if row.exists { lines.append("“\(season)” row at y \(Int(row.frame.minY))") } else { problems.append("no row of the season's other episodes") }
+        if codeLine.exists, titleText.exists, codeLine.frame.minY >= titleText.frame.minY { problems.append("the code line is not above the title") }
+        if play.exists, row.exists, row.frame.minY <= play.frame.minY { problems.append("the season row is not below Play") }
+        let verdict: String = problems.isEmpty ? "EPISODE PAGE OK" : "EPISODE PAGE PROBLEM: " + problems.joined(separator: "; ")
+        lines.append(verdict)
+        note(name + "-EPISODE", lines.joined(separator: "\n"))
+        XCTAssertTrue(problems.isEmpty, "\(name): " + verdict)
+    }
+
     /// R370 (owner's decision of 21 Nov 2026): the drawn format badges are never cut. Every element whose identifier starts
     /// with "badge." (the full set at the top of Information, each badge its own element) has a size, lies inside the window
     /// from side to side, and overlaps no other badge; the metadata line (one combined element) lies inside the window. The
@@ -1710,6 +1733,7 @@ final class ScreenshotTests: XCTestCase {
             app.terminate(); return
         }
         settle()
+        episodePageCheck("22-episode-page", code: "S1, E1", title: "A quiet beginning", season: "Season 1", in: app)
         // S01E01 is watched in the sample library, so its button says "Play Again" ("Play" matches it).
         guard open("Play", id: ControlID.play, in: app, name: "22-player-skip-intro") else { app.terminate(); return }
         // The clip is written on first use (a few seconds), then plays; Skip Intro shows from 2 s to 20 s.

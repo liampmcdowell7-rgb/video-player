@@ -202,6 +202,32 @@ final class ArtworkEngineTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: u3), Data([2]))
     }
 
+    /// R387: the episode page's hero is the episode's own still; without one there is none (never the show poster, which a
+    /// card falls back to), and a movie or a series key has none.
+    func testTheEpisodeStillIsTheEpisodesOwnPictureNeverTheShowPoster() async throws {
+        let r = try await rig([("/TV/Show One (2010)/Season 1/Show One - S01E01 - A.mkv", 1_000), ("/TV/Show One (2010)/Season 1/Show One - S01E01 - A-thumb.jpg", 5),
+                               ("/TV/Show One (2010)/Season 1/Show One - S01E02 - B.mkv", 1_000), ("/TV/Show One (2010)/poster.jpg", 5),
+                               ("/Movies/Sample Movie One (1995)/Sample Movie One (1995).mkv", 10_000), ("/Movies/Sample Movie One (1995)/poster.jpg", 5)])
+        r.reader.files["/TV/Show One (2010)/Season 1/Show One - S01E01 - A-thumb.jpg"] = Data([1])
+        r.reader.files["/TV/Show One (2010)/poster.jpg"] = Data([2])
+        r.reader.files["/Movies/Sample Movie One (1995)/poster.jpg"] = Data([3])
+        let eps = try await r.lib.episodes(ofSeriesTitle: "Show One")
+        let e1 = try XCTUnwrap(eps.first { $0.episode == 1 }), e2 = try XCTUnwrap(eps.first { $0.episode == 2 })
+        let engine = r.engine()
+        guard case .file(let u1) = await engine.episodeStill(key: "item-\(e1.id)") else { return XCTFail("no still") }
+        XCTAssertEqual(try Data(contentsOf: u1), Data([1]))
+        let none = await engine.episodeStill(key: "item-\(e2.id)")
+        XCTAssertEqual(none, .none, "no own still: no picture, not the show folder poster or the show's online poster")
+        let movie = try await r.lib.movieID("Sample Movie One")
+        let movieStill = await engine.episodeStill(key: "item-\(movie)")
+        XCTAssertEqual(movieStill, .none)
+        let series = await engine.episodeStill(key: "series-\(try XCTUnwrap(e1.seriesID))")
+        XCTAssertEqual(series, .none)
+        // The card's picture is unchanged: the show poster still stands in for E2.
+        guard case .file(let card) = await engine.resolve(key: "item-\(e2.id)") else { return XCTFail("card") }
+        XCTAssertEqual(try Data(contentsOf: card), Data([2]))
+    }
+
     func testASeriesWithoutASidecarAsksOnlineByTheMostCommonID() async throws {
         let r = try await rig([("/TV/Show One (2010)/Season 1/Show One - S01E01 - A.mkv", 1_000), ("/TV/Show One (2010)/Season 1/Show One - S01E02 - B.mkv", 1_000),
                                ("/TV/Show One (2010)/Season 1/Show One - S01E03 - C.mkv", 1_000)])

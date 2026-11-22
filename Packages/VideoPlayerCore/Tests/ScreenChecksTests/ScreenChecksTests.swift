@@ -488,7 +488,8 @@ final class ScreenChecksTests: XCTestCase {
     /// sample), carries the highlight, and the caption is `CardCaption`. The layout of #34 (the frame only on the button,
     /// which gave S2 E3 378 x 566 beside 410 x 615 in picture 55) fails the same check.
     func testTheEpisodeCardsArtworkSetsItsSizeInsideTheLabel() throws {
-        guard let source = try appSource("App/Features/Shows/SeasonsList.swift") else { return }
+        // R387: the card moved to EpisodeCards.swift (shared by the show page and the episode page).
+        guard let source = try appSource("App/Features/Shows/EpisodeCards.swift") else { return }
         func labelOfEpisodeCard(_ text: String) throws -> String {
             let card: String.Index = try XCTUnwrap(text.range(of: "struct EpisodeCard")?.lowerBound, "no EpisodeCard")
             let link: String.Index = try XCTUnwrap(text[card...].range(of: "NavigationLink(")?.lowerBound, "no NavigationLink")
@@ -514,7 +515,8 @@ final class ScreenChecksTests: XCTestCase {
     /// Structure only: the pictures 50, 52, 55 and 56 of the next run show the result.
     func testLockupCaptionsWrapInsteadOfBeingCutAndEveryRowReservesOneHeight() throws {
         guard let poster = try appSource("App/Shared/PosterCard.swift"),
-              let seasons = try appSource("App/Features/Shows/SeasonsList.swift"),
+              // R387: the season shelf and the episode card are in EpisodeCards.swift (shared with the episode page).
+              let seasons = try appSource("App/Features/Shows/EpisodeCards.swift"),
               let row = try appSource("App/Shared/CardRow.swift") else { return }
         let start: String.Index = try XCTUnwrap(poster.range(of: "struct CardCaption: View {")?.lowerBound, "no CardCaption")
         let caption: String = String(try XCTUnwrap(Self.braceBody(of: poster, after: start), "the CardCaption body"))
