@@ -49,11 +49,12 @@ struct PlayerScreen: View {
                 }
                 Button("Done", role: .cancel) { dismiss() }
             } message: { failure in
-                // R313: an episode's error starts with which episode it was ("Show · S1, E3 · Name"). R386: then the system
-                // player's error domain and code, its underlying errors and the last event with its time, as plain text
-                // the owner can read off the TV and photograph.
-                let details: String? = problem.map { $0.screenLines().joined(separator: "\n") }
-                Text([start.tracker.itemLine, failure.text, details].compactMap { $0 }.joined(separator: "\n\n"))
+                // R395 (item 11 of the owner's review of the run on fd9731f): the alert shows the sentence, the Result
+                // line and the Step line only (`PlaybackProblem.alertLines`); 14 checkpoint lines filled it before.
+                // Everything else (R386's error lines, R390's checkpoints, R313's episode line) is in Settings >
+                // Playback > Full Problem Report, where the problem is kept (`PlaybackProblemLog`).
+                let lines: String? = problem.map { $0.alertLines().joined(separator: "\n") }
+                Text([failure.text, lines].compactMap { $0 }.joined(separator: "\n\n"))
             }
             .onDisappear { closed = true }
     }

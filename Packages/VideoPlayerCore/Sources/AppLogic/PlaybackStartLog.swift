@@ -157,6 +157,16 @@ public struct PlaybackProblem: Codable, Equatable, Sendable {
         return lines
     }
 
+    /// R395 (item 11 of the owner's review of the run on fd9731f): the failure alert shows the sentence, then only these
+    /// two lines: the result (how far the start got, R390) and the step. Everything else (the player's error, the
+    /// checkpoints, the events) stays in Settings > Playback > Full Problem Report (`fullText`).
+    public func alertLines() -> [String] {
+        var lines: [String] = []
+        if let verdict = checkpoints?.verdict { lines.append("Result: " + verdict.text) }
+        lines.append("Step: " + step.title)
+        return lines
+    }
+
     /// R386: everything known, for the full report page in Settings (the recent events oldest first).
     public func fullText(timeZone: TimeZone = .current) -> String {
         var out = rows.map { "\($0.label): \($0.value)" }

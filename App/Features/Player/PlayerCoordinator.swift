@@ -363,6 +363,8 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         Task { @MainActor [weak self] in await self?.addArtworkToMetadata() }
         // R319: the content rating may need the online details too, so it is added the same way, on its own.
         Task { @MainActor [weak self] in await self?.addRatingToMetadata() }
+        // R394: the synopsis for the system's Info tab, added the same way.
+        Task { @MainActor [weak self] in await self?.addDescriptionToMetadata() }
         await probe.load()
         await probe.refreshAudioSelection()
         reloadOverlay()
@@ -759,8 +761,17 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     /// Adds the poster (when one is found) as `commonIdentifierArtwork`, with the data type WWDC17 session 251 asks for (JPEG or
     /// PNG). Bytes that are neither are left out rather than sent with a wrong type. Whether the system picks up metadata added
     /// after playback started is a device check (docs/DEVICE_TEST_CHECKLIST_PLATFORM.md, P10 (d)).
+    ///
+    /// R394 (item 12 of the owner's review of the run on fd9731f; PROVISIONAL): the Info tab is the SYSTEM's, drawn from
+    /// this metadata, so the app sets the metadata: for an episode the picture is the episode's own still
+    /// (`episodeStillBytes`, R387's lookup), and only without one the picture used before (which can be the show's
+    /// poster). The title is already the episode's name (`PlayerEpisodeText`), and the synopsis is added below.
     private func addArtworkToMetadata() async {
-        guard let key = resolved.content.artworkKey, let bytes = await services.online.artworkBytes(key: key), !stopped else { return }
+        guard let key = resolved.content.artworkKey else { return }
+        var found: Data? = nil
+        if resolved.content.kind == .episode { found = await services.online.episodeStillBytes(key: key) }
+        if found == nil { found = await services.online.artworkBytes(key: key) }
+        guard let bytes = found, !stopped else { return }
         let type: String
         if bytes.starts(with: [0xFF, 0xD8, 0xFF]) {
             type = kCMMetadataBaseDataType_JPEG as String
@@ -775,6 +786,20 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         entry.dataType = type
         entry.extendedLanguageTag = "und"
         item.externalMetadata.append(entry)
+    }
+
+    /// R394 (item 12; PROVISIONAL): the title's own synopsis as the system's description item
+    /// (`AVMetadataIdentifier.commonIdentifierDescription`), which the Info tab shows under the title. For an episode
+    /// this is the episode's synopsis from its source (the same lookup as its page, R387); nothing when there is none.
+    /// That the Info tab shows an item added after playback started is the same device check as the artwork's.
+    private func addDescriptionToMetadata() async {
+        guard let key = resolved.content.artworkKey, let overview = await services.online.details(key: key)?.overview,
+              !overview.isEmpty, !stopped else { return }
+        let entry = AVMutableMetadataItem()
+        entry.identifier = .commonIdentifierDescription
+        entry.value = overview as NSString
+        entry.extendedLanguageTag = "und"
+        item.externalMetadata = item.externalMetadata.filter { $0.identifier != .commonIdentifierDescription } + [entry]
     }
 
     /// R319 (owner's request of 21 Nov 2026): the title's content rating in the Info tab, as the system's own item.

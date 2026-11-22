@@ -11,6 +11,9 @@ import AppLogic
 /// "Segments become selected when focus moves to them"; "Aim for no more than about five to seven segments"), the system
 /// menu picker above seven, the season's name as the heading for one. The tab shown first is the season Play starts in. This
 /// replaces R189's shelf per season (its text below is history). How the segmented picker looks on tvOS 27 is UNVERIFIED.
+/// R393 (owner's review of the run on fd9731f, item 6 a; PROVISIONAL): the picker is compact and left-aligned
+/// (`fixedSize()`), not stretched edge to edge. No Apple page read shows what the TV app uses to choose a season
+/// (the reference pack marks it UNVERIFIED), so the control itself stays the system picker.
 ///
 /// 5.1: only the show-wide mark that changes something is offered, inside More; the "X of Y watched" summary is secondary
 /// text under each season's name (R180). 5.2 (OPEN_QUESTIONS R189, PROVISIONAL): every season is its own shelf, so no
@@ -47,7 +50,7 @@ struct SeasonsList: View {
                     ContentAdviceLine(descriptors: details?.contentDescriptors ?? [])
                     // As on the movie page: the synopsis above the buttons (three lines, the whole text one press away).
                     if let overview = details?.overview {
-                        SynopsisLink(title: content.seriesTitle, text: overview)
+                        SynopsisLink(title: content.seriesTitle, text: overview, artworkKey: "series-\(seriesID)")
                     } else if !services.online.hasCatalogueKey {
                         // #26 item 4: one short line saying the synopsis needs the key and where to add it.
                         StatusText(OnlineLookupText.detailsNeedKey)
@@ -107,12 +110,16 @@ struct SeasonsList: View {
                 ForEach(content.seasons) { Text($0.title).tag($0.season) }
             }
             .pickerStyle(.segmented)
+            // R393 (item 6 a; PROVISIONAL): as wide as its segments, at the leading edge. Before, the system gave the
+            // control the page's whole width, edge to edge.
+            .fixedSize()
             .accessibilityIdentifier(ControlID.seasonTabs)
         case .menu:
             Picker("Season", selection: choice) {
                 ForEach(content.seasons) { Text($0.title).tag($0.season) }
             }
             .pickerStyle(.menu)
+            .fixedSize()
             .accessibilityIdentifier(ControlID.seasonTabs)
         }
     }

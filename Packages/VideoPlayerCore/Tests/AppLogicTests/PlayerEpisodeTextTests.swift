@@ -31,7 +31,7 @@ final class PlayerEpisodeTextTests: XCTestCase {
     func testEpisodeWithAName() async throws {
         let lines = PlayerEpisodeText.lines(for: try await episode("A quiet beginning"), filmTitle: "x", filmSubtitle: "y")
         XCTAssertEqual(lines.title, "A quiet beginning")
-        XCTAssertEqual(lines.subtitle, "Sample Show 1 · S1, E3")
+        XCTAssertEqual(lines.subtitle, "Sample Show 1 • S1, E3")
     }
 
     func testEpisodeWithoutAName() async throws {
@@ -44,12 +44,12 @@ final class PlayerEpisodeTextTests: XCTestCase {
 
     func testTwoPartFile() async throws {
         let lines = PlayerEpisodeText.lines(for: try await episode("Two parts", episode: 3, end: 4), filmTitle: "x", filmSubtitle: nil)
-        XCTAssertEqual(lines.subtitle, "Sample Show 1 · S1, E3–E4")
+        XCTAssertEqual(lines.subtitle, "Sample Show 1 • S1, E3–E4")
     }
 
     func testUnknownSeasonShowsOnlyWhatIsKnown() async throws {
         let lines = PlayerEpisodeText.lines(for: try await episode("Named", season: nil), filmTitle: "x", filmSubtitle: nil)
-        XCTAssertEqual(lines.subtitle, "Sample Show 1 · E3")
+        XCTAssertEqual(lines.subtitle, "Sample Show 1 • E3")
         let neither = PlayerEpisodeText.lines(for: try await episode("Named", season: nil, episode: nil), filmTitle: "x", filmSubtitle: nil)
         XCTAssertEqual(neither.subtitle, "Sample Show 1")
         let bare = PlayerEpisodeText.episodeLines(name: nil, show: nil, season: nil, episode: nil)

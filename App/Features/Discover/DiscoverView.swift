@@ -132,32 +132,46 @@ private struct DiscoverCard: View {
     let loader: DiscoverLoader
     let onToggle: () -> Void
 
+    /// R393 (item 10 of the owner's review of the run on fd9731f): the card is the same lockup as every other poster
+    /// (Apple's sample, "Create content lockups": `.borderless`, the image and the text as siblings in the label, so
+    /// "the button's title ... automatically move[s] out of the way of the button's image as it scales up on focus").
+    /// Cause of the fault: the poster alone was a `.card` button and the title stood outside it, so the focused, larger
+    /// poster covered its own title (75-discover-card-menu). The three titles had three sizes because each one was
+    /// scaled to its own width (`FittingText`); now every title is the Caption style, wrapped when it is long.
     var body: some View {
-        VStack(alignment: .leading) {
-            NavigationLink {
-                DiscoverTitlePage(loader: loader, shown: title, region: region)
-            } label: {
-                ArtworkView(key: title.artworkKey, symbol: title.kind == .movie ? "film" : "tv")
-            }
-            .buttonStyle(.card)
-            .accessibilityLabel(title.title)
-            .accessibilityHint(DiscoverCardText.cardHint)
-            .contextMenu {
-                let action = DiscoverCardText.watchlistAction(title)
-                Button(action.label, systemImage: action.symbol, action: onToggle)
-            }
-            FittingText(title.title, style: .caption)
-            // Rule S1: "2021 · Because you watched …" on one line; the year goes first when it does not fit.
-            FittingLine(line: DiscoverCardText.detailLine(title), style: .caption2)
-                .foregroundStyle(.secondary)
-            if title.onWatchlist {
-                Label("On Your Watchlist", systemImage: "checkmark")
+        NavigationLink {
+            DiscoverTitlePage(loader: loader, shown: title, region: region)
+        } label: {
+            ArtworkView(key: title.artworkKey, symbol: title.kind == .movie ? "film" : "tv")
+                // design-lint:allow R393: Apple's tvOS media catalog sample attaches the borderless lockup's highlight by hand to a custom artwork view; the system effect, not our own
+                .hoverEffect(.highlight)
+            VStack(alignment: .leading) {
+                Text(title.title)
+                    .font(.caption)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                // Rule S1: "2021 · Because you watched …" on one line; the year goes first when it does not fit.
+                FittingLine(line: DiscoverCardText.detailLine(title), style: .caption2)
+                    .foregroundStyle(.secondary)
+                if title.onWatchlist {
+                    Label("On Your Watchlist", systemImage: "checkmark")
+                        .font(.caption2)
+                }
+                Text(WhereToWatchText.line(title.watch, region: region))
                     .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Text(WhereToWatchText.line(title.watch, region: region))
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(3)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(title.title)
+        .accessibilityHint(DiscoverCardText.cardHint)
+        .contextMenu {
+            let action = DiscoverCardText.watchlistAction(title)
+            Button(action.label, systemImage: action.symbol, action: onToggle)
         }
     }
 }

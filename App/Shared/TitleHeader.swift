@@ -25,11 +25,19 @@ struct TitleHeader: View {
                     .accessibilityElement()
                     .accessibilityLabel(title)
             } else {
-                Text(title)
-                    .font(.largeTitle)
-                    .lineLimit(1)
-                    // design-lint:allow rule S1 (OPEN_QUESTIONS R165): the system text style shrinks to fit, never below Apple's 23 pt minimum (HIG Typography)
-                    .minimumScaleFactor(ShortLine.minimumScale(forPointSize: TVTextStyle.title1.pointSize))
+                // R393 (item 9 of the owner's review of the run on fd9731f): the title is never cut with "…". Picture
+                // 80-larger-text-home showed the featured title cut: a text at its `minimumScaleFactor` floor is
+                // truncated by the system. Now the system picks the first that fits (`ViewThatFits`): one line in Large
+                // Title, Title 1, Title 2, Title 3, and last Title 3 wrapped onto as many lines as it needs.
+                ViewThatFits(in: .horizontal) {
+                    oneLine(.largeTitle)
+                    oneLine(.title)
+                    oneLine(.title2)
+                    oneLine(.title3)
+                    Text(title)
+                        .font(.title3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
         .accessibilityAddTraits(.isHeader)
@@ -38,5 +46,12 @@ struct TitleHeader: View {
             let candidates = await services.online.logoCandidates(key: artworkKey)
             logo = await TitleLogoLoader.firstAcceptable(candidates, session: services.online.imageSession)
         }
+    }
+
+    /// One line in `font`; `ViewThatFits` uses it only when its natural width fits, so it is never cut (rule S1).
+    private func oneLine(_ font: Font) -> some View {
+        Text(title)
+            .font(font)
+            .lineLimit(1) // design-lint:allow R393: offered to ViewThatFits only at its natural width, so it is never cut (rule S1)
     }
 }

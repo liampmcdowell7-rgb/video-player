@@ -18,14 +18,20 @@ public enum PlayerEpisodeText {
         return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
 
-    /// The transport bar's two lines for an episode: its name over "Show · S1, E3"; without a name, the show over "S1, E3".
+    /// R394 (PROVISIONAL): the separator inside the line the SYSTEM player draws above the title. The run on fd9731f showed
+    /// that line with "•" and "·" mixed. The app never writes "•" in the player, so the system adds it between the parts it
+    /// joins (UNVERIFIED which parts; not on Apple's pages). The app's part of that line now uses the same sign. Every
+    /// text the app draws itself keeps "·".
+    public static let systemSeparator = " • "
+
+    /// The transport bar's two lines for an episode: its name over "Show • S1, E3"; without a name, the show over "S1, E3".
     /// Whatever is not known is left out; with nothing known at all the title is "Untitled".
     public static func episodeLines(name: String?, show: String?, season: Int?, episode: Int?,
                                     episodeEnd: Int? = nil) -> (title: String, subtitle: String?) {
         let name = clean(name), show = clean(show)
         let code = code(season: season, episode: episode, episodeEnd: episodeEnd)
         if let name {
-            let subtitle = [show, code].compactMap { $0 }.joined(separator: " · ")
+            let subtitle = [show, code].compactMap { $0 }.joined(separator: systemSeparator)
             return (name, subtitle.isEmpty ? nil : subtitle)
         }
         if let show { return (show, code) }

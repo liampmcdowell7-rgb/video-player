@@ -243,7 +243,17 @@ final class OnlineServices {
 
     /// Bytes of one picture for the Top Shelf folder (a cached file, or a download of the matched poster). Nil when there is none.
     func artworkBytes(key: String) async -> Data? {
-        switch await resolver.resolve(key: key) {
+        await bytes(of: await resolver.resolve(key: key))
+    }
+
+    /// R394: the bytes of an episode's own still (never the show's poster), for the system player's Info tab. Nil
+    /// without one.
+    func episodeStillBytes(key: String) async -> Data? {
+        await bytes(of: await resolver.episodeStill(key: key))
+    }
+
+    private func bytes(of result: ArtworkResult) async -> Data? {
+        switch result {
         case .file(let url): return try? Data(contentsOf: url)
         case .remote(let url):
             guard let (data, response) = try? await imageSession.data(from: url), (response as? HTTPURLResponse)?.statusCode == 200,

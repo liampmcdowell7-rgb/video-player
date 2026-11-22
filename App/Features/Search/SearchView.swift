@@ -44,10 +44,13 @@ struct SearchView: View {
                     Text(title).searchCompletion(title)
                 }
             } else {
-                Section(RecentSearches.heading) {
-                    ForEach(recent, id: \.self) { text in
-                        Text(text).searchCompletion(text)
-                    }
+                // R393 (item 10 of the owner's review of the run on fd9731f; PROVISIONAL): the suggestions row is the
+                // SYSTEM's view (`searchSuggestions`); the app only hands it items. It drew the `Section` header
+                // "Recent Searches" as one more chip beside the terms (76-search-results), where it cannot read as a
+                // heading, and tvOS offers no heading for that row. So the header is no longer handed over: the row
+                // holds the recent terms and "Clear Recent Searches", which names them.
+                ForEach(recent, id: \.self) { text in
+                    Text(text).searchCompletion(text)
                 }
                 Button(RecentSearches.clearTitle, systemImage: "xmark.circle", role: .destructive) { recentStored = "" }
                     .accessibilityIdentifier(ControlID.clearRecentSearches)
