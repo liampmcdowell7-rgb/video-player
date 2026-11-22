@@ -42,7 +42,8 @@ public enum UDSchema {
             counterGroups: [["playEpoch", "playCount"]]
         ),
         view: UDRecordSchema(type: view, atomicGroups: [["scopeKind", "scopeSource", "scopePath", "query"]]),
-        fixMatch: UDRecordSchema(type: fixMatch, atomicGroups: [["provider", "providerID", "title", "year"]]),
+        // R381: every field of a Fix Match choice moves together (AppLogic `FixMatchRecords`); nothing wrote this type before.
+        fixMatch: UDRecordSchema(type: fixMatch, atomicGroups: [["provider", "providerID", "title", "year", "kind", "scope", "season", "path", "fileSize", "createdAt", "choiceID"]]),
         // "fileDuration" (the length of the file the mark was made on) moves with the range, so a start and an end from two
         // different edits never mix. Records written before it existed simply lack the field (see SegmentMarks.swift).
         segment: UDRecordSchema(type: segment, atomicGroups: [["kind", "start", "end", "fileDuration"]]),

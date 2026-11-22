@@ -149,7 +149,9 @@ final class AppServices {
                                       legacy: dependencies.credentials)
         keyStore.migrateLegacy()
         // R307: Plex's own synopsis and poster come first for Plex files; every other source keeps its order.
-        self.online = OnlineServices(keys: keyStore, store: sqliteStore, reader: reader, server: PlexServerMetadata(sourceFor: sourceFor))
+        // R381: Fix Match choices also go into the ledger, so the iCloud sync keeps them (CloudMatchStore).
+        self.online = OnlineServices(keys: keyStore, store: sqliteStore, reader: reader, server: PlexServerMetadata(sourceFor: sourceFor),
+                                     ledger: ledger)
         // The backup refuses any file that holds one of these: every source password or token and every API key, read
         // from protected storage at the time of each backup and never written anywhere (docs/BACKUP.md "Secrets").
         self.backup = BackupHost(store: sqliteStore, cloud: dependencies.backupCloud, matchFile: OnlineServices.matchFileURL, forbidden: { @Sendable [ledger, secrets, keyStore] () -> [String] in

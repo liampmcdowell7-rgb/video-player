@@ -169,4 +169,11 @@ public actor JSONFileMatchStore: MatchStore {
         load()
         return matches
     }
+
+    /// R381: replaces every choice at once (the cache rebuilt from the iCloud copy, `CloudMatchStore` in AppLogic).
+    public func replaceAll(_ new: [StoredMatch]) throws {
+        loaded = true
+        matches = new
+        try persist()
+    }
 }

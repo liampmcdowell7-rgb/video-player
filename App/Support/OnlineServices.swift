@@ -34,9 +34,14 @@ final class OnlineServices {
     @ObservationIgnored private let diskCache: ArtworkDiskCache
     /// Plex's own synopsis and pictures, asked only for Plex files (R307).
     @ObservationIgnored private let server: (any ServerMetadataProviding)?
+    /// R381: the user-data ledger that the iCloud sync uploads; Fix Match choices are written into it (`CloudMatchStore`).
+    /// Nil keeps them in matches.json only (as before R381).
+    @ObservationIgnored private let ledger: UserDataLedger?
 
-    init(keys: OnlineKeyStore, store: SQLiteLibraryStore, reader: any SidecarReading, server: (any ServerMetadataProviding)? = nil) {
+    init(keys: OnlineKeyStore, store: SQLiteLibraryStore, reader: any SidecarReading, server: (any ServerMetadataProviding)? = nil,
+         ledger: UserDataLedger? = nil) {
         self.keys = keys
+        self.ledger = ledger
         self.store = store
         self.reader = reader
         self.server = server
@@ -50,8 +55,9 @@ final class OnlineServices {
     var region: String { OnlineLookupPrefs.normalizedRegion(UserDefaults.standard.string(forKey: OnlineLookupPrefs.regionKey)) }
 
     /// Fix Match choices are the user's own decisions, so they are kept in Application Support, not in Caches.
-    /// PROVISIONAL: kept on this device only; alternative: a ledger record so they sync (needs a Schema.swift record type).
-    /// Also read by the iCloud backup (docs/BACKUP.md), so a reinstall gets the choices back.
+    /// R381 (audit #14, PROVISIONAL): this file is now the local cache; the lasting copy is the ledger's "fixmatch" records
+    /// in iCloud (AppLogic `CloudMatchStore`), and the file is rebuilt from them when it is missing. Alternative: keep the
+    /// choices on this device only (before R381). Also read by the iCloud backup (docs/BACKUP.md).
     static var matchFileURL: URL {
         let base = (FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory)
         return base.appendingPathComponent("matches.json")
@@ -78,7 +84,8 @@ final class OnlineServices {
         }
         let client = TMDBClient(credentials: OnlineKeyStore.tmdbCredentials(key), transport: URLSessionTransport(),
                                 cache: JSONFileMetadataCache(directory: ArtworkFolders.metadata), region: region)
-        let service = FixMatchService(engine: MatchEngine(provider: client), store: JSONFileMatchStore(url: matchFile))
+        let matchStore: any MatchStore = ledger.map { CloudMatchStore(url: matchFile, ledger: $0) } ?? JSONFileMatchStore(url: matchFile)
+        let service = FixMatchService(engine: MatchEngine(provider: client), store: matchStore)
         let provider = TMDBArtworkProvider(client: client, matcher: service, store: store)
         resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: provider, server: server))
         searcher = TMDBMatchSearcher(client: client)
