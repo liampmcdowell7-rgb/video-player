@@ -133,4 +133,33 @@ final class TrustGuardedSourceTests: XCTestCase {
         let other = TrustGuardedSource(Failing(), pin: CertificatePin(kind: .tlsCertificate, host: "h", trusted: hexA))
         do { try await other.authenticate(); XCTFail() } catch let error as SourceError { XCTAssertEqual(error, .transport("offline")) }
     }
+
+    // R384: the rating lookups cast to the concrete client, so they look through any number of guards and nothing else.
+    func testUnwrappedReachesTheSourceInsideTheGuardsOnly() {
+        let pin = CertificatePin(kind: .tlsCertificate, host: "h", trusted: hexA)
+        let plain = RefusingSource(pin: pin, presented: hexA)
+        XCTAssertTrue(TrustGuardedSource.unwrapped(plain) is RefusingSource, "a plain source stays itself")
+
+        let once = TrustGuardedSource(plain, pin: pin)
+        XCTAssertFalse((once as any MediaSource) is RefusingSource, "the cast fails on the guard itself")
+        XCTAssertTrue(TrustGuardedSource.unwrapped(once) is RefusingSource, "a wrapped source gives the inner one")
+
+        let twice = TrustGuardedSource(once, pin: pin)
+        XCTAssertTrue(TrustGuardedSource.unwrapped(twice) is RefusingSource, "a double wrap gives the innermost")
+
+        let other = OtherWrapper(inner: once)
+        XCTAssertTrue(TrustGuardedSource.unwrapped(other) is OtherWrapper, "a source that is no guard stays itself")
+    }
+}
+
+// A wrapper that is not a trust guard (like a subfolder view of a source): never looked through.
+private struct OtherWrapper: MediaSource {
+    let inner: any MediaSource
+    var kind: SourceKind { inner.kind }
+    var capabilities: SourceCapabilities { inner.capabilities }
+    func authenticate() async throws { try await inner.authenticate() }
+    func list(_ path: String) async throws -> [SourceEntry] { try await inner.list(path) }
+    func info(_ path: String) async throws -> SourceEntry { try await inner.info(path) }
+    func read(_ path: String, range: ByteRange) async throws -> Data { try await inner.read(path, range: range) }
+    func playbackAccess(for path: String) async throws -> PlaybackAccess { try await inner.playbackAccess(for: path) }
 }

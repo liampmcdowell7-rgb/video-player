@@ -25,8 +25,10 @@ struct PlexServerMetadata: ServerMetadataProviding {
     func contentRating(for file: StoredFile) async -> String? {
         let source = await sourceFor(file.sourceID)
         if let plex = source as? PlexClient { return (try? await plex.serverItem(at: file.path))??.metadata.contentRating }
-        if let jellyfin = source as? JellyfinClient { return (try? await jellyfin.officialRating(at: file.path)) ?? nil }
-        if let emby = source as? EmbyClient { return (try? await emby.officialRating(at: file.path)) ?? nil }
+        // R384: over https these clients sit inside a trust guard, so the casts look through it.
+        let client = source.map(TrustGuardedSource.unwrapped)
+        if let jellyfin = client as? JellyfinClient { return (try? await jellyfin.officialRating(at: file.path)) ?? nil }
+        if let emby = client as? EmbyClient { return (try? await emby.officialRating(at: file.path)) ?? nil }
         return nil
     }
 
@@ -41,9 +43,10 @@ struct PlexServerMetadata: ServerMetadataProviding {
     /// R374: Jellyfin's and Emby's `OfficialRating` from one single-item request, when their list lacked it. The answer is
     /// kept in the library by the caller (`SourceRatings.storedRating`), so this runs once per title.
     func requestContentRating(for file: StoredFile) async throws -> String? {
-        let source = await sourceFor(file.sourceID)
-        if let jellyfin = source as? JellyfinClient { return try await jellyfin.requestOfficialRating(at: file.path) }
-        if let emby = source as? EmbyClient { return try await emby.requestOfficialRating(at: file.path) }
+        // R384: look through the trust guard of an https server (see `contentRating(for:)`).
+        let client = await sourceFor(file.sourceID).map(TrustGuardedSource.unwrapped)
+        if let jellyfin = client as? JellyfinClient { return try await jellyfin.requestOfficialRating(at: file.path) }
+        if let emby = client as? EmbyClient { return try await emby.requestOfficialRating(at: file.path) }
         throw SourceError.unsupported("no item request")
     }
 

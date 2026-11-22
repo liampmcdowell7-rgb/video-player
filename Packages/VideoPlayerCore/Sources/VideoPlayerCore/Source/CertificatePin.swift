@@ -118,4 +118,14 @@ public struct TrustGuardedSource: MediaSource {
     public func info(_ path: String) async throws -> SourceEntry { try await guarded { try await inner.info(path) } }
     public func read(_ path: String, range: ByteRange) async throws -> Data { try await guarded { try await inner.read(path, range: range) } }
     public func playbackAccess(for path: String) async throws -> PlaybackAccess { try await guarded { try await inner.playbackAccess(for: path) } }
+
+    /// R384: the source inside any number of trust guards; any other source is returned as it is. For a cast to a concrete
+    /// client (Jellyfin's and Emby's rating lookups), which fails on the guard itself. A call made on the result skips the
+    /// guard's step that turns a refusal into `TrustRefusedError`; the pin still applies, because the pinned transport is
+    /// inside the client.
+    public static func unwrapped(_ source: any MediaSource) -> any MediaSource {
+        var current = source
+        while let guarded = current as? TrustGuardedSource { current = guarded.inner }
+        return current
+    }
 }
