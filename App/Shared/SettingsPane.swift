@@ -322,3 +322,20 @@ struct ValueRow: View {
         .accessibilityValue(value)
     }
 }
+
+/// R389: the identifier of the last row of a Settings page whose last rows are read-only, for the UI test that moves the
+/// focus there.
+enum SettingsRowID {
+    static let last = "settings.lastRow"
+}
+
+extension View {
+    /// #24 C, R389: a read-only row the Siri Remote can move to. On tvOS a Form scrolls only by moving the focus, so rows
+    /// below the last control were out of reach (About before #24 C; Settings > Playback's Last Playback Problem and
+    /// Library's counts before R389). Each such row takes the system focus, so the focus moves row by row and the system
+    /// scrolls the list to keep the focused row visible. Was private to About; shared by R389.
+    func readableRow() -> some View {
+        // design-lint:allow a read-only Settings row takes the system focus so the Siri Remote can reach it and the list scrolls to it (#24 C, R389)
+        self.focusable()
+    }
+}

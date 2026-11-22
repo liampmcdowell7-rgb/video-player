@@ -39,18 +39,50 @@ struct PlaybackSettingsView: View {
                 Text(SettingsTexts.trueHDShort)
             }
             // R311: what the owner reads after a failed start, without a Mac: the step, the source, the file and the error.
+            // R389 (owner's device test of 22 Nov 2026: Settings could not scroll down to it): this last section held no
+            // control, and a tvOS Form scrolls only by moving the focus, so the focus stopped at the row above and these
+            // rows stayed below the screen. Each row now takes the focus (`readableRow`), and the full report (R386: every
+            // row, the player's message and the recent events) is one press away on its own page, the section's last row.
             Section(PlaybackProblem.sectionTitle) {
                 if let problem = PlaybackProblem.decoded(problemData) {
-                    ForEach(Array(problem.rows.dropLast().enumerated()), id: \.offset) { _, row in
-                        ValueRow(row.label, value: row.value)
+                    ForEach(Array(problem.rows.enumerated()), id: \.offset) { _, row in
+                        if Self.wrappedRows.contains(row.label) {
+                            ProblemTextRow(label: row.label, text: row.value).readableRow()
+                        } else {
+                            ValueRow(row.label, value: row.value).readableRow()
+                        }
                     }
-                    Text(problem.error)
-                        .font(.callout)
-                        .fixedSize(horizontal: false, vertical: true)
+                    LearnMoreLink(title: PlaybackProblem.fullReportTitle, text: problem.fullText())
+                        .accessibilityIdentifier(SettingsRowID.last)
                 } else {
                     StatusText(PlaybackProblem.noneText)
+                        .readableRow()
+                        .accessibilityIdentifier(SettingsRowID.last)
                 }
             }
         }
+    }
+
+    /// R389: the long values (an error message, an underlying error, an event with its time) wrap under their label instead
+    /// of shrinking to fit one line.
+    static let wrappedRows: Set<String> = ["Underlying Error", "Last Event", "Error"]
+}
+
+/// R389: a label with a long value under it, wrapped, never cut (rule L7). Read-only; the caller makes it focusable.
+private struct ProblemTextRow: View {
+    let label: String
+    let text: String
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            FittingText(label)
+            Text(text)
+                .font(.callout)
+                .foregroundStyle(ReadableSecondary.style)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(text)
     }
 }

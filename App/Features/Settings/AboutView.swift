@@ -84,12 +84,6 @@ struct AboutView: View {
     }
 }
 
-private extension View {
-    /// #24 C: a text row the Siri Remote can move to. About is long text with one link (Full Licence Texts), so before this
-    /// the focus could not move and the page never scrolled: the text above and below the link was out of reach (the
-    /// screenshots 41-about-scrolled-1/2/3 equalled 40-about in the run on fa00af8). Fixed in code, verify in next screenshots.
-    func readableRow() -> some View {
-        // design-lint:allow About is read-only text with one link; each text row takes the system focus so the Siri Remote can scroll the whole page (as LicenseTextView)
-        self.focusable()
-    }
-}
+// #24 C: `readableRow()` (a text row the Siri Remote can move to) is shared since R389, in App/Shared/SettingsPane.swift.
+// About is read-only text with few links, so before #24 C the focus could not move and the page never scrolled (the
+// screenshots 41-about-scrolled-1/2/3 equalled 40-about in the run on fa00af8).

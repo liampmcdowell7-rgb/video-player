@@ -624,6 +624,33 @@ final class ScreenshotTests: XCTestCase {
         if reachedTabBar { XCUIRemote.shared.press(.down); usleep(400_000) }
     }
 
+    /// R389 (owner's device test of 22 Nov 2026: Settings could not scroll down to Last Playback Problem): Down until the
+    /// focus stops, then the page's last row (identifier "settings.lastRow", `SettingsRowID.last`) must have the focus.
+    /// Before R389 the focus stopped at the last control and the read-only rows below it stayed out of reach. Writes
+    /// "<name>-LAST-ROW"; fails the test when the last row was not reached; a page without a marked last row is noted only.
+    func lastRowCheck(_ name: String, in app: XCUIApplication, maxPresses: Int = 40) {
+        let lastRow: XCUIElement = app.descendants(matching: .any)["settings.lastRow"]
+        guard lastRow.waitForExistence(timeout: 5) else {
+            note(name + "-LAST-ROW", "NOT CHECKED: no row marked settings.lastRow on this page")
+            return
+        }
+        let reachedEnd: Bool = moveFocusToEnd(in: app, maxPresses: maxPresses)
+        let focused: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        var reached: Bool = lastRow.hasFocus
+        if !reached && focused.exists {
+            reached = ScreenRules.focusReached(focused: AXRect(focused.frame), focusedLabel: focused.label,
+                                               target: AXRect(lastRow.frame), targetLabel: lastRow.label)
+        }
+        var verdict: String = "LAST ROW REACHED: “\(lastRow.label)” had the focus"
+        if !reached {
+            var stoppedOn: String = "nothing"
+            if focused.exists { stoppedOn = "“\(focused.label)”" }
+            verdict = "LAST ROW NOT REACHED: the focus stopped on \(stoppedOn), not on “\(lastRow.label)”"
+        }
+        note(name + "-LAST-ROW", "end reached going down: \(reachedEnd)\nDOWN \(focusPathText())\n\(verdict)")
+        XCTAssertTrue(reached, "\(name): " + verdict)
+    }
+
     /// R348 (owner's device test of build 5, item B): pressing the tab that is already selected takes it back to its first
     /// page. From a pushed page (its header `pushedHeader`), Up until the tab bar has the focus (the selected tab takes it),
     /// then Select. PASS when `rootText` is on screen and no element is labelled `pushedHeader`. Writes "<name>-RESELECT" and
@@ -1149,8 +1176,14 @@ final class ScreenshotTests: XCTestCase {
             textContrast(name, in: app)
             if page == "Playback" {
                 checkContrast(name, prefixes: ["How titles play", "Skip buttons appear", "Playback Stats adds"], in: app)
+                // R389: Down must reach the last row (Last Playback Problem); then the R346 check goes back up.
+                lastRowCheck(name, in: app)
                 // R346 (item A): the longest Settings pane; Up from its last row must reach its first row first.
                 scrollUpCheck(name, top: pageTop, in: app)
+            }
+            if page == "Library" {
+                // R389: the counts below Needs Review hold no control; Down must reach the last one (Files).
+                lastRowCheck(name, in: app)
             }
             if page == "Sources", open("Sample Library", in: app, name: "34-settings-source-detail") {
                 settle(); shot("34-settings-source-detail"); textContrast("34-settings-source-detail", in: app); back()

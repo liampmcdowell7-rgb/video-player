@@ -38,10 +38,13 @@ struct LibrarySettingsView: View {
                 }
             }
             if let counts {
+                // R389: the last section holds no control, so each count takes the focus (`readableRow`): before, the
+                // focus stopped at Needs Review and the counts below it could stay out of reach.
                 Section("In Your Library") {
-                    ValueRow("Titles", value: String(counts.items))
-                    ValueRow("Shows", value: String(counts.series))
-                    ValueRow("Files", value: String(counts.files))
+                    ValueRow("Titles", value: String(counts.items)).readableRow()
+                    ValueRow("Shows", value: String(counts.series)).readableRow()
+                    ValueRow("Files", value: String(counts.files)).readableRow()
+                        .accessibilityIdentifier(SettingsRowID.last)
                 }
             }
         }
