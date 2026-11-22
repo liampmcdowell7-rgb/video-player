@@ -497,6 +497,7 @@ final class AppServices {
         resolved.segments = segments
         resolved.remux = remux
         resolved.file = file
+        resolved.ratingKey = PlayerRating.detailsKey(for: item)
         return resolved
     }
 

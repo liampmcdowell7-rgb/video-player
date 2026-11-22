@@ -19,6 +19,8 @@ struct ResolvedPlayback: @unchecked Sendable {
     var remux: RemuxPlayback?
     /// The library file being played (R309: the Plex watch sync reports to its server, or to the Plex files of the same item).
     var file: StoredFile?
+    /// R319: the details key whose content rating the Info tab shows ("series-N" for an episode, `PlayerRating.detailsKey`).
+    var ratingKey: String?
 }
 
 /// Why an item cannot be played. Every case maps to plain text and a what-to-do line (`failure`); the text is the whole message.

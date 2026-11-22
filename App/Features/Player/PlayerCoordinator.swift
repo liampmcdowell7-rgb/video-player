@@ -190,6 +190,8 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         player.play()
         // The poster may need a download; it runs on its own so the skip button and Up Next set-up below never wait for it.
         Task { @MainActor [weak self] in await self?.addArtworkToMetadata() }
+        // R319: the content rating may need the online details too, so it is added the same way, on its own.
+        Task { @MainActor [weak self] in await self?.addRatingToMetadata() }
         await probe.load()
         await probe.refreshAudioSelection()
         reloadOverlay()
@@ -564,6 +566,24 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         entry.identifier = .commonIdentifierArtwork
         entry.value = bytes as NSData
         entry.dataType = type
+        entry.extendedLanguageTag = "und"
+        item.externalMetadata.append(entry)
+    }
+
+    /// R319 (owner's request of 21 Nov 2026): the title's content rating in the Info tab, as the system's own item.
+    /// Apple's AVMetadataIdentifier page (read 21 Nov 2026) lists `iTunesMetadataContentRating`, "An identifier that
+    /// represents the content rating in iTunes" (tvOS 9.0+), and "Customizing the tvOS playback experience" lists
+    /// "Content rating | iTunesMetadataContentRating | String" among the values the player presents in its Info tab. The
+    /// value is R371's rating, the badge text ("PG-13"); no item when there is none. Now Playing: MPNowPlayingInfoCenter has
+    /// no content-rating key, and the system owns the entry on tvOS (R317), so the app adds nothing there. Whether the Info
+    /// tab shows an item added after playback started is the same device check as the artwork's.
+    private func addRatingToMetadata() async {
+        guard let key = resolved.ratingKey else { return }
+        let details = await services.online.details(key: key)
+        guard let rating = PlayerRating.metadataValue(details?.contentRating), !stopped else { return }
+        let entry = AVMutableMetadataItem()
+        entry.identifier = .iTunesMetadataContentRating
+        entry.value = rating as NSString
         entry.extendedLanguageTag = "und"
         item.externalMetadata.append(entry)
     }

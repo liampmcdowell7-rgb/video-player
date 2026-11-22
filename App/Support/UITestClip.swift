@@ -191,20 +191,17 @@ private struct VideoFrames: SampleMaker {
         let attributes = [kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()] as CFDictionary
         guard CVPixelBufferCreate(kCFAllocatorDefault, UITestClip.size.width, UITestClip.size.height, kCVPixelFormatType_32BGRA,
                                   attributes, &pixel) == kCVReturnSuccess, let pixel else { return nil }
-        let second = index / Int(UITestClip.framesPerSecond)
-        let hue = Double(second % 12) / 12
-        let (r, g, b) = Self.rgb(hue: hue)
+        // R319 (item 9(b)): one even colour per frame. The moving lighter band this drew before sat at x 0–23 on the first
+        // frame, which the player pictures showed as a strip at the left edge (`SampleClipFrames`).
+        let (r, g, b) = SampleClipFrames.colour(frame: index, framesPerSecond: Int(UITestClip.framesPerSecond))
         CVPixelBufferLockBaseAddress(pixel, [])
         if let base = CVPixelBufferGetBaseAddress(pixel) {
             let rowBytes = CVPixelBufferGetBytesPerRow(pixel)
             let bytes = base.assumingMemoryBound(to: UInt8.self)
-            // A lighter band moves across the frame, one step per frame, so the picture visibly plays.
-            let band = (index * 8) % UITestClip.size.width
             for y in 0..<UITestClip.size.height {
                 let row = bytes + y * rowBytes
                 for x in 0..<UITestClip.size.width {
-                    let lift: UInt8 = abs(x - band) < 24 ? 60 : 0
-                    row[x * 4] = b &+ lift; row[x * 4 + 1] = g &+ lift; row[x * 4 + 2] = r &+ lift; row[x * 4 + 3] = 255
+                    row[x * 4] = b; row[x * 4 + 1] = g; row[x * 4 + 2] = r; row[x * 4 + 3] = 255
                 }
             }
         }
@@ -220,14 +217,6 @@ private struct VideoFrames: SampleMaker {
         CMSampleBufferCreateReadyWithImageBuffer(allocator: kCFAllocatorDefault, imageBuffer: pixel, formatDescription: format,
                                                  sampleTiming: &timing, sampleBufferOut: &sample)
         return sample
-    }
-
-    static func rgb(hue: Double) -> (UInt8, UInt8, UInt8) {
-        let h = hue * 6, i = Int(h) % 6, f = h - Double(Int(h))
-        let v = 0.55, s = 0.6
-        let p = v * (1 - s), q = v * (1 - s * f), t = v * (1 - s * (1 - f))
-        let c: (Double, Double, Double) = [(v, t, p), (q, v, p), (p, v, t), (p, q, v), (t, p, v), (v, p, q)][i]
-        return (UInt8(c.0 * 255), UInt8(c.1 * 255), UInt8(c.2 * 255))
     }
 }
 
