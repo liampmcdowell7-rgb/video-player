@@ -133,8 +133,8 @@ Prefixes used below:
 | Build a SwiftUI app with the new design (2025) | https://developer.apple.com/videos/play/wwdc2025/323 | Opened; general, not tvOS-specific. |
 | Design intuitive search experiences (2026) | https://developer.apple.com/videos/play/wwdc2026/292 | Opened; mentions the TV app's search tab only as an iOS example. |
 | Direct and reflect focus in SwiftUI (2021) | https://developer.apple.com/videos/play/wwdc2021/10023 | Opened 21 Nov 2026 (for docs/AUDIT_AGAINST_REFERENCE_PACK.md). `@FocusState` with `focused(_:equals:)` reads and moves focus on tvOS; "directional focus navigation is based on adjacency relationships", so a swipe reaches only a neighbouring focusable element; `focusSection()` makes a container one large target. |
-| Deep Linking on tvOS (2017) | https://developer.apple.com/videos/play/wwdc2017/246 | **UNVERIFIED** (found in search, not opened). |
-| Discover Continuity Camera for tvOS (2023) | https://developer.apple.com/videos/play/wwdc2023/10256 | **UNVERIFIED**, and not needed by this app. |
+| Deep Linking on tvOS (2017) | https://developer.apple.com/videos/play/wwdc2017/246 | Opened 21 Nov 2026 (for docs/AUDIT_AGAINST_REFERENCE_PACK.md). Top Shelf items carry a display link (opens the page) and a play link (starts playback at once, no prompts); build the back stack first so Back goes to the page, then the main screen, then out. Predates SwiftUI (UIKit `application(_:open:options:)`). |
+| Discover Continuity Camera for tvOS (2023) | https://developer.apple.com/videos/play/wwdc2023/10256 | Opened 21 Nov 2026 (for docs/AUDIT_AGAINST_REFERENCE_PACK.md). About cameras and microphones, which this app does not use; the one part that applies: on tvOS `.documentDirectory` fails at runtime, use the caches directory (which can be cleared) and iCloud for data that must last. |
 
 No session titled "Designing for tvOS" or "What's new in tvOS" was found.
 
@@ -241,8 +241,6 @@ Each line: the page, then what to take for that screen. Full links are in sectio
 
 - The sample's [SidebarContentView] and [ButtonsView] have no code on the page.
 - The HIG tab-bars page describes the top tab bar, not the tvOS 18 sidebar.
-- Two WWDC sessions are still marked UNVERIFIED here (wwdc2017/246, wwdc2023/10256). Both were opened on 21 Nov 2026;
-  what they say is in docs/AUDIT_AGAINST_REFERENCE_PACK.md section 3.
 - Hero fractions: only Apple's media catalog sample gives one. Its [Show content above and below the fold] code sizes
   the landing page's header to 0.8 of the screen height (`containerRelativeFrame(.vertical)`, `length * 0.8`). That
   covers the landing page (Home) only. No HIG page gives a hero fraction, and neither the sample nor the HIG gives one
