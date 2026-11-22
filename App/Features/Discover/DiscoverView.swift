@@ -173,17 +173,21 @@ private struct MissingEpisodesView: View {
             Text(WhereToWatchText.line(group.watch, region: region))
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            ForEach(group.episodes) { episode in
-                Text(line(episode))
+            // R379 (audit #29; HIG Focus and selection: "people can bring focus to every element"): each line is a plain
+            // focusable row, so a swipe moves down the list and the scroll view follows the focus. Which lines and their
+            // text: AppLogic `MissingEpisodeLines` (Linux tests). No look of our own: the system draws the focus.
+            ForEach(MissingEpisodeLines.lines(group)) { (line: MissingEpisodeLine) in
+                Text(line.text)
                     .font(.callout)
+                    // design-lint:allow R379: a read-only line takes the system focus so the Siri Remote can scroll the list (as About's text rows)
+                    .focusable(line.isFocusable)
             }
         }
-    }
-
-    private func line(_ e: MissingEpisode) -> String {
-        let base = "\(e.code)  \(e.name)"
-        guard let date = e.airDate else { return base }
-        return "\(base)  (aired \(date))"
+        // R379, WWDC21 "Direct and reflect focus in SwiftUI": with `focusSection()` "the frame of that view becomes capable
+        // of accepting focus if it contains any focusable subviews". The group spans the column, so a swipe down from any
+        // poster of the shelf above lands in the list even when no line sits under that poster.
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .focusSection()
     }
 }
 
