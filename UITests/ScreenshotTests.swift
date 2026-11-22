@@ -31,18 +31,33 @@ final class ScreenshotTests: XCTestCase {
         app.launch()
         current = app
         // Fourth CI run: the app died at launch and every "screenshot" showed the system Home Screen. Say so at once.
-        if !appIsInFront(app, timeout: launchTimeout) {
-            XCTFail("The app is not in the foreground after launch \(args) (state \(app.state.rawValue)); it probably crashed.")
+        if !appIsInFront(app, timeout: launchTimeout, waitForScreen: true) {
+            XCTFail("The app is not in the foreground after launch \(args) (state \(stateName(app.state))) or showed none of its screens; it probably crashed.")
         }
         return app
     }
 
-    /// True when this app, not the system Home Screen, is in front: running in the foreground with one of its own screens
-    /// (accessibility identifier "screen.<name>", App/Shell/RootView.swift) or its tab bar or sidebar present.
-    func appIsInFront(_ app: XCUIApplication, timeout: TimeInterval = 5) -> Bool {
+    /// True when this app, not the system Home Screen, is in front: running in the foreground
+    /// (`XCUIApplication.State.runningForeground`, raw value 4). With `waitForScreen` (after a launch, which always lands on a
+    /// tab root) it must also show one of its own screens (accessibility identifier "screen.<name>", App/Shell/RootView.swift)
+    /// or its sidebar.
+    /// R409 (run #25, item 9 a): every picture after 30 in test03 and acc 109 was skipped with "not in the foreground
+    /// (state 4)": the state WAS in front; the second half failed. A pushed page (Settings > Playback, Backup, …) carries no
+    /// "screen." identifier (only tab roots and the Route destinations do), and the sidebar is collapsed and out of the tree
+    /// there, so neither was found. A picture now needs only the state: when the Home Screen is in front, this app is not
+    /// running in the foreground.
+    func appIsInFront(_ app: XCUIApplication, timeout: TimeInterval = 5, waitForScreen: Bool = false) -> Bool {
         guard app.wait(for: .runningForeground, timeout: timeout) else { return false }
+        guard waitForScreen else { return true }
         let screen = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "screen.")).firstMatch
         return screen.waitForExistence(timeout: timeout) || navigationChrome(in: app).exists
+    }
+
+    /// R409: the state's raw value with its name (https://developer.apple.com/documentation/xctest/xcuiapplication/state).
+    func stateName(_ state: XCUIApplication.State) -> String {
+        let names: [UInt: String] = [0: "unknown", 1: "not running", 2: "running in the background, suspended",
+                                     3: "running in the background", 4: "running in the foreground"]
+        return "\(state.rawValue), " + (names[state.rawValue] ?? "not a documented value")
     }
 
     /// R359 (scan finding 3): the app's top-level navigation: the tab bar before R359, the system sidebar since
@@ -132,7 +147,7 @@ final class ScreenshotTests: XCTestCase {
     /// checks it. Every other identical pair keeps the WARNING and the -UNCHANGED note.
     func shot(_ name: String, mustChangeAfter step: String? = nil, endOfScroll: String? = nil, expectStill: Bool = false) {
         guard let app = current, appIsInFront(app, timeout: 2) else {
-            let state = current.map { "\($0.state.rawValue)" } ?? "not launched"
+            let state = current.map { stateName($0.state) } ?? "not launched"
             XCTFail("\(name): the app is not in the foreground (state \(state)); no screenshot taken.")
             note(name + "-APP-NOT-IN-FRONT", "The app was not in the foreground (state \(state)), so no screenshot was taken.")
             return
@@ -1149,7 +1164,14 @@ final class ScreenshotTests: XCTestCase {
         for b in items where b.frame.isEmpty || !window.contains(b.frame) {
             problems.append("“\(b.label)” is not whole inside the window \(String(describing: window))")
         }
-        for (a, b) in zip(items, items.dropFirst()) where (sidebar ? a.frame.maxY > b.frame.minY + 1 : a.frame.maxX > b.frame.minX + 1) {
+        // R411 (run #25, 02-home-empty-TABBAR: "“Files” overlaps “Search”"): neighbours were taken in the DECLARED order
+        // (RootView: Home, Library: Movies, Shows, Files, then Search, Settings), so an item the system draws higher up was
+        // reported as an overlap. Search has `role: .search`; where the sidebar puts that tab is not on Apple's TabRole.search
+        // page (UNVERIFIED). Neighbours are now taken in the DRAWN order, the order is recorded (not judged: R312, H1 is the
+        // owner's), and an overlap is two frames that really intersect.
+        let drawn: [XCUIElement] = items.sorted { sidebar ? $0.frame.minY < $1.frame.minY : $0.frame.minX < $1.frame.minX }
+        lines.append("drawn order (recorded, not judged): " + drawn.map(\.label).joined(separator: ", "))
+        for (a, b) in zip(drawn, drawn.dropFirst()) where a.frame.intersection(b.frame).height > 1 && a.frame.intersection(b.frame).width > 1 {
             problems.append("“\(a.label)” overlaps “\(b.label)”")
         }
         // R376: the "Library" section header (Movies, Shows, Files). How tvOS 27 exposes it is UNVERIFIED, so a missing header

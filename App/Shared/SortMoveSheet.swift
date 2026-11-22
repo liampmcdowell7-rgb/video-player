@@ -129,41 +129,47 @@ struct SortInfoSheet: View {
     @State private var move: SortMoveTarget?
 
     var body: some View {
-        // #36 S-B (R254): `TaskPage`, as every task cover.
-        TaskPage(title: "How This Was Sorted", summary: SortTexts.infoSummary) {
-            Section {
-                if let info {
-                    LabeledContent("Sorted By", value: SortTexts.title(info.record.signal))
-                    LabeledContent("File", value: info.fileName)
-                } else if !loaded {
-                    ProgressView()
-                }
-            } footer: {
-                if let info, !info.record.note.isEmpty {
-                    Text(info.record.note)
-                } else if loaded && info == nil {
-                    Text(SortTexts.notRecorded)
-                }
-            }
-            Section {
-                // #36 S-C (R255): one row of bezeled buttons, the same size; Done (closing the information) is the most
-                // likely action, so it is the prominent one; Move and Sort Automatically are bordered.
-                TaskButtonRow {
-                    if kind == .movie {
-                        TaskButton("Move to Shows") { move = .item(itemID, .episode) }
-                    } else {
-                        TaskButton("Move to Movies") { move = .item(itemID, .movie) }
+        // #36 S-B (R254): `TaskPage`, as every task cover. R410 (run #25, 67-sorted-how-COVER: "PAGE BEHIND THE COVER IS
+        // EXPOSED"): inside its own navigation stack, as every other task cover (Fix Match, Move, Save View, File Details,
+        // Add a Source). This was the one TaskPage cover whose page sat directly in the presentation, and the one whose
+        // page behind stayed in the accessibility tree; why the stack makes that difference is not on any Apple page read
+        // (UNVERIFIED).
+        NavigationStack {
+            TaskPage(title: "How This Was Sorted", summary: SortTexts.infoSummary) {
+                Section {
+                    if let info {
+                        LabeledContent("Sorted By", value: SortTexts.title(info.record.signal))
+                        LabeledContent("File", value: info.fileName)
+                    } else if !loaded {
+                        ProgressView()
                     }
-                    if let signal = info?.record.signal, signal == .manual || signal == .onlineLookup {
-                        TaskButton("Sort Automatically") {
-                            Task {
-                                try? await services.sortMover.sortAutomatically(itemID: itemID)
-                                services.sortChoiceSaved()
-                                dismiss()
+                } footer: {
+                    if let info, !info.record.note.isEmpty {
+                        Text(info.record.note)
+                    } else if loaded && info == nil {
+                        Text(SortTexts.notRecorded)
+                    }
+                }
+                Section {
+                    // #36 S-C (R255): one row of bezeled buttons, the same size; Done (closing the information) is the most
+                    // likely action, so it is the prominent one; Move and Sort Automatically are bordered.
+                    TaskButtonRow {
+                        if kind == .movie {
+                            TaskButton("Move to Shows") { move = .item(itemID, .episode) }
+                        } else {
+                            TaskButton("Move to Movies") { move = .item(itemID, .movie) }
+                        }
+                        if let signal = info?.record.signal, signal == .manual || signal == .onlineLookup {
+                            TaskButton("Sort Automatically") {
+                                Task {
+                                    try? await services.sortMover.sortAutomatically(itemID: itemID)
+                                    services.sortChoiceSaved()
+                                    dismiss()
+                                }
                             }
                         }
+                        TaskButton("Done", prominent: true) { dismiss() }
                     }
-                    TaskButton("Done", prominent: true) { dismiss() }
                 }
             }
         }
