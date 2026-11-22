@@ -12,6 +12,8 @@ struct HomeFeaturedView: View {
     @Environment(AppServices.self) private var services
     /// R371: the featured title's rating, from the same details layers as its page.
     @State private var rating: String?
+    /// R388 (item B): Play takes the focus once, at launch, as the TV app opens on its featured title (`HomeLaunchFocus`).
+    @FocusState private var playFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -33,6 +35,7 @@ struct HomeFeaturedView: View {
                     ActionLabel(featured.playTitle, systemImage: "play.fill")
                 }
                 .buttonStyle(.borderedProminent)
+                .focused($playFocused)
                 .accessibilityIdentifier(ControlID.featuredPlay)
                 NavigationLink(value: pageRoute) {
                     ActionLabel("More", systemImage: "ellipsis")
@@ -52,6 +55,11 @@ struct HomeFeaturedView: View {
         .task(id: detailsKey) {
             rating = await services.online.details(key: detailsKey)?.contentRating
         }
+        // R388: Home's first frame has nothing focusable (the library is still loading), so tvOS put the focus in the
+        // sidebar, which expands, and nothing moved it to the page. The first featured title right after launch asks for it.
+        .task {
+            if HomeLaunchFocus.state.claim(at: ProcessInfo.processInfo.systemUptime) { playFocused = true }
+        }
     }
 
     /// The details key of the page More opens: the movie ("item-N") or the show ("series-N").
@@ -65,6 +73,13 @@ struct HomeFeaturedView: View {
         if featured.card.kind == .episode, let series = featured.card.seriesID { return .series(series) }
         return .item(featured.card.id)
     }
+}
+
+/// R388: the one launch-focus chance for the whole app run (not per Home view: re-selecting Home rebuilds its stack, R348,
+/// and must not pull the focus out of the sidebar).
+@MainActor
+enum HomeLaunchFocus {
+    static var state: LaunchFocus = LaunchFocus()
 }
 
 /// R349 (PROVISIONAL, alternatives in OPEN_QUESTIONS): the featured area's share of the screen height. Not a point size: the

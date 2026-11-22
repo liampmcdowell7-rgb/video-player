@@ -14,7 +14,9 @@ struct HomeView: View {
 
     var body: some View {
         VStack {
-            if services.isScanning {
+            // R388 (item B): above the page only while Home has nothing to show. A scan under a library already on screen
+            // (every launch scans) no longer pushes the featured area and the first row down (`HomeScanNotice`).
+            if HomeScanNotice.shows(isScanning: services.isScanning, hasContent: model?.screen.state.content.map { !visible($0).isEmpty } ?? false) {
                 RebuildingBanner()
             }
             if let model {
@@ -26,6 +28,8 @@ struct HomeView: View {
             }
         }
         .task(id: services.libraryRevision) { await reload() }
+        // R388: when Home was first shown, so the featured title takes the focus only right after launch (`LaunchFocus`).
+        .onAppear { HomeLaunchFocus.state.homeShown(at: ProcessInfo.processInfo.systemUptime) }
         .addSourceCover(isPresented: $showSetup)
     }
 

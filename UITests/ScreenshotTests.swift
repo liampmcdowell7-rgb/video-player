@@ -730,6 +730,37 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(problems.isEmpty, "\(name): " + verdict)
     }
 
+    /// R388 (item B): at launch the focus is in Home's content (the sidebar collapsed), and the sidebar expanding and
+    /// collapsing again never moves the page: the featured area's top is the same at launch, with the sidebar open (Left),
+    /// and after it closes (Right). Writes "<name>-SIDEBAR" with the frames; a focus outside the content at launch or a
+    /// featured area that moved by more than 1 pt fails the test (soft). Whether the open sidebar draws over the page is in
+    /// the frames (the chrome's width), not judged.
+    func sidebarLaunchCheck(_ name: String, in app: XCUIApplication) {
+        let featured: XCUIElement = app.descendants(matching: .any).matching(identifier: ControlID.featured).firstMatch
+        guard featured.exists else { notReached(name + "-SIDEBAR", "Home has no featured area."); return }
+        var lines: [String] = []
+        var problems: [String] = []
+        let chrome: XCUIElement = navigationChrome(in: app)
+        let focused: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        let inChrome: Bool = focused.exists && chrome.exists && chrome.frame.contains(CGPoint(x: focused.frame.midX, y: focused.frame.midY))
+        lines.append("at launch: focus \(focusedLabel(in: app)) \(inChrome ? "IN THE SIDEBAR" : "in the content"); sidebar frame \(chrome.exists ? String(describing: chrome.frame) : "not found")")
+        if !focused.exists || inChrome { problems.append("the focus is not in the content at launch") }
+        let atLaunch: CGFloat = featured.frame.minY
+        lines.append("featured top at launch: \(Int(atLaunch))")
+        XCUIRemote.shared.press(.left); sleep(1)
+        let open: CGFloat = featured.frame.minY
+        lines.append("sidebar opened (Left): focus \(focusedLabel(in: app)); sidebar frame \(navigationChrome(in: app).frame); featured top \(Int(open))")
+        XCUIRemote.shared.press(.right); sleep(1)
+        let closed: CGFloat = featured.frame.minY
+        lines.append("sidebar closed (Right): focus \(focusedLabel(in: app)); sidebar frame \(navigationChrome(in: app).frame); featured top \(Int(closed))")
+        if abs(open - atLaunch) > 1 { problems.append("the page moved when the sidebar opened (\(Int(atLaunch)) to \(Int(open)))") }
+        if abs(closed - atLaunch) > 1 { problems.append("the page did not return to its launch position (\(Int(atLaunch)) to \(Int(closed)))") }
+        let verdict: String = problems.isEmpty ? "SIDEBAR LAUNCH OK" : "SIDEBAR LAUNCH PROBLEM: " + problems.joined(separator: "; ")
+        lines.append(verdict)
+        note(name + "-SIDEBAR", lines.joined(separator: "\n"))
+        XCTAssertTrue(problems.isEmpty, "\(name): " + verdict)
+    }
+
     /// R387 (item A): the episode page is the product page with an episode's parts. From the tree only (no scrolling): the
     /// "S1, E1" line above the episode's title, Play, and the row of the season's other episodes (its heading) below Play.
     /// Writes "<name>-EPISODE"; a missing part or one out of order fails the test (soft, the player steps still run).
@@ -1511,7 +1542,7 @@ final class ScreenshotTests: XCTestCase {
 
     func test04_LibraryScreens() {
         var app = launch("-UITestFixtures", tab: "home")
-        if waitForScreen("screen.home", in: app), waitFor("Sample", in: app, timeout: 60) { settle(); shot("50-home-rows"); homeFeaturedCheck("50-home-rows", in: app); XCUIRemote.shared.press(.down); sleep(1); shot("51-home-rows-lower") }
+        if waitForScreen("screen.home", in: app), waitFor("Sample", in: app, timeout: 60) { settle(); shot("50-home-rows"); homeFeaturedCheck("50-home-rows", in: app); sidebarLaunchCheck("50-home-launch", in: app); XCUIRemote.shared.press(.down); sleep(1); shot("51-home-rows-lower") }
         else { notReached("50-home-rows", "No sample title appeared on Home within 60 s (the sample library did not load).") }
         // The card long-press menu on the focused Home card. #25 A3: the focus starts on the tab bar, so move it into the
         // content first, and wait for the menu's items before the picture.
