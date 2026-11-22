@@ -243,7 +243,9 @@ struct StarringBlock: View {
     let names: String
 
     var body: some View {
-        (Text(ProductPage.starringLabel + " ").foregroundStyle(.secondary) + Text(names))
+        // R398: one `Text` with the label interpolated in the secondary style (Apple deprecates `Text` + `Text`: "Use
+        // string interpolation on Text instead").
+        Text("\(Text(ProductPage.starringLabel).foregroundStyle(.secondary)) \(names)")
             .font(.caption)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)

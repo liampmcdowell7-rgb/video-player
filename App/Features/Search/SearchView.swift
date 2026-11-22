@@ -28,7 +28,17 @@ struct SearchView: View {
     private var content: SearchTabContent { .forQuery(query, showDiscover: showDiscover) }
 
     var body: some View {
-        Group {
+        VStack(alignment: .leading) {
+            // R398 (audit Q1): Apple, searchSuggestions(_:): "In tvOS, searchable modifiers only support suggestion
+            // views of type Text". The system's row has no heading and takes no button, so the label of the recent
+            // terms and Clear Recent Searches are here, in the page right under that row, while the field is empty.
+            if query.isEmpty, !RecentSearches.decode(recentStored).isEmpty {
+                HStack(spacing: CGFloat(RowSpacing.betweenActions)) {
+                    ShelfHeader(RecentSearches.heading)
+                    Button(RecentSearches.clearTitle, systemImage: "xmark.circle", role: .destructive) { recentStored = "" }
+                        .accessibilityIdentifier(ControlID.clearRecentSearches)
+                }
+            }
             switch content {
             case .discover:
                 DiscoverView(loader: discover)
@@ -44,16 +54,12 @@ struct SearchView: View {
                     Text(title).searchCompletion(title)
                 }
             } else {
-                // R393 (item 10 of the owner's review of the run on fd9731f; PROVISIONAL): the suggestions row is the
-                // SYSTEM's view (`searchSuggestions`); the app only hands it items. It drew the `Section` header
-                // "Recent Searches" as one more chip beside the terms (76-search-results), where it cannot read as a
-                // heading, and tvOS offers no heading for that row. So the header is no longer handed over: the row
-                // holds the recent terms and "Clear Recent Searches", which names them.
+                // R393, R398 (PROVISIONAL): the suggestions row is the SYSTEM's view, and on tvOS it takes `Text` views
+                // only (Apple's page). It drew the `Section` header "Recent Searches" as one more chip (76-search-recent).
+                // Only the recent terms are handed over; their heading and Clear Recent Searches are in the page.
                 ForEach(recent, id: \.self) { text in
                     Text(text).searchCompletion(text)
                 }
-                Button(RecentSearches.clearTitle, systemImage: "xmark.circle", role: .destructive) { recentStored = "" }
-                    .accessibilityIdentifier(ControlID.clearRecentSearches)
             }
         }
         .onSubmit(of: .search) { remember() }

@@ -97,8 +97,20 @@ final class ScreenshotTests: XCTestCase {
         let focused: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
         guard focused.exists, chrome.frame.contains(CGPoint(x: focused.frame.midX, y: focused.frame.midY)) else { return }
         let before: String = focused.label
+        // R398 (picture 77-movie-long-synopsis): a page opened at launch asks for the focus itself. Up to 2 s for that
+        // request to take before the test helps, so the note tells "late" from "lost".
+        let start: Date = Date()
+        while Date().timeIntervalSince(start) < 2 {
+            let now: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+            if now.exists, !chrome.frame.contains(CGPoint(x: now.frame.midX, y: now.frame.midY)) {
+                let seconds: String = String(format: "%.1f", Date().timeIntervalSince(start))
+                note("SIDEBAR-AT-" + id, "The focus was in the sidebar (on “\(before)”) when \(id) appeared and LEFT IT BY ITSELF after \(seconds) s, to “\(now.label)”. Nothing was pressed.")
+                return
+            }
+            usleep(250_000)
+        }
         XCUIRemote.shared.press(.right); usleep(700_000)
-        note("SIDEBAR-AT-" + id, "The focus was in the sidebar (on “\(before)”) when \(id) appeared; one Right moved it to \(focusedLabel(in: app)).")
+        note("SIDEBAR-AT-" + id, "The focus was in the sidebar (on “\(before)”) when \(id) appeared and was STILL IN THE SIDEBAR AFTER 2 s; one Right moved it to \(focusedLabel(in: app)).")
     }
 
     /// The display as it is, saved as "<test>-<what>.png" (no app query, so it works while the app is hung).
