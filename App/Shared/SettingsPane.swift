@@ -157,6 +157,13 @@ struct TaskCoverChrome: ViewModifier {
             // This is the pattern of Apple's `fullScreenCover(isPresented:onDismiss:content:)` example (a full-frame
             // background that ignores the safe area); `background(_:ignoresSafeAreaEdges:)` ignores all edges by default.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // R397 (PROVISIONAL; docs/AUDIT_VISUAL_TVAPP.md SF8, AS2, HS1: "flat black pages"): the system's regular
+            // material over the opaque system background, so a task cover (Add a Source, the source forms, How This Was
+            // Sorted, Fix Match, Save View) is the dark grey of a material, not flat black, and still opaque: nothing
+            // of the page behind shows through (R362, #33 A). A cover with artwork of its own draws it on top (the
+            // synopsis cover, R392). No Apple picture shows these screens (the audit's NO REFERENCE list).
+            // design-lint:allow R397: the system regular material as a task cover's background, over the opaque system background; a standard material, no colour of ours
+            .background(.regularMaterial, ignoresSafeAreaEdges: .all)
             .background(BackgroundStyle(), ignoresSafeAreaEdges: .all)
             // R362 (compile run of 21 Nov 2026, item 10): no `presentationBackground`. Apple's page for it: a presentation
             // background "Allows views behind the presentation to show through translucent styles", which needs the views

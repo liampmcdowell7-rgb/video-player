@@ -12,6 +12,8 @@ struct HomeFeaturedView: View {
     @Environment(AppServices.self) private var services
     /// R371: the featured title's rating, from the same details layers as its page.
     @State private var rating: String?
+    /// R396 (audit H5): the featured title's synopsis, from the same details.
+    @State private var overview: String?
     /// R388 (item B): Play takes the focus once, at launch, as the TV app opens on its featured title (`HomeLaunchFocus`).
     @FocusState private var playFocused: Bool
 
@@ -27,6 +29,16 @@ struct HomeFeaturedView: View {
                 metadataLine(ownWidth: true)
                 metadataLine(ownWidth: false)
             }
+            // R396 (audit H5): one line of the title's synopsis, as under the featured title of the TV app's Home (A1),
+            // in the shared text column. A long synopsis ends with the system's "…" here; the whole text is on the
+            // title's page (More). Nothing when the details have none.
+            if let overview {
+                Text(overview)
+                    .font(.callout)
+                    .foregroundStyle(ReadableSecondary.style)
+                    .lineLimit(1) // design-lint:allow R396: a one-line teaser of a long synopsis, as on the TV app's Home; the whole text is on the title's page (not a short text under rule S1)
+                    .frame(maxWidth: CGFloat(RowSpacing.textColumn), alignment: .leading)
+            }
             // #25 B5: one height for the row's buttons (ActionRow), the system Label in each (ActionLabel).
             ActionRow {
                 Button {
@@ -37,17 +49,18 @@ struct HomeFeaturedView: View {
                 .buttonStyle(.borderedProminent)
                 .focused($playFocused)
                 .accessibilityIdentifier(ControlID.featuredPlay)
+                // R396 (audit SF2, H3): a round icon button, as the TV app's Home draws its secondary actions (A1).
                 NavigationLink(value: pageRoute) {
-                    ActionLabel("More", systemImage: "ellipsis")
+                    ActionLabel("More", systemImage: "ellipsis", iconOnly: true)
                 }
-                .buttonStyle(.bordered)
+                .roundAction()
+                .accessibilityLabel("More")
                 .accessibilityIdentifier(ControlID.featuredMore)
             }
-            // R393 (item 9 of the owner's review of the run on fd9731f; PROVISIONAL): room between the buttons and the
-            // first shelf's heading, which stood 20 pt under them. The same 40 pt as under the buttons of a movie or
-            // show page (`DetailPageLayout.belowActions`, R239). The sample gives no number for it: its header is a
-            // stack filling 0.8 of the height with the buttons inside.
-            .padding(.bottom, DetailPageLayout.belowActions)
+            // R396 (audit SF7, H4): about 105 pt from the buttons to the first shelf's header, as on the TV app's Home
+            // (picture A1: Play's bottom at about 802, the header at about 910). The page's own stack already leaves
+            // about 20 pt there (the run on fd9731f), so the rest is added here. R393 had 40 pt.
+            .padding(.bottom, CGFloat(RowSpacing.featuredToShelf - RowSpacing.stackGap))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         .containerRelativeFrame(.vertical) { (length: CGFloat, _: Axis) -> CGFloat in
@@ -58,7 +71,9 @@ struct HomeFeaturedView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(ControlID.featured)
         .task(id: detailsKey) {
-            rating = await services.online.details(key: detailsKey)?.contentRating
+            let details = await services.online.details(key: detailsKey)
+            rating = details?.contentRating
+            overview = details?.overview
         }
         // R388: Home's first frame has nothing focusable (the library is still loading), so tvOS put the focus in the
         // sidebar, which expands, and nothing moved it to the page. The first featured title right after launch asks for it.
@@ -68,14 +83,17 @@ struct HomeFeaturedView: View {
     }
 
     private func metadataLine(ownWidth: Bool) -> some View {
-        HStack(spacing: CGFloat(BadgeSpacing.betweenGroups)) {
-            FittingLine(line: featured.metadata, style: .callout)
+        HStack(spacing: CGFloat(BadgeSpacing.afterText)) {
+            // R396 (audit H5): the card's second line as text, then the rating and the formats as DRAWN badges (the
+            // same badges as on the title's page); before, the formats were words in the text line.
+            FittingLine(line: featured.card.subtitleLine, style: .callout)
                 .foregroundStyle(ReadableSecondary.style)
                 .fixedSize(horizontal: ownWidth, vertical: false)
             // R371: the content rating after the metadata, as on the title's page.
             if let rating {
                 RatingBadge(rating: rating)
             }
+            BadgeRow(badges: featured.card.formatBadges)
         }
     }
 

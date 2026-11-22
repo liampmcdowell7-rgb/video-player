@@ -12,9 +12,10 @@ struct ExtrasMenu: View {
             }
         } label: {
             // #25 B5: the system label, the same height as the other detail buttons (ActionRow).
-            ActionLabel("Extras", systemImage: "doc.on.doc")
+            ActionLabel("Extras", systemImage: "doc.on.doc", iconOnly: true)
         }
         // #25 A2: a Menu with a custom label is a Button with no label of its own (57-movie-detail-HIERARCHY.txt); name it.
+        .roundAction()
         .accessibilityLabel("Extras")
         .accessibilityIdentifier(ControlID.extras)
     }

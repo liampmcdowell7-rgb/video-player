@@ -22,7 +22,7 @@ extension ScreenChecksTests {
         let groups: String = try body(of: "BadgeGroups", in: parts)
         XCTAssertTrue(groups.contains("HStack(spacing: CGFloat(BadgeSpacing.inGroup))"), "BadgeGroups does not give its spacing:\n\(groups)")
         let line: String = try body(of: "ProductMetadataLine", in: parts)
-        XCTAssertTrue(line.contains("HStack(spacing: CGFloat(BadgeSpacing.betweenGroups))"), "the metadata line does not give its spacing:\n\(line)")
+        XCTAssertTrue(line.contains("HStack(spacing: CGFloat(BadgeSpacing.afterText))"), "the metadata line does not give its spacing:\n\(line)")
         for (name, text) in [("BadgeGroups", groups), ("ProductMetadataLine", line), ("BadgeRow", try body(of: "BadgeRow", in: parts)),
                              ("BadgeOutline", try body(of: "BadgeOutline", in: parts))] {
             XCTAssertFalse(text.contains("HStack {"), "\(name) has a stack at the system's default spacing")
@@ -32,7 +32,7 @@ extension ScreenChecksTests {
         XCTAssertTrue(try body(of: "BadgeOutline", in: parts).contains(".fixedSize()"), "a badge is not at its own width")
 
         let card: String = try body(of: "EpisodeCard", in: episodes)
-        XCTAssertTrue(card.contains("HStack(spacing: CGFloat(BadgeSpacing.betweenGroups))"), "the episode card's runtime and badges do not give their spacing")
+        XCTAssertTrue(card.contains("HStack(spacing: CGFloat(BadgeSpacing.afterText))"), "the episode card's runtime and badges do not give their spacing")
         XCTAssertFalse(card.contains("HStack {"), "the episode card has a stack at the system's default spacing")
         XCTAssertFalse(card.contains("SymbolColumn("), "the episode card still keeps a fixed slot for the watched mark")
         let featured: String = try body(of: "HomeFeaturedView", in: home)
@@ -79,7 +79,9 @@ extension ScreenChecksTests {
         XCTAssertFalse(slot.contains("HStack"), "SlotLabel still lays the symbol and title out in a stack of ours")
         XCTAssertFalse(slot.contains(".frame("), "SlotLabel still frames its symbol")
         XCTAssertFalse(slot.contains("@ScaledMetric"), "SlotLabel still keeps a symbol slot")
-        XCTAssertFalse(slot.contains("labelIconToTitleSpacing") || slot.contains("labelReservedIconWidth"), "SlotLabel overrides the system's Label spacing")
+        // R396 (audit SF1): the gap is the shared value, set with the system's own Label modifier, never a number here.
+        XCTAssertTrue(slot.contains(".labelIconToTitleSpacing(CGFloat(RowSpacing.iconToLabel))"), "SlotLabel does not take the shared icon-to-label gap")
+        XCTAssertFalse(slot.contains("labelReservedIconWidth"), "SlotLabel reserves a symbol width of its own")
         XCTAssertFalse(layout.contains("struct SymbolColumn"), "the fixed symbol column is still there")
         XCTAssertTrue(try body(of: "RowLabel", in: rowLabel).contains("SlotLabel(title, systemImage: systemImage"), "RowLabel is not the shared label")
         // The old row fails the same checks.
@@ -89,6 +91,46 @@ extension ScreenChecksTests {
 
         XCTAssertFalse(kinds.contains("systemImage:"), "a row of Add a Source has a symbol while the source types have none")
         XCTAssertFalse(kindRow.contains("systemImage:") || kindRow.contains("Image("), "a source type row has a symbol while the other rows have none")
+    }
+
+    // MARK: R396: one shared set of values, no per-screen numbers
+
+    /// The shared row values (AppLogic `BadgeSpacing`, `RowSpacing`) are the only source of the badge gap, the action
+    /// row's gap, the text column and the landscape shelf's column count: every view names the shared value, and the
+    /// values themselves are inside what Apple's pictures measure (docs/AUDIT_VISUAL_TVAPP.md, section 1).
+    func testTheViewsTakeTheSharedSpacingValuesAndTheValuesMatchApplesPictures() throws {
+        guard let values = try appSource("Packages/VideoPlayerCore/Sources/AppLogic/VisualSpacing.swift"),
+              let layout = try appSource("App/Shared/LayoutParts.swift"),
+              let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift"),
+              let home = try appSource("App/Features/Home/HomeFeaturedView.swift"),
+              let row = try appSource("App/Shared/CardRow.swift") else { return }
+        func value(_ name: String) throws -> Double {
+            let start: String.Index = try XCTUnwrap(values.range(of: "public static let \(name): ")?.upperBound, "no shared value \(name)")
+            let rest: Substring = values[start...]
+            let number: Substring = try XCTUnwrap(rest.range(of: " = ").map { rest[$0.upperBound...].prefix { $0.isNumber || $0 == "." } })
+            return try XCTUnwrap(Double(number), "\(name) is not a number")
+        }
+        XCTAssertTrue((10.0...15.0).contains(try value("inGroup")), "badges: 10 to 15 pt on Apple's pages (B1, A4)")
+        XCTAssertTrue((10.0...15.0).contains(try value("betweenGroups")), "badges: 10 to 15 pt on Apple's pages (B1, A4)")
+        XCTAssertTrue((25.0...29.0).contains(try value("iconToLabel")), "list icon to label: about 25 to 29 pt (A3, A2)")
+        XCTAssertTrue((22.0...27.0).contains(try value("betweenActions")), "action buttons: about 22 to 27 pt apart (A1, B1, A4)")
+        XCTAssertTrue((650.0...658.0).contains(try value("textColumn")), "running text: about 650 pt wide at most (B1, A4)")
+        XCTAssertEqual(try value("landscapeShelfColumns"), 5, "Continue Watching: five across (A1)")
+
+        let actions: String = try body(of: "ActionRow", in: layout)
+        XCTAssertTrue(actions.contains("var spacing: CGFloat? = CGFloat(RowSpacing.betweenActions)"), "the action row does not take the shared gap:\n\(actions)")
+        XCTAssertTrue(layout.contains("buttonStyle(.bordered).buttonBorderShape(.circle)"), "the round action is not the system's bordered circle")
+        XCTAssertEqual(detail.components(separatedBy: ".frame(maxWidth: CGFloat(RowSpacing.textColumn)").count - 1, 2, "the synopsis and its cover do not both take the shared text column")
+        XCTAssertTrue(home.contains(".frame(maxWidth: CGFloat(RowSpacing.textColumn)"), "Home's synopsis line does not take the shared text column")
+        XCTAssertTrue(home.contains("RowSpacing.featuredToShelf - RowSpacing.stackGap"), "Home's gap to the first shelf is not the shared value")
+        XCTAssertTrue(row.contains("count: RowSpacing.landscapeShelfColumns"), "the landscape shelf does not take the shared column count")
+        // Every secondary action of the pages is a round icon button; Play stays the one prominent button.
+        XCTAssertEqual(detail.components(separatedBy: ".buttonStyle(.borderedProminent)").count - 1, 1, "the movie page has more or fewer than one prominent button")
+        XCTAssertFalse(detail.contains("ActionLabel(\"More\", systemImage: \"ellipsis\")"), "More is still a text button on the movie page")
+        XCTAssertFalse(home.contains("ActionLabel(\"More\", systemImage: \"ellipsis\")"), "More is still a text button on Home")
+        for name in ["Start Over", "Go to Show", "Fix Match", "How This Was Sorted"] {
+            XCTAssertTrue(detail.contains("\"\(name)\""), "the action “\(name)” is no longer on the movie page")
+        }
     }
 
     // MARK: Shared fault 3: toolbar buttons of one size

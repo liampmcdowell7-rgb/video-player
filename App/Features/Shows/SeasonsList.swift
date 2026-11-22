@@ -101,9 +101,7 @@ struct SeasonsList: View {
         switch SeasonTabs.style(seasonCount: content.seasons.count) {
         case .heading:
             if let season = shownSeason {
-                Text(season.title)
-                    .font(.headline)
-                    .accessibilityAddTraits(.isHeader)
+                ShelfHeader(season.title)
             }
         case .segmented:
             Picker("Season", selection: choice) {
@@ -145,8 +143,10 @@ struct SeasonsList: View {
                         }
                     }
                 } label: {
-                    ActionLabel("More", systemImage: "ellipsis")
+                    ActionLabel("More", systemImage: "ellipsis", iconOnly: true)
                 }
+                // R396 (audit SF2): a round icon button beside Play, as on the TV app's show page (picture A4).
+                .roundAction()
                 .accessibilityLabel("More")
                 .accessibilityIdentifier(ControlID.more)
             }

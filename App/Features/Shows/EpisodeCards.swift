@@ -91,7 +91,7 @@ struct EpisodeCard: View {
             // R391 (shared fault 1): one tight group at the leading edge (`BadgeSpacing`). Before: an `HStack` at the
             // system's default spacing (the run on fd9731f: "43 min" and "1080p" 60 pt apart) and a fixed 44 pt slot for
             // the watched mark (`SymbolColumn`), drawn or not.
-            HStack(spacing: CGFloat(BadgeSpacing.betweenGroups)) {
+            HStack(spacing: CGFloat(BadgeSpacing.afterText)) {
                 if let runtime = episode.runtimeText {
                     FittingText(runtime, style: .caption2)
                         .foregroundStyle(.secondary)

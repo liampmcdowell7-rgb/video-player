@@ -26,7 +26,7 @@ struct ProductMetadataLine: View {
     /// R391: the text, the rating and the badges are ONE tight group at the leading edge (`BadgeSpacing`), not the
     /// system's default stack spacing, which is wide on tvOS (the run on fd9731f: 60 to 72 pt between the parts).
     private func line(_ shown: [FormatBadgeItem]) -> some View {
-        HStack(spacing: CGFloat(BadgeSpacing.betweenGroups)) {
+        HStack(spacing: CGFloat(BadgeSpacing.afterText)) {
             if !facts.isEmpty {
                 FittingText(facts, style: .callout)
                     .foregroundStyle(ReadableSecondary.style)

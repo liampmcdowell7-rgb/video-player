@@ -47,9 +47,7 @@ struct ItemDetailContentView: View {
                 // R387: as on the show page, the episodes right after the hero, then the cast.
                 if let other = otherEpisodes, let seasonModel {
                     VStack(alignment: .leading) {
-                        Text(other.title)
-                            .font(.headline)
-                            .accessibilityAddTraits(.isHeader)
+                        ShelfHeader(other.title)
                         EpisodeShelfRow(episodes: other.episodes, model: seasonModel)
                     }
                 }
@@ -100,37 +98,44 @@ struct ItemDetailContentView: View {
     }
 
     /// R350: the hero area, the first screen of the page, its content at the bottom over the clear artwork.
+    /// R396 (docs/AUDIT_VISUAL_TVAPP.md, Apple's pictures B1 and A4 of the TV app's product pages): the order is Apple's:
+    /// title, synopsis, the info line with the badges, the buttons; at the trailing edge, level with the buttons, the
+    /// "Starring" block (M7). An episode (E1, E2): the large title is the EPISODE's own title; the show's name and
+    /// "S1, E3" are one small line above it, plain text, no longer a button (Go to Show is in More).
     private var hero: some View {
-        VStack(alignment: .leading) {
-            if let series = content.seriesTitle, let seriesID = content.seriesID {
-                NavigationLink(series, value: Route.series(seriesID))
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading) {
+                if let overline = ProductPage.episodeOverline(show: content.seriesTitle, code: content.episodeCode) {
+                    FittingText(overline, style: .headline)
+                        .foregroundStyle(ReadableSecondary.style)
+                        .accessibilityIdentifier("product.episodeOverline")
+                }
+                // #15 Part 9: a movie's title logo when one is found and the setting is on; otherwise the text title.
+                TitleHeader(title: content.episodeTitle ?? content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil)
+                ContentAdviceLine(descriptors: details?.contentDescriptors ?? [])
+                if let overview = details?.overview {
+                    SynopsisLink(title: content.episodeTitle ?? content.title, text: overview, artworkKey: content.artworkKey,
+                                 prefersEpisodeStill: content.kind == .episode)
+                } else if content.kind == .movie, !services.online.hasCatalogueKey {
+                    // #26 item 4: one short line saying the synopsis needs the key and where to add it.
+                    StatusText(OnlineLookupText.detailsNeedKey)
+                }
+                // R350: ONE line, the facts then the outlined format badges (dropped from the end when it does not fit).
+                // R392 (item 5 b; audit M3): the time left ("29 min left", #15 D3) is the last fact of this line. Apple's
+                // product pages show no progress line at all (B1, A4), so there is no Apple place to move it to.
+                let facts: String = ProductPage.factsLine(content.facts, timeLeft: content.timeLeft)
+                if !facts.isEmpty || !content.badges.isEmpty || rating != nil {
+                    ProductMetadataLine(facts: facts, rating: rating, badges: content.badges)
+                }
+                actions
             }
-            // R387: an episode's "S1, E3" on its own line above its title (rule S1: one line, scaled to fit).
-            if let code = content.episodeCode {
-                FittingText(code, style: .headline)
+            Spacer(minLength: 0)
+            if let starring = ProductPage.starring((details?.cast ?? []).map(\.name)) {
+                StarringBlock(names: starring)
             }
-            // #15 Part 9: a movie's title logo when one is found and the setting is on; otherwise the text title (rule S1).
-            TitleHeader(title: content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil)
-            // R350: ONE line, the facts then the outlined format badges (dropped from the end when it does not fit).
-            // R392 (item 5 b of the owner's review of the run on fd9731f): the time left ("29 min left", #15 D3) is the
-            // last fact of this line, no longer a loose line between the synopsis and the buttons. No Apple page read
-            // shows where the TV app's product page puts progress.
-            let facts: String = ProductPage.factsLine(content.facts, timeLeft: content.timeLeft)
-            if !facts.isEmpty || !content.badges.isEmpty || rating != nil {
-                ProductMetadataLine(facts: facts, rating: rating, badges: content.badges)
-            }
-            ContentAdviceLine(descriptors: details?.contentDescriptors ?? [])
-            if let overview = details?.overview {
-                SynopsisLink(title: content.title, text: overview, artworkKey: content.artworkKey,
-                             prefersEpisodeStill: content.kind == .episode)
-            } else if content.kind == .movie, !services.online.hasCatalogueKey {
-                // #26 item 4: one short line saying the synopsis needs the key and where to add it.
-                StatusText(OnlineLookupText.detailsNeedKey)
-            }
-            actions
-                // #33 I (OPEN_QUESTIONS R239, PROVISIONAL): room between the button row and the next heading.
-                .padding(.bottom, DetailPageLayout.belowActions)
         }
+        // #33 I (OPEN_QUESTIONS R239, PROVISIONAL): room between the button row and the next heading.
+        .padding(.bottom, DetailPageLayout.belowActions)
         .productHero(pageHeight: pageHeight)
     }
 
@@ -142,9 +147,12 @@ struct ItemDetailContentView: View {
                 .buttonStyle(.borderedProminent)
                 .focused($playFocused)
                 .accessibilityIdentifier(ControlID.play)
+            // R396 (audit SF2, M4): one prominent Play or Resume, then round icon buttons (Apple's pictures B1, A4).
+            // Every action is still here: Start Over, Versions, Extras and More, each named for VoiceOver.
             if content.canStartOver {
-                Button { onPlay(true) } label: { ActionLabel("Start Over", systemImage: "arrow.counterclockwise") }
-                    .buttonStyle(.bordered)
+                Button { onPlay(true) } label: { ActionLabel("Start Over", systemImage: "arrow.counterclockwise", iconOnly: true) }
+                    .roundAction()
+                    .accessibilityLabel("Start Over")
                     .accessibilityIdentifier(ControlID.startOver)
             }
             if content.versions.count > 1 {
@@ -168,9 +176,14 @@ struct ItemDetailContentView: View {
             Button("Fix Match", systemImage: "magnifyingglass", action: onFixMatch)
             // docs/SORTING.md: which rule put this title in Movies or Shows, with Move and Sort Automatically.
             Button("How This Was Sorted", systemImage: "arrow.up.arrow.down", action: onSortInfo)
+            // R396 (audit E2): the show's page, reached from here now that the show's name above the title is text.
+            if let seriesID = content.seriesID {
+                Button("Go to Show", systemImage: "tv") { services.openRequest = Route.series(seriesID) }
+            }
         } label: {
-            ActionLabel("More", systemImage: "ellipsis")
+            ActionLabel("More", systemImage: "ellipsis", iconOnly: true)
         }
+        .roundAction()
         // #25 A2: the Menu is a Button with no label of its own (57-movie-detail-HIERARCHY.txt); name it once, here.
         .accessibilityLabel("More")
         .accessibilityIdentifier(ControlID.more)
@@ -213,12 +226,30 @@ struct SynopsisLink: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
-        // design-lint:allow R392: HIG Layout's two-column grid (860 pt content, 40 pt spacing), half the page for the synopsis
-        .containerRelativeFrame(.horizontal, count: ProductPageSpacing.synopsisColumns, spacing: CGFloat(ProductPageSpacing.columnSpacing), alignment: .leading)
+        // R396 (audit SF3, M2): at most 650 pt wide (`RowSpacing.textColumn`), as on Apple's product pages (B1 about
+        // 650 pt, A4 about 658 pt). R392 had half the page (860 pt).
+        .frame(maxWidth: CGFloat(RowSpacing.textColumn), alignment: .leading)
         .accessibilityHint("Shows the whole synopsis")
         .taskCover(isPresented: $showsWholeText) {
             SynopsisCover(title: title, text: text, artworkKey: artworkKey, prefersEpisodeStill: prefersEpisodeStill)
         }
+    }
+}
+
+/// R396 (audit M7): the "Starring" block at the trailing edge of a product page's first screen, level with the buttons,
+/// as on Apple's movie page (picture B1: "Starring" in the secondary colour, the names after it, at most about 330 pt
+/// wide). Text only; the cast shelf below opens each person's page. No "Director" line: the library holds none.
+struct StarringBlock: View {
+    let names: String
+
+    var body: some View {
+        (Text(ProductPage.starringLabel + " ").foregroundStyle(.secondary) + Text(names))
+            .font(.caption)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: CGFloat(RowSpacing.creditsWidth), alignment: .leading)
+            .accessibilityLabel(ProductPage.starringLabel + ": " + names)
+            .accessibilityIdentifier("product.starring")
     }
 }
 
@@ -240,8 +271,9 @@ struct SynopsisCover: View {
                 Text(text)
                     .font(.body)
             }
-            // design-lint:allow R392: the sample's own value for the full description, `.frame(maxWidth: 600)`
-            .frame(maxWidth: CGFloat(ProductPageSpacing.coverTextWidth), alignment: .leading)
+            // R396 (audit SF3, F1): the same text column as on the page (650 pt, Apple's pictures); the sample's own
+            // cover has `.frame(maxWidth: 600)`.
+            .frame(maxWidth: CGFloat(RowSpacing.textColumn), alignment: .leading)
             .frame(maxWidth: .infinity)
         }
         // design-lint:allow the cover has no controls, so the scroll view itself takes focus for the Siri Remote to scroll it
@@ -277,9 +309,7 @@ struct CastShelf: View {
 
     var body: some View {
         VStack(alignment: .leading) {
-            Text(ProductPage.castHeading)
-                .font(.headline)
-                .accessibilityAddTraits(.isHeader)
+            ShelfHeader(ProductPage.castHeading)
             ScrollView(.horizontal) {
                 // design-lint:allow HIG Layout, 40 pt spacing as every shelf of Apple's media catalog sample (R377, audit #10)
                 LazyHStack(alignment: .top, spacing: 40) {

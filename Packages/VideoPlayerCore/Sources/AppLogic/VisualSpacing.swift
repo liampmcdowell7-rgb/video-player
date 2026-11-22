@@ -8,27 +8,46 @@ import Foundation
 /// and the system's default stack spacing on tvOS is wide (the run measured 60 to 72 pt between badges; Apple publishes no
 /// value for it). Apple's media catalog sample gives its own small row an explicit value ("Show information-dense
 /// lockups": `HStack(spacing: 4)` for the symbols of a card, `padding(12)` around it), so the badge rows now give one too.
+/// R396: the values are now the ones measured on Apple's own pictures (docs/AUDIT_VISUAL_TVAPP.md, SF1): badges 10 to
+/// 15 pt apart on the TV app's product pages (B1: 10 to 14 pt; A4: 12 to 15 pt), the rating about 10 pt after the text.
 public enum BadgeSpacing {
-    /// Between two badges of one group (the owner's range: about 8 to 12 pt).
-    public static let inGroup: Double = 8
-    /// Between two groups (resolution, HDR, audio …; R373), and between the line's text and its first badge.
-    public static let betweenGroups: Double = 12
+    /// Between two badges of one group.
+    public static let inGroup: Double = 12
+    /// Between two groups (resolution, HDR, audio …; R373).
+    public static let betweenGroups: Double = 15
+    /// Between a line's text and what follows it (the rating badge, the first badge, the watched mark).
+    public static let afterText: Double = 10
 
     /// The extra leading space of a badge that starts a new group (the row's own spacing is `inGroup`).
     public static var groupExtra: Double { betweenGroups - inGroup }
 }
 
+/// R396 (docs/AUDIT_VISUAL_TVAPP.md, SF1, SF2, SF3, SF7, H6): the ONE shared set of row values, each measured on an Apple
+/// picture named in the audit's section 1. No screen keeps a number of its own for these.
+public enum RowSpacing {
+    /// A list row's symbol to its title. Apple's pictures: about 25 pt in the library's category list (A3) and about
+    /// 29 pt in the sidebar (A2); 27 is between the two.
+    public static let iconToLabel: Double = 27
+    /// Between the buttons of an action row. A1 (Home) and B1 (movie page): about 22 pt; A4 (show page): about 27 pt.
+    public static let betweenActions: Double = 22
+    /// The widest a synopsis or other running text is drawn. B1: about 650 pt; A4: about 658 pt.
+    public static let textColumn: Double = 650
+    /// From the bottom of Home's featured buttons to the first shelf's header. A1: about 105 pt (802 to about 910).
+    public static let featuredToShelf: Double = 105
+    /// The gap the page's own stack already leaves there (the run on fd9731f measured 20 to 23 pt with nothing added),
+    /// so the padding added under the buttons is `featuredToShelf` less this.
+    public static let stackGap: Double = 20
+    /// Continue Watching and Next Up: 16:9 cards this many across. A1: about 318 pt wide, five across (five columns at
+    /// 40 pt spacing on a 1760 pt page are 320 pt).
+    public static let landscapeShelfColumns: Int = 5
+    /// The "Starring" block at the trailing edge of a product page's first screen. B1: x about 1430 to the margin.
+    public static let creditsWidth: Double = 330
+}
+
 /// R392 (PROVISIONAL): the widths and gaps of the product pages that no Apple page gives as a number for this place.
 public enum ProductPageSpacing {
-    /// The synopsis on the hero spans this many columns of the page (so half of it). HIG Layout, tvOS grids, two-column
-    /// grid: "Unfocused content width 860 pt", "Horizontal spacing 40 pt". The sample's product page shows its description
-    /// as one of three columns but gives no width for it.
-    public static let synopsisColumns: Int = 2
-    /// The spacing those columns are counted with (HIG Layout: 40 pt).
-    public static let columnSpacing: Double = 40
-    /// The whole synopsis in its cover: Apple's sample, "Provide product highlight pages":
-    /// `Text(loremIpsum).frame(maxWidth: 600)` inside the `fullScreenCover`.
-    public static let coverTextWidth: Double = 600
+    // R396: the synopsis width on the page and in its cover is `RowSpacing.textColumn` (650 pt, Apple's pictures). The
+    // half-page width (860 pt) and the sample's 600 pt of R392 are its alternatives now.
     /// The cast circles: this many to a page width at 40 pt spacing. HIG Layout, eight-column grid: "Unfocused content
     /// width 184 pt". The sample sizes its lockups the same way (`containerRelativeFrame(.horizontal, count:spacing:)`).
     public static let castColumns: Int = 8
@@ -47,6 +66,25 @@ extension ProductPage {
         if left.isEmpty { return facts }
         if facts.isEmpty { return left }
         return facts + " · " + left
+    }
+}
+
+extension ProductPage {
+    /// R396 (audit M7): the "Starring" line of a product page's first screen: the first names of the cast, in billing
+    /// order, as Apple's movie page lists them ("Starring Tom Cruise, Hayley Atwell, Ving Rhames", picture B1). Nil
+    /// with no names. The library holds no director, so no "Director" line is drawn (never invented).
+    public static func starring(_ names: [String], limit: Int = 3) -> String? {
+        let shown: [String] = names.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.prefix(max(limit, 0)).map { $0 }
+        return shown.isEmpty ? nil : shown.joined(separator: ", ")
+    }
+
+    public static let starringLabel = "Starring"
+
+    /// R396 (audit E1, E2): the small line above an episode's title: the show's name, then the episode's code
+    /// ("Sample Show 1 · S1, E3"). Either part may be missing; nil with neither.
+    public static func episodeOverline(show: String?, code: String?) -> String? {
+        let parts: [String] = [show, code].compactMap { $0?.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }
 

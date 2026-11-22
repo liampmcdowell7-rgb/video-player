@@ -24,17 +24,20 @@ public enum PlayerEpisodeText {
     /// text the app draws itself keeps "·".
     public static let systemSeparator = " • "
 
-    /// The transport bar's two lines for an episode: its name over "Show • S1, E3"; without a name, the show over "S1, E3".
-    /// Whatever is not known is left out; with nothing known at all the title is "Untitled".
+    /// The transport bar's two lines for an episode. R396 (docs/AUDIT_VISUAL_TVAPP.md PL1, Apple's picture of the TV
+    /// app's player controls, A4): the SHOW's name is the large line and "S1, E1 • Episode name" the small line above it,
+    /// with one separator. Before (R313, R394) the episode's name was the large line and "Show • S1, E3" the small one.
+    /// Without a show the episode's name is the large line and the code the small one. Whatever is not known is left
+    /// out; with nothing known at all the title is "Untitled".
     public static func episodeLines(name: String?, show: String?, season: Int?, episode: Int?,
                                     episodeEnd: Int? = nil) -> (title: String, subtitle: String?) {
         let name = clean(name), show = clean(show)
         let code = code(season: season, episode: episode, episodeEnd: episodeEnd)
-        if let name {
-            let subtitle = [show, code].compactMap { $0 }.joined(separator: systemSeparator)
-            return (name, subtitle.isEmpty ? nil : subtitle)
+        if let show {
+            let subtitle = [code, name].compactMap { $0 }.joined(separator: systemSeparator)
+            return (show, subtitle.isEmpty ? nil : subtitle)
         }
-        if let show { return (show, code) }
+        if let name { return (name, code) }
         return (code ?? "Untitled", nil)
     }
 

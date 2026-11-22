@@ -21,6 +21,9 @@ struct PersonView: View {
                 VStack(alignment: .leading) {
                     FittingText(content.countText, style: .callout)
                         .foregroundStyle(.secondary)
+                        // R396 (audit P1, SF6): room for the focused card of the first row, which touched this line.
+                        // The same value as under the count line of Movies and Shows (R392).
+                        .padding(.bottom, CGFloat(ProductPageSpacing.aboveFirstGridRow))
                     PosterGridLayout {
                         ForEach(content.movies) { card in
                             PosterCard(card: card)

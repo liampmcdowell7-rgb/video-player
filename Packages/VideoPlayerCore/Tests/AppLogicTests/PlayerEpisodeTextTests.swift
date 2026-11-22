@@ -30,8 +30,9 @@ final class PlayerEpisodeTextTests: XCTestCase {
 
     func testEpisodeWithAName() async throws {
         let lines = PlayerEpisodeText.lines(for: try await episode("A quiet beginning"), filmTitle: "x", filmSubtitle: "y")
-        XCTAssertEqual(lines.title, "A quiet beginning")
-        XCTAssertEqual(lines.subtitle, "Sample Show 1 • S1, E3")
+        // R396 (audit PL1): Apple's order, the show large and "S1, E3 • name" small above it.
+        XCTAssertEqual(lines.title, "Sample Show 1")
+        XCTAssertEqual(lines.subtitle, "S1, E3 • A quiet beginning")
     }
 
     func testEpisodeWithoutAName() async throws {
@@ -44,14 +45,19 @@ final class PlayerEpisodeTextTests: XCTestCase {
 
     func testTwoPartFile() async throws {
         let lines = PlayerEpisodeText.lines(for: try await episode("Two parts", episode: 3, end: 4), filmTitle: "x", filmSubtitle: nil)
-        XCTAssertEqual(lines.subtitle, "Sample Show 1 • S1, E3–E4")
+        XCTAssertEqual(lines.subtitle, "S1, E3–E4 • Two parts")
     }
 
     func testUnknownSeasonShowsOnlyWhatIsKnown() async throws {
         let lines = PlayerEpisodeText.lines(for: try await episode("Named", season: nil), filmTitle: "x", filmSubtitle: nil)
-        XCTAssertEqual(lines.subtitle, "Sample Show 1 • E3")
+        XCTAssertEqual(lines.subtitle, "E3 • Named")
         let neither = PlayerEpisodeText.lines(for: try await episode("Named", season: nil, episode: nil), filmTitle: "x", filmSubtitle: nil)
-        XCTAssertEqual(neither.subtitle, "Sample Show 1")
+        XCTAssertEqual(neither.title, "Sample Show 1")
+        XCTAssertEqual(neither.subtitle, "Named")
+        // Without a show the episode's own name is the large line.
+        let noShow = PlayerEpisodeText.episodeLines(name: "Named", show: nil, season: 1, episode: 3)
+        XCTAssertEqual(noShow.title, "Named")
+        XCTAssertEqual(noShow.subtitle, "S1, E3")
         let bare = PlayerEpisodeText.episodeLines(name: nil, show: nil, season: nil, episode: nil)
         XCTAssertEqual(bare.title, "Untitled")
         XCTAssertNil(bare.subtitle)

@@ -51,6 +51,10 @@ struct SlotLabel: View {
                 .foregroundStyle(.primary)
                 .accessibilityHidden(true)
         }
+        // R396 (audit SF1, FI1, ST1): the symbol about 27 pt from the title, as Apple's pictures of the library list
+        // (about 25 pt) and the sidebar (about 29 pt). The system's own modifier for a Label (tvOS 26.0+: "Set the
+        // spacing between the icon and title in labels"); still no stack or frame of ours.
+        .labelIconToTitleSpacing(CGFloat(RowSpacing.iconToLabel))
         .accessibilityElement(children: .combine)
     }
 }
@@ -60,30 +64,48 @@ struct SlotLabel: View {
 /// (57, 60, 61) showed the symbol far left and a wide gap with `SlotLabel` inside these buttons. The title follows rule S1
 /// (`FittingText`). The label fills the row's height, so every button in an `ActionRow` has the same height; each button
 /// stays as wide as its content.
+/// R396 (docs/AUDIT_VISUAL_TVAPP.md SF2, H3, M4): `iconOnly` draws the symbol alone (the system's icon-only label style),
+/// for the round secondary buttons of an action row; the title stays the control's spoken name.
 struct ActionLabel: View {
     let title: String
     let systemImage: String
+    var iconOnly: Bool = false
 
-    init(_ title: String, systemImage: String) {
+    init(_ title: String, systemImage: String, iconOnly: Bool = false) {
         self.title = title
         self.systemImage = systemImage
+        self.iconOnly = iconOnly
     }
 
     var body: some View {
-        Label {
-            FittingText(title)
-        } icon: {
-            Image(systemName: systemImage)
+        if iconOnly {
+            Label(title, systemImage: systemImage)
+                .labelStyle(.iconOnly)
+        } else {
+            Label {
+                FittingText(title)
+            } icon: {
+                Image(systemName: systemImage)
+            }
+            .frame(maxHeight: .infinity)
         }
-        .frame(maxHeight: .infinity)
+    }
+}
+
+extension View {
+    /// R396 (audit SF2): a secondary action of an action row as Apple's product page and Home draw it (pictures A1, A4,
+    /// B1): a round, icon-only system button. The system's bordered style in the system's circle border shape; nothing
+    /// drawn by the app. Use with `ActionLabel(…, iconOnly: true)`.
+    func roundAction() -> some View {
+        buttonStyle(.bordered).buttonBorderShape(.circle)
     }
 }
 
 /// #25 B5: a row of action buttons of one height (L10): each button hugs its content, the tallest sets the row's height.
 struct ActionRow<Content: View>: View {
-    /// #34 3: nil (the system spacing). R375 audit: the row is a system `HStack` at the system spacing; `fixedSize` only
-    /// keeps the buttons at one height (D2). The library controls are the system toolbar (R375), not an `ActionRow`.
-    var spacing: CGFloat? = nil
+    /// R396 (audit SF2): 22 pt between the buttons (`RowSpacing.betweenActions`; Apple's pictures A1 and B1). Before, nil:
+    /// the system's default stack spacing, 56 to 60 pt in the run on fd9731f. `fixedSize` only keeps the row's height.
+    var spacing: CGFloat? = CGFloat(RowSpacing.betweenActions)
     @ViewBuilder var content: Content
 
     var body: some View {

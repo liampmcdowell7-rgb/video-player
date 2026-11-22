@@ -65,6 +65,9 @@ public struct ItemDetailContent: Equatable, Sendable {
     public var episodeCode: String? = nil
     /// R387: an episode's season number, to find the row of the season's other episodes.
     public var season: Int? = nil
+    /// R396 (audit E1): an episode's OWN title, the page's large title ("A quiet beginning"; "Episode 3" when the file
+    /// names none). `title` is the card's title, which for an episode is its show's name. Nil for a movie.
+    public var episodeTitle: String? = nil
 }
 
 public struct ItemDetailViewModel: Sendable {
@@ -175,7 +178,17 @@ public struct ItemDetailViewModel: Sendable {
                                  playTitle: playTitle, canStartOver: started,
                                  isWatched: item.watch.watched, isFavorite: item.watch.favorite, progress: progress, timeLeft: timeLeft,
                                  versions: versions, extras: extras, artworkKey: card.artworkKey, mediaInfo: mediaInfo,
-                                 allBadges: badges.all, episodeCode: episodeCode, season: item.kind == .episode ? item.season : nil)
+                                 allBadges: badges.all, episodeCode: episodeCode, season: item.kind == .episode ? item.season : nil,
+                                 episodeTitle: Self.episodeTitle(item))
+    }
+
+    /// R396 (audit E1): the episode's own name; "Episode 3" when its title is empty, only its code or its show's name;
+    /// nil for a movie, or for an episode with neither a name nor a number.
+    static func episodeTitle(_ item: LibraryItem) -> String? {
+        guard item.kind == .episode else { return nil }
+        if CardBuilder.episodeTitleIsReal(item) { return item.title.trimmingCharacters(in: .whitespaces) }
+        if let number = item.episode { return "Episode \(number)" }
+        return nil
     }
 
     static func kindText(_ kind: FileKind) -> String {

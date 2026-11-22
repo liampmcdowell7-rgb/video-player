@@ -76,8 +76,7 @@ private struct DiscoverContentView: View {
                     shelf("Your Watchlist", content.watchlist)
                 }
                 if !content.missingEpisodes.isEmpty {
-                    Text("Missing Episodes")
-                        .font(.title3)
+                    ShelfHeader("Missing Episodes")
                     ForEach(content.missingEpisodes) { group in
                         MissingEpisodesView(group: group, region: content.region)
                     }
@@ -99,8 +98,7 @@ private struct DiscoverContentView: View {
 
     private func shelf(_ title: String, _ titles: [DiscoverTitle], caption: String? = nil) -> some View {
         VStack(alignment: .leading) {
-            Text(title)
-                .font(.title3)
+            ShelfHeader(title)
             if let caption {
                 Text(caption)
                     .font(.caption)
@@ -157,11 +155,8 @@ private struct DiscoverCard: View {
                     Label("On Your Watchlist", systemImage: "checkmark")
                         .font(.caption2)
                 }
-                Text(WhereToWatchText.line(title.watch, region: region))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
+                // R396 (audit Q5): the where-to-watch sentence (up to three lines) is no longer under the card; it is
+                // on the title's page, which Select opens (`DiscoverTitlePage`). The caption is the title and one line.
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal)
