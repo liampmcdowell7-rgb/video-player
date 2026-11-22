@@ -22,6 +22,14 @@ public struct LayeredDetails: Equatable, Sendable {
     /// R371: the layer the content rating came from, nil without one.
     public var ratingLayer: DetailsLayer? = nil
 
+    /// R385: public, so the app target can build one (the UI-test fixtures path of `OnlineServices.layeredDetails`). A struct's
+    /// memberwise initializer is internal, which the app's compile check of ca23e66 refused across the module boundary.
+    public init(details: TitleDetails? = nil, used: [DetailsLayer], ratingLayer: DetailsLayer? = nil) {
+        self.details = details
+        self.used = used
+        self.ratingLayer = ratingLayer
+    }
+
     public static func merge(_ layers: [(DetailsLayer, TitleDetails?)]) -> LayeredDetails {
         var overview: String?
         var cast: [TitleDetails.CastMember] = []

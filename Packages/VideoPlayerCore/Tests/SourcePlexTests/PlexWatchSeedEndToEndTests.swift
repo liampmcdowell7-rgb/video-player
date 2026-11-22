@@ -44,3 +44,17 @@ final class PlexWatchSeedEndToEndTests: XCTestCase {
         XCTAssertFalse(fake.requests.contains { ["/:/timeline", "/:/scrobble", "/:/unscrobble"].contains($0.url.path) })
     }
 }
+
+/// R385: this file imports AppLogic without `@testable`, as the app target does, so this only compiles while
+/// `LayeredDetails.init(details:used:ratingLayer:)` is public (the app's compile check of ca23e66 failed on it).
+final class LayeredDetailsPublicInitTests: XCTestCase {
+    func testTheAppTargetCanBuildLayeredDetails() {
+        let empty = LayeredDetails(used: [])
+        XCTAssertNil(empty.details)
+        XCTAssertEqual(empty.used, [])
+        XCTAssertNil(empty.ratingLayer)
+        let rated = LayeredDetails(details: nil, used: [.source], ratingLayer: .source)
+        XCTAssertEqual(rated.used, [.source])
+        XCTAssertEqual(rated.ratingLayer, .source)
+    }
+}
