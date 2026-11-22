@@ -73,3 +73,43 @@ public struct TabRoots: Equatable, Sendable {
     /// The identity of `tab`'s navigation stack: it changes only when the tab is re-selected.
     public func generation(of tab: AppTabID) -> Int { generations[tab] ?? 0 }
 }
+
+/// R376 (owner's request of 21 Nov 2026; decided by the owner's standing rule R312, R359 option (d)): the sidebar's
+/// structure. Home, then ONE system section "Library" holding Movies, Shows and Files, then Search and Settings, so the
+/// items keep the order of `AppTabID.allCases` (and of R359's UI checks). Apple: `TabSection`, tvOS 18.0+, "A container
+/// that you can use to add hierarchy within a tab view"; the sample "Creating a tvOS media catalog app in SwiftUI" names
+/// `SidebarContentView`, which "shows how to make a sectioned sidebar using the new tab bar APIs in tvOS 18" (its code is
+/// not on the page). No customization: `TabViewCustomization` and `tabViewCustomization(_:)` list iOS, iPadOS, Mac Catalyst,
+/// macOS and visionOS, not tvOS. RootView declares the same structure; this model is what the Linux tests check.
+public enum SidebarEntry: Equatable, Sendable {
+    case item(AppTabID)
+    case section(title: String, items: [AppTabID])
+}
+
+public enum AppSidebar {
+    /// The section's header, as RootView's `TabSection("Library")` writes it.
+    public static let libraryTitle = "Library"
+
+    public static let entries: [SidebarEntry] = [
+        .item(.home),
+        .section(title: libraryTitle, items: [.movies, .shows, .files]),
+        .item(.search),
+        .item(.settings),
+    ]
+
+    /// Every item from top to bottom, sections opened.
+    public static var order: [AppTabID] {
+        entries.flatMap { (entry: SidebarEntry) -> [AppTabID] in
+            switch entry {
+            case .item(let tab): [tab]
+            case .section(_, let items): items
+            }
+        }
+    }
+
+    /// The section that holds `tab`, nil for an item at the top level.
+    public static func section(of tab: AppTabID) -> String? {
+        for case .section(let title, let items) in entries where items.contains(tab) { return title }
+        return nil
+    }
+}

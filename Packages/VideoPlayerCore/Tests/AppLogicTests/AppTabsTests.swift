@@ -74,3 +74,37 @@ final class AppTabsTests: XCTestCase {
         }
     }
 }
+
+/// R376: the sidebar's Library section (Movies, Shows, Files) and what R348 still does inside it.
+final class SidebarSectionsTests: XCTestCase {
+    func testTheSidebarKeepsEveryItemOnceInTheOldOrder() {
+        XCTAssertEqual(AppSidebar.order, AppTabID.allCases, "the sections do not reorder the items (R359's UI checks)")
+        XCTAssertEqual(Set(AppSidebar.order).count, AppTabID.allCases.count, "each item once")
+    }
+
+    func testTheLibrarySectionHoldsMoviesShowsAndFiles() {
+        XCTAssertEqual(AppSidebar.entries[1], .section(title: "Library", items: [.movies, .shows, .files]))
+        for tab in [AppTabID.movies, .shows, .files] { XCTAssertEqual(AppSidebar.section(of: tab), "Library", "\(tab)") }
+        for tab in [AppTabID.home, .search, .settings] { XCTAssertNil(AppSidebar.section(of: tab), "\(tab) stays at the top level") }
+        XCTAssertEqual(AppSidebar.libraryTitle, "Library")
+    }
+
+    func testOnlyOneSection() {
+        let sections = AppSidebar.entries.filter { if case .section = $0 { return true } else { return false } }
+        XCTAssertEqual(sections.count, 1)
+    }
+
+    /// R348 with the sections: the selection values are the same `AppTabID`s, so re-selecting an item inside the section
+    /// still raises only its own root generation.
+    func testReselectingAnItemInsideTheSectionStillReturnsItToItsFirstPage() {
+        var roots = TabRoots()
+        for tab in [AppTabID.movies, .shows, .files] {
+            let before = roots.generation(of: tab)
+            XCTAssertTrue(roots.select(tab, current: tab))
+            XCTAssertEqual(roots.generation(of: tab), before + 1)
+        }
+        XCTAssertFalse(roots.select(.shows, current: .movies), "moving between items of the section is not a re-selection")
+        XCTAssertEqual(roots.generation(of: .home), 0)
+        XCTAssertEqual(roots.generation(of: .settings), 0)
+    }
+}

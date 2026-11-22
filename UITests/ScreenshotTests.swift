@@ -935,6 +935,20 @@ final class ScreenshotTests: XCTestCase {
         for (a, b) in zip(items, items.dropFirst()) where (sidebar ? a.frame.maxY > b.frame.minY + 1 : a.frame.maxX > b.frame.minX + 1) {
             problems.append("“\(a.label)” overlaps “\(b.label)”")
         }
+        // R376: the "Library" section header (Movies, Shows, Files). How tvOS 27 exposes it is UNVERIFIED, so a missing header
+        // is recorded, not judged; a header that is there must sit between Home and Movies.
+        if sidebar {
+            let header: XCUIElement = chrome.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Library")).firstMatch
+            if header.exists {
+                lines.append("section\tLibrary\t\(String(describing: header.frame))")
+                if let home = items.first(where: { $0.label == "Home" }), let movies = items.first(where: { $0.label == "Movies" }),
+                   !(header.frame.minY >= home.frame.maxY - 1 && header.frame.maxY <= movies.frame.minY + 1) {
+                    problems.append("the Library header is not between Home and Movies")
+                }
+            } else {
+                lines.append("section\tLibrary\tnot in the tree (recorded, not judged)")
+            }
+        }
         lines.append(problems.isEmpty ? "TAB BAR OK" : "TAB BAR PROBLEM: " + problems.joined(separator: "; "))
         note(name + "-TABBAR", lines.joined(separator: "\n"))
         if sidebar, !opened.isEmpty { XCUIRemote.shared.press(.right); sleep(1) }

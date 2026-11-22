@@ -1,7 +1,8 @@
 import SwiftUI
 import AppLogic
 
-/// Navigation shell: the standard top tab bar, one NavigationStack per tab.
+/// Navigation shell: the system sidebar (R359), one NavigationStack per item; Movies, Shows and Files in a "Library"
+/// section (R376).
 ///
 /// `routeDestinations()` sits on the stack's ROOT VIEW, inside the stack. Apple: "Add this view modifier to a view inside a
 /// NavigationStack" (https://developer.apple.com/documentation/swiftui/view/navigationdestination(for:destination:)).
@@ -37,23 +38,31 @@ struct RootView: View {
                     .uiTestAccessibilityOverrides()
                     .accessibilityHidden(coverPresence.isCovered)
             }
-            Tab("Movies", systemImage: "film", value: AppTab.movies) {
-                NavigationStack(path: $moviesPath) { MoviesView().tabRootScreen("Movies", identifier: "screen.movies", toolbar: true).routeDestinations() }
-                    .id(roots.generation(of: .movies))
-                    .uiTestAccessibilityOverrides()
-                    .accessibilityHidden(coverPresence.isCovered)
-            }
-            Tab("Shows", systemImage: "tv", value: AppTab.shows) {
-                NavigationStack(path: $showsPath) { ShowsView().tabRootScreen("Shows", identifier: "screen.shows", toolbar: true).routeDestinations() }
-                    .id(roots.generation(of: .shows))
-                    .uiTestAccessibilityOverrides()
-                    .accessibilityHidden(coverPresence.isCovered)
-            }
-            Tab("Files", systemImage: "folder", value: AppTab.files) {
-                NavigationStack(path: $filesPath) { FilesView().tabRootScreen("Files", identifier: "screen.files").routeDestinations() }
-                    .id(roots.generation(of: .files))
-                    .uiTestAccessibilityOverrides()
-                    .accessibilityHidden(coverPresence.isCovered)
+            // R376 (decided by the owner's standing rule R312; R359 option (d)): Movies, Shows and Files in ONE system section,
+            // as the sample's `SidebarContentView` makes "a sectioned sidebar" (AppLogic `AppSidebar`, Linux-tested). The
+            // header is the literal "Library" (`AppSidebar.libraryTitle`; `TabSection`'s title is a `LocalizedStringResource`).
+            // The values and the selection binding are unchanged, so R348's re-selection works inside the section too.
+            // UNVERIFIED (not on Apple's pages): how tvOS 27 draws the section header, whether a section can be collapsed in
+            // the tvOS sidebar, and how the header is exposed to VoiceOver and XCUITest (note -TABBAR records it).
+            TabSection("Library") {
+                Tab("Movies", systemImage: "film", value: AppTab.movies) {
+                    NavigationStack(path: $moviesPath) { MoviesView().tabRootScreen("Movies", identifier: "screen.movies", toolbar: true).routeDestinations() }
+                        .id(roots.generation(of: .movies))
+                        .uiTestAccessibilityOverrides()
+                        .accessibilityHidden(coverPresence.isCovered)
+                }
+                Tab("Shows", systemImage: "tv", value: AppTab.shows) {
+                    NavigationStack(path: $showsPath) { ShowsView().tabRootScreen("Shows", identifier: "screen.shows", toolbar: true).routeDestinations() }
+                        .id(roots.generation(of: .shows))
+                        .uiTestAccessibilityOverrides()
+                        .accessibilityHidden(coverPresence.isCovered)
+                }
+                Tab("Files", systemImage: "folder", value: AppTab.files) {
+                    NavigationStack(path: $filesPath) { FilesView().tabRootScreen("Files", identifier: "screen.files").routeDestinations() }
+                        .id(roots.generation(of: .files))
+                        .uiTestAccessibilityOverrides()
+                        .accessibilityHidden(coverPresence.isCovered)
+                }
             }
             Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
                 NavigationStack(path: $searchPath) { SearchView().screenIdentifier("screen.search").screenHeader("Search").routeDestinations() }
