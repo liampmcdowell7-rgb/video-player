@@ -44,7 +44,7 @@ Already decided: Play Now and Cancel side by side (AUDIT_INVENTED_UI #20).
 
 | # | File and line | What the app does | Apple page and what it says | Recommendation |
 |---|---|---|---|---|
-| 14 | `App/Support/OnlineServices.swift:52-57` | Fix Match choices are saved in Application Support (`matches.json`), on this device only (PROVISIONAL in the file). | WWDC23 10256, https://developer.apple.com/videos/play/wwdc2023/10256: on tvOS, use only the caches directory, which can be cleared; keep lasting data in iCloud. The session names `.documentDirectory` as failing; it says nothing about Application Support. | **Ask**. Whether tvOS keeps Application Support is UNVERIFIED. The file's own alternative (a synced record) would match the session. |
+| 14 | `App/Support/OnlineServices.swift:52-57` | Fix Match choices are saved in Application Support (`matches.json`), on this device only (PROVISIONAL in the file). | WWDC23 10256, https://developer.apple.com/videos/play/wwdc2023/10256: on tvOS, use only the caches directory, which can be cleared; keep lasting data in iCloud. The session names `.documentDirectory` as failing; it says nothing about Application Support. App Programming Guide for tvOS: only "500 KB of persistent storage" through `NSUserDefaults`; "all other data must be purgeable" (section 5). | **Ask**. Apple names Application Support for tvOS nowhere, so its actual behaviour stays UNVERIFIED. By the guide's rule the file must be treated as purgeable, not lasting. The file's own alternative (a synced record), or the iCloud backup that already reads it, would match the guide. |
 | 15 | `App/Features/Settings/AccessibilitySettingsView.swift:22-31` | Shows Reduce Motion, Reduce Transparency, Bold Text and Increase Contrast; not Dim Flashing Lights. | HIG Accessibility, https://developer.apple.com/design/human-interface-guidelines/accessibility: "Allow people to opt out of flashing lights in video playback." | **Ask**. Whether the system player honours Dim Flashing Lights by itself is UNVERIFIED. |
 | 16 | `App/Features/Settings/OnlineLookupSettingsView.swift:175-191` | Region is a hand-made pushed page holding an inline `Picker` that closes on a choice (R353). | SwiftUI navigation-link picker style, https://developer.apple.com/documentation/swiftui/pickerstyle/navigationlink: the picker pushes its own list of options. | **Ask**. `.pickerStyle(.navigationLink)` is the system way to do the same thing; R353 (a blank page) came from this row, so any change needs the UI test. |
 | 17 | `App/Features/Settings/PlaybackSettingsView.swift:21-38` | Playback has 7 toggles in three sections. | HIG Settings, https://developer.apple.com/design/human-interface-guidelines/settings: "Minimize the number of settings you offer." | **Keep**. Every toggle is a feature the owner asked for; the page only suggests. |
@@ -128,8 +128,39 @@ All three opened on 21 Nov 2026. They replace the pack's UNVERIFIED marks (the p
 ## 4. Top five
 
 1. #1: an OK-only alert interrupts playback for information (HIG Alerts). Ask.
-2. #14: Fix Match choices live in Application Support; WWDC23 says only caches and iCloud on tvOS. Ask; UNVERIFIED.
+2. #14: Fix Match choices live in Application Support; Apple's tvOS guide allows only 500 KB of lasting local data
+   (`NSUserDefaults`) and says all other data must be purgeable (section 5). Ask; Application Support itself is
+   UNVERIFIED.
 3. #29: Missing Episodes lines are not focusable, so a long list may not scroll into view (HIG Focus, WWDC21 10023).
    Ask.
 4. #22: Plex "code expired" is hand-made where the same file already uses `ContentUnavailableView`. Replace.
 5. #11: the Up Next proposal has no picture (`previewImage: nil`). Ask.
+
+## 5. Where a tvOS app may keep lasting data (finding #14, checked 21 Nov 2026)
+
+Question: is Application Support persistent, purgeable or unsupported on tvOS?
+
+Answer: **Apple's pages do not name Application Support for tvOS.** Its behaviour there stays **UNVERIFIED**. What
+Apple does say is a general rule for tvOS: lasting local data is limited to 500 KB through `NSUserDefaults`, and
+everything else must be purgeable. By that rule, `matches.json` in Application Support has to be treated as data the
+system may remove when space is low, not as lasting storage.
+
+Pages opened:
+
+| Page | Link | What it says |
+|---|---|---|
+| App Programming Guide for tvOS, "Local Storage for Your App Is Limited" (archived; updated 2017-01-12) | https://developer.apple.com/library/archive/documentation/General/Conceptual/AppleTV_PG/index.html | "your app can only access 500 KB of persistent storage that is local to the device (using the NSUserDefaults class)." and "all other data must be purgeable by the operating system when space is low." Also: "Your app can store and retrieve user data in iCloud." It names no directory. |
+| File System Programming Guide, File System Overview (archived; updated 2018-04-09) | https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html | Describes Application Support for iOS only ("In iOS, the contents of this directory are backed up by iTunes and iCloud"); tvOS appears only in the APFS sentence. Nothing on tvOS storage. |
+| FileManager.SearchPathDirectory.applicationSupportDirectory | https://developer.apple.com/documentation/foundation/filemanager/searchpathdirectory/applicationsupportdirectory | Available on tvOS 9.0+; "Application support files (Library/Application Support)." No word on persistence or purging. |
+| urls(for:in:) | https://developer.apple.com/documentation/foundation/filemanager/urls(for:in:) | Available on tvOS 9.0+; locates common directories. No word on tvOS storage rules. |
+| Discover Continuity Camera for tvOS (WWDC23) | https://developer.apple.com/videos/play/wwdc2023/10256 | `.documentDirectory` fails at runtime on tvOS; use the caches directory; keep lasting data in iCloud. Application Support is not mentioned. |
+
+Not found: a current (non-archived) Apple page on tvOS data storage. A documentation search for tvOS local storage and
+Application Support returned none. Both guides above are archived, so they may not describe tvOS 27; that is UNVERIFIED
+too.
+
+What this means for #14 (still **Ask**, not a bug, because no page names the directory):
+- The Fix Match choices could be lost when the Apple TV runs low on space. The iCloud backup that already reads the
+  file (docs/BACKUP.md) would bring them back only if a backup was made.
+- The alternatives already in the file match Apple's rule: a synced record (iCloud), or the choices in
+  `NSUserDefaults` if they stay well under 500 KB.
