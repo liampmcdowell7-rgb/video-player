@@ -50,6 +50,8 @@ struct ItemDetailContentView: View {
                         ShelfHeader(other.title)
                         EpisodeShelfRow(episodes: other.episodes, model: seasonModel)
                     }
+                    // R424: Up or Down from any card of the row next to it reaches this row.
+                    .productPageRow()
                 }
                 if let cast = details?.cast, !cast.isEmpty {
                     CastShelf(cast: cast)
@@ -143,6 +145,12 @@ struct ItemDetailContentView: View {
         // #33 I (OPEN_QUESTIONS R239, PROVISIONAL): room between the button row and the next heading.
         .padding(.bottom, DetailPageLayout.belowActions)
         .productHero(pageHeight: pageHeight)
+        // R424 (run #28, 58-movie-detail-SCROLL-UP): the hero is a focus section the page's whole width, so Up from any
+        // entry of the row below (the cast, the season's episodes) climbs back into it, and Play (or Resume) takes the
+        // focus then, not the button nearest to where the focus came from (`defaultFocus`, priority `.userInitiated`:
+        // Apple's page, "use the client's preferred default focus in response to user-driven focus navigation").
+        .focusSection()
+        .defaultFocus($playFocused, true, priority: .userInitiated)
     }
 
     private var actions: some View {
@@ -347,6 +355,8 @@ struct CastShelf: View {
             }
             .scrollClipDisabled()
         }
+        // R424: the cast row is a focus section the page's whole width (show, movie and episode pages).
+        .productPageRow()
     }
 }
 
@@ -464,5 +474,12 @@ private struct MediaInfoSection: View {
         }
         // design-lint:allow the section has no controls, so it takes focus as one block for the remote to scroll to it
         .focusable()
+        // R424 (run #28, item 1): the block as one accessibility container with its own name, its rows still read one by
+        // one. Run #28's note named the focused block "PG-13" (324, 158): the first value of the table (Rating is its first
+        // row), because the focusable block was no accessibility element of its own (UNVERIFIED how XCTest picked that
+        // text; the rating badge on the metadata line is not focusable).
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(ProductPage.informationHeading)
+        .accessibilityIdentifier("product.information")
     }
 }

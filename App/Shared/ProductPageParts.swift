@@ -163,4 +163,15 @@ extension View {
     func productHero(pageHeight: CGFloat) -> some View {
         frame(maxWidth: .infinity, minHeight: pageHeight * ProductPageLayout.heroFraction, alignment: .bottomLeading)
     }
+
+    /// R424 (run #28 on 4af6cb0, item 1; PROVISIONAL): one row of a product page (the season tabs, a shelf of episodes, the
+    /// cast) as a focus section the page's whole width, so Up or Down from ANY item of the row next to it lands in it.
+    /// Run #28: Up from the fourth cast entry (x 755) and from an episode card at x 980 did nothing, four times, because the
+    /// buttons and the season picker above sit at the left and nothing focusable was straight above (the same cause as
+    /// R413). Apple's `focusSection()` page: "the view's frame becomes capable of accepting focus in order to direct it at
+    /// its nearest focusable descendant in the direction of travel"; it does not change what is focusable.
+    func productPageRow() -> some View {
+        frame(maxWidth: .infinity, alignment: .leading)
+            .focusSection()
+    }
 }

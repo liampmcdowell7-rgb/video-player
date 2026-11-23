@@ -619,12 +619,24 @@ final class ScreenshotTests: XCTestCase {
 
     /// The caption check for a focused card: the caption is the StaticText containing `caption`, its column the focused
     /// card's width less the caption's left inset on both sides (the caption is leading-aligned with equal side paddings).
+    /// R427 (run #28, item 4 a; a check fault): 50-home-continue-watching-caption-later-CAPTION measured
+    /// {{80, 132}, {1606, 69}}, Home's featured title at the top, because the FIRST StaticText containing the title was
+    /// taken. Now only a text whose centre lies within the focused card's columns and that starts at or below the card's
+    /// top counts (the caption is under the artwork, inside the lockup); the nearest such text is the caption. None found:
+    /// "CAPTION NOT MEASURED", with the candidates in the note.
     func captionCheck(_ caption: String, in app: XCUIApplication, screenshot: XCUIScreenshot) -> CheckResult {
         let card: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
-        let text: XCUIElement = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", caption)).firstMatch
+        let candidates: [XCUIElement] = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", caption)).allElementsBoundByIndex
         let window: CGRect = app.windows.firstMatch.frame
-        guard card.exists, text.exists, window.width > 0, let image = RGBImage(screenshot: screenshot) else {
-            return CheckResult(passed: false, lines: ["no focused card, no caption containing “\(caption)”, or the picture could not be read", "CAPTION NOT MEASURED"])
+        let cardBox: CGRect = card.exists ? card.frame : .null
+        let inCard: [XCUIElement] = candidates.filter { (text: XCUIElement) -> Bool in
+            let f: CGRect = text.frame
+            return !cardBox.isNull && f.midX >= cardBox.minX && f.midX <= cardBox.maxX && f.minY >= cardBox.minY - 1
+        }
+        let nearest: XCUIElement? = inCard.min { (a: XCUIElement, b: XCUIElement) -> Bool in a.frame.minY < b.frame.minY }
+        guard card.exists, let text = nearest, window.width > 0, let image = RGBImage(screenshot: screenshot) else {
+            let seen: String = candidates.map { "\($0.frame)" }.joined(separator: ", ")
+            return CheckResult(passed: false, lines: ["no focused card, no caption containing “\(caption)” inside the focused card \(cardBox) (texts with it: \(seen.isEmpty ? "none" : seen)), or the picture could not be read", "CAPTION NOT MEASURED"])
         }
         let cardFrame: CGRect = card.frame
         let textFrame: CGRect = text.frame
@@ -924,7 +936,11 @@ final class ScreenshotTests: XCTestCase {
     /// movie and show carry invented ratings, UITestFixtureDetails). Vertical position is not checked: Information is below the fold.
     func badgesNotCutCheck(_ name: String, expectBadges: Bool, rating: String? = nil, in app: XCUIApplication) {
         let window: CGRect = app.windows.firstMatch.frame
+        // R427 (run #28, item 4 b): 55-show-page-BADGES listed whole episode cards ('badge.resolution-badge.hdr' "S2, E1,
+        // Second chances" w 410 h 231): the card button had taken its badges' identifiers. The app now names the card
+        // (EpisodeCard, `card.episode.`), and the check leaves out buttons and cells, which are never a badge.
         let found: [XCUIElement] = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "badge.")).allElementsBoundByIndex
+            .filter { (element: XCUIElement) -> Bool in element.elementType != .button && element.elementType != .cell }
         var lines: [String] = ["window \(Int(window.width)) x \(Int(window.height))"]
         var problems: [String] = []
         var frames: [(String, CGRect)] = []
@@ -1932,7 +1948,11 @@ final class ScreenshotTests: XCTestCase {
     /// intro marker at 2 to 20 s from the sample's .segments.json). Numbers 22 to 27 (11 to 19 are the Add a Source forms). Job 4. HDR, Dolby Vision and Atmos
     /// cannot be shown this way and stay on the device checklist. Every step records "not reached" instead of failing.
     func test12_PlayerWithSampleClip() {
-        let app = launch("-UITestFixtures", open: "Sample Show 1")
+        // R425 (run #28, item 2 b): Skip Intros Automatically Off for this test (UserDefaults' argument domain, read by
+        // `SegmentsWiring.flag` through `bool(forKey:)`), so "Skip Intro" stays up for the whole intro (2 s to 20 s of the
+        // clip). With it On the only button is "Watch Intro", up for 5 s after the automatic skip (R314); run #27 caught it,
+        // run #28 did not within 30 s although the player was up. Picture 31 still shows the setting's default (On).
+        let app = launch("-UITestFixtures", open: "Sample Show 1", extra: ["-skipIntrosAutomatically", "NO"])
         guard waitForScreen("screen.series", in: app, timeout: 60), waitFor("Season 1", in: app, timeout: 20) else {
             notReached("22-player-skip-intro", "The show page did not open."); app.terminate(); return
         }
@@ -1994,8 +2014,13 @@ final class ScreenshotTests: XCTestCase {
         XCUIRemote.shared.press(.playPause); sleep(2); shot("23-player-controls")
         episodeCodeCheck("23-player-controls", in: app)
         // The info panel: down from the transport bar.
+        // R425 (run #28, item 2 a; a test fault): 24-player-episodes-tab and 24-player-stats-tab showed the player with its
+        // scrubber and no panel. Between this Down and the first Right the test read the panel's whole tree (`hierarchy`)
+        // and waited twice 3 s for the tab titles; the system hides the panel when nothing is pressed (UNVERIFIED for how
+        // long: not on Apple's pages read), and a Right with no panel up moves the scrubber. Now the Rights come right after
+        // the panel's picture, and the tree and the checks are read after the tab pictures.
+        let panelOpened: Date = Date()
         XCUIRemote.shared.press(.down); sleep(2); shot("24-player-info-panel")
-        episodeCodeCheck("24-player-info-panel", in: app)
         // R340 (docs/HIG_AUDIT.md T15 to T17): the app's content tabs in the info panel, Episodes and Playback Stats
         // (`customInfoViewControllers`). Notes, not failures: how tvOS 27 exposes the tab titles is not on any Apple page read.
         // R368 (compile run of 21 Nov 2026, item 9(c)): run 8's picture 24-player-info-panel DRAWS the three tabs (Info,
@@ -2003,23 +2028,28 @@ final class ScreenshotTests: XCTestCase {
         // could not reach them and the focus stayed in the Info content ("Play, From Beginning"). The tabs are the system
         // player's own row: they are reached the way a person does, Up from the panel's content onto the tab row, then Right
         // once per tab. The note records the focused label after each press, and the panel's tree for the next fix.
-        hierarchy("24-player-info-panel", of: app)
         // R396 (docs/AUDIT_VISUAL_TVAPP.md PL3, a test fault): the run's pictures of both tabs showed the transport
         // controls with Subtitles or Audio focused. The Up pressed here first left the tab row for the transport bar,
         // and the two Rights then walked along its round buttons. Apple's picture of the controls (A4) has the tabs as
         // capsules right under the scrub bar, so Down from the bar lands ON the tab row: no Up now, only Right once per
         // tab, and Select when the focus says it is on that tab (never on anything else).
-        let tabNames: [String] = ["Episodes", "Playback Stats"]
-        var tabLines: [String] = tabNames.map { "\($0) in the tree: " + (waitFor($0, in: app, timeout: 3) ? "found" : "NOT FOUND") }
-        tabLines.append("after Down: focus on \(focusedLabel(in: app))")
+        // R425: Apple's "Customizing the tvOS playback experience": the custom tabs sit "below the transport bar", and the
+        // system uses each view controller's title as the tab title. Right once per tab, the picture at once, no Select
+        // (whether moving onto a tab shows its content without a press is UNVERIFIED: the pictures show it).
+        var tabLines: [String] = []
         for (picture, tab) in [("24-player-episodes-tab", "Episodes"), ("24-player-stats-tab", "Playback Stats")] {
-            XCUIRemote.shared.press(.right); sleep(2)
-            let now: String = focusedLabel(in: app)
-            tabLines.append("after Right toward \u{201C}\(tab)\u{201D}: focus on \(now)")
-            if now.contains(tab) { XCUIRemote.shared.press(.select); sleep(2); tabLines.append("Select on \u{201C}\(tab)\u{201D}") }
+            XCUIRemote.shared.press(.right); sleep(1)
             shot(picture)
+            let seconds: String = String(format: "%.1f", Date().timeIntervalSince(panelOpened))
+            tabLines.append("\(seconds) s after Down: Right toward \u{201C}\(tab)\u{201D}, picture \(picture)")
+        }
+        episodeCodeCheck("24-player-info-panel", in: app)
+        tabLines.append("after the pictures: focus on \(focusedLabel(in: app))")
+        for tab in ["Episodes", "Playback Stats"] {
+            tabLines.append("\(tab) in the tree: " + (waitFor(tab, in: app, timeout: 1) ? "found" : "NOT FOUND"))
         }
         note("24-player-info-panel-TABS", tabLines.joined(separator: "\n"))
+        hierarchy("24-player-info-panel", of: app)
         // R368, item 9(d): where test12 stops (run 8 took no 25, 26 or 27 picture and left no note saying why).
         note("test12-progress", "24 done; next 25-player-audio-menu")
         // Back up to the transport bar (the info panel closes).
@@ -2038,7 +2068,13 @@ final class ScreenshotTests: XCTestCase {
         note("test12-progress", "24, 25 and 26 done; next 27-player-next-episode")
         // Next Episode: play on to the end of the clip; the Up Next card names Sample Show 1 S01E02 ("The long way round").
         XCUIRemote.shared.press(.playPause)
-        if waitFor("The long way round", in: app, timeout: 60) {
+        // R425 (run #28, item 2 c; a test fault): the wait was for the title "The long way round" (a CONTAINS match), and the
+        // episode page under the player now has the season's other episodes (R387), "S1, E2, The long way round" among
+        // them, so it matched at once, long before the card: 27-player-next-episode was taken during playback and Play Now
+        // was looked for before the card existed. Now the wait is for the card's own Play Now button (`ControlID`
+        // `upNextPlayNow`, UpNextCardView); with Auto-Play On it stays up for at least the 10 s countdown after the end.
+        let playNow: XCUIElement = app.buttons[ControlID.upNextPlayNow]
+        if playNow.waitForExistence(timeout: 90) {
             sleep(1); shot("27-player-next-episode")
             // R340 (docs/HIG_AUDIT.md T19): the system Up Next card (`UpNextProposalController`); Play Now starts S01E02. Before
             // R340 the accept was dropped and nothing started. The note says what followed (the sample library has no clip for
@@ -2050,7 +2086,7 @@ final class ScreenshotTests: XCTestCase {
                      + "\nUp Next still up: \(app.buttons[ControlID.upNextPlayNow].exists)\nfocus: \(focusedLabel(in: app))")
             }
         }
-        else { shot("27-player-next-episode-missing"); notReached("27-player-next-episode", "No Up Next card for S01E02 by the end of the clip.") }
+        else { shot("27-player-next-episode-missing"); notReached("27-player-next-episode", "No Up Next card (no control.upNextPlayNow) within 90 s of playing on. " + playerStartOutcome(in: app)) }
         app.terminate()
     }
 
@@ -2710,6 +2746,21 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(result.passed, "\(name): " + result.verdict)
     }
 
+    /// R427 (run #28, item 4 c; a check fault): 94-larger-text-source-form-ROWS-REACHABLE's focus path went 'Name' >
+    /// 'Address' > 'User Name' > 'Password' > control.sourceConnect, so every row WAS focused, yet "sourceField.name never
+    /// focused": at Larger Text the element reported as focused carried the row's label but not its identifier (the row's
+    /// container, UNVERIFIED which element; the identifier is set on the row's NavigationLink, SourceFieldRow). The
+    /// identifier is now taken from the focused element, else from the one element inside it that carries a form
+    /// identifier; only then the label is written.
+    func focusedRowIdentifier(_ focused: XCUIElement) -> String {
+        guard focused.exists else { return "none" }
+        if !focused.identifier.isEmpty { return focused.identifier }
+        let inner: XCUIElement = focused.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@ OR identifier == %@", ControlID.sourceField(""), ControlID.sourceConnect)).firstMatch
+        if inner.exists { return inner.identifier }
+        return "\u{201C}\(focused.label)\u{201D}"
+    }
+
     /// R331 (Larger Text, replaces R265 and R295's -SAFE-AREA of text fields): from the top of the WebDAV form, Down until the
     /// focus stops; the identifier of what has the focus is recorded after each press. Every field row and Connect must have
     /// taken the focus, in order, and Connect must be inside the 60 pt safe area while focused. "<name>-ROWS-REACHABLE".
@@ -2722,7 +2773,7 @@ final class ScreenshotTests: XCTestCase {
         var unmoved: Int = 0
         for _ in 0..<20 {
             let focused: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
-            let id: String = focused.exists ? (focused.identifier.isEmpty ? "\u{201C}\(focused.label)\u{201D}" : focused.identifier) : "none"
+            let id: String = focusedRowIdentifier(focused)
             if id == ControlID.sourceConnect {
                 let inside: CheckResult = ScreenRules.insideSafeArea([(name: "Connect", frame: AXRect(focused.frame))],
                                                                      window: AXRect(app.windows.firstMatch.frame))

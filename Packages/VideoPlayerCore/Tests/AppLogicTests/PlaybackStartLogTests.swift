@@ -212,6 +212,32 @@ final class PlaybackStartLogTests: XCTestCase {
         XCTAssertEqual(late.value, 1)
     }
 
+    /// R426 (run #28, item 3): the race itself. The step returns the moment it sees the cancellation, with no yield in
+    /// between, so if the watch cancelled before deciding, the value would beat the overdue outcome. Run many times,
+    /// because whether the race shows depends on the threads (it failed on the tvOS Simulator and passed on Linux).
+    func testTheOverdueOutcomeIsDecidedBeforeTheStepIsCancelled() async {
+        for round in 0..<200 {
+            let clock = FakeClock()
+            let tracker = PlaybackStartTracker(clock: { clock.now })
+            let late = Counter()
+            let gate = Gate()
+            // In the step before the watch starts: the watch's sleep does not yield, so it could otherwise pass the
+            // first step's limit before the work had entered this one.
+            tracker.enter(.getLink)
+            let outcome = await PlaybackStartWatch.run(
+                tracker: tracker,
+                sleep: { s in clock.advance(s) },
+                onLate: { _ in late.add(); gate.open() }
+            ) { () async throws -> Int in
+                while !Task.isCancelled { await Task.yield() }
+                return round
+            }
+            guard case .overdue(.getLink, _) = outcome else { return XCTFail("round \(round): \(outcome)") }
+            await gate.wait()
+            XCTAssertEqual(late.value, 1, "round \(round): the late value did not reach onLate")
+        }
+    }
+
     final class Counter: @unchecked Sendable {
         private let lock = NSLock()
         private var n = 0

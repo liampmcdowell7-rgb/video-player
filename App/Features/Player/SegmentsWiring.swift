@@ -49,7 +49,12 @@ enum SegmentsWiring {
     /// Settings > Playback > Auto-Play Next Episode (on by default): the system Up Next accepts by itself.
     static var autoPlayNextEpisode: Bool { flag(.autoPlayNextEpisode) }
 
+    /// R425: the stored value through `bool(forKey:)`, which (Apple's page) "coerces ... the strings "true", "YES", and "1"
+    /// to the value true", so a value given as a launch argument (a string, test12's `-skipIntrosAutomatically NO`) counts
+    /// too; `as? Bool` read such a string as missing. The default when nothing is stored.
     private static func flag(_ key: SettingsKey) -> Bool {
-        UserDefaults.standard.object(forKey: key.rawValue) as? Bool ?? key.defaultBool
+        let defaults: UserDefaults = UserDefaults.standard
+        guard defaults.object(forKey: key.rawValue) != nil else { return key.defaultBool }
+        return defaults.bool(forKey: key.rawValue)
     }
 }

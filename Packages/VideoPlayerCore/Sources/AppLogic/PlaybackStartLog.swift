@@ -383,8 +383,13 @@ public enum PlaybackStartWatch {
                         let step = tracker.step.step
                         await onTick(step)
                         if tracker.isOverdue {
-                            work.cancel()
-                            once.resume(.overdue(step, seconds: PlaybackStartDeadline.limit(for: step) ?? 0))
+                            // R426 (run #28, item 3): the outcome is decided BEFORE the step is cancelled. Cancelling
+                            // first let a step that ends on cancellation return in between, and its value won as
+                            // `.finished` although the limit had passed (tvOS Simulator: `.finished(7)`). Now that value
+                            // goes to `onLate`, so the caller closes what it opened and the start reports the overdue step.
+                            if once.resume(.overdue(step, seconds: PlaybackStartDeadline.limit(for: step) ?? 0)) {
+                                work.cancel()
+                            }
                             return
                         }
                     }

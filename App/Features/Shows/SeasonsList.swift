@@ -63,15 +63,23 @@ struct SeasonsList: View {
                         .padding(.bottom, DetailPageLayout.belowActions)
                 }
                 .productHero(pageHeight: pageHeight)
+                // R424 (run #28, 56-show-page-SCROLL-UP): as on the movie page, Up from any card below climbs back into
+                // the hero, and Play takes the focus there (reasons: ItemDetailContentView's hero).
+                .focusSection()
+                .defaultFocus($playFocused, true, priority: .userInitiated)
                 // #25 B7 (OPEN_QUESTIONS R193, the alternative now taken, still PROVISIONAL): the episodes right after Play,
                 // the cast after them. R339: the season tabs, then the chosen season's episodes.
                 seasonTabs
+                    // R424: Up from an episode card at the right (x 980 in run #28) reaches the picker at the left.
+                    .productPageRow()
                 if let season = shownSeason {
                     StatusText(season.summary)
                     // R387: the shelf is shared with the episode page (EpisodeCards.swift).
                     EpisodeShelfRow(episodes: season.episodes, model: model)
                     // R339: another season starts at its first episode.
                     .id(season.season)
+                    // R424: Up from any cast entry reaches the episodes.
+                    .productPageRow()
                 }
                 if let cast = details?.cast, !cast.isEmpty {
                     CastShelf(cast: cast)

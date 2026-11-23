@@ -67,6 +67,10 @@ struct EpisodeCard: View {
         .buttonStyle(.borderless)
         .accessibilityLabel("\(episode.code), \(episode.title)")
         .accessibilityValue(accessibilityValue)
+        // R427 (run #28, item 4 b): the card's own identifier. Without one, the card button carried its badges' identifiers
+        // joined ('badge.resolution-badge.hdr' on "S2, E1, Second chances", 410 x 231), so it was counted as a badge. The
+        // badges are still spoken in the value above.
+        .accessibilityIdentifier("card.episode.\(episode.id)")
         .contextMenu {
             Button(episode.isWatched ? "Mark as Unwatched" : "Mark as Watched", systemImage: episode.isWatched ? "eye.slash" : "eye") {
                 Task { await model.run { await $0.setWatched(!episode.isWatched, episodeID: episode.id) } }
