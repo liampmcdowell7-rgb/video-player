@@ -2093,10 +2093,15 @@ final class ScreenshotTests: XCTestCase {
             ("25-player-audio-menu", [("Down", .down), ("Up", .up), ("Right", .right), ("Select", .select)]),
             ("26-player-subtitles-menu", [("Down", .down), ("Up", .up), ("Right", .right), ("Right", .right), ("Select", .select)])
         ]
+        // R438: Menu is pressed only when the presses changed the screen (something opened). On the transport bar Menu leaves
+        // the player, and the Up Next steps (27) need it up. After each sequence `player.screen` must still exist.
+        var playerClosedAfter: String? = nil
         for (number, presses) in blind {
             hierarchy(number + "-before", of: app)
             var done: [String] = []
+            var beforeSelect: Data? = nil
             for (index, press) in presses.prefix(6).enumerated() {
+                if press.0 == "Select" { beforeSelect = lastShot?.png }
                 XCUIRemote.shared.press(press.1); done.append(press.0); sleep(1)
                 shot(number + "-try\(index + 1)")
                 note(number + "-try\(index + 1)", "PICTURE-ONLY, NOT VERIFIED BY THE TREE\npresses so far: " + done.joined(separator: ", "))
@@ -2104,7 +2109,21 @@ final class ScreenshotTests: XCTestCase {
             sleep(1); shot(number)
             note(number, "PICTURE-ONLY, NOT VERIFIED BY THE TREE\nfinal picture after the presses: " + done.joined(separator: ", ")
                  + "\ncounted as taken, not as not reached; the owner reviews the pictures")
-            XCUIRemote.shared.press(.menu); sleep(1)
+            // The same pixel comparison as `shot`'s "identical, pixel for pixel" warning (`ScreenRules.changed`).
+            var opened: Bool = true
+            if let before = beforeSelect, let final = lastShot?.png {
+                opened = ScreenRules.changed([UInt8](before), [UInt8](final), step: number + " presses").passed
+            }
+            if opened {
+                XCUIRemote.shared.press(.menu); sleep(1)
+            } else {
+                note(number + "-NO-CHANGE", "\(number)-NO-CHANGE: the presses changed nothing on screen; Menu not pressed so the player stays up")
+            }
+            if !app.descendants(matching: .any).matching(identifier: "player.screen").firstMatch.exists {
+                note(number + "-LEFT-THE-PLAYER", "\(number)-LEFT-THE-PLAYER: the player closed")
+                playerClosedAfter = number
+                break
+            }
         }
 
         note("test12-progress", "24, 25 and 26 done; next 27-player-next-episode")
@@ -2115,6 +2134,10 @@ final class ScreenshotTests: XCTestCase {
         // them, so it matched at once, long before the card: 27-player-next-episode was taken during playback and Play Now
         // was looked for before the card existed. Now the wait is for the card's own Play Now button (`ControlID`
         // `upNextPlayNow`, UpNextCardView); with Auto-Play On it stays up for at least the 10 s countdown after the end.
+        if let closed = playerClosedAfter {
+            notReached("27-player-next-episode", "27-player-next-episode: not reached because the player closed after \(closed)")
+            app.terminate(); return
+        }
         let playNow: XCUIElement = app.buttons[ControlID.upNextPlayNow]
         if playNow.waitForExistence(timeout: 90) {
             sleep(1); shot("27-player-next-episode")
