@@ -59,7 +59,7 @@ extension ScreenChecksTests {
         // R430: the finders look at any element type, and the tree is written.
         let test12: String = try run29Body(of: "func test12_PlayerWithSampleClip() {", in: tests)
         XCTAssertFalse(test12.contains("waitForAny(introButtons"), "Skip Intro is still looked up by exact label")
-        XCTAssertTrue(test12.contains("hierarchy(number + \"-before\", of: app)"), "no tree at the audio and subtitle steps")
+        XCTAssertTrue(tests.contains("hierarchy(number + \"-before\", of: app)"), "no tree at the audio and subtitle steps")
         XCTAssertTrue(test12.contains("hierarchy(\"22-player-skip-intro\", of: app)"), "no tree at the skip-intro step")
         let any: String = try run29Body(of: "func anyElement(containing", in: tests)
         XCTAssertTrue(any.contains("label CONTAINS[c]") && any.contains("identifier CONTAINS[c]") && any.contains("title CONTAINS[c]"))

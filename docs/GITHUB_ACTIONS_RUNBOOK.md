@@ -297,7 +297,7 @@ Screenshots parts 75 minutes since R367.
 screenshot jobs wait for the Simulator build (`needs: compile`) and start only when it is green, about 5 minutes later
 (it took 4:27 in the run of fa00af8, plus queueing). When the app does not compile, they are skipped (grey), and a small
 job **"Not taken (the app did not compile)"** (ubuntu-latest, about a minute) uploads `screenshots`,
-`screenshots-library`, `accessibility-screenshots` and `device-build-results` with `NOT-TAKEN.txt` / `index.md` saying
+`screenshots-library`, `screenshots-more`, `accessibility-screenshots` and `device-build-results` with `NOT-TAKEN.txt` / `index.md` saying
 "NOT TAKEN: the app did not compile" and the first error line (the device reports say "NOT CHECKED"). The first compile
 of the App target (#23) failed, and the other jobs then spent their whole time on the same error.
 
@@ -306,7 +306,7 @@ of the App target (#23) failed, and the other jobs then spent their whole time o
 | Build app + Top Shelf (Simulator) | The app and Top Shelf compile for the tvOS Simulator (arm64) | `compile-check-results` | `errors.txt`, `errors-other.txt`, `build.log` |
 | Build app + Top Shelf (Apple TV device, Release, unsigned) | The same compile for a real Apple TV, and the device slices of the codec frameworks, libnfs and the Dolby Vision RPU library link | `device-build-results` | `errors.txt`, `build.log`, `embedded-frameworks.txt`, `macho-report.txt`, `static-libraries.txt`, `release-strings.txt`, `process-spawning.txt` (#23 C; every report says NOT CHECKED when the build failed) |
 | Package tests (tvOS Simulator) | The package unit tests build and pass on tvOS (tests that need a server, iCloud or a tool are skipped, not failed) | `simulator-test-results` | `test-report.md` (passed / skipped / failed per test target, then the failures), `test.log` |
-| Screenshots, part 1 (setup, Settings, sorting; tvOS Simulator, UI tests) | The UI tests 01, 02, 03, 05, 14 and 10 ran (each its own call) and took pictures | `screenshots` and `screenshots-logs` | `02-….png`, `03-….png` … in viewing order (67 planned: first launch, Add a Source, Settings, About, Files, Search, the card menu 08, the sorting screens 63–69), `index.md`, `notes/` |
+| Screenshots, part 1 (setup, Settings, sorting; tvOS Simulator, UI tests) | The UI tests 01, 02, 03 and 10 ran (05, 14 and the Larger Text half of 10 are part 3, R439) (each its own call) and took pictures | `screenshots` and `screenshots-logs` | `02-….png`, `03-….png` … in viewing order (67 planned: first launch, Add a Source, Settings, About, Files, Search, the card menu 08, the sorting screens 63–69), `index.md`, `notes/` |
 | Screenshots, part 2 (player, synopsis, library and detail pages; tvOS Simulator, UI tests) | The UI tests 12 and 13 ran first (13 after a clean simulator: shut down, erase, boot), then 15, 04 and 16, and took pictures | `screenshots-library` and `screenshots-library-logs` | the same kind of folder: the Movies and Shows toolbars and menus 07, the player clip 22–27, Home (with the Continue Watching caption), Movies, Shows, the movie and show pages 44–62, the synopsis pages 77–78 (64 planned; test15 takes no picture), with its own `index.md` and `notes/` |
 | Accessibility screenshots (tvOS Simulator, UI tests) | Eleven screens were drawn with Larger Text and Bold Text (the app's imitation of those settings) and at the default size, and each Larger Text and Bold Text picture differs from its default one outside the tab bar (OPEN_QUESTIONS R170, #17 A) | `accessibility-screenshots` and `accessibility-screenshots-logs` | folder `text` with its `index.md`: 80–84 and 90–95 Larger Text, 85–89 and 96–101 Bold Text, 102–112 the same screens at the default size (33 planned); `a11y-compare.txt` (the comparison) |
 
@@ -396,8 +396,9 @@ R232):
 
 | Job | Tests | Planned pictures | UI tests | Job time (estimate) |
 |---|---|---|---|---|
-| Screenshots, part 1 | 01, 02, 03, 05, 14, 10 | 67 | about 18:40 | about 26 min (30 measured with test12 and test13) |
-| Screenshots, part 2 | 12, 13 (after a clean simulator), 15, 04, 16 | 64 | about 17:35 to 18:55 | about 30 min (25 measured without them) |
+| Screenshots, part 1 | 01, 02, 03, 10 (R439: 05, 14 and the Larger Text half of 10 moved to part 3) | 57 | about 29 min at run #31's speed (40:39 before the move) | budget 2400 s |
+| Screenshots, part 2 | 12, 13 (after a clean simulator), 15, 04, 16 | 70 | about 17:35 to 18:55 | about 30 min (25 measured without them) |
+| Screenshots, part 3 (R439, R440) | 05, 14, 10b (Larger Text), 12b (Audio menu), 12c (Subtitles menu) | 25 plus the -controls and -try pictures | about 19 min at run #31's speed (an estimate) | budget 1800 s |
 | Accessibility screenshots | 06, 11 | 33 | 18:28 (measured) | 31 min (measured) |
 
 **#25 C1:** the accessibility job measured 24:47 start to end on 1fe5d50, so its UI tests took about 12-13 minutes, half
@@ -413,8 +414,9 @@ delivered 54 / 20 / 33).
 | Build app + Top Shelf (Simulator) | macOS (xcode-27) | about 7 |
 | Build app + Top Shelf (Apple TV device) | macOS | about 7 (6:23 in the run of 5ea8e96) |
 | Package tests | macOS | about 12 (not in the #24 numbers; an estimate) |
-| Screenshots, part 1 | macOS | about 26 (30 measured on 20 Nov, before #34 moved test12 and test13) |
+| Screenshots, part 1 | macOS | about 29 of tests (R439; 40:39 measured in run #31 before the move) |
 | Screenshots, part 2 | macOS | about 30 (25 measured on 20 Nov, plus test12, test13 and the clean simulator) |
+| Screenshots, part 3 | macOS | about 31 (12 for the build, about 19 for the tests; an estimate, R439) |
 | Accessibility screenshots | macOS | about 31 (measured on 20 Nov) |
 | **All jobs** | | **about 113 macOS minutes** |
 
@@ -429,8 +431,8 @@ must be added to both.
 **Step by step after the run has finished:**
 
 1. Open the run. Scroll to **Artifacts** at the bottom.
-2. Click each of the nine names above to download a zip file: `compile-check-results`, `device-build-results`,
-   `simulator-test-results`, `screenshots`, `screenshots-logs`, `screenshots-library`, `screenshots-library-logs`,
+2. Click each of the eleven names above to download a zip file: `compile-check-results`, `device-build-results`,
+   `simulator-test-results`, `screenshots`, `screenshots-logs`, `screenshots-library`, `screenshots-library-logs`, `screenshots-more`, `screenshots-more-logs`,
    `accessibility-screenshots`, `accessibility-screenshots-logs` (the three `-logs` ones only matter if their job is
    red or a picture is missing).
 3. Make a new folder `Downloads\run-3` and unzip each zip into its own subfolder there. Do not unzip into the project folder.

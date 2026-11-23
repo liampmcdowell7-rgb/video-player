@@ -72,7 +72,7 @@ OUT="$(bash "$CHECK" "$A" accessibility 2>&1)"; RC=$?
 NT="$TMP/not-taken"
 OUT="$(GITHUB_STEP_SUMMARY="$TMP/nt-summary.md" bash "$HERE/scripts/ci-not-taken.sh" "$NT" failure "App/Features/Settings/StorageSettingsView.swift:16: generic parameter 'Content' could not be inferred" 2>&1)"; RC=$?
 ok=0; [ "$RC" -eq 0 ] || ok=1
-for a in screenshots screenshots-library accessibility-screenshots; do
+for a in screenshots screenshots-library screenshots-more accessibility-screenshots; do
   head -n 1 "$NT/$a/NOT-TAKEN.txt" | grep -qx 'NOT TAKEN: the app did not compile' || ok=1
   grep -qF "first error: App/Features/Settings/StorageSettingsView.swift:16: generic parameter" "$NT/$a/NOT-TAKEN.txt" || ok=1
   grep -qF 'NOT TAKEN: the app did not compile' "$NT/$a/index.md" || ok=1

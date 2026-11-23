@@ -2085,48 +2085,9 @@ final class ScreenshotTests: XCTestCase {
         note("test12-progress", "24 done; next 25-player-audio-menu")
         // Back up to the transport bar (the info panel closes).
         for _ in 0..<2 { XCUIRemote.shared.press(.up); sleep(1) }
-        // R436 (run #30, item 2): the audio and subtitle menus are the system player's own and not in the tree, so they are
-        // tried with blind remote presses and a picture after each (try1 to try5 or 6); the owner reviews the pictures.
-        // The sequence for each menu is the one thought most likely to open it: Down shows the controls, Up moves onto the
-        // transport row, Right moves along it (Audio first, Subtitles one further), Select opens the menu. UNVERIFIED.
-        let blind: [(String, [(String, XCUIRemote.Button)])] = [
-            ("25-player-audio-menu", [("Down", .down), ("Up", .up), ("Right", .right), ("Select", .select)]),
-            ("26-player-subtitles-menu", [("Down", .down), ("Up", .up), ("Right", .right), ("Right", .right), ("Select", .select)])
-        ]
-        // R438: Menu is pressed only when the presses changed the screen (something opened). On the transport bar Menu leaves
-        // the player, and the Up Next steps (27) need it up. After each sequence `player.screen` must still exist.
-        var playerClosedAfter: String? = nil
-        for (number, presses) in blind {
-            hierarchy(number + "-before", of: app)
-            var done: [String] = []
-            var beforeSelect: Data? = nil
-            for (index, press) in presses.prefix(6).enumerated() {
-                if press.0 == "Select" { beforeSelect = lastShot?.png }
-                XCUIRemote.shared.press(press.1); done.append(press.0); sleep(1)
-                shot(number + "-try\(index + 1)")
-                note(number + "-try\(index + 1)", "PICTURE-ONLY, NOT VERIFIED BY THE TREE\npresses so far: " + done.joined(separator: ", "))
-            }
-            sleep(1); shot(number)
-            note(number, "PICTURE-ONLY, NOT VERIFIED BY THE TREE\nfinal picture after the presses: " + done.joined(separator: ", ")
-                 + "\ncounted as taken, not as not reached; the owner reviews the pictures")
-            // The same pixel comparison as `shot`'s "identical, pixel for pixel" warning (`ScreenRules.changed`).
-            var opened: Bool = true
-            if let before = beforeSelect, let final = lastShot?.png {
-                opened = ScreenRules.changed([UInt8](before), [UInt8](final), step: number + " presses").passed
-            }
-            if opened {
-                XCUIRemote.shared.press(.menu); sleep(1)
-            } else {
-                note(number + "-NO-CHANGE", "\(number)-NO-CHANGE: the presses changed nothing on screen; Menu not pressed so the player stays up")
-            }
-            if !app.descendants(matching: .any).matching(identifier: "player.screen").firstMatch.exists {
-                note(number + "-LEFT-THE-PLAYER", "\(number)-LEFT-THE-PLAYER: the player closed")
-                playerClosedAfter = number
-                break
-            }
-        }
-
-        note("test12-progress", "24, 25 and 26 done; next 27-player-next-episode")
+        // R440 (run #31, item 2): 25 and 26 are no longer in this test. They are tests of their own, each in a fresh player
+        // session after this one (test12b, test12c, job part 3), so nothing they press can leave the player 27 needs.
+        note("test12-progress", "24 done; next 27-player-next-episode")
         // Next Episode: play on to the end of the clip; the Up Next card names Sample Show 1 S01E02 ("The long way round").
         XCUIRemote.shared.press(.playPause)
         // R425 (run #28, item 2 c; a test fault): the wait was for the title "The long way round" (a CONTAINS match), and the
@@ -2134,10 +2095,6 @@ final class ScreenshotTests: XCTestCase {
         // them, so it matched at once, long before the card: 27-player-next-episode was taken during playback and Play Now
         // was looked for before the card existed. Now the wait is for the card's own Play Now button (`ControlID`
         // `upNextPlayNow`, UpNextCardView); with Auto-Play On it stays up for at least the 10 s countdown after the end.
-        if let closed = playerClosedAfter {
-            notReached("27-player-next-episode", "27-player-next-episode: not reached because the player closed after \(closed)")
-            app.terminate(); return
-        }
         let playNow: XCUIElement = app.buttons[ControlID.upNextPlayNow]
         if playNow.waitForExistence(timeout: 90) {
             sleep(1); shot("27-player-next-episode")
@@ -2154,6 +2111,64 @@ final class ScreenshotTests: XCTestCase {
         else { shot("27-player-next-episode-missing"); notReached("27-player-next-episode", "No Up Next card (no control.upNextPlayNow) within 90 s of playing on. " + playerStartOutcome(in: app)) }
         app.terminate()
     }
+
+    /// R440 (run #31, item 2): the system player's Subtitles and Audio menus, each in a FRESH player session of its own.
+    /// R436 and R438 pressed Down, Up, Right and Select in the session of test12 and then Menu when the screen "changed";
+    /// run #31 showed that the transport bar is already gone after the first Down (the controls hide), that Skip Intro
+    /// moving on screen counted as a change, and that Menu then closed the player so that 26 and 27 were never reached.
+    /// Now: no Menu press at all; each session ends with `app.terminate()`; the controls are shown first the way 23 does
+    /// (Play/Pause once), then Up, then Right (once for Subtitles, the second icon; twice for Audio, the third icon, the
+    /// icons are in the order flag, speech bubble, waveform at the top right of the title row, run #31's 23-player-controls),
+    /// then Select. A picture and a note (`-tryN`, the presses so far) after Up and after every Right; the final picture
+    /// is the one after Select. After Up the focus may be on any icon, which is why every step is pictured. The menus are
+    /// not in the accessibility tree (R436), so these pictures are NOT VERIFIED BY THE TREE; the owner reads them.
+    private func blindMenuSession(_ number: String, rights: Int) {
+        let app = launch("-UITestFixtures", open: "Sample Show 1", extra: ["-skipIntrosAutomatically", "NO"])
+        guard waitForScreen("screen.series", in: app, timeout: 60), waitFor("Season 1", in: app, timeout: 20) else {
+            notReached(number, "The show page did not open."); app.terminate(); return
+        }
+        let episodeLabel: String = "S1, E1, A quiet beginning"
+        if !app.buttons[episodeLabel].exists {
+            let seasonOne: XCUIElement = app.segmentedControls[ControlID.seasonTabs].buttons["Season 1"]
+            _ = focus(seasonOne.exists ? seasonOne : control("Season 1", in: app), in: app); sleep(1)
+        }
+        guard open(episodeLabel, in: app, name: number), waitForScreen("screen.item", in: app, timeout: 20) else {
+            notReached(number, "The S01E01 page did not open (focus on \(focusedLabel(in: app))).\n" + focusPathText())
+            app.terminate(); return
+        }
+        settle()
+        guard open("Play", id: ControlID.play, in: app, name: number) else { app.terminate(); return }
+        // Wait for the player as for 22: up to 30 s for `player.screen`, then until the start spinner is gone (up to 40 s).
+        let player: XCUIElement = app.descendants(matching: .any).matching(identifier: "player.screen").firstMatch
+        guard player.waitForExistence(timeout: 30) else {
+            notReached(number, "The player did not come up within 30 s of Play. " + playerStartOutcome(in: app)); app.terminate(); return
+        }
+        let spinner: XCUIElement = app.descendants(matching: .any).matching(identifier: "player.loading").firstMatch
+        var waited: Int = 0
+        while spinner.exists, waited < 40 { sleep(1); waited += 1 }
+        sleep(3)
+        // The controls, as 23 shows them: Play/Pause once, then the bar is on screen.
+        XCUIRemote.shared.press(.playPause); sleep(2)
+        shot(number + "-controls")
+        hierarchy(number + "-before", of: app)
+        var done: [String] = []
+        var steps: [(String, XCUIRemote.Button)] = [("Up", .up)]
+        for _ in 0..<rights { steps.append(("Right", .right)) }
+        for (index, step) in steps.enumerated() {
+            XCUIRemote.shared.press(step.1); done.append(step.0); sleep(1)
+            shot(number + "-try\(index + 1)")
+            note(number + "-try\(index + 1)", "PICTURE-ONLY, NOT VERIFIED BY THE TREE\npresses so far (after the Play/Pause that shows the controls): " + done.joined(separator: ", "))
+        }
+        XCUIRemote.shared.press(.select); done.append("Select"); sleep(2)
+        shot(number)
+        note(number, "PICTURE-ONLY, NOT VERIFIED BY THE TREE\nfinal picture after: Play/Pause, " + done.joined(separator: ", ")
+             + "\nno Menu press; a fresh player session of its own; counted as taken, the owner reads the picture")
+        app.terminate()
+    }
+
+    func test12b_PlayerAudioMenu() { blindMenuSession("25-player-audio-menu", rights: 2) }
+
+    func test12c_PlayerSubtitlesMenu() { blindMenuSession("26-player-subtitles-menu", rights: 1) }
 
     /// #21 D: the movie page with a synopsis and cast from the debug-only fake details (`UITestFixtureDetails`, no network).
     /// 57/58 (Sample Movie 1, short synopsis and cast) and 60/61 (Sample Movie 2, a full cast shelf) already show them; this
@@ -3027,6 +3042,12 @@ final class ScreenshotTests: XCTestCase {
 
     func test10_SortingScreens() {
         sortingShots(suffix: "", extra: [])
+    }
+
+    /// R439 (run #31): the Larger Text half of test10 is its own test, so the workflow can run it in another job (part 3).
+    /// Part 1 took 40:39 in run #31 on a slower runner and test10 was stopped by the budget at its Larger Text half
+    /// (67, 68 and 69 and their focused pictures were not taken). Same code and same pictures as before; only the call moved.
+    func test10b_SortingScreensLargerText() {
         sortingShots(suffix: "-larger-text", extra: ["-UITestTextSize", "accessibility3"])
     }
 }

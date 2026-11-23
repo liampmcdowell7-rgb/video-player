@@ -1,5 +1,5 @@
-# Compile check: SIX JOBS from one press of "Run workflow" (OPEN_QUESTIONS R161).
-# #23 E: the device build (2) and the three UI-test jobs (4, 4b, 5) wait for job 1 (`needs: compile`) and run only when
+# Compile check: SEVEN JOBS from one press of "Run workflow" (OPEN_QUESTIONS R161).
+# #23 E: the device build (2) and the four UI-test jobs (4, 4b, 4c, 5) wait for job 1 (`needs: compile`) and run only when
 # it succeeded: the first compile of the App target failed, and those jobs then spent their whole time on the same error.
 # Jobs 1 and 3 (package tests) start at once and run in parallel. When job 1 fails, the small job "not-taken"
 # (ubuntu-latest, scripts/ci-not-taken.sh) uploads the screenshot and device-build artifacts under their usual names,
@@ -13,8 +13,9 @@
 #   3. simulator-tests   the package unit tests (VideoPlayerCore) on a tvOS Simulator; counts are a report, not a gate
 #   4. screenshots       a launch smoke (the app must still be running 8 s after launch, plain and -UITestEmpty; the
 #                        cause is printed in the log if not), then UI tests that take a named screenshot of every screen
-#                        they can reach, with debug-only sample data: part 1 (tests 01, 02, 03, 05, 12, 13, 14, 10)
+#                        they can reach, with debug-only sample data: part 1 (tests 01, 02, 03, 10; R439: test05 and test14 and the Larger Text half of test10 moved to 4c)
 #   4b. screenshots-library   the same, part 2: test15, test04 (Home, Movies, Shows, the detail pages; 436 s measured) and test16 (#32 toolbars)
+#   4c. screenshots-more   part 3 (R439): test05, test14 and test10b (the sorting screens at Larger Text); main set 01-79 as well
 #   5. accessibility-screenshots   eleven screens under Larger Text and Bold Text (drawn by the app, test06 alone in its
 #                        own call) and at the default size (test11), and a check that the first two differ from the
 #                        default outside the tab bar (rule 17, R170). Built exactly as job 4
@@ -43,7 +44,7 @@
 # step; OPEN_QUESTIONS R158, R159). Expected run time is about 15 minutes or less; timeout-minutes is only the ceiling.
 #
 # It does not archive and does not upload anything to Apple. Nothing is signed with a certificate: jobs 1 to 3 are unsigned;
-# jobs 4, 4b and 5 sign AD HOC (identity "-", no team, no profile, no secret) so the simulator app carries its entitlements (R164). Jobs 2 to 5 share their preparation steps through
+# jobs 4, 4b, 4c and 5 sign AD HOC (identity "-", no team, no profile, no secret) so the simulator app carries its entitlements (R164). Jobs 2 to 5 share their preparation steps through
 # scripts/ci-prepare.sh (the same steps job 1 spells out).
 
 name: Compile check (tvOS Simulator, no signing)
@@ -565,8 +566,6 @@ jobs:
             test01_FirstLaunchAndEmptyScreens \
             test02_AddASource \
             test03_Settings \
-            test05_FilesSearchDiscover \
-            test14_ShowsToolbarAndCardMenu \
             test10_SortingScreens
 
       # Runs whatever happened above: copies any picture a cut-off test step left and writes index.md again (never fails).
@@ -579,8 +578,6 @@ jobs:
             test01_FirstLaunchAndEmptyScreens \
             test02_AddASource \
             test03_Settings \
-            test05_FilesSearchDiscover \
-            test14_ShowsToolbarAndCardMenu \
             test10_SortingScreens
 
       - name: Summarise errors (file, line, message)
@@ -821,6 +818,182 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  # JOB 4c. Screenshots, part 3 of 3 (R439, run #31): test05 (Files, Search, Discover), test14 (the Shows toolbar and card menu) and
+  # test10b (the sorting screens at Larger Text, the second half of test10), moved out of part 1, and test12b and test12c (R440: the
+  # player's Audio and Subtitles menus, each in a fresh player session of its own), which took 40:39 on a slower
+  # runner than run #29 (36 min) and was stopped by its budget in test10. Part 1 now holds test01, 02, 03 and the first half of test10.
+  # Built and checked exactly as job 4 (part 1), on its own runner with its own cap (a sixth macOS job at once may wait for a free
+  # runner if the account allows fewer: UNVERIFIED). Its artifact is "screenshots-more", in the same numbering (01-79, index.md).
+  screenshots-more:
+    name: Screenshots, part 3 (Files and Search, Shows toolbar, sorting at Larger Text; tvOS Simulator, UI tests)
+    needs: compile   # #23 E: runs only when job 1 compiled the app; otherwise job "not-taken" says so
+    runs-on: xcode-27
+    timeout-minutes: 60   # R439: hard cap; the tests stop after 30 minutes (CI_TEST_BUDGET_SECONDS)
+    env:
+      XCODE_APP: /Applications/Xcode_27.2.app
+      XCODEGEN_VERSION: "2.46.0"
+      XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
+      OUT: build/ci
+      # #24 B: 25 minutes for the UI tests, counted from the start of the first one (scripts/ci-sim.sh), so a slow build
+      # no longer eats the test time. Prepare, boot, build and smoke took about 12 minutes on fa00af8; 12 + 25 + the
+      # collect, check and upload steps stays well inside the 60-minute job cap.
+      # R439: 30 minutes. Estimated on run #31's speed: test05 5:32 + test14 1:11 + the Larger Text half of test10 about 6 min
+      # + test12b and test12c (a fresh player session each, about 3 minutes each, an estimate) = about 19 minutes; 12 + 30 + the
+      # collect and upload steps stays inside the 60-minute cap.
+      CI_TEST_BUDGET_SECONDS: "1800"
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          lfs: false
+          persist-credentials: false
+
+      - name: Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)"
+          bash scripts/ci-prepare.sh
+
+      # Runtime lists, pick (runtime first: the one matching the Simulator SDK, else the newest; then the device name), then
+      # the stage "Boot and retry": boot and wait; one retry, on the next runtime when this one failed to load (#21 A,
+      # scripts/ci-sim.sh).
+      - name: Pick the simulator (newest tvOS runtime matching the SDK first), then boot it (stage "Boot and retry")
+        timeout-minutes: 8
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pick the simulator (newest tvOS runtime matching the SDK first)"
+          bash scripts/ci-sim.sh prepare
+
+      # Ad-hoc signing for this simulator build (OPEN_QUESTIONS R164, PROVISIONAL): identity "-" with no team, no profile and
+      # no secret, so the entitlements in project.yml (App Group, iCloud, Keychain group) are embedded in the app. Whether the
+      # simulator then APPLIES them is not stated on an Apple page: the next step prints what is embedded. If ad-hoc signing
+      # fails the build, the job builds again unsigned (as before) and says so; the app must start either way (launch safety).
+      - name: Build the app and the UI tests (Debug, simulator, ad-hoc signed; unsigned if that fails)
+        id: build
+        run: bash scripts/ci-build-uitests.sh
+
+      - name: Show what the built app carries (signature, embedded entitlements, Info.plist scene keys)
+        if: steps.build.outcome == 'success'
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Show what the built app carries (signature, embedded entitlements, Info.plist scene keys)"
+          set -uo pipefail
+          echo "Signing mode used: $SIGNING"
+          # Apple's documented check ("Diagnosing Issues with Entitlements"): codesign --display --entitlements :- App.app
+          codesign --display --verbose=2 "$APP_PATH" 2>&1 | tee "$OUT/app-signature.txt" || true
+          codesign --display --entitlements :- "$APP_PATH" 2>&1 | tee "$OUT/app-entitlements.txt" || true
+          plutil -p "$APP_PATH/Info.plist" | grep -A6 -E 'UIApplicationSceneManifest|UILaunchScreen|UIRequiredDeviceCapabilities' || true
+          xcrun simctl help launch 2>&1 | tee "$OUT/simctl-launch-help.txt" | sed -n '1,40p' || true
+
+      # LAUNCH SMOKE: before the UI tests, launch the app twice (no arguments, then -UITestEmpty) and check it is still running
+      # after 8 s. On a crash the step prints the crash reports, the app's log and console output (scripts/ci-launch-smoke.sh)
+      # and fails. "LAUNCH OK (<label>)" in the log is the proof the app stays up.
+      - name: Launch smoke (plain launch and -UITestEmpty; prints the cause if the app dies)
+        id: smoke
+        if: steps.build.outcome == 'success'
+        timeout-minutes: 4
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Launch smoke (plain launch and -UITestEmpty; prints the cause if the app dies)"
+          set -uo pipefail
+          xcrun simctl install "$SIM_UDID" "$APP_PATH"
+          status=0
+          bash scripts/ci-launch-smoke.sh "$SIM_UDID" plain 2>&1 | tee "$OUT/launch-smoke-plain.log" || status=1
+          bash scripts/ci-launch-smoke.sh "$SIM_UDID" uitest-empty -UITestEmpty 2>&1 | tee "$OUT/launch-smoke-uitest-empty.log" || status=1
+          {
+            echo "## Launch smoke (signing: $SIGNING)"
+            grep -hE '^LAUNCH (OK|FAILED)' "$OUT"/launch-smoke-*.log || echo "no result line"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          exit $status
+
+      # #24 A: one xcodebuild call per test (scripts/ci-ui-tests.sh), each with its own result bundle; after each call that
+      # test's pictures are copied into the artifact folder at once (from the PNG files the test writes, else from the
+      # simulator's data folder, else from a complete bundle) and index.md is written. A failed test does not stop the
+      # ones after it; at the budget the running test gets SIGINT (60 s to finish), the rest are not started, and index.md
+      # says "TEST STOPPED BY THE TIME BUDGET: pictures up to <name>". The step cap (35 min) is only a backstop; the next
+      # step collects what a cut-off run left.
+      - name: Run the UI tests, one xcodebuild call per test (pictures copied after each)
+        id: uitests
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 35   # R439: the 30-minute budget plus the stop grace
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Run the UI tests, one call per test"
+          bash scripts/ci-ui-tests.sh "$GITHUB_WORKSPACE/screenshots" \
+            test05_FilesSearchDiscover \
+            test14_ShowsToolbarAndCardMenu \
+            test10b_SortingScreensLargerText \
+            test12b_PlayerAudioMenu \
+            test12c_PlayerSubtitlesMenu
+
+      # Runs whatever happened above: copies any picture a cut-off test step left and writes index.md again (never fails).
+      - name: Collect the pictures any cut-off test left (loose PNG files)
+        if: ${{ always() && steps.build.outcome == 'success' }}
+        timeout-minutes: 4
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Collect the pictures any cut-off test left"
+          bash scripts/ci-ui-tests.sh --collect "$GITHUB_WORKSPACE/screenshots" \
+            test05_FilesSearchDiscover \
+            test14_ShowsToolbarAndCardMenu \
+            test10b_SortingScreensLargerText \
+            test12b_PlayerAudioMenu \
+            test12c_PlayerSubtitlesMenu
+
+      - name: Summarise errors (file, line, message)
+        if: always()
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Summarise errors (file, line, message)"
+          bash scripts/ci-summarise-errors.sh "Screenshots: build and UI tests" "$OUT/test.log" "$OUT/resolve.log" "$OUT/xcodegen.log"
+          python3 scripts/ci-test-report.py "$OUT/test.log" "$OUT/test-report.md" "UI tests and screenshots" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # #15 item 1.2: the artifact "screenshots-more" holds part 3 of the MAIN set (01-79 at the top, index.md), never the
+      # accessibility set. Writes screenshots/CONTENTS.txt and fails with "ARTIFACT PROBLEM: ..." otherwise; the upload runs either way.
+      - name: List and check what the screenshots artifact holds (main set, 01-79)
+        if: always()
+        timeout-minutes: 2
+        run: bash scripts/ci-artifact-contents.sh "$GITHUB_WORKSPACE/screenshots" main 2>&1 | tee "$OUT/artifact-contents.txt"; exit "${PIPESTATUS[0]}"
+
+      - name: Stage times
+        if: always()
+        run: bash scripts/ci-stage.sh --summary "Screenshots, part 3"
+
+      - name: Upload the screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots-more
+          path: ${{ github.workspace }}/screenshots/
+          if-no-files-found: warn
+          retention-days: 14
+
+      # R416 (run #27, item 4 a): the app's crash reports (.ips), so a crash names its line (scripts/ci-crash-reports.sh).
+      - name: Copy the app's crash reports
+        if: always()
+        run: bash scripts/ci-crash-reports.sh "$GITHUB_WORKSPACE/build/ci"
+
+      # R423: the crash reports alone, as a small artifact of their own (the log artifact of screenshots-library was 1.1 GB
+      # in run #27); only when there is one. They stay in the log artifact too.
+      - name: Upload the app's crash reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: crash-reports-screenshots-more
+          path: build/ci/crash-reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload the screenshot job logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots-more-logs
+          path: |
+            build/ci/*.txt
+            build/ci/*.log
+            build/ci/*.md
+            build/ci/crash-reports/
+            build/ci/attachments/
+            build/ci/screenshot-files/
+            build/ci/ui-tests.tsv
+            build/ci/launch-smoke-*/
+          if-no-files-found: warn
+          retention-days: 14
+
   # JOB 5. Accessibility screenshots, text (rule 17, docs/DESIGN_REFERENCES.md; OPEN_QUESTIONS R170; #16 item 1.10):
   # eleven screens (Home, Movies, Settings, a Files folder, two movie pages, a show page, the Backup page, Add a Source, a
   # source form, Search) under Larger Text and Bold Text, drawn by the app from launch arguments (test06; an imitation of
@@ -1001,6 +1174,13 @@ jobs:
         with:
           name: screenshots-library
           path: ${{ github.workspace }}/not-taken/screenshots-library/
+          retention-days: 14
+
+      - name: Upload screenshots-more (NOT TAKEN)
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots-more
+          path: ${{ github.workspace }}/not-taken/screenshots-more/
           retention-days: 14
 
       - name: Upload accessibility-screenshots (NOT TAKEN)

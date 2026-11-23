@@ -2,7 +2,7 @@
 # CI only (compile-check.yml, job "not-taken", #23 E). The screenshot jobs and the device build need the Compile job
 # (`needs: compile`); when it did not succeed they are skipped and upload nothing. This job runs instead (ubuntu-latest,
 # a few seconds) and writes, under the SAME artifact names, folders that say why there are no pictures:
-#   screenshots/, screenshots-library/, accessibility-screenshots/   (#24: the accessibility-settings job is gone)
+#   screenshots/, screenshots-library/, screenshots-more/, accessibility-screenshots/   (#24: the accessibility-settings job is gone)
 #       NOT-TAKEN.txt and index.md: "NOT TAKEN: the app did not compile" and the first error line
 #   device-build-results/   every inspection report saying "NOT CHECKED: ..." (scripts/ci-inspect-lib.sh)
 # Usage: ci-not-taken.sh ROOT COMPILE_RESULT [FIRST_ERROR]
@@ -17,7 +17,7 @@ else
   line="NOT TAKEN: the Compile job did not finish (result: $result)"
 fi
 [ -n "$first" ] || first="(no error line was passed on; see the compile-check-results artifact, errors.txt)"
-for a in screenshots screenshots-library accessibility-screenshots; do
+for a in screenshots screenshots-library screenshots-more accessibility-screenshots; do
   mkdir -p "$root/$a"
   {
     echo "$line"
@@ -33,7 +33,7 @@ vp_inspect_not_checked "$root/device-build-results" "$reason" "$first" > /dev/nu
   echo
   echo "first error: \`$first\`"
   echo
-  echo "Screenshots (parts 1 and 2), accessibility screenshots and the device build were not run (needs: compile)."
+  echo "Screenshots (parts 1 to 3), accessibility screenshots and the device build were not run (needs: compile)."
 } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
 echo "$line"
 echo "first error: $first"

@@ -75,14 +75,14 @@ extension ScreenChecksTests {
     func testEverySimulatorJobUploadsTheAppsCrashReports() throws {
         guard let workflow = try appSource(".github/workflows/compile-check.yml") else { return }
         let steps: Int = workflow.components(separatedBy: "run: bash scripts/ci-crash-reports.sh \"$GITHUB_WORKSPACE/build/ci\"").count - 1
-        XCTAssertEqual(steps, 4, "not every simulator job (package tests, screenshots, screenshots-library, accessibility) copies the crash reports")
-        XCTAssertEqual(workflow.components(separatedBy: "            build/ci/crash-reports/\n").count - 1, 4, "not every log artifact holds the crash reports")
+        XCTAssertEqual(steps, 5, "not every simulator job (package tests, screenshots, screenshots-library, screenshots-more, accessibility) copies the crash reports")
+        XCTAssertEqual(workflow.components(separatedBy: "            build/ci/crash-reports/\n").count - 1, 5, "not every log artifact holds the crash reports")
     }
 
     /// R423: each simulator job also uploads its crash reports as a small artifact of their own, only when there is one.
     func testEverySimulatorJobUploadsItsCrashReportsAlone() throws {
         guard let workflow = try appSource(".github/workflows/compile-check.yml") else { return }
-        for job in ["simulator-tests", "screenshots", "screenshots-library", "accessibility-screenshots"] {
+        for job in ["simulator-tests", "screenshots", "screenshots-library", "screenshots-more", "accessibility-screenshots"] {
             let step: String = "      - name: Upload the app's crash reports\n        if: always()\n        uses: actions/upload-artifact@v7\n        with:\n          name: crash-reports-\(job)\n          path: build/ci/crash-reports/\n          if-no-files-found: ignore\n"
             XCTAssertTrue(workflow.contains(step), "no crash-reports-\(job) artifact")
         }
