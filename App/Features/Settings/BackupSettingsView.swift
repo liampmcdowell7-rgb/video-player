@@ -34,6 +34,10 @@ struct BackupSettingsView: View {
                 if backup.settings.artwork {
                     SettingToggle("Only Artwork for Items in Your Library", isOn: $backup.settings.artworkLibraryOnly)
                 }
+                // R449: the pictures the user chose have their own switch; their text edits are user data like the next row.
+                SettingToggle("Edits and Artwork", isOn: $backup.settings.edits)
+                ValueRow("Edits and Artwork in iCloud", value: BackupStatusText.size(backup.usage[.userArtwork] ?? 0))
+                ValueRow("Playback Data", value: "iCloud Sync")
                 ValueRow("Settings and Watch State", value: "iCloud Sync")
                 LearnMoreLink(title: BackupStatusText.learnMoreTitle, text: BackupStatusText.learnMore)
             } header: {
@@ -49,7 +53,7 @@ struct BackupSettingsView: View {
                 // stays a row (not changed: rule "do not extend any fix to a screen not named").
                 TaskButtonRow {
                     TaskButton("Back Up Now", prominent: true) { backup.backUpNow() }
-                        .disabled(backup.isWorking || backup.unavailableReason != nil || !(backup.settings.library || backup.settings.artwork))
+                        .disabled(backup.isWorking || backup.unavailableReason != nil || !(backup.settings.library || backup.settings.artwork || backup.settings.edits))
                 }
                 Button("Restore from iCloud", role: .destructive) { confirmRestore = true }
                     .disabled(backup.isWorking || backup.unavailableReason != nil)

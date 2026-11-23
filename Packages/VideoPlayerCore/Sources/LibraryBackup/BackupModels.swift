@@ -11,6 +11,10 @@ public enum BackupSet: String, Codable, CaseIterable, Sendable {
     case library
     /// Pictures read from the sources (posters, backdrops, stills, logos) in the artwork cache.
     case artwork
+    /// R449: pictures the USER chose for titles (a picture beside the file, from a typed web address, an iPhone), content
+    /// addressed in Application Support, never in Caches. The edits themselves (text fields, the choice of an online
+    /// picture) are user-data records and travel with sync and export (`UDEdit`); this set carries the picture FILES.
+    case userArtwork
 }
 
 /// The format of a manifest. A manifest with a larger number was written by a newer app and is never restored.
@@ -29,15 +33,37 @@ public struct BackupSettings: Codable, Equatable, Sendable {
     public var artworkLibraryOnly: Bool
     /// Watch state and settings: synced by the existing iCloud sync; this switch is shown on the same screen.
     public var userData: Bool
+    /// R449 "Edits and artwork": the picture files of the user layer (`BackupSet.userArtwork`). The edits' text and choices
+    /// are user-data records, which follow `userData`.
+    public var edits: Bool
 
-    public init(library: Bool = true, artwork: Bool = true, artworkLibraryOnly: Bool = false, userData: Bool = true) {
+    public init(library: Bool = true, artwork: Bool = true, artworkLibraryOnly: Bool = false, userData: Bool = true, edits: Bool = true) {
         self.library = library
         self.artwork = artwork
         self.artworkLibraryOnly = artworkLibraryOnly
         self.userData = userData
+        self.edits = edits
     }
 
-    public func includes(_ set: BackupSet) -> Bool { set == .library ? library : artwork }
+    // Older stored settings have no "edits" key; they decode as on.
+    private enum CodingKeys: String, CodingKey { case library, artwork, artworkLibraryOnly, userData, edits }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        library = try c.decodeIfPresent(Bool.self, forKey: .library) ?? true
+        artwork = try c.decodeIfPresent(Bool.self, forKey: .artwork) ?? true
+        artworkLibraryOnly = try c.decodeIfPresent(Bool.self, forKey: .artworkLibraryOnly) ?? false
+        userData = try c.decodeIfPresent(Bool.self, forKey: .userData) ?? true
+        edits = try c.decodeIfPresent(Bool.self, forKey: .edits) ?? true
+    }
+
+    public func includes(_ set: BackupSet) -> Bool {
+        switch set {
+        case .library: return library
+        case .artwork: return artwork
+        case .userArtwork: return edits
+        }
+    }
 }
 
 /// One file of a set as it is stored: its name inside the set, size, modification time and its chunks in order.

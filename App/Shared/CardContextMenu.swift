@@ -1,6 +1,7 @@
 import SwiftUI
 import AppLogic
 import LibraryIndex
+import UserData
 
 /// Long press on a card: Go to Movie / Go to Show, mark watched or unwatched, favourite, Remove from Continue Watching
 /// (#21 F, only while the item is in that row), and Move to Movies / Move to Shows (docs/SORTING.md).
@@ -9,6 +10,8 @@ struct CardContextMenu: ViewModifier {
     let card: ItemCard
     @Environment(AppServices.self) private var services
     @State private var move: SortMoveTarget?
+    @State private var showEdit = false
+    @State private var editKeys: [UDEditKey] = []
 
     func body(content: Content) -> some View {
         content
@@ -33,6 +36,10 @@ struct CardContextMenu: ViewModifier {
                         Task { await services.hideFromContinue(card.id) }
                     }
                 }
+                if card.kind == .movie || card.kind == .episode {
+                    // R449: the same edit screens as the page's More menu.
+                    Button("Edit", systemImage: "pencil") { Task { await openEdit() } }
+                }
                 if card.kind == .movie {
                     Button("Move to Shows", systemImage: "tv") { move = .item(card.id, .episode) }
                 } else if card.kind == .episode {
@@ -40,6 +47,14 @@ struct CardContextMenu: ViewModifier {
                 }
             }
             .taskCover(item: $move) { target in SortMoveSheet(target: target) }
+            .taskCover(isPresented: $showEdit) { if !editKeys.isEmpty { MetadataEditView(title: card.title, keys: editKeys) } }
+    }
+
+    private func openEdit() async {
+        guard let item = try? await services.store.item(id: card.id) else { return }
+        let files = (try? await services.store.versions(of: card.id)) ?? []
+        editKeys = EditTarget.keys(for: item, files: files)
+        showEdit = !editKeys.isEmpty
     }
 }
 

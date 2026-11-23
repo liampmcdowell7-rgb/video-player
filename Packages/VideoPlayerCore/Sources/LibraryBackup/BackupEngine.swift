@@ -34,7 +34,7 @@ public actor BackupEngine {
     public init(cloud: any BackupCloud, codec: any BackupCodec = IdentityCodec(), extraCodecs: [any BackupCodec] = [],
                 content: any BackupContent, staging: URL, clock: @escaping @Sendable () -> Date = { Date() },
                 forbidden: @escaping @Sendable () -> [String],
-                maxFileBytes: [BackupSet: Int] = [.artwork: 20_000_000],
+                maxFileBytes: [BackupSet: Int] = [.artwork: 20_000_000, .userArtwork: 20_000_000],
                 sleep: @escaping @Sendable (Double) async throws -> Void = { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) },
                 onStatus: @escaping @Sendable (BackupStatus) -> Void = { _ in }) {
         self.sleep = sleep
@@ -186,7 +186,7 @@ public actor BackupEngine {
                     done += 1
                     onStatus(.backingUp(BackupProgress(set: set, done: done, total: totalChunks)))
                 }
-            } catch BackupError.cloud(.quotaExceeded) where set == .artwork {
+            } catch BackupError.cloud(.quotaExceeded) where set != .library {
                 // Artwork degrades: this file and every larger one is left out and reported; the backup still finishes
                 // with what fits. The library set is all-or-nothing.
                 iCloudFull = true

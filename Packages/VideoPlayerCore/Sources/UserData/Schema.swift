@@ -50,6 +50,10 @@ public enum UDSchema {
         learnedSkip: UDRecordSchema(type: learnedSkip, atomicGroups: [["start", "end"]], maxFields: ["samples"]),
         source: UDRecordSchema(type: source, atomicGroups: [["host", "port", "path", "username", "auth", "options", "trustedFingerprint"]]),
         settings: UDRecordSchema(type: settings),
+        // R449: the chosen audio and subtitle of one item move together (never a language of one edit with the off flag of another).
+        UDTrackChoiceRecord.type: UDRecordSchema(type: UDTrackChoiceRecord.type, atomicGroups: [["audio", "subtitle", "subtitlesOff"]]),
+        // R449: metadata edits merge field by field (the default rule): the newest edit of each field wins.
+        UDEdit.type: UDRecordSchema(type: UDEdit.type),
     ]
 
     /// A type this version does not know (written by a newer app) merges field by field and is kept as it is.

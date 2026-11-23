@@ -2392,6 +2392,30 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(titles.passed, "\(name): " + titles.verdict)
     }
 
+    /// R449: the edit screens of a movie page, one picture per screen, at the default and the Larger Text size
+    /// ("80-edit-hub", "80-edit-general", "80-edit-artwork", "80-edit-cast-and-crew", "80-edit-tags", each also with
+    /// "-larger-text"). The hub opens from the More menu's Edit item; each group opens from the hub.
+    func test17_EditScreens() {
+        for suffix in ["", "-larger-text"] {
+            let app = launch("-UITestFixtures", open: "Sample Movie 1", extra: suffix.isEmpty ? [] : ["-UITestTextSize", "accessibility3"])
+            guard waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 1", in: app) else {
+                notReached("80-edit-hub" + suffix, "The movie page did not open."); app.terminate(); continue
+            }
+            for _ in 0..<6 { XCUIRemote.shared.press(.up) }; sleep(1)
+            rememberPage(app)
+            guard open("More", id: ControlID.more, in: app, name: "80-edit-hub" + suffix), waitForAny(["Edit"], in: app) != nil,
+                  open("Edit", id: ControlID.editMetadata, in: app, name: "80-edit-hub" + suffix) else {
+                hierarchy("80-edit-hub" + suffix, of: app); notReached("80-edit-hub" + suffix, "Edit was not in the More menu."); app.terminate(); continue
+            }
+            settle(); shot("80-edit-hub" + suffix); checkCover("80-edit-hub" + suffix, in: app)
+            for (label, name) in [("General", "80-edit-general"), ("Artwork", "80-edit-artwork"), ("Cast and Crew", "80-edit-cast-and-crew"), ("Tags", "80-edit-tags")] {
+                if open(label, in: app, name: name + suffix) { settle(); shot(name + suffix); back() }
+                else { notReached(name + suffix, "\(label) did not open from the edit screen.") }
+            }
+            app.terminate()
+        }
+    }
+
     /// One toolbar and its menus: "<prefix><suffix>", then "<prefix>-sort-filter-menu<suffix>" (R344), "-sort-submenu",
     /// "-filter-submenu" (the Resolution group open) and "-saved-views-menu" (with no saved view: what the Save View button opens).
     func toolbarShots(tab: String, prefix: String, suffix: String, extra: [String]) {

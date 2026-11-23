@@ -156,3 +156,10 @@ ledger already in place.
   NOT COMPILED for tvOS yet (next CI run) and never run on a device: nothing in this commit is claimed to work.
   Known limits: the launch scan (Settings > Library, scan on launch) still runs after a restore, as an incremental scan;
   a slow or offline iCloud delays the start-up sync until the account check or the first request fails (device item B11/B16).
+
+## Edits and artwork (R449 to R451)
+
+The user layer of metadata edits is not in the library backup: its text and choices are user-data records (type `edit`,
+synced and exported with watch state), and the picture files the user chose are the third set, `userArtwork` (folder
+`UserArtwork` in Application Support, files named by the SHA-256 of their content, 20 MB per file, own switch "Edits and
+Artwork", quota errors leave a file out and report it like the artwork set). A manifest of a newer format is never restored.

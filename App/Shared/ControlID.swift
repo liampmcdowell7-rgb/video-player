@@ -19,6 +19,8 @@ enum ControlID {
     static let moreControls = "control.moreControls"
     /// R443: the marker of a text that fell to the scrolling marquee (it did not fit at the readable floor), so a UI test can count cut titles.
     static let textMarquee = "text.marquee"
+    /// R449: the Edit item of the detail page's More menu.
+    static let editMetadata = "control.editMetadata"
     static let play = "control.play"
     static let startOver = "control.startOver"
     static let extras = "control.extras"

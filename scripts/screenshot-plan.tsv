@@ -202,3 +202,13 @@ test16b_LibraryGridScroll	07-shows-grid-scroll-2
 test16b_LibraryGridScroll	07-shows-grid-scroll-3
 test16b_LibraryGridScroll	07-shows-grid-scroll-4
 test16b_LibraryGridScroll	07-shows-grid-scroll-more-menu
+test17_EditScreens	80-edit-hub
+test17_EditScreens	80-edit-general
+test17_EditScreens	80-edit-artwork
+test17_EditScreens	80-edit-cast-and-crew
+test17_EditScreens	80-edit-tags
+test17_EditScreens	80-edit-hub-larger-text
+test17_EditScreens	80-edit-general-larger-text
+test17_EditScreens	80-edit-artwork-larger-text
+test17_EditScreens	80-edit-cast-and-crew-larger-text
+test17_EditScreens	80-edit-tags-larger-text

@@ -6,7 +6,7 @@ import UserData
 /// In-memory content and restore target: a dictionary of files per set.
 final class MemoryFiles: BackupContent, BackupRestoreTarget, @unchecked Sendable {
     let lock = NSLock()
-    var sets: [BackupSet: [String: (data: Data, modified: Date)]] = [.library: [:], .artwork: [:]]
+    var sets: [BackupSet: [String: (data: Data, modified: Date)]] = [.library: [:], .artwork: [:], .userArtwork: [:]]
     var schema = 2
     var supportedLibrarySchema = 2
     var notInLibrary: Set<String> = []
@@ -16,7 +16,7 @@ final class MemoryFiles: BackupContent, BackupRestoreTarget, @unchecked Sendable
         lock.withLock { sets[set]![name] = (data, modified) }
     }
     func get(_ set: BackupSet, _ name: String) -> Data? { lock.withLock { sets[set]![name]?.data } }
-    func clear() { lock.withLock { sets = [.library: [:], .artwork: [:]] } }
+    func clear() { lock.withLock { sets = [.library: [:], .artwork: [:], .userArtwork: [:]] } }
 
     func files(for set: BackupSet, settings: BackupSettings) async throws -> (files: [BackupFile], skipped: [BackupSkip]) {
         let entries = lock.withLock { sets[set]! }

@@ -62,7 +62,7 @@ extension ScreenChecksTests {
         let jobs: [(String, [String])] = [
             ("  screenshots:\n", ["test01_FirstLaunchAndEmptyScreens", "test02_AddASource", "test03_Settings", "test10_SortingScreens"]),
             ("  screenshots-library:\n", ["test12_PlayerWithSampleClip", "test13_MovieSynopsisAndCast", "test15_ShowPageResponsive", "test04_LibraryScreens", "test16_LibraryToolbars", "test16b_LibraryGridScroll"]),
-            ("  screenshots-more:\n", ["test05_FilesSearchDiscover", "test14_ShowsToolbarAndCardMenu", "test10b_SortingScreensLargerText", "test12b_PlayerAudioMenu", "test12c_PlayerSubtitlesMenu"])]
+            ("  screenshots-more:\n", ["test05_FilesSearchDiscover", "test14_ShowsToolbarAndCardMenu", "test10b_SortingScreensLargerText", "test12b_PlayerAudioMenu", "test12c_PlayerSubtitlesMenu", "test17_EditScreens"])]
         var seen: [String] = []
         for (header, expected) in jobs {
             let from: String.Index = try XCTUnwrap(workflow.range(of: header)?.upperBound, header)

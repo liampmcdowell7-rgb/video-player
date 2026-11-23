@@ -14,17 +14,20 @@ public struct LibraryBackupFiles: BackupContent, BackupRestoreTarget {
     /// Single files: name inside the set -> location (for example "matches.json" in Application Support).
     public let libraryFiles: [String: URL]
     public let artwork: FolderBackupStore?
+    /// R449: the user's own pictures (Application Support), the `userArtwork` set.
+    public let userArtwork: FolderBackupStore?
     /// For "Only artwork for items in your library": the names (in the set) of the pictures that belong to an item or a
     /// series of the library, read once per backup. nil = cannot tell, so every picture is kept.
     public let artworkNamesInLibrary: @Sendable () async -> Set<String>?
 
     public init(store: SQLiteLibraryStore, workDir: URL, libraryFolders: [FolderBackupStore], libraryFiles: [String: URL],
-                artwork: FolderBackupStore?, artworkNamesInLibrary: @escaping @Sendable () async -> Set<String>? = { nil }) {
+                artwork: FolderBackupStore?, userArtwork: FolderBackupStore? = nil, artworkNamesInLibrary: @escaping @Sendable () async -> Set<String>? = { nil }) {
         self.store = store
         self.workDir = workDir
         self.libraryFolders = libraryFolders
         self.libraryFiles = libraryFiles
         self.artwork = artwork
+        self.userArtwork = userArtwork
         self.artworkNamesInLibrary = artworkNamesInLibrary
     }
 
@@ -60,6 +63,8 @@ public struct LibraryBackupFiles: BackupContent, BackupRestoreTarget {
                 }
             }
             return (keep, skipped)
+        case .userArtwork:
+            return (userArtwork?.files() ?? [], [])
         }
     }
 
@@ -114,6 +119,7 @@ public struct LibraryBackupFiles: BackupContent, BackupRestoreTarget {
         switch set {
         case .library: return libraryFolders.first { name.hasPrefix($0.prefix + "/") }
         case .artwork: return artwork.flatMap { name.hasPrefix($0.prefix + "/") ? $0 : nil }
+        case .userArtwork: return userArtwork.flatMap { name.hasPrefix($0.prefix + "/") ? $0 : nil }
         }
     }
 }

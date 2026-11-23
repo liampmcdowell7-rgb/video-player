@@ -4,7 +4,8 @@ import Foundation
 // "Local sidecar data wins over online data"). A value counts as missing when it is nil, blank, or an empty list.
 
 public enum FieldSource: String, Codable, Hashable, Sendable {
-    case sidecar, tmdb, embedded
+    /// R449: the user's own edit (UserData record "edit"); beats every other layer.
+    case user, sidecar, tmdb, embedded
 }
 
 public enum MetadataField: String, Codable, Hashable, Sendable, CaseIterable {
@@ -61,8 +62,9 @@ public struct MergedMetadata: Hashable, Sendable {
 }
 
 public enum MetadataMerger {
-    public static func merge(sidecar: LocalMetadataInput? = nil, tmdb: MetadataFields? = nil, embedded: EmbeddedMetadataInput? = nil) -> MergedMetadata {
+    public static func merge(user: MetadataFields? = nil, sidecar: LocalMetadataInput? = nil, tmdb: MetadataFields? = nil, embedded: EmbeddedMetadataInput? = nil) -> MergedMetadata {
         var layers: [(FieldSource, MetadataFields)] = []
+        if let user { layers.append((.user, user)) }
         if let sidecar { layers.append((.sidecar, sidecar)) }
         if let tmdb { layers.append((.tmdb, tmdb)) }
         if let embedded { layers.append((.embedded, embedded)) }

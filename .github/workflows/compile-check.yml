@@ -922,6 +922,7 @@ jobs:
             test10b_SortingScreensLargerText \
             test12b_PlayerAudioMenu \
             test12c_PlayerSubtitlesMenu
+            test17_EditScreens
 
       # Runs whatever happened above: copies any picture a cut-off test step left and writes index.md again (never fails).
       - name: Collect the pictures any cut-off test left (loose PNG files)
@@ -935,6 +936,7 @@ jobs:
             test10b_SortingScreensLargerText \
             test12b_PlayerAudioMenu \
             test12c_PlayerSubtitlesMenu
+            test17_EditScreens
 
       - name: Summarise errors (file, line, message)
         if: always()

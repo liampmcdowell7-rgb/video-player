@@ -64,6 +64,7 @@ final class BackupHost {
             libraryFolders: [FolderBackupStore(root: ArtworkFolders.metadata, prefix: "metadata")],
             libraryFiles: ["matches.json": matchFile],
             artwork: FolderBackupStore(root: ArtworkFolders.sidecars, prefix: "artwork"),
+            userArtwork: UserArtworkFolder.store.folder,
             artworkNamesInLibrary: { [store] in
                 // A cached picture belongs to the library when it is the cached copy of a picture file the index still holds
                 // (same key function as the artwork engine), so old copies and pictures of removed sources are left out.
@@ -107,7 +108,7 @@ final class BackupHost {
     private func runBackup() async {
         let chosen = settings
         // Never while a restore is filling the folders (the backup would record a half-restored set); the next trigger runs it.
-        guard unavailableReason == nil, chosen.library || chosen.artwork, !isAutoRestoring, !isWorking else { return }
+        guard unavailableReason == nil, chosen.library || chosen.artwork || chosen.edits, !isAutoRestoring, !isWorking else { return }
         isWorking = true
         defer { isWorking = false }
         let report = await engine.backUp(settings: chosen)
@@ -149,9 +150,10 @@ final class BackupHost {
         libraryRestore = databaseRestore
         let restored = await databaseRestore.value
         libraryRestore = nil
-        if restored, settings.artwork {
+        if restored, settings.artwork || settings.edits {
             Task(priority: .utility) {
-                await restoreArtwork()
+                if settings.artwork { await restoreArtwork() }
+                if settings.edits { await restoreUserArtwork() }
                 isAutoRestoring = false
             }
         } else {
@@ -170,6 +172,7 @@ final class BackupHost {
             defer { isWorking = false }
             if settings.library, await restoreLibrary(replace: true) { await afterLibrary() }
             if settings.artwork { await restoreArtwork() }
+            if settings.edits { await restoreUserArtwork() }
         }
     }
 
@@ -186,6 +189,19 @@ final class BackupHost {
         }
         status = .idle
         return !((try? await store.isEmptyLibrary()) ?? true)
+    }
+
+    /// R449: the pictures the user chose (Application Support). A missing backup is not a problem; a backup of a newer format
+    /// is left alone and reported like the other sets.
+    private func restoreUserArtwork() async {
+        do {
+            _ = try await engine.restore(.userArtwork, into: files, replaceLibrary: false)
+        } catch BackupError.nothingToRestore {
+            return
+        } catch {
+            status = BackupEngine.status(for: error)
+            lastProblem = BackupStatusText.line(status)
+        }
     }
 
     private func restoreArtwork() async {
@@ -245,7 +261,8 @@ final class BackupHost {
         let d = UserDefaults.standard
         func flag(_ key: String, _ fallback: Bool) -> Bool { d.object(forKey: key) as? Bool ?? fallback }
         return BackupSettings(library: flag("vp.backup.library", true), artwork: flag("vp.backup.artwork", true),
-                              artworkLibraryOnly: flag("vp.backup.artworkLibraryOnly", false), userData: true)
+                              artworkLibraryOnly: flag("vp.backup.artworkLibraryOnly", false), userData: true,
+                              edits: flag("vp.backup.edits", true))
     }
 
     private static func save(_ s: BackupSettings) {
@@ -253,6 +270,7 @@ final class BackupHost {
         d.set(s.library, forKey: "vp.backup.library")
         d.set(s.artwork, forKey: "vp.backup.artwork")
         d.set(s.artworkLibraryOnly, forKey: "vp.backup.artworkLibraryOnly")
+        d.set(s.edits, forKey: "vp.backup.edits")
     }
 }
 

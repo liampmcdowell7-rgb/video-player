@@ -1,5 +1,6 @@
 import SwiftUI
 import AppLogic
+import UserData
 
 /// The loaded detail page (#15 6.2), R350 (owner's device test of build 5, item D; PROVISIONAL) as the TV app's product
 /// page: the artwork full bleed behind everything, clear at the top (`BackdropStyle.hero`); the first screen is the hero
@@ -19,6 +20,8 @@ struct ItemDetailContentView: View {
     var onPlay: (Bool) -> Void
     var onFixMatch: () -> Void
     var onSortInfo: () -> Void = {}
+    /// R449: the edit screens (title, artwork, cast and crew, tags).
+    var onEdit: () -> Void = {}
     @Environment(AppServices.self) private var services
     @State private var details: TitleDetails?
     /// #15 6.2: Play (or Resume) has focus when the page opens, although the synopsis sits above it.
@@ -81,7 +84,12 @@ struct ItemDetailContentView: View {
         .background { BackdropView(artworkKey: content.artworkKey, style: .hero, prefersEpisodeStill: content.kind == .episode) }
         .task(id: "\(content.artworkKey)|\(services.online.keyRevision)") {
             // R387: an episode asks too; only the source's own layer answers for one (Wikidata and TMDB give nothing).
-            let own = await services.online.details(key: content.artworkKey)
+            var own = await services.online.details(key: content.artworkKey)
+            // R449: the user's edits (description, cast, content rating) on top of every layer, read each time the page loads.
+            if let item = try? await services.store.item(id: content.itemID) {
+                let files = (try? await services.store.versions(of: content.itemID)) ?? []
+                own = EditTarget.apply(services.ledger.edits(for: EditTarget.keys(for: item, files: files)), to: own)
+            }
             details = own
             if EpisodePage.needsSeriesRating(kind: content.kind, seriesID: content.seriesID, ownRating: own?.contentRating),
                let seriesID = content.seriesID {
@@ -187,6 +195,8 @@ struct ItemDetailContentView: View {
             Button(content.isFavorite ? "Remove from Favorites" : "Add to Favorites", systemImage: content.isFavorite ? "heart.slash" : "heart") {
                 Task { await model.run { await $0.toggleFavorite() } }
             }
+            Button("Edit", systemImage: "pencil", action: onEdit)
+                .accessibilityIdentifier(ControlID.editMetadata)
             Button("Fix Match", systemImage: "magnifyingglass", action: onFixMatch)
             // docs/SORTING.md: which rule put this title in Movies or Shows, with Move and Sort Automatically.
             Button("How This Was Sorted", systemImage: "arrow.up.arrow.down", action: onSortInfo)
