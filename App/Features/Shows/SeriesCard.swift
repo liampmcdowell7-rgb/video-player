@@ -25,6 +25,7 @@ struct SeriesCard: View {
         .buttonStyle(.borderless)
         .accessibilityLabel(series.title)
         .accessibilityValue(detail.full)
+        .wholeRowOnly() // R443: in a library grid a row is drawn only when whole
     }
 
     private var detail: ShortLine {

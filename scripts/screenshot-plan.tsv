@@ -190,3 +190,15 @@ test16_LibraryToolbars	07-movies-toolbar-sort-filter-menu-larger-text
 test16_LibraryToolbars	07-movies-toolbar-sort-submenu-larger-text
 test16_LibraryToolbars	07-movies-toolbar-filter-submenu-larger-text
 test16_LibraryToolbars	07-movies-toolbar-saved-views-menu-larger-text
+test16b_LibraryGridScroll	07-movies-grid-scroll-0
+test16b_LibraryGridScroll	07-movies-grid-scroll-1
+test16b_LibraryGridScroll	07-movies-grid-scroll-2
+test16b_LibraryGridScroll	07-movies-grid-scroll-3
+test16b_LibraryGridScroll	07-movies-grid-scroll-4
+test16b_LibraryGridScroll	07-movies-grid-scroll-more-menu
+test16b_LibraryGridScroll	07-shows-grid-scroll-0
+test16b_LibraryGridScroll	07-shows-grid-scroll-1
+test16b_LibraryGridScroll	07-shows-grid-scroll-2
+test16b_LibraryGridScroll	07-shows-grid-scroll-3
+test16b_LibraryGridScroll	07-shows-grid-scroll-4
+test16b_LibraryGridScroll	07-shows-grid-scroll-more-menu

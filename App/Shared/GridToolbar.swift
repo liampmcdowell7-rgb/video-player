@@ -48,9 +48,22 @@ extension View {
         // `safeAreaInset(edge:alignment:spacing:content:)` (tvOS 15.0+,
         // https://developer.apple.com/documentation/swiftui/view/safeareainset(edge:alignment:spacing:content:)-4s51l)
         // keeps the row above the scrolling grid. Same controls, same order, same symbols and identifiers.
-        return safeAreaInset(edge: .top) {
-            if shown {
-                HStack {
+        // R443 (owner's device test of 23 Nov 2026, items 1 and 3): the row is the HEADER of the grid, inside its scroll view
+        // (`PosterGridLayout`), not pinned above it. Before (`safeAreaInset`): "the three buttons stay pinned while posters
+        // scroll under and show through them". It scrolls away with the content, as the Apple TV app's header does, and the
+        // `focusSection()` of R413 is kept, so Up from any first-row card reaches the controls. The look: HIG Materials,
+        // "Liquid Glass forms a distinct functional layer for controls and navigation elements"; `glass` button style,
+        // "In tvOS, this button style applies a Liquid Glass effect regardless of whether the button has focus"
+        // (https://developer.apple.com/documentation/swiftui/primitivebuttonstyle/glass); `GlassEffectContainer` "combines
+        // multiple Liquid Glass shapes into a single shape that can morph individual shapes into one another"
+        // (https://developer.apple.com/documentation/swiftui/glasseffectcontainer); all tvOS 26.0+. The focus lift is the
+        // system's (HIG Focus and selection: "Rely on system-provided focus effects"). UNVERIFIED on a device: how a `Menu`
+        // takes `.glass`.
+        let row: AnyView = AnyView(
+            // design-lint:allow R443: the documented GlassEffectContainer for the three toolbar buttons (HIG Materials; recorded in OPEN_QUESTIONS R443)
+            GlassEffectContainer(spacing: 24) {
+                // design-lint:allow HIG Layout, 24 pt between the toolbar buttons (docs/DESIGN_SYSTEM.md section 4)
+                HStack(spacing: 24) {
                     controls
                     saved
                     if hasMore {
@@ -64,10 +77,12 @@ extension View {
                         .accessibilityIdentifier(ControlID.moreControls)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .focusSection()
+                .buttonStyle(.glass)
             }
-        }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .focusSection()
+        )
+        return environment(\.libraryGridHeader, shown ? row : nil)
     }
 }
 
@@ -83,7 +98,7 @@ extension View {
 struct ToolbarSymbol: View {
     let title: String
     let systemImage: String
-    @ScaledMetric(relativeTo: .body) private var side: CGFloat = SymbolSlot.body
+    @ScaledMetric(relativeTo: .title2) private var side: CGFloat = SymbolSlot.toolbar
 
     init(_ title: String, systemImage: String) {
         self.title = title
@@ -95,6 +110,9 @@ struct ToolbarSymbol: View {
             Text(title)
         } icon: {
             Image(systemName: systemImage)
+                // R443 (item 3): larger and heavier for 3 m ("thin low-contrast glyphs"): the title-2 text style in the semibold
+                // weight, a system style that follows Larger Text; the symbol stays inside the one shared square below.
+                .font(.title2.weight(.semibold))
                 .frame(width: side, height: side) // design-lint:allow R391: one text-scaled square for every toolbar symbol, so controls side by side are the same size (the equal-size rule)
         }
         .labelStyle(.iconOnly)

@@ -2336,6 +2336,62 @@ final class ScreenshotTests: XCTestCase {
         }
     }
 
+    /// R443 (owner's device test of 23 Nov 2026, items 1, 2, 4 and 6): Movies and Shows scrolled down a row at a time, a
+    /// picture after each step ("07-<tab>-grid-scroll-N"). After every step: no toolbar button frame meets a poster frame
+    /// (`GridScrollRules.controlsClearOfPosters`), no row is cut by the header area (`noHalfRowUnderHeader`), the row pitch
+    /// is the same between rows (`rowPitch`, written as a note so Movies and Shows can be compared), and no title is shown by
+    /// the marquee (`noTitleCut`). The Jump to Letter item is looked for in the open More menu (item 4).
+    func test16b_LibraryGridScroll() {
+        for tab in ["movies", "shows"] {
+            let prefix: String = "07-\(tab)-grid-scroll"
+            let app = launch("-UITestFixtures", tab: tab)
+            guard waitForScreen("screen.\(tab)", in: app), waitFor("Sample", in: app, timeout: 60) else {
+                notReached(prefix + "-0", "No sample title appeared on the \(tab) screen."); app.terminate(); continue
+            }
+            settle(); shot(prefix + "-0"); checkGridScroll(prefix + "-0", tab: tab, in: app)
+            _ = focusContent(in: app)
+            for step in 1...4 {
+                XCUIRemote.shared.press(.down); sleep(1)
+                shot("\(prefix)-\(step)", endOfScroll: "Down on the \(tab) grid"); checkGridScroll("\(prefix)-\(step)", tab: tab, in: app)
+            }
+            if openToolbarControl("More", id: ControlID.moreControls, in: app, name: prefix + "-more") {
+                sleep(1); shot(prefix + "-more-menu")
+                let labels: [String] = controlLabels(in: app).map { $0.0 }
+                note(prefix + "-more-menu-ITEMS", labels.joined(separator: "\n"))
+                if tab == "movies" { XCTAssertTrue(labels.contains("Jump to Letter"), "\(prefix): Jump to Letter is not in the More menu: \(labels)") }
+                back()
+            }
+            app.terminate()
+        }
+    }
+
+    /// The frames read after one scroll step, checked with `GridScrollRules`; writes "<name>-GRID".
+    func checkGridScroll(_ name: String, tab: String, in app: XCUIApplication) {
+        let controlIDs: [(String, String)] = [("Sort and Filter", ControlID.sortAndFilter), ("Saved Views", ControlID.savedViews), ("More", ControlID.moreControls)]
+        let controls: [(String, AXRect)] = controlIDs.compactMap { (pair: (String, String)) -> (String, AXRect)? in
+            let element: XCUIElement = app.descendants(matching: .any).matching(identifier: pair.1).firstMatch
+            guard element.exists, !element.frame.isEmpty else { return nil }
+            return (pair.0, AXRect(element.frame))
+        }
+        let cardElements: [XCUIElement] = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Sample")).allElementsBoundByIndex
+        var seen: Set<String> = []
+        let cards: [(String, AXRect)] = cardElements.compactMap { (element: XCUIElement) -> (String, AXRect)? in
+            guard element.exists, !element.frame.isEmpty, seen.insert(element.label).inserted else { return nil }
+            return (element.label, AXRect(element.frame))
+        }
+        let headerBottom: Double = controls.map { $0.1.maxY }.max() ?? Double(app.windows.firstMatch.frame.minY)
+        let onPosters: CheckResult = GridScrollRules.controlsClearOfPosters(controls: controls, posters: cards)
+        let halfRow: CheckResult = GridScrollRules.noHalfRowUnderHeader(cards: cards, headerBottom: headerBottom)
+        let pitch = GridScrollRules.rowPitch(cards: cards)
+        let marquees: Int = app.descendants(matching: .any).matching(identifier: ControlID.textMarquee).count
+        let cut: [String] = marquees == 0 ? [] : ["\(marquees) title(s) shown by the marquee"]
+        let titles: CheckResult = GridScrollRules.noTitleCut(cut: cut, total: cards.count)
+        note(name + "-GRID", [onPosters, halfRow, pitch.result, titles].map { $0.text }.joined(separator: "\n"))
+        XCTAssertTrue(onPosters.passed, "\(name): " + onPosters.verdict)
+        XCTAssertTrue(halfRow.passed, "\(name): " + halfRow.verdict)
+        XCTAssertTrue(titles.passed, "\(name): " + titles.verdict)
+    }
+
     /// One toolbar and its menus: "<prefix><suffix>", then "<prefix>-sort-filter-menu<suffix>" (R344), "-sort-submenu",
     /// "-filter-submenu" (the Resolution group open) and "-saved-views-menu" (with no saved view: what the Save View button opens).
     func toolbarShots(tab: String, prefix: String, suffix: String, extra: [String]) {

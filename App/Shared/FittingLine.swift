@@ -150,6 +150,7 @@ struct FittingText: View {
     private func line(tooLong: Bool, readable: Double) -> some View {
         if tooLong {
             MarqueeText(text: text)
+                .accessibilityIdentifier(ControlID.textMarquee) // R443: tests count the titles shown by the marquee (cut at rest)
         } else {
             Text(text)
                 .font(style.font)

@@ -143,7 +143,7 @@ extension ScreenChecksTests {
               let saved = try appSource("App/Features/Movies/SavedViewsMenu.swift") else { return }
         let symbol: String = try body(of: "ToolbarSymbol", in: toolbar)
         XCTAssertTrue(symbol.contains(".frame(width: side, height: side)"), "the toolbar symbol has no one square:\n\(symbol)")
-        XCTAssertTrue(symbol.contains("@ScaledMetric(relativeTo: .body) private var side: CGFloat = SymbolSlot.body"), "the square does not scale with the text size")
+        XCTAssertTrue(symbol.contains("@ScaledMetric(relativeTo: .title2) private var side: CGFloat = SymbolSlot.toolbar"), "the square does not scale with the text size")
         XCTAssertTrue(symbol.contains(".labelStyle(.iconOnly)"), "the toolbar symbol is not the system's icon-only label")
         XCTAssertEqual(toolbar.components(separatedBy: "ToolbarSymbol(\"More\"").count - 1, 1, "More does not draw the shared symbol")
         XCTAssertEqual(sort.components(separatedBy: "ToolbarSymbol(").count - 1, 1, "Sort and Filter does not draw the shared symbol")
@@ -155,8 +155,11 @@ extension ScreenChecksTests {
         }
         // R413: the controls are one full-width focus section on the page (no longer the system toolbar group), so Up from
         // any card of the first row reaches them.
-        XCTAssertTrue(toolbar.contains("safeAreaInset(edge: .top)"), "the controls are not a row above the grid")
-        XCTAssertTrue(toolbar.contains(".frame(maxWidth: .infinity, alignment: .trailing)\n                .focusSection()"), "the controls' row is not one full-width focus section")
+        // R443: the row is the grid's header inside its scroll view (environment `libraryGridHeader`), no longer pinned by
+        // `safeAreaInset`, so posters never scroll under the buttons; it is still one full-width focus section.
+        XCTAssertTrue(toolbar.contains("environment(\\.libraryGridHeader"), "the controls are not the header of the grid")
+        XCTAssertFalse(toolbar.contains("safeAreaInset(edge: .top) {"), "the controls are pinned above the grid again (posters scroll under them)")
+        XCTAssertTrue(toolbar.contains(".frame(maxWidth: .infinity, alignment: .trailing)\n            .focusSection()"), "the controls' row is not one full-width focus section")
         XCTAssertFalse(toolbar.contains("ToolbarItemGroup("), "the controls are back in the system toolbar, which Up from the grid did not reach (run #27)")
     }
 

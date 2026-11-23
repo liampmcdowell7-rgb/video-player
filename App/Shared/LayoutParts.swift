@@ -9,6 +9,8 @@ import AppLogic
 /// are the system `Label`) and the watched mark has no slot (`SymbolColumn` is gone).
 enum SymbolSlot {
     static let body: CGFloat = 44
+    /// R443: the square of a library toolbar control (Sort and Filter, Save View, More), sized for the title-2 semibold symbol.
+    static let toolbar: CGFloat = 64
 }
 
 /// The symbol and title of a list row: the SYSTEM `Label`, so the gap between the symbol and the title and the width kept

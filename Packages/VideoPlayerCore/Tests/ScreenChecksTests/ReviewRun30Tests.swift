@@ -61,7 +61,7 @@ extension ScreenChecksTests {
               let tests = try appSource("UITests/ScreenshotTests.swift") else { return }
         let jobs: [(String, [String])] = [
             ("  screenshots:\n", ["test01_FirstLaunchAndEmptyScreens", "test02_AddASource", "test03_Settings", "test10_SortingScreens"]),
-            ("  screenshots-library:\n", ["test12_PlayerWithSampleClip", "test13_MovieSynopsisAndCast", "test15_ShowPageResponsive", "test04_LibraryScreens", "test16_LibraryToolbars"]),
+            ("  screenshots-library:\n", ["test12_PlayerWithSampleClip", "test13_MovieSynopsisAndCast", "test15_ShowPageResponsive", "test04_LibraryScreens", "test16_LibraryToolbars", "test16b_LibraryGridScroll"]),
             ("  screenshots-more:\n", ["test05_FilesSearchDiscover", "test14_ShowsToolbarAndCardMenu", "test10b_SortingScreensLargerText", "test12b_PlayerAudioMenu", "test12c_PlayerSubtitlesMenu"])]
         var seen: [String] = []
         for (header, expected) in jobs {

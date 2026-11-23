@@ -81,6 +81,7 @@ struct PosterCard: View {
                 .accessibilityLabel(card.title)
                 .accessibilityValue(card.subtitle ?? "")
                 .cardContextMenu(card)
+                .wholeRowOnly() // R443: in a library grid a row is drawn only when whole
             }
         }
     }

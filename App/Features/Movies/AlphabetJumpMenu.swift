@@ -15,16 +15,18 @@ struct AlphabetJumpMenu: View {
     let onPick: (String) -> Void
 
     var body: some View {
-        Menu {
+        // R443 (owner's device test of 23 Nov 2026, "Jump to Letter" at about 27 to 30 s): it showed a faint half-transparent pill
+        // with tiny text. Cause in the code: the label was our `ActionLabel` (a `FittingText` that measures its own width
+        // inside `frame(maxHeight: .infinity)`), which in a menu row has no width to measure, so the text shrank to its
+        // floor. Now the system's own menu row, `Menu(_:systemImage:content:)`, like Needs Review next to it. A submenu of a menu
+        // is placed by the system (SwiftUI has no anchor or placement parameter for it), so where it opens is the system's;
+        // the nearest alternative is a flat section in More (OPEN_QUESTIONS R443 (d)).
+        Menu("Jump to Letter", systemImage: "textformat.abc") {
             ForEach(letters) { entry in
-                Button {
+                Button("\(entry.letter) (\(entry.count))") {
                     onPick(entry.letter)
-                } label: {
-                    Text("\(entry.letter) (\(entry.count))")
                 }
             }
-        } label: {
-            ActionLabel("Jump to Letter", systemImage: "textformat.abc")
         }
         .accessibilityLabel("Jump to Letter")
         .accessibilityIdentifier(ControlID.jumpToLetter)
