@@ -78,4 +78,16 @@ extension ScreenChecksTests {
         XCTAssertEqual(steps, 4, "not every simulator job (package tests, screenshots, screenshots-library, accessibility) copies the crash reports")
         XCTAssertEqual(workflow.components(separatedBy: "            build/ci/crash-reports/\n").count - 1, 4, "not every log artifact holds the crash reports")
     }
+
+    /// R423: each simulator job also uploads its crash reports as a small artifact of their own, only when there is one.
+    func testEverySimulatorJobUploadsItsCrashReportsAlone() throws {
+        guard let workflow = try appSource(".github/workflows/compile-check.yml") else { return }
+        for job in ["simulator-tests", "screenshots", "screenshots-library", "accessibility-screenshots"] {
+            let step: String = "      - name: Upload the app's crash reports\n        if: always()\n        uses: actions/upload-artifact@v7\n        with:\n          name: crash-reports-\(job)\n          path: build/ci/crash-reports/\n          if-no-files-found: ignore\n"
+            XCTAssertTrue(workflow.contains(step), "no crash-reports-\(job) artifact")
+        }
+        guard let copy = try appSource("scripts/ci-crash-reports.sh") else { return }
+        XCTAssertTrue(copy.contains("ci-crash-summary.py"), "the copy step does not write the summary")
+        XCTAssertTrue(copy.contains("cat \"$summary\" >> \"$GITHUB_STEP_SUMMARY\""), "the summary does not reach the job summary")
+    }
 }

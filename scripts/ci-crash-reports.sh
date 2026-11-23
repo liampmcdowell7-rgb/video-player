@@ -42,4 +42,25 @@ else
   echo "$found crash report(s) of the app copied to crash-reports/" >> "$list"
 fi
 cat "$list"
+
+# R423: a readable summary of each report (scripts/ci-crash-summary.py), in OUT_DIR/crash-summary.md and, on GitHub, in
+# the job summary ($GITHUB_STEP_SUMMARY), so a crash can be read without downloading the 1 GB log artifact. Without
+# python3, the first 60 lines of each report.
+summary="$out/crash-summary.md"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if command -v python3 >/dev/null 2>&1; then
+  python3 -I "$here/ci-crash-summary.py" "$out/crash-reports" > "$summary" 2>/dev/null || : > "$summary"
+fi
+if [ ! -s "$summary" ]; then
+  {
+    echo "## Crash reports of the app (R416, R423)"; echo
+    if [ "$found" -eq 0 ]; then echo "No crash report of the app"; fi
+    for f in "$out"/crash-reports/*; do
+      [ -f "$f" ] || continue
+      echo "### $(basename "$f")"; echo; echo "- not summarised (no python3); the first 60 lines of the file:"; echo
+      echo '```text'; head -n 60 "$f" | sed 's/```/'"'''"'/g'; echo '```'; echo
+    done
+  } > "$summary"
+fi
+if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then cat "$summary" >> "$GITHUB_STEP_SUMMARY"; fi
 exit 0
