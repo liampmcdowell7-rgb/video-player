@@ -20,6 +20,7 @@ struct SettingsView: View {
             }
             Section {
                 link("Playback", "play.rectangle") { PlaybackSettingsView() }
+                link("Audio", "speaker.wave.2") { AudioSettingsView() }
                 link("Language", "character.bubble") { LanguageSettingsView() }
             }
             Section {

@@ -72,6 +72,8 @@ public struct ItemDetailContent: Equatable, Sendable {
     public var runtimeText: String? = nil
     /// R453: the library's year (movies), shown alone only when no full date is known.
     public var year: Int? = nil
+    /// R458: the person picked a version on this page (Select Version); with Play Version set to Ask, the Play button asks otherwise.
+    public var hasExplicitVersion: Bool = false
 }
 
 public struct ItemDetailViewModel: Sendable {
@@ -84,6 +86,8 @@ public struct ItemDetailViewModel: Sendable {
     private var preferredFile: StoredFile?
     private var preferredSidecars: [StoredFile] = []
     private var preferredSourceName: String?
+    /// R458: Settings > Playback > Play Version, set by the screen before `load()`.
+    public var playVersion: PlayVersion = .auto
 
     public init(store: any LibraryStore, itemID: Int64, trackReader: (@Sendable (StoredFile) async -> FileTrackDetails?)? = nil) {
         self.store = store; self.itemID = itemID; self.trackReader = trackReader
@@ -97,7 +101,7 @@ public struct ItemDetailViewModel: Sendable {
                 return
             }
             let files = try await store.versions(of: itemID)
-            let preferred = item.preferredFileID ?? files.first?.id
+            let preferred = (PlayVersion.pick(files, explicit: item.preferredFileID, mode: playVersion) ?? files.first)?.id
             var sidecars: [StoredFile] = []
             if let preferred { sidecars = try await store.sidecars(for: preferred) }
             let sources = (try? await store.sources()) ?? []
@@ -108,7 +112,7 @@ public struct ItemDetailViewModel: Sendable {
             // What an earlier visit read from the header (dropped when the file's size changed).
             var cached: FileTrackDetails?
             if let preferred { cached = (try? await store.trackDetails(fileID: preferred)) ?? nil }
-            state = .loaded(Self.content(item, files: files, sidecars: sidecars, sourceNames: sourceNames, tracks: cached))
+            state = .loaded(Self.content(item, files: files, sidecars: sidecars, sourceNames: sourceNames, tracks: cached, playVersion: playVersion))
         } catch {
             state = .failed(ErrorState.from(error, doing: "load this title"))
         }
@@ -141,7 +145,7 @@ public struct ItemDetailViewModel: Sendable {
     }
 
     static func content(_ item: LibraryItem, files: [StoredFile], sidecars: [StoredFile], sourceNames: [String: String] = [:],
-                        tracks: FileTrackDetails? = nil) -> ItemDetailContent {
+                        tracks: FileTrackDetails? = nil, playVersion: PlayVersion = .auto) -> ItemDetailContent {
         let card = CardBuilder.card(item)
         var facts: [String] = []
         // R387: an episode's code is no longer the first fact; the page draws it as its own line above the title.
@@ -152,7 +156,7 @@ public struct ItemDetailViewModel: Sendable {
         let progress = CardBuilder.progressFraction(item)
         let started = progress != nil
         let playTitle = started ? "Resume" : (item.watch.watched ? "Play Again" : "Play")
-        let preferred = item.preferredFileID ?? files.first?.id
+        let preferred = (PlayVersion.pick(files, explicit: item.preferredFileID, mode: playVersion) ?? files.first)?.id
         let versions = files.map { f -> VersionRow in
             var parts: [String] = []
             if let t = f.technical {
@@ -185,7 +189,8 @@ public struct ItemDetailViewModel: Sendable {
                                  allBadges: badges.all, episodeCode: episodeCode, season: item.kind == .episode ? item.season : nil,
                                  episodeTitle: Self.episodeTitle(item),
                                  runtimeText: (item.runtime ?? item.watch.duration).flatMap { $0 > 0 ? DisplayText.runtime($0) : nil },
-                                 year: item.kind == .movie ? item.year.flatMap { $0 > 0 ? $0 : nil } : nil)
+                                 year: item.kind == .movie ? item.year.flatMap { $0 > 0 ? $0 : nil } : nil,
+                                 hasExplicitVersion: item.preferredFileID != nil)
     }
 
     /// R396 (audit E1): the episode's own name; "Episode 3" when its title is empty, only its code or its show's name;

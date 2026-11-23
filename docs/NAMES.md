@@ -202,6 +202,14 @@ Microsoft
 Ordinary words, standard technical abbreviations and the app's own screen and feature names. These are not third-party names; they are listed only so the lint's shape tests do not report them.
 
 ```names-generic
+# R458: names of settings and ordinary words that open a sentence or a title-cased label
+Only
+After
+Auto
+Video
+Audio
+Reads
+Metadata
 # Standard abbreviations and technical terms
 HTTP
 HTTPS

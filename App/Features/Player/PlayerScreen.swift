@@ -26,6 +26,10 @@ struct PlayerScreen: View {
     @State private var closed = false
     /// R386: the problem behind the alert, whose lines (error domain and code, underlying errors, last event) the alert shows.
     @State private var problem: PlaybackProblem?
+    /// R458: episodes that followed each other on their own, and the one waiting for "Are you still watching?".
+    @State private var run = EpisodeRun()
+    @State private var waitingFor: Int64?
+    @AppStorage(AppPreference.inactivityCheck.rawValue) private var inactivityRaw = InactivityCheck.default.rawValue
 
     private var current: PlayRequest { playing ?? request }
 
@@ -37,6 +41,8 @@ struct PlayerScreen: View {
         case loading
         case ready(ResolvedPlayback)
         case failed(PlaybackFailure)
+        /// R458: the inactivity prompt is up; nothing plays until Select.
+        case asking
     }
 
     var body: some View {
@@ -57,6 +63,10 @@ struct PlayerScreen: View {
                 let lines: String? = problem.map { $0.alertLines().joined(separator: "\n") }
                 Text([start.tracker.itemLine, failure.text, lines].compactMap { $0 }.joined(separator: "\n\n"))
             }
+            .alert(InactivityCheck.question, isPresented: Binding(get: { waitingFor != nil }, set: { _ in })) {
+                Button("Continue") { continueAfterPrompt() }
+                Button("Done", role: .cancel) { dismiss() }
+            }
             .onDisappear { closed = true }
     }
 
@@ -76,9 +86,17 @@ struct PlayerScreen: View {
                            resolved.remux?.stop()
                            fail(failure, diagnostics: diagnostics)
                        },
-                       onPlayItem: { next in
+                       onPlayItem: { next, byPerson in
                            // R340: this player is taken down (its coordinator stops: position saved, watch sync told),
                            // then the next item is resolved and played.
+                           // R458: an episode that followed on its own counts toward Inactivity Check; a pick by hand starts over.
+                           if byPerson { run.personActed() } else { run.episodeFinishedOnItsOwn() }
+                           let check = InactivityCheck(rawValue: inactivityRaw) ?? .off
+                           if !byPerson, check.asks(episodesInARow: run.count) {
+                               waitingFor = next
+                               phase = .asking
+                               return
+                           }
                            playing = PlayRequest(itemID: next, fromStart: false)
                            phase = .loading
                        })
@@ -90,7 +108,19 @@ struct PlayerScreen: View {
         case .failed:
             // The player is gone (its coordinator stopped); the alert above says why.
             Color.clear
+        case .asking:
+            // The alert above asks; the player behind it is already closed.
+            Color.clear
         }
+    }
+
+    /// R458: Select on "Are you still watching?" starts the next episode and the count begins again.
+    private func continueAfterPrompt() {
+        guard let next = waitingFor else { return }
+        waitingFor = nil
+        run.personActed()
+        playing = PlayRequest(itemID: next, fromStart: false)
+        phase = .loading
     }
 
     private var failure: PlaybackFailure? {

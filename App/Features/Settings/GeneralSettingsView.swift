@@ -11,6 +11,10 @@ struct GeneralSettingsView: View {
     @AppStorage(SettingsKey.showRecentlyAdded.rawValue) private var showRecent = true
     @AppStorage(SettingsKey.continueWatchingDays.rawValue) private var days = SettingsKey.defaultContinueWatchingDays
     @AppStorage(SettingsKey.showDiscover.rawValue) private var showDiscover = true
+    @AppStorage(AppPreference.showPosterTitles.rawValue) private var posterTitles = true
+    @AppStorage(AppPreference.watchedIndicators.rawValue) private var indicators = true
+    @AppStorage(AppPreference.showFilenames.rawValue) private var filenames = false
+    @AppStorage(AppPreference.listView.rawValue) private var listView = false
 
     var body: some View {
         SettingsPane(title: "General", summary: "How the library and Home look and behave.") {
@@ -21,6 +25,12 @@ struct GeneralSettingsView: View {
                 SettingToggle("Hide Spoilers", isOn: $hideSpoilers)
             } footer: {
                 Text(SpoilerRules.footer)
+            }
+            Section("Library") {
+                SettingToggle("Show Poster Titles", isOn: $posterTitles)
+                SettingToggle("Watched Indicators", isOn: $indicators)
+                SettingToggle("Show Filenames", isOn: $filenames)
+                SettingToggle("List View", isOn: $listView)
             }
             Section("Home") {
                 SettingToggle("Continue Watching", isOn: $showContinue)

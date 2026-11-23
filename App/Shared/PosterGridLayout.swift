@@ -1,4 +1,5 @@
 import SwiftUI
+import AppLogic
 
 /// R443 (owner's device test of 23 Nov 2026, Movies and Shows): the library controls (Sort and Filter, Save View, More) are
 /// the HEADER of the grid. They used to be pinned above the scroll view (`safeAreaInset`), so posters scrolled under them
@@ -15,7 +16,18 @@ private struct GridWholeRowsKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+/// R458 (General > List View, PROVISIONAL): the grid draws one row per title (a small poster, the title and its second line)
+/// instead of five posters across. The cards read it and draw their row form.
+private struct ListRowsKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 extension EnvironmentValues {
+    var listRows: Bool {
+        get { self[ListRowsKey.self] }
+        set { self[ListRowsKey.self] = newValue }
+    }
+
     var libraryGridHeader: AnyView? {
         get { self[LibraryGridHeaderKey.self] }
         set { self[LibraryGridHeaderKey.self] = newValue }
@@ -56,6 +68,7 @@ extension View {
 struct PosterGridLayout<Content: View>: View {
     @ViewBuilder var content: Content
     @Environment(\.libraryGridHeader) private var header
+    @AppStorage(AppPreference.listView.rawValue) private var listView = false
 
     // Top-aligned cells (screenshot review item 4): the default centres each card in its row, so posters moved up or down
     // with the amount of text under them.
@@ -68,10 +81,11 @@ struct PosterGridLayout<Content: View>: View {
             VStack(spacing: 100) {
                 if let header { header }
                 // design-lint:allow HIG Layout, grid minimum vertical spacing 100 pt (docs/DESIGN_SYSTEM.md section 4)
-                LazyVGrid(columns: columns, spacing: 100) {
+                LazyVGrid(columns: listView ? [GridItem(.flexible())] : columns, spacing: listView ? 40 : 100) { // design-lint:allow R458: the list's row gap, the layout guidance's 40 pt spacing
                     content
                 }
                 .environment(\.gridWholeRows, true)
+                .environment(\.listRows, listView)
             }
         }
         .scrollClipDisabled()

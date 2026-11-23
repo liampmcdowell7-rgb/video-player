@@ -68,6 +68,8 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     /// R311: the steps of this start and their time limits.
     private let tracker: PlaybackStartTracker
     private var begun = false
+    /// R458: selection changes before this time came from the start defaults, not from the person.
+    private var ignoreSelectionUntil: TimeInterval = 0
     private var failed = false
     private var lastSaved: TimeInterval = 0
     private var lastPosition: TimeInterval = 0
@@ -97,7 +99,8 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     var onFailure: (PlaybackFailure, PlaybackDiagnostics) -> Void = { _, _ in }
     /// R340: play another library item in place of this one (Up Next accepted, or an episode chosen in the Episodes tab).
     /// The screen ends this playback (`stop`, which saves the position and tells the watch sync) and starts the next.
-    var onPlayItem: (Int64) -> Void = { _ in }
+    /// The next item and whether a person chose it (the Episodes tab) rather than it following on its own (R458).
+    var onPlayItem: (Int64, Bool) -> Void = { _, _ in }
 
     init(resolved: ResolvedPlayback, itemID: Int64, services: AppServices, tracker: PlaybackStartTracker) {
         self.resolved = resolved
@@ -346,6 +349,11 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
 
     /// Runs once, when the item is ready to play (R311): the move to the saved position, play, then everything that may wait.
     private func begin() async {
+        // R458: the stored language and subtitle defaults pick the options before the first frame; a show's own choice wins.
+        await StartTrackChoice.apply(to: item, seriesTitle: resolved.content.seriesTitle)
+        ignoreSelectionUntil = ProcessInfo.processInfo.systemUptime + 2
+        // R458: Playback Speed. Apple: `defaultRate` is the rate `play()` starts at (tvOS 16 and later).
+        player.defaultRate = PlaybackSpeed.rate(UserDefaults.standard.string(forKey: AppPreference.playbackSpeed.rawValue))
         let start = resolved.startAt
         if start > 1 {
             tracker.enter(.resumeSeek)
@@ -509,6 +517,10 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     /// The person chose (or the system chose) another subtitle or audio option.
     private func selectionChanged() async {
         guard !stopped else { return }
+        // R458: a choice the person makes in the player is kept for this show (when Remember ... is on).
+        if begun, ProcessInfo.processInfo.systemUptime > ignoreSelectionUntil {
+            await StartTrackChoice.remember(from: item, seriesTitle: resolved.content.seriesTitle)
+        }
         await probe.refreshAudioSelection()
         if stats.isVisible { stats.update(from: probe, player: player) }
         guard pictureModel != nil, let group = try? await item.asset.loadMediaSelectionGroup(for: .legible) else { return }
@@ -609,10 +621,10 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     }
 
     /// R340: hands another item to the screen, once per playback.
-    private func play(_ next: Int64) {
+    private func play(_ next: Int64, byPerson: Bool = false) {
         guard !stopped, !advanced, next != itemID else { return }
         advanced = true
-        onPlayItem(next)
+        onPlayItem(next, byPerson)
     }
 
     // MARK: Skip button and Up Next
@@ -714,7 +726,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         }
         if let episodes {
             tabs.append(PlayerInfoPanels.controller(title: PlayerEpisodes.tabTitle, services: services) {
-                PlayerEpisodesPanel(content: episodes, onPlay: { [weak self] id in self?.play(id) })
+                PlayerEpisodesPanel(content: episodes, onPlay: { [weak self] id in self?.play(id, byPerson: true) })
             })
         }
         if UserDefaults.standard.object(forKey: SettingsKey.showPlaybackStatsButton.rawValue) as? Bool ?? true {

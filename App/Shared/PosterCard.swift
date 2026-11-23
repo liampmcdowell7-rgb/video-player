@@ -26,6 +26,13 @@ struct PosterCard: View {
     let card: ItemCard
     /// R457: Hide Spoilers also covers the Continue Watching and Next Up cards: an episode is unwatched until it is watched (a started one too).
     @AppStorage(AppPreference.hideSpoilers.rawValue) private var hideSpoilers = false
+    /// R458 (General): captions under posters, the watched check and progress, and the file name in place of the title.
+    @AppStorage(AppPreference.showPosterTitles.rawValue) private var showTitles = true
+    @AppStorage(AppPreference.watchedIndicators.rawValue) private var indicators = true
+    @AppStorage(AppPreference.showFilenames.rawValue) private var showFilenames = false
+    @Environment(AppServices.self) private var services
+    @State private var fileName: String?
+    @Environment(\.listRows) private var listRows
     /// #15 4.1: a 16:9 card for Continue Watching (OPEN_QUESTIONS R185); portrait everywhere else.
     var wide = false
 
@@ -56,6 +63,23 @@ struct PosterCard: View {
                 .accessibilityLabel(card.title)
                 .accessibilityValue(card.subtitle ?? "")
                 .cardContextMenu(card)
+            } else if listRows {
+                // R458: List View. One system row: a small poster, the title, the second line.
+                NavigationLink(value: Route.item(card.id)) {
+                    HStack {
+                        artwork
+                            .containerRelativeFrame(.horizontal, count: 12, span: 1, spacing: 0) // design-lint:allow R458: a poster one twelfth of the row, as a list row of the Apple TV app (R312); a ratio of the container, not points
+                        VStack(alignment: .leading) {
+                            FittingText(PosterCaption.text(title: card.title, fileName: fileName, showFilenames: showFilenames), style: .caption)
+                            secondLines
+                        }
+                        Spacer()
+                    }
+                }
+                .accessibilityLabel(card.title)
+                .accessibilityValue(card.subtitle ?? "")
+                .cardContextMenu(card)
+                .task(id: showFilenames) { await loadFileName() }
             } else {
                 // R335 (PROVISIONAL, docs/HIG_AUDIT.md T1, T2): the portrait card is the same lockup as the wide one, as
                 // Apple's sample builds a poster ("Creating a tvOS media catalog app in SwiftUI": `.borderless`, "Provide a
@@ -73,16 +97,19 @@ struct PosterCard: View {
                     // #17 C: the text keeps a side padding, so it never touches the card's edge (Larger Text screenshot
                     // 80: titles ended 2-3 px from it). The system's default padding; FittingLine measures the width
                     // inside it.
-                    VStack(alignment: .leading) {
-                        FittingText(card.title, style: .caption)
-                        secondLines
+                    if showTitles || showFilenames {
+                        VStack(alignment: .leading) {
+                            FittingText(PosterCaption.text(title: card.title, fileName: fileName, showFilenames: showFilenames), style: .caption)
+                            secondLines
+                        }
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel(card.title)
                 .accessibilityValue(card.subtitle ?? "")
                 .cardContextMenu(card)
+                .task(id: showFilenames) { await loadFileName() }
                 .wholeRowOnly() // R443: in a library grid a row is drawn only when whole
             }
         }
@@ -94,12 +121,26 @@ struct PosterCard: View {
         ArtworkView(key: card.artworkKey, symbol: card.kind == .movie ? "film" : "tv", wide: wide)
             .blur(radius: card.kind == .episode && SpoilerRules.hidesStill(watched: card.isWatched, hideSpoilers: hideSpoilers) ? 30 : 0) // design-lint:allow R457: the spoiler blur of an unwatched episode's picture, only while Hide Spoilers is on; not a glass or scrim
             .overlay(alignment: .bottom) {
-                if let progress = card.progress {
+                if indicators, let progress = card.progress {
                     ProgressView(value: progress)
                         .padding()
                         .progressScrim() // R452
                 }
             }
+            .overlay(alignment: .topTrailing) {
+                // R458: Watched Indicators. A finished title carries the system check.
+                if indicators, card.isWatched {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title2)
+                        .padding()
+                        .accessibilityHidden(true)
+                }
+            }
+    }
+
+    private func loadFileName() async {
+        guard showFilenames else { return }
+        fileName = (try? await services.store.versions(of: card.id))?.first?.name
     }
 
     @ViewBuilder private var secondLines: some View {

@@ -7,6 +7,7 @@ import AppLogic
 struct MetadataArtworkSettingsView: View {
     @Environment(AppServices.self) private var services
     @AppStorage(AppPreference.preferLocalArtwork.rawValue) private var preferLocalArtwork = true
+    @AppStorage(AppPreference.preferLocalMetadata.rawValue) private var preferLocalMetadata = true
     @AppStorage(SettingsKey.showTitleLogos.rawValue) private var showTitleLogos = true
     @State private var size: Int64 = 0
     @State private var confirmClear = false
@@ -21,6 +22,11 @@ struct MetadataArtworkSettingsView: View {
                 SettingToggle("Show Title Logos", isOn: $showTitleLogos)
             } footer: {
                 Text(ArtworkPrecedence.footer(preferLocal: preferLocalArtwork))
+            }
+            Section {
+                SettingToggle("Prefer Local Metadata", isOn: $preferLocalMetadata)
+            } footer: {
+                Text(MetadataPrecedence.footer(preferLocal: preferLocalMetadata))
             }
             Section {
                 Button(role: .destructive) { confirmClear = true } label: {

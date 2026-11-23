@@ -1490,6 +1490,10 @@ final class ScreenshotTests: XCTestCase {
                 lastRowCheck(name, in: app)
                 // R346 (item A): the longest Settings pane; Up from its last row must reach its first row first.
                 scrollUpCheck(name, top: pageTop, in: app)
+                // R458: the new Audio page, one level down from Playback.
+                if open("Audio", in: app, name: "46-settings-audio") {
+                    settle(); shot("46-settings-audio"); textContrast("46-settings-audio", in: app); back()
+                }
             }
             if page == "Library" {
                 // R389: the counts below Needs Review hold no control; Down must reach the last one (Files).

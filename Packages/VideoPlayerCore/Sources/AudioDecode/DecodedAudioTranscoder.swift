@@ -22,8 +22,11 @@ public struct DecodedAudioSettings: Sendable, Equatable {
     /// FLAC compression level (0...12). The output is lossless at every level; higher levels cost more CPU for a smaller
     /// stream on the loopback connection. PROVISIONAL default 5 (the library default); docs/AUDIO_PIPELINE.md has the timing.
     public var flacCompression = 5
-    public init(trueHDUseEmbeddedCore: Bool = false, maxSampleRate: Int? = nil, flacCompression: Int = 5) {
+    /// R458: Settings > Audio > Volume Boost, a linear factor on the decoded PCM (1 = unchanged); see `AudioGain`.
+    public var gain: Float = 1
+    public init(trueHDUseEmbeddedCore: Bool = false, maxSampleRate: Int? = nil, flacCompression: Int = 5, gain: Float = 1) {
         self.trueHDUseEmbeddedCore = trueHDUseEmbeddedCore; self.maxSampleRate = maxSampleRate; self.flacCompression = flacCompression
+        self.gain = gain
     }
 }
 
@@ -379,6 +382,9 @@ final class TrackWorker {
         } else {
             resampler = nil
         }
+
+        // R458: Volume Boost.
+        AudioGain.apply(&samples, gain: settings.gain)
 
         // Position.
         var idx = pcmEnd

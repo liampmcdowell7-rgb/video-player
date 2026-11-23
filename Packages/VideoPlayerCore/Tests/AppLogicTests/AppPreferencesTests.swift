@@ -156,7 +156,10 @@ final class AppPreferencesTests: XCTestCase {
         let expected: Set<String> = ["sortOrder", "hideSpoilers", "showContinueWatching", "showNextUp", "showRecentlyAdded", "continueWatchingDays",
             "showDiscover", "scanOnLaunch", "showTitleLogos", "preferLocalArtwork", "onlineRegion", "onlineFreeSources", "metadataLanguage",
             "artworkLanguage", "streamingCache", "autoPlayNextEpisode", "showSkipButtons", "skipIntrosAutomatically", "skipCreditsAutomatically",
-            "showPlaybackStatsButton", "rememberTrackChoicePerShow", "trueHDCompatibilityCore"]
+            "showPlaybackStatsButton", "rememberTrackChoicePerShow", "trueHDCompatibilityCore",
+            // R458 (commit B of R457): Language, Playback, Audio, General and Metadata and Artwork.
+            "audioLanguage", "subtitleLanguage", "subtitleMode", "resumePlayback", "playbackSpeed", "inactivityCheck", "playVersion",
+            "volumeBoost", "showPosterTitles", "watchedIndicators", "showFilenames", "listView", "preferLocalMetadata"]
         XCTAssertEqual(Set(AppPreference.synced), expected)
         XCTAssertEqual(AppPreference.continueWatchingDays.defaultValue, .int(90))
         XCTAssertEqual(AppPreference.onlineRegion.defaultValue, .string("US"))

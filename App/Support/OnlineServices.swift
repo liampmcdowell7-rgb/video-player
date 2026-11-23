@@ -174,6 +174,28 @@ final class OnlineServices {
     /// A picture was chosen or reset: every card, hero and page that draws artwork asks again.
     func artworkChanged() { keyRevision += 1 }
 
+    /// R458: Refresh Metadata. Removes the kept online answers (all, or those of the titles of one source) and builds the
+    /// lookups again; each title asks again when it is next shown. The user layer (edits, chosen pictures, Fix Match) is
+    /// not in this cache and stays.
+    func refreshMetadata(sourceID: String?) async {
+        let cache = JSONFileMetadataCache(directory: ArtworkFolders.metadata)
+        guard let sourceID else {
+            await cache.removeAll()
+            rebuild()
+            return
+        }
+        var filter = ItemFilter()
+        filter.sourceID = sourceID
+        var ids = Set<Int>()
+        var offset = 0
+        while let page = try? await store.page(ItemQuery(filter: filter), limit: 500, offset: offset), !page.isEmpty {
+            page.compactMap(\.tmdbID).forEach { ids.insert($0) }
+            offset += page.count
+        }
+        for prefix in MetadataRefresh.prefixes(tmdbIDs: ids) { await cache.remove(prefix: prefix) }
+        rebuild()
+    }
+
     /// The candidates of one kind. Online pictures only while Online Lookup has its key (R209); the others always.
     func artworkGallery(key: String, kind: ArtworkGalleryKind) async -> ArtworkGallery {
         #if DEBUG

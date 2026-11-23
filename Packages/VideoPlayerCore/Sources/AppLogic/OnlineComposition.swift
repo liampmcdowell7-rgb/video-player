@@ -45,7 +45,9 @@ extension LayeredDetailsService {
             serverSource = SourceDetailsLayer(store: store, server: server, reader: reader)
         }
         let sourceLayer: Layer? = layer(serverSource)
-        return LayeredDetailsService(source: sourceLayer, wikidata: wikidataLayer, tmdb: tmdbLayer)
+        return LayeredDetailsService(source: sourceLayer, wikidata: wikidataLayer, tmdb: tmdbLayer, preferLocal: {
+            UserDefaults.standard.object(forKey: AppPreference.preferLocalMetadata.rawValue) as? Bool ?? true
+        })
     }
 }
 

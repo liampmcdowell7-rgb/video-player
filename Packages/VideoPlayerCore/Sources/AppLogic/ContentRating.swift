@@ -41,8 +41,11 @@ public enum ContentRating {
     }
 
     /// The rating to show from what each layer gave, in `order`; nil when none gave one.
-    public static func pick(_ found: [(DetailsLayer, String?)]) -> (rating: String, layer: DetailsLayer)? {
-        for layer in order {
+    /// R458: with Prefer Local Metadata off, the online layers come first (TMDB, Wikidata) and the source's own comes last.
+    public static let onlineFirstOrder: [DetailsLayer] = [.tmdb, .wikidata, .source]
+
+    public static func pick(_ found: [(DetailsLayer, String?)], preferLocal: Bool = true) -> (rating: String, layer: DetailsLayer)? {
+        for layer in (preferLocal ? order : onlineFirstOrder) {
             for (l, raw) in found where l == layer {
                 if let rating = clean(raw) { return (rating, layer) }
             }

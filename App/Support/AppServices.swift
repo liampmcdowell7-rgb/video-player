@@ -215,6 +215,7 @@ final class AppServices {
             if !pass.saved.isEmpty { await scanSources() }
             isScanning = false
             scanProgress = nil
+            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: LastScan.key)
             libraryRevision += 1
             backup.libraryChanged()
             await writeTopShelf()
@@ -308,6 +309,50 @@ final class AppServices {
         libraryRevision += 1
     }
 
+    // MARK: Library page and source page (R458)
+
+    /// The library's one rule of which titles show (hidden sources; Parental Controls follow in R459).
+    func applyRestrictions() async {
+        await sqlite.setRestrictions(LibraryRestrictions(hiddenSourceIDs: HideSourceOption.hiddenIDs(definitions)))
+    }
+
+    func setSourceHidden(_ hidden: Bool, for definition: UDSourceDefinition) async {
+        try? await definitionSaver.saveDefinition(HideSourceOption.setting(hidden, on: definition))
+        await applyRestrictions()
+        libraryRevision += 1
+        await writeTopShelf()
+    }
+
+    func renameSource(_ text: String, for definition: UDSourceDefinition) async {
+        guard SourceRename.cleaned(text) != nil else { return }
+        try? await definitionSaver.saveDefinition(SourceRename.setting(text, on: definition))
+        libraryRevision += 1
+    }
+
+    /// Reads the first 8 MB of one video file of the source and returns the speed as text. Nothing is written.
+    func speedTest(_ definition: UDSourceDefinition) async -> String {
+        var filter = ItemFilter()
+        filter.sourceID = definition.id
+        guard let items = try? await sqlite.page(ItemQuery(filter: filter), limit: 1, offset: 0), let item = items.first,
+              let files = try? await sqlite.versions(of: item.id), let file = files.first(where: { $0.sourceID == definition.id }),
+              let range = SpeedTest.range(fileSize: file.size),
+              let reader = try? await sourceFactory.byteReader(for: file) else { return "No video file to read" }
+        let started = ProcessInfo.processInfo.systemUptime
+        do {
+            let data = try await reader.read(ByteRange(offset: range.lowerBound, length: range.upperBound - range.lowerBound))
+            let seconds = ProcessInfo.processInfo.systemUptime - started
+            return SpeedTest.text(SpeedTest.megabitsPerSecond(bytes: Int64(data.count), seconds: seconds))
+        } catch {
+            return "The file could not be read"
+        }
+    }
+
+    /// Refresh Metadata for every source (nil) or one. The online answers are fetched again the next time a title is shown.
+    func refreshMetadata(sourceID: String?) async {
+        await online.refreshMetadata(sourceID: sourceID)
+        libraryRevision += 1
+    }
+
     /// A scan already running may have passed the changed file; one more scan then picks the change up.
     private func rescanAfterSortChange() async {
         let wasRunning = isScanning
@@ -325,6 +370,7 @@ final class AppServices {
     /// screen meanwhile. If the restore has not started when the box runs out, it is not started at all (Settings > Restore).
     func launch(scanOnLaunch: Bool) async {
         Task { await refreshCloudStatus() }
+        await applyRestrictions()
         // R457: every completed sync reconciles the settings (own edits first, then the newest values).
         sync.onSynced = { [weak self] in self?.reconcileSettings() }
         let cloud = Task { await startCloudSync() }
@@ -434,6 +480,7 @@ final class AppServices {
         let bootstrap = LibraryBootstrap(ledger: ledger, engine: syncEngine, essentials: essentials, credentials: secrets.local)
         _ = try? await bootstrap.run(health: .ok, ledgerWasLost: false, target: target)
         reconcileSettings()
+        await applyRestrictions()
         libraryRevision += 1
     }
 
@@ -445,7 +492,10 @@ final class AppServices {
         tracker?.enter(.findFile)
         guard let item = try await store.item(id: itemID) else { throw PlaybackError.noFile }
         let files = try await store.versions(of: itemID)
-        guard let file = files.first(where: { $0.id == item.preferredFileID }) ?? files.first else { throw PlaybackError.noFile }
+        // R458: Settings > Playback > Play Version; a version chosen on the page always wins. Ask is asked on the page, so any
+        // other place plays Auto.
+        let versionMode = PlayVersion(rawValue: UserDefaults.standard.string(forKey: PlayVersion.key) ?? "") ?? .auto
+        guard let file = PlayVersion.pick(files, explicit: item.preferredFileID, mode: versionMode) ?? files.first else { throw PlaybackError.noFile }
         // R313: the error's first line names the episode ("Show · S1, E3 · Name"); nil for a film.
         tracker?.itemLine = PlayerEpisodeText.errorLine(for: item)
         let definition = definitions.first(where: { $0.id == file.sourceID })
@@ -504,7 +554,9 @@ final class AppServices {
         let card = CardBuilder.card(item)
         let content = NowPlayingContent(kind: item.kind == .movie ? .movie : .episode, title: card.title, seriesTitle: item.seriesTitle,
                                         season: item.season, episode: item.episode, year: item.year, artworkKey: card.artworkKey)
-        let resume = fromStart || item.watch.watched ? 0 : item.watch.position
+        // R458: Settings > Playback > Resume Playback. Off starts at the beginning; Start Over and a watched title do too.
+        let resumeOn = UserDefaults.standard.object(forKey: ResumeRule.key) as? Bool ?? true
+        let resume = ResumeRule.startPosition(saved: item.watch.position, watched: item.watch.watched, fromStart: fromStart, resume: resumeOn)
         let segments = await segmentService.segments(forItem: itemID)
         // R313: an episode's transport bar (and so its Info tab and Now Playing entry) reads name over "Show · S1, E3".
         let lines = PlayerEpisodeText.lines(for: item, filmTitle: card.title, filmSubtitle: item.seriesTitle)

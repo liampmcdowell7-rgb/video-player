@@ -135,6 +135,10 @@ public enum AppPreference: String, CaseIterable, Sendable {
     // Playback
     case streamingCache, autoPlayNextEpisode, showSkipButtons, skipIntrosAutomatically, skipCreditsAutomatically
     case showPlaybackStatsButton, rememberTrackChoicePerShow, trueHDCompatibilityCore
+    // R458: language defaults, subtitles, resume, speed, inactivity
+    case audioLanguage, subtitleLanguage, subtitleMode, resumePlayback, playbackSpeed, inactivityCheck, playVersion, volumeBoost
+    // R458: General (cards) and Metadata
+    case showPosterTitles, watchedIndicators, showFilenames, listView, preferLocalMetadata
 
     public static let schemaVersion = 1
     public static let schemaKey = "prefs.schema"
@@ -146,7 +150,15 @@ public enum AppPreference: String, CaseIterable, Sendable {
         case .sortOrder: return .string(LibrarySortDefault.default.rawValue)
         case .hideSpoilers: return .bool(false)
         case .streamingCache: return .string(StreamingCache.default.rawValue)
-        case .metadataLanguage, .artworkLanguage: return .string(LanguagePreference.auto)
+        case .metadataLanguage, .artworkLanguage, .audioLanguage, .subtitleLanguage: return .string(LanguagePreference.auto)
+        case .subtitleMode: return .string(SubtitleMode.default.rawValue)
+        case .playbackSpeed: return .string(PlaybackSpeed.normal)
+        case .inactivityCheck: return .string(InactivityCheck.default.rawValue)
+        case .resumePlayback: return .bool(true)
+        case .playVersion: return .string(PlayVersion.default.rawValue)
+        case .volumeBoost: return .string(VolumeBoost.default.rawValue)
+        case .showPosterTitles, .watchedIndicators, .preferLocalMetadata: return .bool(true)
+        case .showFilenames, .listView: return .bool(false)
         case .preferLocalArtwork: return .bool(true)
         case .onlineRegion: return .string(OnlineLookupPrefs.defaultRegion)
         case .onlineFreeSources: return .bool(OnlineLookupPrefs.freeSourcesDefault)

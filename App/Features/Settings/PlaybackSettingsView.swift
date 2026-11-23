@@ -12,6 +12,11 @@ struct PlaybackSettingsView: View {
     @AppStorage(SettingsKey.showPlaybackStatsButton.rawValue) private var statsButton = true
     @AppStorage(SettingsKey.rememberTrackChoicePerShow.rawValue) private var rememberTracks = true
     @AppStorage(SettingsKey.trueHDCompatibilityCore.rawValue) private var trueHDCore = false
+    @AppStorage(AppPreference.resumePlayback.rawValue) private var resume = true
+    @AppStorage(AppPreference.subtitleMode.rawValue) private var subtitleMode = SubtitleMode.default.rawValue
+    @AppStorage(AppPreference.playbackSpeed.rawValue) private var speed = PlaybackSpeed.normal
+    @AppStorage(AppPreference.inactivityCheck.rawValue) private var inactivity = InactivityCheck.default.rawValue
+    @AppStorage(AppPreference.playVersion.rawValue) private var playVersion = PlayVersion.default.rawValue
     @AppStorage(AppPreference.streamingCache.rawValue) private var streamingCache = StreamingCache.default.rawValue
     /// R311: the last playback that failed on this Apple TV (`PlaybackProblemLog`), tokens removed.
     @AppStorage(PlaybackProblem.storageKey) private var problemData: Data?
@@ -19,13 +24,34 @@ struct PlaybackSettingsView: View {
     var body: some View {
         SettingsPane(title: "Playback", summary: SettingsTexts.playbackSummary) {
             Section {
-                SettingToggle("Play Next Episode Automatically", isOn: $autoPlayNext)
+                SettingToggle("Resume Playback", isOn: $resume)
+                SettingToggle("Continuous Playback", isOn: $autoPlayNext)
+                Picker("Inactivity Check", selection: $inactivity) {
+                    ForEach(InactivityCheck.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                }
                 SettingToggle("Show Skip Buttons", isOn: $skipButtons)
                 SettingToggle("Skip Intros Automatically", isOn: $skipIntros)
                 SettingToggle("Skip Credits Automatically", isOn: $skipCredits)
                 LearnMoreLink(title: SettingsTexts.skipLearnMoreTitle, text: SettingsTexts.skipFull)
             } footer: {
                 Text(SettingsTexts.skipShort)
+            }
+            Section {
+                Picker("Subtitles", selection: $subtitleMode) {
+                    ForEach(SubtitleMode.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                }
+                Picker("Playback Speed", selection: $speed) {
+                    ForEach(PlaybackSpeed.choices, id: \.stored) { Text($0.title).tag($0.stored) }
+                }
+            } footer: {
+                Text(SubtitleMode.footer)
+            }
+            Section {
+                Picker("Play Version", selection: $playVersion) {
+                    ForEach(PlayVersion.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                }
+            } footer: {
+                Text(PlayVersion.footer)
             }
             Section {
                 Picker("Streaming Cache", selection: $streamingCache) {

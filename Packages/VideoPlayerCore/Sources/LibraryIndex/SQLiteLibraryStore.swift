@@ -21,6 +21,8 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
     var recorder: (any UserDataRecording)?
     /// While true every item reads as unwatched and the rows built on watch state are empty (a half-restored library must not show wrong marks).
     var watchGateClosed = false
+    /// R458: which titles the library shows at all (hidden sources; Parental Controls in R459). See `LibraryRestrictions`.
+    var restrictions = LibraryRestrictions()
     /// The time written on favourite, hidden and saved-view changes (a test sets a fake one).
     var clock: @Sendable () -> Date = { Date() }
     /// Restored watch state for items not scanned yet; applied when the item is created.
@@ -100,11 +102,14 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
     }
 
     public func counts() throws -> LibraryCounts {
-        LibraryCounts(
-            items: try db.scalarInt("SELECT COUNT(*) FROM items WHERE version_count > 0 AND review = 0"),
+        // R458: the counts follow the same rule as the lists (a hidden source's titles are not counted).
+        let rule = restrictions.terms()
+        let extra = rule.sql.isEmpty ? "" : " AND " + rule.sql.joined(separator: " AND ")
+        return LibraryCounts(
+            items: try db.scalarInt("SELECT COUNT(*) FROM items i WHERE i.version_count > 0 AND i.review = 0" + extra, rule.args),
             files: try db.scalarInt("SELECT COUNT(*) FROM files WHERE removed_at IS NULL"),
             folders: try db.scalarInt("SELECT COUNT(*) FROM folders WHERE removed_at IS NULL"),
-            series: try db.scalarInt("SELECT COUNT(DISTINCT series_id) FROM items WHERE version_count > 0 AND series_id IS NOT NULL")
+            series: try db.scalarInt("SELECT COUNT(DISTINCT i.series_id) FROM items i WHERE i.version_count > 0 AND i.series_id IS NOT NULL" + extra, rule.args)
         )
     }
 
@@ -264,7 +269,9 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
     }
 
     public func item(id: Int64) throws -> LibraryItem? {
-        gated(try db.first("SELECT \(Self.itemColumns) FROM items i WHERE i.id = ?", [.int(id)], Self.mapItem))
+        let rule = restrictions.terms()
+        let extra = rule.sql.isEmpty ? "" : " AND " + rule.sql.joined(separator: " AND ")
+        return gated(try db.first("SELECT \(Self.itemColumns) FROM items i WHERE i.id = ?" + extra, [.int(id)] + rule.args, Self.mapItem))
     }
 
     // MARK: Metadata

@@ -11,6 +11,10 @@ struct ItemDetailView: View {
     @State private var showSortInfo = false
     @State private var showEdit = false
     @State private var editKeys: [UDEditKey] = []
+    @State private var askVersion = false
+    @State private var pendingFromStart = false
+    @AppStorage(PlayVersion.key) private var playVersionRaw = PlayVersion.default.rawValue
+    private var playVersion: PlayVersion { PlayVersion(rawValue: playVersionRaw) ?? .auto }
 
     var body: some View {
         Group {
@@ -24,6 +28,17 @@ struct ItemDetailView: View {
             }
         }
         .task(id: services.libraryRevision) { await reload() }
+        // R458: Play Version = Ask. The choice is kept as the title's Select Version, so the question comes once per title.
+        .confirmationDialog("Which Version?", isPresented: $askVersion, titleVisibility: .visible) {
+            ForEach(model?.screen.state.content?.versions ?? []) { version in
+                Button(version.label) {
+                    Task {
+                        await model?.run { await $0.choosePreferredVersion(version.id) }
+                        services.playRequest = PlayRequest(itemID: itemID, fromStart: pendingFromStart)
+                    }
+                }
+            }
+        }
         .taskCover(isPresented: $showFixMatch) {
             if let content = model?.screen.state.content {
                 FixMatchView(itemID: itemID, kind: content.kind, currentTitle: content.title)
@@ -50,6 +65,12 @@ struct ItemDetailView: View {
     }
 
     private func play(fromStart: Bool) {
+        if let content = model?.screen.state.content,
+           PlayVersion.asks(mode: playVersion, versionCount: content.versions.count, hasExplicitChoice: content.hasExplicitVersion) {
+            pendingFromStart = fromStart
+            askVersion = true
+            return
+        }
         services.playRequest = PlayRequest(itemID: itemID, fromStart: fromStart)
     }
 
@@ -57,7 +78,8 @@ struct ItemDetailView: View {
         if model == nil {
             model = ScreenModel(ItemDetailViewModel(store: services.store, itemID: itemID, trackReader: services.trackDetailsReader))
         }
-        await model?.run { await $0.load() }
+        let mode = playVersion
+        await model?.run { $0.playVersion = mode; await $0.load() }
         // #21 C: the frame rate and every audio and subtitle track, read from the file's header once and then kept.
         await model?.run { await $0.loadTrackDetails() }
     }

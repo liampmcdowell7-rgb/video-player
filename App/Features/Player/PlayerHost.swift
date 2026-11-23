@@ -16,7 +16,7 @@ struct PlayerHost: UIViewControllerRepresentable {
     /// underlying errors and last events.
     var onFailure: (PlaybackFailure, PlaybackDiagnostics) -> Void = { _, _ in }
     /// R340: play another item in place of this one (Up Next, the Episodes tab).
-    var onPlayItem: (Int64) -> Void = { _ in }
+    var onPlayItem: (Int64, Bool) -> Void = { _, _ in }
 
     func makeCoordinator() -> PlayerCoordinator {
         let coordinator = PlayerCoordinator(resolved: resolved, itemID: itemID, services: services, tracker: tracker)

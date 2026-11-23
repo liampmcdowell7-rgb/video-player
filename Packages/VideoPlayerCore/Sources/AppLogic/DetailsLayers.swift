@@ -30,14 +30,15 @@ public struct LayeredDetails: Equatable, Sendable {
         self.ratingLayer = ratingLayer
     }
 
-    public static func merge(_ layers: [(DetailsLayer, TitleDetails?)]) -> LayeredDetails {
+    /// `layers` are in the order they are to win. R458: `preferLocal` is the rating's order (the synopsis and cast follow `layers`).
+    public static func merge(_ layers: [(DetailsLayer, TitleDetails?)], preferLocal: Bool = true) -> LayeredDetails {
         var overview: String?
         var cast: [TitleDetails.CastMember] = []
         var used: [DetailsLayer] = []
         // R371: the rating follows its own order (`ContentRating.order`: source, TMDB, Wikidata), whatever order the layers
         // were asked in. R372: the content descriptors belong to a rating, so they come only from the layer whose rating is
         // shown (only Wikidata gives them): none next to TMDB's or the source's rating.
-        let rating = ContentRating.pick(layers.map { ($0.0, $0.1?.contentRating) })
+        let rating = ContentRating.pick(layers.map { ($0.0, $0.1?.contentRating) }, preferLocal: preferLocal)
         var descriptors: [String] = []
         for (layer, found) in layers {
             guard let found else { continue }
@@ -91,26 +92,34 @@ public struct LayeredDetailsService: Sendable {
     private let source: Layer?
     private let wikidata: Layer?
     private let tmdb: Layer?
+    /// R458: Settings > Metadata and Artwork > Prefer Local Metadata, read at each lookup.
+    private let preferLocal: @Sendable () -> Bool
 
-    public init(source: Layer?, wikidata: Layer?, tmdb: Layer?) {
+    public init(source: Layer?, wikidata: Layer?, tmdb: Layer?, preferLocal: @escaping @Sendable () -> Bool = { true }) {
         self.source = source
         self.wikidata = wikidata
         self.tmdb = tmdb
+        self.preferLocal = preferLocal
     }
 
     public func details(key: String) async -> LayeredDetails {
         var layers: [(DetailsLayer, TitleDetails?)] = []
-        for (layer, ask) in [(DetailsLayer.source, source), (.wikidata, wikidata), (.tmdb, tmdb)] {
+        let local = preferLocal()
+        let order: [(DetailsLayer, Layer?)] = local ? [(.source, source), (.wikidata, wikidata), (.tmdb, tmdb)]
+                                                    : [(.wikidata, wikidata), (.tmdb, tmdb), (.source, source)]
+        for (layer, ask) in order {
             guard let ask else { continue }
             layers.append((layer, await ask(key)))
+            // Online first: every layer is asked, nothing is left out early.
+            if !local { continue }
             // Stop early when nothing is left to fill: a synopsis, a cast where everyone has a role, and (R371) a rating no
             // later layer can beat (the source's own), and (R372) no Wikidata layer still to ask for descriptors.
-            let merged = LayeredDetails.merge(layers)
+            let merged = LayeredDetails.merge(layers, preferLocal: local)
             let wikidataPending = wikidata != nil && !layers.contains { $0.0 == .wikidata }
             if let d = merged.details, d.overview != nil, !d.cast.isEmpty, d.cast.allSatisfy({ $0.role != nil }),
                merged.ratingLayer == .source, !wikidataPending { return merged }
         }
-        return LayeredDetails.merge(layers)
+        return LayeredDetails.merge(layers, preferLocal: local)
     }
 }
 

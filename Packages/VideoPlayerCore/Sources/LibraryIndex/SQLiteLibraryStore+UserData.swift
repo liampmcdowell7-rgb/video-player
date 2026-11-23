@@ -23,6 +23,10 @@ extension SQLiteLibraryStore {
     public func openWatchGate() { watchGateClosed = false }
     public var isWatchGateClosed: Bool { watchGateClosed }
 
+    /// R458: the rule of which titles show (`LibraryRestrictions`); every query below reads it.
+    public func setRestrictions(_ value: LibraryRestrictions) { restrictions = value }
+    public var currentRestrictions: LibraryRestrictions { restrictions }
+
     /// Items created from now on take their watch state from the restored data. Cleared when the rescan has finished.
     public func clearPendingRestore() { pendingWatch = [:] }
     public var pendingRestoreCount: Int { pendingWatch.count }

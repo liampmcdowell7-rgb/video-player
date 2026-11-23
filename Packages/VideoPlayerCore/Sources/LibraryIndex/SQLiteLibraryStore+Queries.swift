@@ -9,6 +9,9 @@ extension SQLiteLibraryStore {
     func whereClause(_ f: ItemFilter) -> (sql: String, args: [SQLValue]) {
         var terms = ["i.version_count > 0", "i.review = 0"]
         var args: [SQLValue] = []
+        let rule = restrictions.terms()
+        terms += rule.sql
+        args += rule.args
 
         func list(_ column: String, _ values: [Int]) {
             terms.append("\(column) IN (\(values.map(String.init).joined(separator: ",")))")
@@ -139,13 +142,15 @@ extension SQLiteLibraryStore {
     public func continueWatching(limit: Int, now: Date, retentionDays: Int) throws -> [LibraryItem] {
         if watchGateClosed { return [] }
         let cutoff = now.addingTimeInterval(-Double(retentionDays) * 86_400)
+        let rule = restrictions.terms()
+        let extra = rule.sql.isEmpty ? "" : " AND " + rule.sql.joined(separator: " AND ")
         return try db.rows(
             """
             SELECT \(Self.itemColumns) FROM items i
-            WHERE i.version_count > 0 AND i.review = 0 AND i.watched = 0 AND i.position > 0 AND i.hidden = 0 AND i.last_played >= ?
+            WHERE i.version_count > 0 AND i.review = 0 AND i.watched = 0 AND i.position > 0 AND i.hidden = 0 AND i.last_played >= ?\(extra)
             ORDER BY i.last_played DESC, i.id DESC LIMIT ?
             """,
-            [SQLValue(cutoff), .int(Int64(limit))], Self.mapItem
+            [SQLValue(cutoff)] + rule.args + [.int(Int64(limit))], Self.mapItem
         )
     }
 
@@ -164,6 +169,8 @@ extension SQLiteLibraryStore {
             [SQLValue(cutoff)]
         ) { Last(series: $0.int64(0), id: $0.int64(1), season: $0.int(2), episode: $0.int(3)) }
 
+        let nextRule = restrictions.terms()
+        let nextExtra = nextRule.sql.isEmpty ? "" : " AND " + nextRule.sql.joined(separator: " AND ")
         var seen = Set<Int64>()
         var out: [NextUpEntry] = []
         for last in lasts where seen.insert(last.series).inserted {
@@ -174,10 +181,10 @@ extension SQLiteLibraryStore {
             let next = try db.first(
                 """
                 SELECT \(Self.itemColumns) FROM items i
-                WHERE i.series_id = ? AND i.version_count > 0 AND i.watched = 0 AND i.season > 0 AND (i.season, i.episode) > (?, ?)
+                WHERE i.series_id = ? AND i.version_count > 0 AND i.watched = 0 AND i.season > 0 AND (i.season, i.episode) > (?, ?)\(nextExtra)
                 ORDER BY i.season, i.episode, i.id LIMIT 1
                 """,
-                [.int(last.series), .int(Int64(last.season)), .int(Int64(last.episode))], Self.mapItem
+                [.int(last.series), .int(Int64(last.season)), .int(Int64(last.episode))] + nextRule.args, Self.mapItem
             )
             if let next, !next.watch.hiddenFromContinue {
                 out.append(NextUpEntry(item: next, afterEpisodeID: last.id))
@@ -189,22 +196,26 @@ extension SQLiteLibraryStore {
 
     public func recentlyAdded(limit: Int, kind: ItemKind?) throws -> [LibraryItem] {
         guard limit > 0 else { return [] }
+        let rule = restrictions.terms()
+        let extra = rule.sql.isEmpty ? "" : " AND " + rule.sql.joined(separator: " AND ")
         if let kind {
             return gated(try db.rows(
-                "SELECT \(Self.itemColumns) FROM items i WHERE i.version_count > 0 AND i.review = 0 AND i.kind = ? ORDER BY i.added_at DESC, i.id DESC LIMIT ?",
-                [.int(Int64(Self.code(kind))), .int(Int64(limit))], Self.mapItem
+                "SELECT \(Self.itemColumns) FROM items i WHERE i.version_count > 0 AND i.review = 0 AND i.kind = ?\(extra) ORDER BY i.added_at DESC, i.id DESC LIMIT ?",
+                [.int(Int64(Self.code(kind)))] + rule.args + [.int(Int64(limit))], Self.mapItem
             ))
         }
         return gated(try db.rows(
-            "SELECT \(Self.itemColumns) FROM items i WHERE i.version_count > 0 AND i.review = 0 ORDER BY i.added_at DESC, i.id DESC LIMIT ?",
-            [.int(Int64(limit))], Self.mapItem
+            "SELECT \(Self.itemColumns) FROM items i WHERE i.version_count > 0 AND i.review = 0\(extra) ORDER BY i.added_at DESC, i.id DESC LIMIT ?",
+            rule.args + [.int(Int64(limit))], Self.mapItem
         ))
     }
 
     public func episodes(ofSeries seriesID: Int64) throws -> [LibraryItem] {
-        gated(try db.rows(
-            "SELECT \(Self.itemColumns) FROM items i WHERE i.series_id = ? AND i.version_count > 0 ORDER BY i.season, i.episode, i.id",
-            [.int(seriesID)], Self.mapItem
+        let rule = restrictions.terms()
+        let extra = rule.sql.isEmpty ? "" : " AND " + rule.sql.joined(separator: " AND ")
+        return gated(try db.rows(
+            "SELECT \(Self.itemColumns) FROM items i WHERE i.series_id = ? AND i.version_count > 0\(extra) ORDER BY i.season, i.episode, i.id",
+            [.int(seriesID)] + rule.args, Self.mapItem
         ))
     }
 

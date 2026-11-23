@@ -19,6 +19,10 @@ struct SourceDetailView: View {
     @State private var message: String?
     @State private var checking = false
     @State private var checkResult: String?
+    @State private var newName = ""
+    @State private var testing = false
+    @State private var speedResult: String?
+    @State private var confirmRefresh = false
 
     /// The saved version (a trusted fingerprint updates it after this screen opened).
     private var current: UDSourceDefinition {
@@ -39,6 +43,39 @@ struct SourceDetailView: View {
                 if !current.host.isEmpty { ValueRow("Server", value: current.host) }
                 if !current.username.isEmpty { ValueRow("User Name", value: current.username) }
                 ValueRow("Password", value: passwordStatus)
+            }
+            // R458: Hide, Edit (the name), Speed Test and Refresh Metadata of this source.
+            Section {
+                SettingToggle(HideSourceOption.title, isOn: Binding(
+                    get: { HideSourceOption.isHidden(current) },
+                    set: { on in Task { await services.setSourceHidden(on, for: current) } }
+                ))
+            } footer: {
+                Text(HideSourceOption.footer)
+            }
+            Section("Edit") {
+                TextField("Name", text: $newName)
+                Button("Save Name") {
+                    Task { await services.renameSource(newName, for: current); newName = "" }
+                }
+                .disabled(SourceRename.cleaned(newName) == nil)
+            }
+            Section {
+                TaskButtonRow {
+                    TaskButton(testing ? "Testing" : "Speed Test") { Task { await runSpeedTest() } }
+                        .disabled(testing)
+                }
+                if let speedResult { ValueRow("Read Speed", value: speedResult).readableRow() }
+            } footer: {
+                Text(SpeedTest.footer)
+            }
+            Section {
+                TaskButtonRow {
+                    TaskButton("Refresh Metadata") { confirmRefresh = true }
+                        .disabled(!services.online.hasCatalogueKey)
+                }
+            } footer: {
+                Text(services.online.hasCatalogueKey ? MetadataRefresh.message : MetadataRefresh.needsKeyLine)
             }
             if SortSourceOption.applies(toKind: current.kind) {
                 // docs/SORTING.md; PROVISIONAL setting, OPEN_QUESTIONS.
@@ -102,7 +139,7 @@ struct SourceDetailView: View {
             }
             Section {
                 TaskButtonRow {
-                    TaskButton("Remove Source", role: .destructive) { confirmRemove = true }
+                    TaskButton("Forget Source", role: .destructive) { confirmRemove = true }
                 }
             }
         }
@@ -112,8 +149,14 @@ struct SourceDetailView: View {
         } message: { issue in
             Text("Approved before: " + (issue.approvedFingerprint ?? "none") + "\n\nNow shown: " + issue.presentedFingerprint + "\n\nOnly continue if you know why it changed.")
         }
-        .confirmationDialog("Remove “\(current.name)”?", isPresented: $confirmRemove, titleVisibility: .visible) {
-            Button("Remove Source", role: .destructive) {
+        .confirmationDialog(MetadataRefresh.confirmTitle, isPresented: $confirmRefresh, titleVisibility: .visible) {
+            Button("Refresh This Source") { Task { await services.refreshMetadata(sourceID: definition.id) } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(MetadataRefresh.message)
+        }
+        .confirmationDialog("Forget “\(current.name)”?", isPresented: $confirmRemove, titleVisibility: .visible) {
+            Button("Forget Source", role: .destructive) {
                 Task {
                     await services.removeSource(id: definition.id)
                     dismiss()
@@ -121,7 +164,7 @@ struct SourceDetailView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Its titles are removed from your library. The files on the server are not touched.")
+            Text(ForgetSourceText.message(name: current.name))
         }
     }
 
@@ -129,6 +172,12 @@ struct SourceDetailView: View {
         if current.auth == "none" { return "Not needed" }
         if current.auth == "oauth" { return "Sign-in saved" }
         return services.secrets.secret(for: definition.id) == nil ? "Needed" : "Saved"
+    }
+
+    private func runSpeedTest() async {
+        testing = true
+        speedResult = await services.speedTest(current)
+        testing = false
     }
 
     private func check() async {

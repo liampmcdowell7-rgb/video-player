@@ -34,7 +34,7 @@ final class RemuxPlayback {
         // DTS, DTS-HD, Dolby TrueHD, MLP, Opus and Vorbis are decoded and repackaged as FLAC (docs/AUDIO_PIPELINE.md).
         let useCore = UserDefaults.standard.object(forKey: SettingsKey.trueHDCompatibilityCore.rawValue) as? Bool
             ?? SettingsKey.trueHDCompatibilityCore.defaultBool
-        options.audioTranscoder = DecodedAudioTranscoder(settings: DecodedAudioSettings(trueHDUseEmbeddedCore: useCore))
+        options.audioTranscoder = DecodedAudioTranscoder(settings: DecodedAudioSettings(trueHDUseEmbeddedCore: useCore, gain: VolumeBoost.stored(UserDefaults.standard.string(forKey: AppPreference.volumeBoost.rawValue)).factor))
         let host = RemuxHost(reader: reader, options: options)
         do {
             // `start` prepares the session too; prepared here first so the report can tell reading the file from starting
