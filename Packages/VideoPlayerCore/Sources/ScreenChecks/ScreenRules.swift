@@ -251,28 +251,42 @@ public enum ScreenRules {
     public static func badgeGaps(badges all: [(String, AXRect)], maximum: Double = 24) -> CheckResult {
         var lines: [String] = []
         var problems: [String] = []
-        var rows: [[(String, AXRect)]] = []
-        // R431 (run #29, item 3): only siblings are compared. A group element that holds other badges (the episode card's
-        // "badge.resolution-badge.hdr") is a parent, not a badge in the line, and its frame spanned 249 pt.
-        let badges: [(String, AXRect)] = all.filter { (badge: (String, AXRect)) -> Bool in
-            !all.contains { (other: (String, AXRect)) -> Bool in other.1 != badge.1 && contains(badge.1, other.1) }
+        // R431 (run #29, item 3) and R435 (run #30, item 1): a group element that holds other badges (the episode card's
+        // "badge.resolution-badge.hdr") is a parent, not a badge in a line. A badge inside a group is measured only against
+        // the other badges of that group (its smallest holder); badges in no group are measured against each other; the gap
+        // between two groups (card to card, 249 pt in run #30) is never measured.
+        let isParent: (Int) -> Bool = { (i: Int) -> Bool in
+            all.indices.contains { (j: Int) -> Bool in j != i && all[j].1 != all[i].1 && contains(all[i].1, all[j].1) }
         }
-        for badge in badges.sorted(by: { (a: (String, AXRect), b: (String, AXRect)) -> Bool in a.1.y < b.1.y }) {
-            let centre: Double = badge.1.y + badge.1.height / 2
-            if let last = rows.last?.first, abs(last.1.y + last.1.height / 2 - centre) <= 4 {
-                rows[rows.count - 1].append(badge)
-            } else {
-                rows.append([badge])
-            }
+        let parents: [Int] = all.indices.filter { isParent($0) }
+        var buckets: [Int: [(String, AXRect)]] = [:]
+        for i in all.indices where !parents.contains(i) {
+            let holder: Int = parents
+                .filter { (p: Int) -> Bool in contains(all[p].1, all[i].1) }
+                .min { (a: Int, b: Int) -> Bool in all[a].1.width * all[a].1.height < all[b].1.width * all[b].1.height } ?? -1
+            buckets[holder, default: []].append(all[i])
         }
-        for row in rows {
-            let ordered: [(String, AXRect)] = row.sorted { (a: (String, AXRect), b: (String, AXRect)) -> Bool in a.1.x < b.1.x }
-            let gaps: [Double] = zip(ordered, ordered.dropFirst()).map { (pair: ((String, AXRect), (String, AXRect))) -> Double in
-                pair.1.1.x - pair.0.1.maxX
+        for key in buckets.keys.sorted() {
+            var rows: [[(String, AXRect)]] = []
+            let badges: [(String, AXRect)] = buckets[key] ?? []
+            for badge in badges.sorted(by: { (a: (String, AXRect), b: (String, AXRect)) -> Bool in a.1.y < b.1.y }) {
+                let centre: Double = badge.1.y + badge.1.height / 2
+                if let last = rows.last?.first, abs(last.1.y + last.1.height / 2 - centre) <= 4 {
+                    rows[rows.count - 1].append(badge)
+                } else {
+                    rows.append([badge])
+                }
             }
-            lines.append("line at y \(Int(ordered[0].1.y)): " + ordered.map { $0.0 }.joined(separator: " | ") + "; gaps \(gaps.map { Int($0.rounded()) })")
-            for (index, gap) in gaps.enumerated() where gap > maximum {
-                problems.append("“\(ordered[index].0)” and “\(ordered[index + 1].0)” are \(Int(gap.rounded())) pt apart (at most \(Int(maximum)))")
+            for row in rows {
+                let ordered: [(String, AXRect)] = row.sorted { (a: (String, AXRect), b: (String, AXRect)) -> Bool in a.1.x < b.1.x }
+                let gaps: [Double] = zip(ordered, ordered.dropFirst()).map { (pair: ((String, AXRect), (String, AXRect))) -> Double in
+                    pair.1.1.x - pair.0.1.maxX
+                }
+                let prefix: String = key >= 0 ? "group at x \(Int(all[key].1.x)): " : ""
+                lines.append(prefix + "line at y \(Int(ordered[0].1.y)): " + ordered.map { $0.0 }.joined(separator: " | ") + "; gaps \(gaps.map { Int($0.rounded()) })")
+                for (index, gap) in gaps.enumerated() where gap > maximum {
+                    problems.append("“\(ordered[index].0)” and “\(ordered[index + 1].0)” are \(Int(gap.rounded())) pt apart (at most \(Int(maximum)))")
+                }
             }
         }
         lines.append(problems.isEmpty ? "BADGE GAPS OK" : "BADGE GAPS PROBLEM: " + problems.joined(separator: "; "))
