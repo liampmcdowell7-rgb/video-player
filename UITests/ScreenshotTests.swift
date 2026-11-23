@@ -203,6 +203,12 @@ final class ScreenshotTests: XCTestCase {
         guard let image = RGBImage(screenshot: screenshot) else { return }
         let result: CheckResult = FocusRoom.check(image)
         guard !result.passed else { return }
+        // R433 (run #29, item 5): the Sort and Filter menus are drawn by the system; test16 failed on them although
+        // 07-movies-toolbar-sort-submenu shows the focused row whole. Recorded as a note, never a failure; our own views still fail.
+        if ScreenRules.isSystemMenuPicture(name) {
+            note(name + "-FOCUS-CLIPPED-SYSTEM-MENU", "System-drawn menu: recorded, not failed.\n" + result.text)
+            return
+        }
         note(name + "-FOCUS-CLIPPED", result.text)
         XCTFail("\(name): \(result.verdict)")
     }
@@ -355,9 +361,22 @@ final class ScreenshotTests: XCTestCase {
                 }
             }
         }
+        // R430 (run #29, item 2): the system player's own controls (Skip Intro, Audio, Subtitles) were not found by label although
+        // 23-player-controls shows them: they may be any element type, with the words in the identifier, title or value.
+        if id == nil {
+            let loose: XCUIElement = anyElement(containing: label, in: app)
+            if loose.exists, outsideTabBar(loose) { return loose }
+        }
         // Nothing yet (a lazy list may not have built the row): a query that `focus` can wait on while moving down.
         if let id { return app.descendants(matching: .any).matching(identifier: id).firstMatch }
         return app.cells.matching(NSPredicate(format: "label CONTAINS %@", label)).firstMatch
+    }
+
+    /// R430: the first element of ANY type whose label, identifier, title or value contains `word` (case-insensitive).
+    func anyElement(containing word: String, in app: XCUIApplication) -> XCUIElement {
+        let predicate = NSPredicate(format: "label CONTAINS[c] %@ OR identifier CONTAINS[c] %@ OR title CONTAINS[c] %@ OR value CONTAINS[c] %@ ",
+                                    word, word, word, word)
+        return app.descendants(matching: .any).matching(predicate).firstMatch
     }
 
     /// #25 A2: an identifier must be exposed once. More than one element with it (a Menu and its label both carrying it, or
@@ -671,7 +690,12 @@ final class ScreenshotTests: XCTestCase {
     /// press at a time, recording each focused element. PASS when the last element focused before the tab bar (or before
     /// the focus stops moving) is `top`. Writes "<name>-SCROLL-UP" and fails the test on a jump. Leaves the focus on the tab
     /// bar (or the first row), so call it at the END of a page's steps.
-    func scrollUpCheck(_ name: String, top: String, in app: XCUIApplication, maxPresses: Int = 40) {
+    ///
+    /// R432 (run #29, item 4): 56-show-page and 58-movie-detail failed with FOCUS JUMPED although Up worked (Cast, Resume, the
+    /// synopsis, then it stopped): the synopsis is the topmost focusable row, and a pushed page has no tab bar. With
+    /// `topIdentifier` (the synopsis, "product.synopsis") the expected end is that element when the page has it, otherwise
+    /// `top`. Not reaching the tab bar is no failure; Up stuck below the topmost row still is.
+    func scrollUpCheck(_ name: String, top firstRow: String, topIdentifier: String? = nil, in app: XCUIApplication, maxPresses: Int = 40) {
         let reachedEnd: Bool = moveFocusToEnd(in: app, maxPresses: maxPresses)
         let down: String = focusPathText()
         // R359: with the sidebar, Up at the first row stops there (the sidebar is to the left), so the check ends when the
@@ -698,6 +722,12 @@ final class ScreenshotTests: XCTestCase {
             if here == last { unmoved += 1; if unmoved >= 3 { break } } else { unmoved = 0 }
             last = here
             lastContent = label
+        }
+        // R432: the topmost focusable row of the page.
+        var top: String = firstRow
+        if let topIdentifier {
+            let topmost: XCUIElement = app.descendants(matching: .any).matching(identifier: topIdentifier).firstMatch
+            if topmost.exists, !topmost.label.isEmpty { top = "“\(topmost.label)”" }
         }
         // #29: typed steps, no ternary inside a `+` chain.
         let passed: Bool = lastContent == top
@@ -949,11 +979,10 @@ final class ScreenshotTests: XCTestCase {
             lines.append("\(badge.identifier) “\(badge.label)” x \(Int(f.minX)) y \(Int(f.minY)) w \(Int(f.width)) h \(Int(f.height))")
             if f.width <= 0 || f.height <= 0 { problems.append("“\(badge.label)” has no size") }
             if f.minX < window.minX || f.maxX > window.maxX { problems.append("“\(badge.label)” is cut at the side of the window") }
-            for (other, g) in frames where f.intersection(g).width > 1 && f.intersection(g).height > 1 {
-                problems.append("“\(badge.label)” overlaps “\(other)”")
-            }
             frames.append((badge.label, f))
         }
+        // R431 (run #29, item 3): a group that holds single badges is not an overlap (`ScreenRules.badgeOverlaps`).
+        problems += ScreenRules.badgeOverlaps(badges: frames.map { (pair: (String, CGRect)) -> (String, AXRect) in (pair.0, AXRect(pair.1)) })
         if found.isEmpty && expectBadges { problems.append("no badge element found") }
         let line: XCUIElement = app.descendants(matching: .any).matching(identifier: "product.metadataLine").firstMatch
         if line.exists {
@@ -1830,7 +1859,7 @@ final class ScreenshotTests: XCTestCase {
                 notReached("56-show-long-episode-caption", "Could not move the focus to S2 E3 (focus on \(focusedLabel(in: app))).")
             }
             // R346 (item A): Up from the bottom of the show page reaches its first control before the tab bar.
-            scrollUpCheck("56-show-page", top: showTop, in: app)
+            scrollUpCheck("56-show-page", top: showTop, topIdentifier: "product.synopsis", in: app)
         } else { hierarchy("55-show-page", of: app); notReached("55-show-page", "The show page did not open.") }
         app.terminate()
 
@@ -1849,7 +1878,7 @@ final class ScreenshotTests: XCTestCase {
             textContrast("57-movie-detail", in: app)
             for step in 1...3 { XCUIRemote.shared.press(.down); sleep(1); let mustChange: String? = step == 1 ? "Down on the movie page" : nil; shot("58-movie-detail-scrolled-\(step)", mustChangeAfter: mustChange, endOfScroll: step == 1 ? nil : "Down on the movie page") }
             // R346 (item A): Up from the bottom of the movie page reaches Play before the tab bar.
-            scrollUpCheck("58-movie-detail", top: movieTop, in: app)
+            scrollUpCheck("58-movie-detail", top: movieTop, topIdentifier: "product.synopsis", in: app)
             // Fix Match is in the More menu (ItemDetailContentView.moreMenu), not a button on the page: the old test looked for
             // it on the page and never found it (#15 item 1.3). Up to the action row first: the focus is below it after 58.
             for _ in 0..<6 { XCUIRemote.shared.press(.up) }; sleep(1)
@@ -1990,13 +2019,23 @@ final class ScreenshotTests: XCTestCase {
         // the intro itself and offered the way back (R314). Either button shows the intro segment was found and handled;
         // the -BUTTON note says which one came.
         let introButtons: [String] = ["Skip Intro", "Watch Intro"]
-        var introButton: String? = waitForAny(introButtons, in: app, timeout: 30)
+        // R430 (run #29, item 2): 22-player-skip-intro-NOT-REACHED showed a "Skip Intro" button on screen that the exact-label
+        // finder missed. The finder now takes any element type and any of label, identifier, title or value (anyElement).
+        func introOnScreen(timeout: TimeInterval) -> String? {
+            let end: Date = Date().addingTimeInterval(timeout)
+            repeat {
+                for word in introButtons where anyElement(containing: word, in: app).exists { return word }
+                usleep(300_000)
+            } while Date() < end
+            return nil
+        }
+        var introButton: String? = introOnScreen(timeout: 30)
         var waitLines: [String] = []
         let spinner: XCUIElement = app.descendants(matching: .any).matching(identifier: "player.loading").firstMatch
         var waited: Int = 30
         while introButton == nil, spinner.exists, waited < 70 {
             waitLines.append("\(waited) s: still starting, step \(spinner.value as? String ?? "(no value)")")
-            introButton = waitForAny(introButtons, in: app, timeout: 10)
+            introButton = introOnScreen(timeout: 10)
             waited += 10
         }
         if !waitLines.isEmpty { note("22-player-start-WAIT", (waitLines + [introButton.map { "\($0) came" } ?? "no intro button after \(waited) s"]).joined(separator: "\n")) }
@@ -2005,7 +2044,9 @@ final class ScreenshotTests: XCTestCase {
                  ? "Watch Intro: the intro was skipped automatically (Skip Intros Automatically is On), as expected"
                  : "Skip Intro: the intro was offered, not skipped (Skip Intros Automatically is Off)")
             sleep(1); shot("22-player-skip-intro")
+            hierarchy("22-player-skip-intro", of: app)
         } else {
+            hierarchy("22-player-skip-intro", of: app)
             shot("22-player-skip-intro-missing")
             notReached("22-player-skip-intro", "No “Skip Intro” or “Watch Intro” within 30 s of Play. " + playerStartOutcome(in: app))
         }
@@ -2058,6 +2099,7 @@ final class ScreenshotTests: XCTestCase {
         for (number, label) in [("25-player-audio-menu", "Audio"), ("26-player-subtitles-menu", "Subtitles")] {
             // #25 A3: the system player's own menus carry no identifier we can set; by label. The picture waits for the
             // menu's items (the two tracks), so it shows the menu open.
+            hierarchy(number + "-before", of: app)
             if open(label, in: app, name: number) {
                 if waitForAny(["English", "French", "Off"], in: app) == nil { print("\(number): no track item seen before the picture") }
                 sleep(1); shot(number); XCUIRemote.shared.press(.menu); sleep(1)

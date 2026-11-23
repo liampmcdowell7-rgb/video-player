@@ -14,10 +14,12 @@ import AppLogic
 final class UpNextProposalController: AVContentProposalViewController {
     private let model = UpNextCardModel()
     private var timeObserver: Any?
+    private static let playerWidth: CGFloat = 960
+    private static let playerHeight: CGFloat = 540
 
     override var preferredPlayerViewFrame: CGRect {
         guard let frame = playerViewController?.view.frame else { return .zero }
-        return CGRect(x: frame.midX / 2.0, y: 0, width: 960, height: 540)
+        return CGRect(x: frame.midX / 2.0, y: 0, width: Self.playerWidth, height: Self.playerHeight)
     }
 
     override func viewDidLoad() {
@@ -31,10 +33,13 @@ final class UpNextProposalController: AVContentProposalViewController {
         host.view.translatesAutoresizingMaskIntoConstraints = false
         addChild(host)
         view.addSubview(host.view)
+        // R429: no `playerLayoutGuide` (run #29 crash: NSLayoutConstraint exception at this activate, cause UNCONFIRMED).
+        // The card sits under the 960 x 540 window of `preferredPlayerViewFrame`, centred at the top, so it is pinned to
+        // `view` with the same numbers.
         NSLayoutConstraint.activate([
-            host.view.topAnchor.constraint(equalTo: playerLayoutGuide.bottomAnchor, constant: 40),
-            host.view.leadingAnchor.constraint(equalTo: playerLayoutGuide.leadingAnchor),
-            host.view.trailingAnchor.constraint(equalTo: playerLayoutGuide.trailingAnchor),
+            host.view.topAnchor.constraint(equalTo: view.topAnchor, constant: Self.playerHeight + 40),
+            host.view.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            host.view.widthAnchor.constraint(equalToConstant: Self.playerWidth),
         ])
         host.didMove(toParent: self)
     }

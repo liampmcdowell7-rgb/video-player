@@ -248,10 +248,15 @@ public enum ScreenRules {
     /// gap between two neighbours must be at most `maximum` (the run on fd9731f measured 60 to 72 pt; the app gives 8 and
     /// 12 pt, `BadgeSpacing`, a little more at Larger Text). A lone badge passes. No badge at all passes too: whether a
     /// screen must have badges is `badgesNotCutCheck`'s question.
-    public static func badgeGaps(badges: [(String, AXRect)], maximum: Double = 24) -> CheckResult {
+    public static func badgeGaps(badges all: [(String, AXRect)], maximum: Double = 24) -> CheckResult {
         var lines: [String] = []
         var problems: [String] = []
         var rows: [[(String, AXRect)]] = []
+        // R431 (run #29, item 3): only siblings are compared. A group element that holds other badges (the episode card's
+        // "badge.resolution-badge.hdr") is a parent, not a badge in the line, and its frame spanned 249 pt.
+        let badges: [(String, AXRect)] = all.filter { (badge: (String, AXRect)) -> Bool in
+            !all.contains { (other: (String, AXRect)) -> Bool in other.1 != badge.1 && contains(badge.1, other.1) }
+        }
         for badge in badges.sorted(by: { (a: (String, AXRect), b: (String, AXRect)) -> Bool in a.1.y < b.1.y }) {
             let centre: Double = badge.1.y + badge.1.height / 2
             if let last = rows.last?.first, abs(last.1.y + last.1.height / 2 - centre) <= 4 {
@@ -272,6 +277,31 @@ public enum ScreenRules {
         }
         lines.append(problems.isEmpty ? "BADGE GAPS OK" : "BADGE GAPS PROBLEM: " + problems.joined(separator: "; "))
         return CheckResult(passed: problems.isEmpty, lines: lines)
+    }
+
+    /// R433 (run #29, item 5): pictures of menus the system draws (the Sort and Filter menu and its submenus, test16). The
+    /// focus-room check records them as a note; it fails only on our own views.
+    public static func isSystemMenuPicture(_ name: String) -> Bool {
+        ["-sort-filter-menu", "-sort-submenu", "-filter-submenu"].contains { name.contains($0) }
+    }
+
+    /// R431 (run #29, item 3): `outer` holds `inner` (a parent group and one of its badges). One point of slack.
+    public static func contains(_ outer: AXRect, _ inner: AXRect) -> Bool {
+        inner.x >= outer.x - 1 && inner.y >= outer.y - 1 && inner.maxX <= outer.maxX + 1 && inner.maxY <= outer.maxY + 1
+    }
+
+    /// R431: the pairs of badges that overlap (more than 1 pt each way). A pair where one frame contains the other is a
+    /// parent group and its badge, never an overlap.
+    public static func badgeOverlaps(badges: [(String, AXRect)]) -> [String] {
+        var problems: [String] = []
+        for (index, a) in badges.enumerated() {
+            for b in badges[..<index] {
+                let overlap: AXRect = a.1.intersection(b.1)
+                guard overlap.width > 1, overlap.height > 1, !contains(a.1, b.1), !contains(b.1, a.1) else { continue }
+                problems.append("“\(a.0)” overlaps “\(b.0)”")
+            }
+        }
+        return problems
     }
 
     /// R391 (shared fault 3): controls of one kind side by side are the same size (the toolbar buttons of Movies and
