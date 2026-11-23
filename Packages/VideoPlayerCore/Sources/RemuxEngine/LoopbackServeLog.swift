@@ -55,7 +55,24 @@ public final class LoopbackServeLog: @unchecked Sendable {
     }
 
     public func failed(_ token: Int?, error: String) {
-        finish(token) { $0.error = error }
+        let text = Self.redact(error)
+        finish(token) { $0.error = text }
+    }
+
+    /// R441: the handler threw and the server answered with this status (500); the entry keeps the error text next to it.
+    public func failed(_ token: Int?, status: Int, error: String) {
+        let text = Self.redact(error)
+        finish(token) { $0.status = status; $0.error = text }
+    }
+
+    /// An error text for a report: tokens and keys in query strings and headers removed, one line, at most 300 characters.
+    public static func redact(_ text: String) -> String {
+        var out = text.replacingOccurrences(of: "\n", with: " ").replacingOccurrences(of: "\r", with: " ")
+        let pattern = "(?i)((?:x-plex-token|token|api_key|apikey|access_token|authorization)\\s*[=:]\\s*)(?:bearer\\s+)?[^&\\s\"',;)]+"
+        if let regex = try? NSRegularExpression(pattern: pattern) {
+            out = regex.stringByReplacingMatches(in: out, range: NSRange(out.startIndex..., in: out), withTemplate: "$1<token>")
+        }
+        return out.count > 300 ? String(out.prefix(299)) + "…" : out
     }
 
     private func finish(_ token: Int?, _ change: (inout Entry) -> Void) {
@@ -75,7 +92,9 @@ public final class LoopbackServeLog: @unchecked Sendable {
     public func lines(serverStartedAt offset: Double = 0) -> [String] {
         all.map { e in
             var line = "\(e.name): asked at \(Self.seconds(e.askedAt + offset))"
-            if let error = e.error {
+            if let error = e.error, let status = e.status {
+                line += ", answered \(status) after \(Self.seconds(e.tookSeconds ?? 0)): \(error)"
+            } else if let error = e.error {
                 line += ", failed after \(Self.seconds(e.tookSeconds ?? 0)): \(error)"
             } else if let status = e.status {
                 line += ", answered \(status) after \(Self.seconds(e.tookSeconds ?? 0))"

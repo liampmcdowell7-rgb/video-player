@@ -52,7 +52,9 @@ final class RemuxPlayback {
     /// is when the server started, in seconds since the start was asked for), then the start's resources never asked for.
     func serveLines(serverStartedAt: Double) -> [String] {
         guard let log = host.serveLog else { return ["The loopback server never started."] }
-        var lines = log.lines(serverStartedAt: serverStartedAt).map { "Loopback " + $0 }
+        // R441: what the start's file reads cost, then what the player was served.
+        var lines = info.prepareDiagnostics?.lines ?? []
+        lines += log.lines(serverStartedAt: serverStartedAt).map { "Loopback " + $0 }
         let missing = log.missing()
         if !missing.isEmpty { lines.append("Loopback never asked for: " + missing.joined(separator: ", ")) }
         return lines

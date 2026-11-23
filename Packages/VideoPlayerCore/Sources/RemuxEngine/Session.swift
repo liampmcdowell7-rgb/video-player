@@ -60,6 +60,8 @@ public struct RemuxMediaInfo: Sendable {
     public var audioFallback: AudioFallbackInfo? = nil
     public var subtitleTrackNumbers: [Int]
     public var usedClusterScan: Bool
+    /// R441: the phases of `prepare()` with their read counts and times (nil for a session built from a prepared demuxer elsewhere).
+    public var prepareDiagnostics: PrepareDiagnostics? = nil
     public var isOverBudget: Bool
     public var warnings: [String]
     /// Text subtitle tracks offered as WebVTT renditions (the system subtitle menu).
@@ -103,6 +105,8 @@ public protocol RemuxSession: SegmentProvider {
 
 public actor MatroskaRemuxSession: RemuxSession {
     private let reader: any ByteRangeReader
+    /// R441: counts every read the session makes (prepare reports its phases from it).
+    private let tally: ReadTally
     private let options: RemuxOptions
     private let writer: FMP4Writer
     private var demuxer: (any MediaDemuxer)?
@@ -135,12 +139,14 @@ public actor MatroskaRemuxSession: RemuxSession {
     public var cachedWindowCount: Int { windows.count }
 
     public init(reader: any ByteRangeReader, options: RemuxOptions = RemuxOptions(), writer: FMP4Writer = FMP4Writer()) {
-        self.reader = reader; self.options = options; self.writer = writer
+        let t = ReadTally(reader)
+        self.tally = t; self.reader = t; self.options = options; self.writer = writer
     }
 
     /// Test seam: use a prepared demuxer instead of opening the file.
     public init(demuxer: any MediaDemuxer, reader: any ByteRangeReader, options: RemuxOptions = RemuxOptions()) {
-        self.reader = reader; self.options = options; self.writer = FMP4Writer(); self.demuxer = demuxer
+        let t = ReadTally(reader)
+        self.tally = t; self.reader = t; self.options = options; self.writer = FMP4Writer(); self.demuxer = demuxer
     }
 
     // MARK: Prepare
@@ -148,9 +154,11 @@ public actor MatroskaRemuxSession: RemuxSession {
     public func prepare() async throws -> RemuxMediaInfo {
         if let info { return info }
         var warnings: [String] = []
+        var recorder = PrepareRecorder(tally: tally)
         let cached = BlockCachedReader(reader)
         let index: MKVIndex
         if let d = demuxer { index = d.index } else { index = try await MatroskaIndexer.load(from: cached) }
+        recorder.end("index load")
         guard let video = index.videoTrack else { throw RemuxError.unsupported("no video track") }
         let isHEVC = video.codecID == "V_MPEGH/ISO/HEVC"
         let isAVC = video.codecID == "V_MPEG4/ISO/AVC"
@@ -164,6 +172,9 @@ public actor MatroskaRemuxSession: RemuxSession {
             keys = found.map { VideoKeyframe(timeNs: $0.timeNs, clusterOffset: $0.clusterOffset) }
             scanned = true
             warnings.append("no Cues: keyframes found by scanning \(keys.count) cluster headers")
+            recorder.end("cluster scan (\(keys.count) clusters)")
+        } else {
+            recorder.end("cues (\(keys.count) keyframes, no further reads)")
         }
         guard !keys.isEmpty else { throw RemuxError.malformed("no keyframes found") }
         let firstKey = keys.map { $0.timeNs }.min() ?? 0
@@ -218,9 +229,11 @@ public actor MatroskaRemuxSession: RemuxSession {
         // Planner for read-ahead.
         planner = ReadAheadPlanner(config: ReadAheadPlanner.Config(budget: options.budget, bitrate: bitrate, segmentSeconds: target, segmentCount: plan.count))
 
+        recorder.end("planning")
         // First window: parameter sets, SEI and the first frame of each audio track (and the subtitle blocks of that window).
         let wanted = Set([video.number] + offered.map { $0.number } + textSubtitleOrder + pictureTracks.keys)
         let first = try await loadWindow(0, tracks: wanted)
+        recorder.end("first window")
         let firstVideo = first.frames.first { $0.track == video.number && $0.isKeyframe }
         guard let firstVideo else { throw RemuxError.malformed("first segment has no video keyframe") }
 
@@ -267,8 +280,9 @@ public actor MatroskaRemuxSession: RemuxSession {
             audioFallback = AudioFallbackInfo(unplayable: lost, replacement: pick?.trackNumber)
         }
 
+        recorder.end("track set-up")
         let (codecs, supplemental, range) = variantAttributes(vconfig.config)
-        let result = RemuxMediaInfo(
+        var result = RemuxMediaInfo(
             durationSeconds: Double(mediaEndNs - firstKey) / 1e9, segmentCount: plan.count, targetSegmentSeconds: target,
             timelineOffsetSeconds: Double(tl.delayTicks) / 90000, firstKeyframeSeconds: Double(firstKey) / 1e9,
             videoCodecString: codecs, supplementalCodecs: supplemental, videoRange: range,
@@ -282,6 +296,7 @@ public actor MatroskaRemuxSession: RemuxSession {
             hasHDRStaticMetadata: !vconfig.config.hdr.isEmpty,
             dolbyVisionEnhancementLayerType: dvFacts.enhancementLayer, dolbyVisionConversionFailed: dvFacts.conversionFailed,
             dolbyVisionRecordDerived: dvFacts.derived, hasHDR10PlusMetadata: dvFacts.hdr10Plus)
+        result.prepareDiagnostics = recorder.diagnostics
         info = result
         return result
     }
@@ -727,7 +742,11 @@ public final class RemuxHost: @unchecked Sendable {
                 log.answered(token, status: response.status)
                 return response
             } catch {
-                log.failed(token, error: String(describing: error))
+                // R441: a thrown error becomes the loopback's 500; the entry keeps the (redacted) text next to it. A cancelled
+                // request (the player closed the connection) is no answer.
+                let cancelled = error is CancellationError || (error as? RemuxError) == .cancelled
+                if cancelled { log.failed(token, error: String(describing: error)) }
+                else { log.failed(token, status: 500, error: String(describing: error)) }
                 throw error
             }
         }
