@@ -46,13 +46,13 @@ struct RootView: View {
             // the tvOS sidebar, and how the header is exposed to VoiceOver and XCUITest (note -TABBAR records it).
             TabSection("Library") {
                 Tab("Movies", systemImage: "film", value: AppTab.movies) {
-                    NavigationStack(path: $moviesPath) { MoviesView().tabRootScreen("Movies", identifier: "screen.movies", toolbar: true).routeDestinations() }
+                    NavigationStack(path: $moviesPath) { MoviesView().tabRootScreen("Movies", identifier: "screen.movies").routeDestinations() }
                         .id(roots.generation(of: .movies))
                         .uiTestAccessibilityOverrides()
                         .accessibilityHidden(coverPresence.isCovered)
                 }
                 Tab("Shows", systemImage: "tv", value: AppTab.shows) {
-                    NavigationStack(path: $showsPath) { ShowsView().tabRootScreen("Shows", identifier: "screen.shows", toolbar: true).routeDestinations() }
+                    NavigationStack(path: $showsPath) { ShowsView().tabRootScreen("Shows", identifier: "screen.shows").routeDestinations() }
                         .id(roots.generation(of: .shows))
                         .uiTestAccessibilityOverrides()
                         .accessibilityHidden(coverPresence.isCovered)
@@ -212,6 +212,8 @@ extension View {
     /// (HIG Toolbars: "If titling a toolbar seems redundant, you can leave the title area empty"); the container still
     /// carries the screen's name for VoiceOver (`screenHeader`). How tvOS 27 draws that bar under the tab bar or beside the
     /// sidebar: UNVERIFIED.
+    /// R413: Movies and Shows no longer pass `toolbar: true`; their controls are a row on the page (`libraryToolbar`), so
+    /// the navigation bar would be empty (rule L6: no empty band). The parameter stays for a screen that needs the bar.
     func tabRootScreen(_ title: String, identifier: String, toolbar: Bool = false) -> some View {
         navigationTitle(toolbar ? "" : title)
             .toolbarVisibility(toolbar ? .visible : .hidden, for: .navigationBar)

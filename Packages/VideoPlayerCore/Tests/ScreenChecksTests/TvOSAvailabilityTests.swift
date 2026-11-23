@@ -12,6 +12,9 @@ extension ScreenChecksTests {
          "https://developer.apple.com/documentation/swiftui/view/scrollcontentbackground(_:) (iOS, iPadOS, Mac Catalyst, macOS, visionOS, watchOS)"),
         ("containerBackground(_:for: .navigation)", #"containerBackground\s*\([^)]*for:\s*\.navigation\b"#,
          "https://developer.apple.com/documentation/swiftui/containerbackgroundplacement/navigation (iOS, iPadOS, Mac Catalyst, watchOS)"),
+        // R414: read while looking for a grey for the task covers.
+        ("UIColor.secondarySystemBackground", #"\bsecondarySystemBackground\b"#,
+         "https://developer.apple.com/documentation/uikit/uicolor/secondarysystembackground (iOS, iPadOS, Mac Catalyst, visionOS)"),
     ]
 
     /// Each line of `source` (comments left out) that uses a call of `notOnTVOS`, as "line: name".
@@ -53,5 +56,8 @@ extension ScreenChecksTests {
         XCTAssertEqual(Self.notOnTVOSUses(in: "// (`scrollContentBackground(.hidden)`) is not on tvOS"), [])
         XCTAssertEqual(Self.notOnTVOSUses(in: "    .containerBackground(.thinMaterial, for: .navigation)"), ["1: containerBackground(_:for: .navigation)"])
         XCTAssertEqual(Self.notOnTVOSUses(in: "    .containerBackground(.thinMaterial, for: .tabView)"), [])
+        // R414: the iOS grey is caught; the system style the covers use is not.
+        XCTAssertEqual(Self.notOnTVOSUses(in: "    .background(Color(uiColor: .secondarySystemBackground))"), ["1: UIColor.secondarySystemBackground"])
+        XCTAssertEqual(Self.notOnTVOSUses(in: "    .background(BackgroundStyle().secondary, ignoresSafeAreaEdges: .all)"), [])
     }
 }

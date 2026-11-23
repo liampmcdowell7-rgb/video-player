@@ -153,8 +153,11 @@ extension ScreenChecksTests {
             let images: Int = text.components(separatedBy: "Image(systemName:").count - 1
             XCTAssertEqual(images, name == "GridToolbar" ? 1 : 0, "\(name) draws a toolbar symbol outside ToolbarSymbol")
         }
-        // The controls stay in the system's toolbar group, at the system's spacing.
-        XCTAssertTrue(toolbar.contains("ToolbarItemGroup(placement: .primaryAction)"), "the controls left the system toolbar placement")
+        // R413: the controls are one full-width focus section on the page (no longer the system toolbar group), so Up from
+        // any card of the first row reaches them.
+        XCTAssertTrue(toolbar.contains("safeAreaInset(edge: .top)"), "the controls are not a row above the grid")
+        XCTAssertTrue(toolbar.contains(".frame(maxWidth: .infinity, alignment: .trailing)\n                .focusSection()"), "the controls' row is not one full-width focus section")
+        XCTAssertFalse(toolbar.contains("ToolbarItemGroup("), "the controls are back in the system toolbar, which Up from the grid did not reach (run #27)")
     }
 
     /// The fixture: three controls of one size pass; the run's own sizes (108 x 66, 98 x 81, 100 x 63) fail.

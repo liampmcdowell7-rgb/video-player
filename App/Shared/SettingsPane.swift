@@ -172,9 +172,8 @@ struct TaskCoverChrome: ViewModifier {
             // Sorted, Fix Match, Save View) is the dark grey of a material, not flat black, and still opaque: nothing
             // of the page behind shows through (R362, #33 A). A cover with artwork of its own draws it on top (the
             // synopsis cover, R392). No Apple picture shows these screens (the audit's NO REFERENCE list).
-            // design-lint:allow R397: the system regular material as a task cover's background, over the opaque system background; a standard material, no colour of ours
-            .background(.regularMaterial, ignoresSafeAreaEdges: .all)
-            .background(BackgroundStyle(), ignoresSafeAreaEdges: .all)
+            // R414: the layers are `TaskCoverFill` (why the material alone stayed black: see there).
+            .modifier(TaskCoverFill())
             // R362 (compile run of 21 Nov 2026, item 10): no `presentationBackground`. Apple's page for it: a presentation
             // background "Allows views behind the presentation to show through translucent styles", which needs the views
             // behind to stay; the page stayed in the tree under every cover of the run. The opaque full-bleed background
@@ -369,6 +368,7 @@ extension View {
 /// visionOS and watchOS, no tvOS. Whether a tvOS `Form` draws an opaque background of its own is on no Apple page read
 /// (the `Form` page describes iOS and macOS only): UNVERIFIED, the next run's pictures decide. If it does, it hides this
 /// material and the covers stay black.
+/// R414 (run #27): the material is not hidden by anything; it has nothing but black to blur (see `TaskCoverFill`).
 /// Only inside a task cover (`isInTaskCover`); a tab's own pages keep the system's background.
 struct TaskCoverPageBackground: ViewModifier {
     @Environment(\.isInTaskCover) private var isInTaskCover: Bool
@@ -377,12 +377,42 @@ struct TaskCoverPageBackground: ViewModifier {
         if isInTaskCover {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                // design-lint:allow R400: the system regular material behind a task cover's page, inside its navigation stack; a standard material, no colour of ours
-                .background(.regularMaterial, ignoresSafeAreaEdges: .all)
-                .background(BackgroundStyle(), ignoresSafeAreaEdges: .all)
+                .modifier(TaskCoverFill())
         } else {
             content
         }
+    }
+}
+
+/// R414 (run #27, all 26 -COVER notes: "cover background #000000 (most common colour of the four corners)"; R397, R400
+/// and R412 changed nothing; PROVISIONAL): the layers of a task cover, from the top.
+///
+/// Cause, from Apple's `Material` page (https://developer.apple.com/documentation/swiftui/material, tvOS 15.0+): "adding a
+/// material is like inserting a translucent layer between the modified view and its background"; it blurs "a background
+/// that's part of your app". R397 and R400 put the material directly on `BackgroundStyle()`, which is black in the dark
+/// appearance, so it had only black to blur and the corners stayed #000000. Nothing drew black over it: at the corners
+/// the page's own background is the top layer (TaskPage's `Form` is a centred column; its frame does not reach them), so
+/// neither the cover's presentation, the navigation stack's container nor the `Form` is the cause. That fits both runs
+/// showing exactly the same black whether the material was outside the stack (R397) or inside it (R400). The tabs are grey
+/// because something of the system's sidebar-adaptable tab view draws there (the app draws no background on Settings or
+/// Files); a full-screen cover is presented outside the tab view, so it does not get that grey (which layer of the tab
+/// view it is: not on an Apple page read, UNVERIFIED).
+///
+/// Fix: a second, opaque level of the system background under the material: `BackgroundStyle` (tvOS 14.0+,
+/// https://developer.apple.com/documentation/swiftui/backgroundstyle) with `secondary` ("Returns the second level of this
+/// shape style", tvOS 17.0+, https://developer.apple.com/documentation/swiftui/shapestyle/secondary-swift.property), over
+/// the plain background so the cover stays opaque even if that level is translucent. System styles only, no colour of
+/// ours. What the second level of the background looks like on tvOS is on no Apple page read (UNVERIFIED): if the next
+/// run still measures #000000, it is black there too. `UIColor.secondarySystemBackground` would be the obvious grey, but
+/// its page lists no tvOS (iOS, iPadOS, Mac Catalyst, visionOS): TvOSAvailabilityTests now catches it.
+struct TaskCoverFill: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            // design-lint:allow R397: the system regular material as a task cover's background, over the opaque system background; a standard material, no colour of ours
+            .background(.regularMaterial, ignoresSafeAreaEdges: .all)
+            // design-lint:allow R414: the second level of the system background, so the material has a grey (not black) to blur; a system style, no colour of ours
+            .background(BackgroundStyle().secondary, ignoresSafeAreaEdges: .all)
+            .background(BackgroundStyle(), ignoresSafeAreaEdges: .all)
     }
 }
 

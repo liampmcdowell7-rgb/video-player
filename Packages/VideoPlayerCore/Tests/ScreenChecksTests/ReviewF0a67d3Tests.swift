@@ -19,9 +19,12 @@ extension ScreenChecksTests {
         let background: String = try reviewBody(of: "struct TaskCoverPageBackground: ViewModifier {", in: pane)
         XCTAssertTrue(background.contains("@Environment(\\.isInTaskCover)"), "the grey is not limited to task covers")
         XCTAssertFalse(background.contains(".scrollContentBackground("), "scrollContentBackground is not available on tvOS (R412)")
-        XCTAssertTrue(background.contains(".background(.regularMaterial, ignoresSafeAreaEdges: .all)"), "no material behind the page")
-        XCTAssertTrue(background.contains(".background(BackgroundStyle(), ignoresSafeAreaEdges: .all)"), "the page is not opaque under the material")
-        if let material = background.range(of: ".regularMaterial"), let opaque = background.range(of: "BackgroundStyle()") {
+        // R414: the layers moved into `TaskCoverFill`, shared with the cover's root (TaskCoverChrome).
+        XCTAssertTrue(background.contains(".modifier(TaskCoverFill())"), "the page does not draw the cover's layers")
+        let fill: String = try reviewBody(of: "struct TaskCoverFill: ViewModifier {", in: pane)
+        XCTAssertTrue(fill.contains(".background(.regularMaterial, ignoresSafeAreaEdges: .all)"), "no material behind the page")
+        XCTAssertTrue(fill.contains(".background(BackgroundStyle(), ignoresSafeAreaEdges: .all)"), "the page is not opaque under the material")
+        if let material = fill.range(of: ".regularMaterial"), let opaque = fill.range(of: "BackgroundStyle(), ignoresSafeAreaEdges") {
             XCTAssertLessThan(material.lowerBound, opaque.lowerBound, "the opaque background is drawn above the material")
         }
         XCTAssertTrue(try reviewBody(of: "struct TaskPage<Content: View>: View {", in: pane).contains(".taskCoverPageBackground()"), "TaskPage draws no cover grey")

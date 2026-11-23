@@ -83,6 +83,11 @@ if bash "$HERE/scripts/test-ci-artifact-contents.sh" >"$LOG/artifact-contents-te
 SUMMARY="$SUMMARY
 artifact-contents self-test ($CAC): $(tail -1 "$LOG/artifact-contents-tests.log")"
 
+# 0b5b. R416: the copy of the app's crash reports into the simulator jobs' log artifacts, on fake report folders.
+if bash "$HERE/scripts/test-ci-crash-reports.sh" >"$LOG/crash-reports-tests.log" 2>&1; then CCR=ok; else CCR=bad; fi
+SUMMARY="$SUMMARY
+crash-reports self-test ($CCR): $(tail -1 "$LOG/crash-reports-tests.log")"
+
 # 0b6. The simulator boot, retry and time-budget logic of scripts/ci-sim.sh with a fake xcrun (#15 item 1.7, #16 item 1.8).
 if bash "$HERE/scripts/test-ci-sim.sh" >"$LOG/ci-sim-tests.log" 2>&1; then CST=ok; else CST=bad; fi
 SUMMARY="$SUMMARY

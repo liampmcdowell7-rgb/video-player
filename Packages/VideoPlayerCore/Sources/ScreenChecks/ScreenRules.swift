@@ -89,6 +89,31 @@ public enum ScreenRules {
         return CheckResult(passed: false, lines: ["page screens still in the accessibility tree: \(visible.joined(separator: ", "))"] + details + ["PAGE BEHIND THE COVER IS EXPOSED"])
     }
 
+    /// R415 (run #27, every task cover; PROVISIONAL): B 2 as a rule on what the app controls. XCTest's tree is not proof
+    /// that VoiceOver can reach an element: Apple's `exists` page (https://developer.apple.com/documentation/xcuiautomation/xcuielement/exists)
+    /// says it is "within the app's current UI hierarchy" and that elements can "exist onscreen but be hidden by another
+    /// element, causing their isHittable property to return false". No Apple page read says whether XCTest lists a view
+    /// marked `accessibilityHidden(true)`, nor whether VoiceOver can reach one (UNVERIFIED; only VoiceOver on a device
+    /// shows it). So `pageHiddenBehindCover` (listed at all) is kept as a record, and B 2 fails when a page screen that
+    /// XCTest still lists was NOT told to hide (the app's `HiddenUnderTaskCover` value "cover probe: told hidden true"), or
+    /// is hittable, i.e. could be pressed through the cover.
+    public static func pageReachableBehindCover(listed: [(identifier: String, value: String, hittable: Bool)]) -> CheckResult {
+        if listed.isEmpty { return CheckResult(passed: true, lines: ["no page screen in the tree behind the cover", "PAGE HIDDEN OK"]) }
+        var lines: [String] = []
+        var faults: [String] = []
+        for screen in listed {
+            let told: Bool = screen.value.contains("told hidden true")
+            lines.append("\(screen.identifier): told hidden \(told), isHittable \(screen.hittable)")
+            if !told { faults.append("\(screen.identifier) was not told to hide") }
+            if screen.hittable { faults.append("\(screen.identifier) is hittable through the cover") }
+        }
+        if faults.isEmpty {
+            return CheckResult(passed: true, lines: lines + ["listed by XCTest, told hidden and not hittable (whether VoiceOver reaches it: device check)",
+                                                             "PAGE HIDDEN OK"])
+        }
+        return CheckResult(passed: false, lines: lines + faults + ["PAGE BEHIND THE COVER IS REACHABLE"])
+    }
+
     /// #34 2: the cover itself is still in the accessibility tree while the page behind it is hidden. RootView hides the
     /// tab view (`accessibilityHidden(coverPresence.isCovered)`); the cover must not be inside that subtree. In the run of
     /// 20 Nov the cover was its own top-level subtree of the window, beside the tab view (10-add-source-types-HIERARCHY);

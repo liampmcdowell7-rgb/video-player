@@ -23,6 +23,8 @@ import AppLogic
 /// - No tvOS release note from 26 to 27.3 beta 2 mentions toolbar layout.
 /// UNVERIFIED (nothing is compiled or run here, R318): how tvOS 27 draws these items in the navigation bar of a tab with the
 /// sidebar-adaptable tab view, its spacing, and how the focus moves from the grid up to them.
+/// R413 (run #27): the focus never moved from the grid up to them, so the same controls are now a row on the page (see
+/// `libraryToolbar`); the rest of the reasoning above (one group, More menu, symbols) still holds.
 extension View {
     /// The library toolbar of Movies and Shows: `shown` is false over "No Sources" and "Nothing Here Yet".
     func libraryToolbar<ViewControls: View, SavedViews: View, MoreItems: View>(
@@ -35,9 +37,20 @@ extension View {
         let controls: ViewControls = viewControls()
         let saved: SavedViews = savedViews()
         let moreItems: MoreItems = more()
-        return toolbar {
+        // R413 (run #27, TOOLBAR-PATH notes; R405 reopened as an app fault; PROVISIONAL): the controls are a row ON THE
+        // PAGE above the grid, no longer the system toolbar. Run #27: Right along the first row, then Up, went to the
+        // sidebar, never to Sort and Filter in the navigation bar; on Shows (two titles) no card is under the controls at
+        // all, so a person on an Apple TV could not reach them either. `focusSection()` (tvOS 15.0+,
+        // https://developer.apple.com/documentation/swiftui/view/focussection()): "the view's frame becomes capable of
+        // accepting focus in order to direct it at its nearest focusable descendant in the direction of travel". The row
+        // spans the full width, so Up from ANY card of the first row (whatever the number of titles) enters it and lands on
+        // the nearest control. The system navigation bar is outside our views, so no section can be put around it.
+        // `safeAreaInset(edge:alignment:spacing:content:)` (tvOS 15.0+,
+        // https://developer.apple.com/documentation/swiftui/view/safeareainset(edge:alignment:spacing:content:)-4s51l)
+        // keeps the row above the scrolling grid. Same controls, same order, same symbols and identifiers.
+        return safeAreaInset(edge: .top) {
             if shown {
-                ToolbarItemGroup(placement: .primaryAction) {
+                HStack {
                     controls
                     saved
                     if hasMore {
@@ -51,6 +64,8 @@ extension View {
                         .accessibilityIdentifier(ControlID.moreControls)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .focusSection()
             }
         }
     }
