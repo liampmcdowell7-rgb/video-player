@@ -44,11 +44,14 @@ struct LibrarySettingsView: View {
                 Text(SettingsTexts.titleLogosFooter)
             }
             // docs/SORTING.md: files that are neither a clear movie nor a clear episode wait here, never in Movies or Shows.
-            Section {
-                NavigationLink {
-                    NeedsReviewView().screenIdentifier("screen.needsReview")
-                } label: {
-                    ValueRow("Needs Review", value: reviewCount.map(String.init) ?? "")
+            // R459: Needs Review lists files by name, which the rating rule does not cover: it is left out while Restrictions are on.
+            if !services.restrictionsOn {
+                Section {
+                    NavigationLink {
+                        NeedsReviewView().screenIdentifier("screen.needsReview")
+                    } label: {
+                        ValueRow("Needs Review", value: reviewCount.map(String.init) ?? "")
+                    }
                 }
             }
             if let counts {

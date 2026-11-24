@@ -57,11 +57,16 @@ struct RootView: View {
                         .uiTestAccessibilityOverrides()
                         .accessibilityHidden(coverPresence.isCovered)
                 }
-                Tab("Files", systemImage: "folder", value: AppTab.files) {
-                    NavigationStack(path: $filesPath) { FilesView().tabRootScreen("Files", identifier: "screen.files").routeDestinations() }
-                        .id(roots.generation(of: .files))
-                        .uiTestAccessibilityOverrides()
-                        .accessibilityHidden(coverPresence.isCovered)
+                // R459: Files lists every file by name, and a file name is not covered by the rating rule, so the tab is not
+                // there while Parental Controls' Restrictions are on. (Apple's `TabContent.hidden(_:)` page lists no tvOS
+                // version, so the tab is left out with `if`, which the same page names as the other way.)
+                if !services.restrictionsOn {
+                    Tab("Files", systemImage: "folder", value: AppTab.files) {
+                        NavigationStack(path: $filesPath) { FilesView().tabRootScreen("Files", identifier: "screen.files").routeDestinations() }
+                            .id(roots.generation(of: .files))
+                            .uiTestAccessibilityOverrides()
+                            .accessibilityHidden(coverPresence.isCovered)
+                    }
                 }
             }
             Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {

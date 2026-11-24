@@ -25,7 +25,9 @@ struct SearchView: View {
     /// R343: the recent searches, newest first, one per line (`RecentSearches`).
     @AppStorage(RecentSearches.defaultsKey) private var recentStored = ""
 
-    private var content: SearchTabContent { .forQuery(query, showDiscover: showDiscover) }
+    /// R459: Discover lists titles from online sources that are not in the library, so no rating rule reaches them; it is off
+    /// while Parental Controls' Restrictions are on, and no discovery request is made.
+    private var content: SearchTabContent { .forQuery(query, showDiscover: showDiscover && !services.restrictionsOn) }
 
     var body: some View {
         VStack(alignment: .leading) {

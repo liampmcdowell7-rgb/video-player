@@ -92,7 +92,7 @@ targets.append(.testTarget(name: "DolbyVisionRPUTests", dependencies: [.target(n
 // This is the one package target allowed to depend on other feature targets (it is glue, tested in WSL; the Apple
 // wrappers live in the app target behind the protocols it defines).
 products.append(.library(name: "AppLogic", targets: ["AppLogic"]))
-targets.append(.target(name: "AppLogic", dependencies: ["VideoPlayerCore", "LibraryIndex", "PlaybackLogic", "Subtitles", "PlaybackStatus", "UserData", "MetadataLocal", "MetadataOnline", "RemuxEngine", "DolbyVisionRPU"]))
+targets.append(.target(name: "AppLogic", dependencies: ["VideoPlayerCore", "LibraryIndex", "LibraryBackup", "PlaybackLogic", "Subtitles", "PlaybackStatus", "UserData", "MetadataLocal", "MetadataOnline", "RemuxEngine", "DolbyVisionRPU"]))
 targets.append(.testTarget(name: "AppLogicTests", dependencies: [.target(name: "AppLogic"), "VideoPlayerCore", "UserData", "MetadataOnline", "MetadataLocal", "RemuxEngine", "DolbyVisionRPU"]))
 
 // --- #33: the verdicts of the screenshot UI tests (accessibility dump, cover pixels, menus, toolbar groups) as plain

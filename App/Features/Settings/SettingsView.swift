@@ -24,6 +24,7 @@ struct SettingsView: View {
                 link("Language", "character.bubble") { LanguageSettingsView() }
             }
             Section {
+                link("Parental Controls", "lock") { ParentalControlsView() }
                 link("Accessibility", "accessibility") { AccessibilitySettingsView() }
                 link("About", "info.circle") { AboutView() }
             } footer: {

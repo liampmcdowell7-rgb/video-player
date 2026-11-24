@@ -27,6 +27,13 @@ extension SQLiteLibraryStore {
     public func setRestrictions(_ value: LibraryRestrictions) { restrictions = value }
     public var currentRestrictions: LibraryRestrictions { restrictions }
 
+    /// R459: titles whose rating has not been read yet (nothing kept in the library), whatever the restrictions say: the reading
+    /// pass needs the ones the rule hides. Not part of the library's lists; only the rating pass calls it.
+    public func itemsWithoutRating(after id: Int64, limit: Int) throws -> [LibraryItem] {
+        try db.rows("SELECT \(Self.itemColumns) FROM items i WHERE i.version_count > 0 AND i.review = 0 AND i.content_rating IS NULL AND i.id > ? ORDER BY i.id LIMIT ?",
+                    [.int(id), .int(Int64(max(1, limit)))], Self.mapItem)
+    }
+
     /// Items created from now on take their watch state from the restored data. Cleared when the rescan has finished.
     public func clearPendingRestore() { pendingWatch = [:] }
     public var pendingRestoreCount: Int { pendingWatch.count }

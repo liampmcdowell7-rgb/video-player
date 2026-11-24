@@ -55,6 +55,10 @@ final class AppServices {
     let watchSync: ServerWatchSync
 
     var libraryRevision = 0
+    /// R459: Restrictions are on (read from this device's settings; Discover and online suggestions are off meanwhile).
+    private(set) var restrictionsOn = ParentalKeys.read().enabled
+    /// R459: the passcode and its lockout, in this device's Keychain.
+    @ObservationIgnored let parental = ParentalPIN(store: KeychainPINStore())
     var pendingLink: DeepLink?
     var playRequest: PlayRequest?
     /// #21 F: a page a long-press menu asked for ("Go to Movie", "Go to Show"). RootView pushes it on the current tab's stack.
@@ -311,9 +315,28 @@ final class AppServices {
 
     // MARK: Library page and source page (R458)
 
-    /// The library's one rule of which titles show (hidden sources; Parental Controls follow in R459).
+    /// The library's one rule of which titles show: hidden sources (R458) and the rating rule of Parental Controls (R459).
+    /// Restrictions that are on stay on when the passcode record is gone (the rule fails closed).
     func applyRestrictions() async {
-        await sqlite.setRestrictions(LibraryRestrictions(hiddenSourceIDs: HideSourceOption.hiddenIDs(definitions)))
+        let settings = ParentalKeys.read()
+        restrictionsOn = settings.enabled
+        await sqlite.setRestrictions(LibraryRestrictions(hiddenSourceIDs: HideSourceOption.hiddenIDs(definitions),
+                                                         ratings: settings.rule(region: online.region)))
+    }
+
+    // MARK: Parental Controls (R459)
+
+    /// Saves the Parental Controls settings on this device only (never the user data) and applies them everywhere at once:
+    /// every list, Continue Watching and Next Up, and the Top Shelf are read again.
+    func setParental(_ settings: ParentalSettings) async {
+        let defaults = UserDefaults.standard
+        defaults.set(settings.enabled, forKey: ParentalKeys.enabled)
+        defaults.set(settings.allowUnrated, forKey: ParentalKeys.allowUnrated)
+        if let tier = settings.movieTier { defaults.set(tier, forKey: ParentalKeys.movieTier) } else { defaults.removeObject(forKey: ParentalKeys.movieTier) }
+        if let tier = settings.episodeTier { defaults.set(tier, forKey: ParentalKeys.episodeTier) } else { defaults.removeObject(forKey: ParentalKeys.episodeTier) }
+        await applyRestrictions()
+        libraryRevision += 1
+        await writeTopShelf()
     }
 
     func setSourceHidden(_ hidden: Bool, for definition: UDSourceDefinition) async {

@@ -210,6 +210,12 @@ Video
 Audio
 Reads
 Metadata
+# R459: rating labels and region codes that the scales of Parental Controls spell out
+DE
+PG
+FV
+R18
+FSK
 # Standard abbreviations and technical terms
 HTTP
 HTTPS

@@ -1507,6 +1507,15 @@ final class ScreenshotTests: XCTestCase {
             }
             back()
         }
+        // R459: Parental Controls sit above Accessibility on the top level: the page, then the passcode entry behind Change
+        // Passcode (Menu leaves the entry first, then the page).
+        if open("Parental Controls", in: app, name: "47-settings-parental-controls") {
+            settle(); shot("47-settings-parental-controls"); textContrast("47-settings-parental-controls", in: app)
+            if open("Change Passcode", id: "parental.changePasscode", in: app, name: "48-settings-parental-passcode") {
+                settle(); shot("48-settings-parental-passcode"); back()
+            }
+            back()
+        }
         app.terminate()
 
         // 40: About, from a fresh launch on the Settings tab (#15 item 1.3): About is the LAST row, and after seven pages

@@ -196,6 +196,19 @@ final class OnlineServices {
         rebuild()
     }
 
+    /// R459: reads the rating of every title that has none kept yet (the server's answer, else the title's information file; each
+    /// answer is kept in the library), so the rating rule has them. Walks by id, so a title nothing can answer now does not hold
+    /// the rest back. Returns how many titles got a rating.
+    func readRatings() async -> Int {
+        var read = 0
+        var after: Int64 = 0
+        while let items = try? await store.itemsWithoutRating(after: after, limit: 200), let last = items.last {
+            for item in items where await SourceRatings.storedRating(item: item, store: store, server: server, reader: reader) != nil { read += 1 }
+            after = last.id
+        }
+        return read
+    }
+
     /// The candidates of one kind. Online pictures only while Online Lookup has its key (R209); the others always.
     func artworkGallery(key: String, kind: ArtworkGalleryKind) async -> ArtworkGallery {
         #if DEBUG

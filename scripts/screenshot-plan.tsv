@@ -42,6 +42,8 @@ test03_Settings	37-settings-sync-and-backup
 test03_Settings	38-settings-accessibility
 test03_Settings	45-settings-language
 test03_Settings	46-settings-audio
+test03_Settings	47-settings-parental-controls
+test03_Settings	48-settings-parental-passcode
 test03_Settings	40-about
 test03_Settings	41-about-scrolled-1
 test03_Settings	41-about-scrolled-2
