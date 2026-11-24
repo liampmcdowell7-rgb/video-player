@@ -31,6 +31,10 @@
 #   3. scripts/cm-testflight.sh check-profiles iCloud container, App Group and aps-environment in the two profiles
 #   4. scripts/cm-testflight.sh prepare        scripts/ci-prepare.sh, the same preparation as the compile check
 #   5. scripts/cm-testflight.sh archive        use-profiles, build number, Release archive, build-number check
+#      scripts/gh-testflight.sh check-entitlements  (R466) read-only: yes or no, never a value, for the iCloud container, the
+#                                              iCloud services, the App Group and aps-environment in the archived app and the
+#                                              Top Shelf extension; fails before the export when the app lacks the container
+#                                              or the CloudKit service
 #   6. scripts/cm-testflight.sh export         the .ipa (method app-store)
 #   7. scripts/gh-testflight.sh upload         xcodebuild -exportArchive with destination upload and the API key
 # The Codemagic command line tools (open source, pip package codemagic-cli-tools) are installed into a virtual environment
@@ -47,7 +51,9 @@
 # that both bundles carry it, R279), so each upload is unique and rising.
 # UPLOAD: no submission for TestFlight review; internal testers need none.
 # ARTIFACT: none unless "Keep the .ipa" is ticked (default off): the .ipa carries the Team ID (profile and entitlements) and
-# a public repository's artifacts can be downloaded by anyone signed in to GitHub (R463).
+# a public repository's artifacts can be downloaded by anyone signed in to GitHub (R463). The second box, "Keep the dSYM
+# files" (default off, 1 day, R466), keeps only the archive's dSYMs folder: debug symbols (function, type and file names,
+# line tables), no profile, no entitlements, no Team ID, no key. Never a log.
 
 name: TestFlight upload (tvOS, manual)
 
@@ -56,6 +62,10 @@ on:
     inputs:
       keep_ipa:
         description: "Keep the .ipa as a downloadable artifact (1 day). It carries your Team ID, and anyone signed in to GitHub can download artifacts of a public repository."
+        type: boolean
+        default: false
+      keep_dsyms:
+        description: "Keep the dSYM files (the symbols that turn a crash report into function names) as a downloadable artifact (1 day). They list this app's function and file names; anyone signed in to GitHub can download artifacts of a public repository."
         type: boolean
         default: false
 
@@ -179,6 +189,12 @@ jobs:
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Archive (Release, tvOS devices, manual signing)"
           bash scripts/cm-testflight.sh archive
 
+      - name: Check the signed entitlements of the archive (read-only; yes or no only, never a value; stops before the export)
+        timeout-minutes: 5
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Entitlement check"
+          bash scripts/gh-testflight.sh check-entitlements
+
       - name: Export the .ipa (method app-store)
         timeout-minutes: 10
         run: |
@@ -202,6 +218,15 @@ jobs:
           path: build/ios/ipa/*.ipa
           retention-days: 1
           if-no-files-found: error
+
+      - name: Keep the dSYM files (only when the box was ticked; also after a failed step)
+        if: ${{ always() && inputs.keep_dsyms }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: testflight-dsyms
+          path: build/ios/xcarchive/VideoPlayer.xcarchive/dSYMs
+          retention-days: 1
+          if-no-files-found: warn
 
       - name: Delete the keys, the temporary keychain and the logs (always, also after a failure)
         if: always()

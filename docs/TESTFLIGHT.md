@@ -26,7 +26,7 @@ makes, replaces or deletes a certificate or a key.
 
 1. Open your repository on GitHub and click the **Actions** tab.
 2. In the list on the left click **TestFlight upload (tvOS, manual)**.
-3. Click **Run workflow** (grey button on the right). Leave the branch as **main**. Leave **Keep the .ipa** unticked.
+3. Click **Run workflow** (grey button on the right). Leave the branch as **main**. Leave **Keep the .ipa** and **Keep the dSYM files** unticked, unless a crash needs the symbols (see below).
 4. Click the green **Run workflow** button. After a few seconds a new line appears; click it to watch.
 
 A run takes an estimated 15 to 25 minutes (not measured) and stops by itself after 30. Nothing starts unless you press the
@@ -41,6 +41,14 @@ button. It costs nothing: the repository is public and the runner is one of GitH
 - **The .ipa file**: only if you tick **Keep the .ipa**. Then the run page has an **Artifacts** box at the bottom with
   `testflight-ipa`, kept for 1 day. Leave it unticked unless you need the file: it contains your Team ID, and anyone signed
   in to GitHub can download artifacts of a public repository.
+- **The dSYM files** (R466): only if you tick **Keep the dSYM files**. Then the run page has `testflight-dsyms`, kept for 1
+  day. They are the symbols that turn a crash report into function names: they list this app's function and file names
+  (the source is public anyway) and hold no key, profile or Team ID. Anyone signed in to GitHub can download them while
+  they are kept, so tick the box only for the build you need to read a crash of. Send the crash report (`.ips`) of THAT same
+  build, then tell me.
+- **The entitlement check** (R466): a step after the archive prints `yes` or `no` for the iCloud container, the iCloud
+  services, the App Group and the push environment, in the app and the Top Shelf extension. It never prints a value. If the
+  app lacks the iCloud container or the CloudKit service, the run stops before anything is uploaded.
 - **Logs**: the run page shows only short result lines and, on a failure, the error lines (names and e-mail addresses
   removed). No log file is saved anywhere.
 
@@ -60,6 +68,7 @@ Open the red step and copy its last lines into a message to me. The lines are al
 | Prepare | `missing ...` or `binary target ... missing` | A committed file is missing from the repository; tell me |
 | Archive | `SIGNING ERROR` lines | The profiles or the certificate do not fit; the line names the target |
 | Archive | `BUILD NUMBER ERROR` | The build number did not reach a bundle; tell me |
+| Check the signed entitlements | `ENTITLEMENT ERROR: ... lack the iCloud container` or `... the CloudKit service` | The archive was signed without iCloud. Copy the yes/no lines and tell me; do not upload anything from this run |
 | Export | `no .ipa` | The export wrote nothing; tell me |
 | Upload | `90575`, `aps-environment` | Push Notifications is missing on the app's App ID or profile; tick it on developer.apple.com and run again |
 | Upload | `has already been used` or `redundant binary upload` | A build with that number exists; run again later (a new minute gives a new number) |

@@ -7,6 +7,11 @@
 #                                  must match), and a throw-away .p12 made from the two is imported. It makes NO key and NO
 #                                  certificate and revokes or deletes nothing (the pre-push check refuses the commands that
 #                                  would, scripts/test-ci-testflight-log.sh proves it).
+#   gh-testflight.sh check-entitlements  READ-ONLY (R466): after the archive, before the export and the upload, prints yes or
+#                                  no (never a value) for the iCloud container, the iCloud services, the App Group and
+#                                  aps-environment, in the archived app and the Top Shelf extension, signed and in the
+#                                  embedded profile (scripts/gh-entitlement-check.py); fails when the app lacks the iCloud
+#                                  container or the CloudKit service.
 #   gh-testflight.sh upload        uploads the archive with `xcodebuild -exportArchive` (the export options that
 #                                  `xcode-project use-profiles` wrote, plus destination upload) and the API key flags.
 #                                  The profiles and the certificate are the same as in the export, so nothing new is signed.
@@ -18,7 +23,7 @@
 # UNVERIFIED (no Mac here, never run): every command named here on a GitHub runner.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-step="${1:?step: install-cert | upload | cleanup}"
+step="${1:?step: install-cert | check-entitlements | upload | cleanup}"
 W="${RUNNER_TEMP:?RUNNER_TEMP is not set}/vp-gh"
 KC="$W/build.keychain-db"
 ARCHIVE=build/ios/xcarchive/VideoPlayer.xcarchive
@@ -74,6 +79,15 @@ case "$step" in
     [ "${cnt:-0}" -ge 1 ] || { echo "SIGNING ERROR: the temporary keychain holds no code signing identity after the import"; exit 1; }
     echo "SIGNING: the Apple Distribution certificate for the supplied private key is in a temporary keychain ($cnt identity)"
     exit 0 ;;
+
+  check-entitlements)
+    # The same lookup as cm-testflight.sh check-build: the one app in the archive and its one extension.
+    app="$(ls -d "$ARCHIVE"/Products/Applications/*.app 2>/dev/null | head -n 1)"
+    [ -d "$app" ] || { echo "ENTITLEMENT ERROR: no app in the archive ($ARCHIVE)"; exit 1; }
+    ext="$(ls -d "$app"/PlugIns/*.appex 2>/dev/null | head -n 1)"
+    # The script prints fixed words only (key names, yes, no); codesign's and security's own output is never shown.
+    python3 scripts/gh-entitlement-check.py bundles "$app" "${ext:-}"
+    exit $? ;;
 
   upload)
     : "${ASC_KEY_PATH:?}" "${ASC_KEY_ID:?}" "${ASC_ISSUER_ID:?}"

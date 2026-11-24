@@ -56,7 +56,8 @@ c("the only trigger is workflow_dispatch", list(on.keys()) == ["workflow_dispatc
 c("one job, 30 minutes, runner xcode-27", len(j) == 1 and jb.get("timeout-minutes") == 30 and jb.get("runs-on") == "xcode-27")
 c("concurrency group testflight, no cancel", d.get("concurrency", {}).get("group") == "testflight")
 c("permissions: contents read only", d.get("permissions") == {"contents": "read"})
-c("the only input is the keep_ipa box, default off", list(on["workflow_dispatch"]["inputs"].keys()) == ["keep_ipa"] and on["workflow_dispatch"]["inputs"]["keep_ipa"]["default"] is False)
+ins = on["workflow_dispatch"]["inputs"]
+c("the only inputs are the keep_ipa and keep_dsyms boxes, both default off (R466)", sorted(ins.keys()) == ["keep_dsyms", "keep_ipa"] and ins["keep_ipa"]["default"] is False and ins["keep_dsyms"]["default"] is False)
 print("\n".join(r))
 EOF
 )"
@@ -66,11 +67,11 @@ else
   echo "SKIP  testflight.yml YAML parse (PyYAML not installed)"
 fi
 printf '%s\n' "$code" | grep -qE 'CODE_SIGN_STYLE=Automatic|-allowProvisioningUpdates|-authenticationKeyPath .*archive' && bad "testflight.yml: automatic signing is back (R463: it needs a registered device)" || ok "testflight.yml: no automatic signing"
-for s in "gh-testflight.sh install-cert" "cm-testflight.sh signing" "cm-testflight.sh check-profiles" "cm-testflight.sh prepare" "cm-testflight.sh archive" "cm-testflight.sh export" "gh-testflight.sh upload" "gh-testflight.sh cleanup"; do
+for s in "gh-testflight.sh install-cert" "cm-testflight.sh signing" "cm-testflight.sh check-profiles" "cm-testflight.sh prepare" "cm-testflight.sh archive" "gh-testflight.sh check-entitlements" "cm-testflight.sh export" "gh-testflight.sh upload" "gh-testflight.sh cleanup"; do
   printf '%s\n' "$code" | grep -qE "^[[:space:]]+(run: )?bash scripts/$s\$" && ok "testflight.yml runs scripts/$s" || bad "testflight.yml misses scripts/$s"
 done
-printf '%s\n' "$code" | awk '/gh-testflight.sh install-cert/{a=NR} /cm-testflight.sh signing/{b=NR} /cm-testflight.sh archive/{c=NR} /cm-testflight.sh export/{d=NR} /gh-testflight.sh upload/{e=NR} END{exit !(a<b && b<c && c<d && d<e)}' \
-  && ok "testflight.yml: certificate, signing, archive, export, upload in that order" || bad "step order"
+printf '%s\n' "$code" | awk '/gh-testflight.sh install-cert/{a=NR} /cm-testflight.sh signing/{b=NR} /cm-testflight.sh archive/{c=NR} /gh-testflight.sh check-entitlements/{k=NR} /cm-testflight.sh export/{d=NR} /gh-testflight.sh upload/{e=NR} END{exit !(a<b && b<c && c<k && k<d && d<e)}' \
+  && ok "testflight.yml: certificate, signing, archive, entitlement check, export, upload in that order (R466)" || bad "step order"
 grep -qiE 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY' "$W" && bad "a key header is written out in the workflow" || ok "testflight.yml: no key header text (built at run time, R251)"
 grep -q 'kind="PRIVATE"' "$W" && grep -q 'fold -w 64' "$W" && ok "testflight.yml: the API key file is rebuilt from the secret's body (R251)" || bad "key rebuild"
 [ "$(grep -cE '^[[:space:]]*runs-on: xcode-27$' "$W")" -eq 1 ] && ok "testflight.yml: one job on the standard xcode-27 runner" || bad "runner"
@@ -80,7 +81,10 @@ names="$(grep -oE 'secrets\.[A-Za-z0-9_]+' "$W" | sort -u | tr '\n' ' ')"
 grep -qE 'APPLE_TEAM_ID|TEAM_ID' "$W" && bad "a Team ID secret is used (R463: not needed)" || ok "testflight.yml: no Team ID secret"
 grep -qE 'GITHUB_TOKEN|github\.token|secrets: *inherit' "$W" && bad "a GitHub token is used" || ok "testflight.yml: no GitHub token"
 grep -q 'persist-credentials: false' "$W" && ok "testflight.yml: the checkout keeps no credentials" || bad "persist-credentials"
-[ "$(grep -c 'upload-artifact' "$W")" -eq 1 ] && grep -q 'path: build/ios/ipa/\*.ipa' "$W" && grep -q 'if: \${{ inputs.keep_ipa }}' "$W" && ok "testflight.yml: the one artifact is the .ipa, only when the box is ticked" || bad "artifact rules"
+[ "$(printf '%s\n' "$code" | grep -c 'uses: actions/upload-artifact')" -eq 2 ] && grep -q 'path: build/ios/ipa/\*.ipa' "$W" && grep -q 'if: \${{ inputs.keep_ipa }}' "$W" \
+  && grep -q 'path: build/ios/xcarchive/VideoPlayer.xcarchive/dSYMs$' "$W" && grep -q 'if: \${{ always() && inputs.keep_dsyms }}' "$W" \
+  && [ "$(printf '%s\n' "$code" | grep -c 'retention-days: 1$')" -eq 2 ] \
+  && ok "testflight.yml: exactly two artifacts, the .ipa and the dSYMs, each only when its box is ticked, 1 day (R466)" || bad "artifact rules"
 grep -qE 'path:.*(\.log|logs|asc|\.p8|\.key|keychain)' "$W" && bad "an artifact path could hold a log or a key" || ok "testflight.yml: no log or key in an artifact (R249)"
 grep -B1 -A2 'Delete the keys' "$W" | grep -q 'if: always()' && ok "testflight.yml: the keys are deleted in an always() step" || bad "key deletion not always()"
 grep -qE 'echo.*\$(ASC_KEY_P8|\{ASC_KEY_P8\}|DIST_CERT_PRIVATE_KEY|\{DIST_CERT_PRIVATE_KEY\})' "$W" && bad "a key text is echoed" || ok "testflight.yml: no key text is echoed"
@@ -131,6 +135,59 @@ EOF
 else
   echo "SKIP  install-cert matching (openssl not installed)"
 fi
+
+# R466: the entitlement check (scripts/gh-entitlement-check.py, `plists` mode: no codesign on Linux). Four decoded plists in,
+# yes/no lines out, exit 1 when the app lacks the iCloud container or the CloudKit service; no value is ever printed.
+EC=scripts/gh-entitlement-check.py
+python3 -I -c 'import ast,sys; ast.parse(open(sys.argv[1]).read())' "$EC" && ok "gh-entitlement-check.py: Python syntax" || bad "gh-entitlement-check.py syntax"
+mkdir -p "$t/ent"
+python3 - "$t/ent" <<'EOF'
+import importlib.util, os, plistlib, sys
+d = sys.argv[1]
+spec = importlib.util.spec_from_file_location("c", "scripts/cm-profile-check.py"); c = importlib.util.module_from_spec(spec); spec.loader.exec_module(c)
+good = {c.ICLOUD_KEY: [c.ICLOUD_CONTAINER], "com.apple.developer.icloud-services": ["CloudKit"], c.GROUP_KEY: [c.APP_GROUP], c.APS_KEY: "production"}
+top = {c.GROUP_KEY: [c.APP_GROUP]}
+def w(name, ent, profile=False):
+    plistlib.dump({"Entitlements": ent} if profile else ent, open(os.path.join(d, name), "wb"))
+w("app-good.plist", good); w("app-good-prof.plist", dict(good, **{"com.apple.developer.icloud-services": "*"}), True)
+w("top.plist", top); w("top-prof.plist", top, True)
+no_container = {k: v for k, v in good.items() if k != c.ICLOUD_KEY}
+no_service = dict(good, **{"com.apple.developer.icloud-services": ["CloudKit-Anonymous"]})
+w("app-nocontainer.plist", no_container); w("app-noservice.plist", no_service)
+w("app-nocontainer-prof.plist", no_container, True)
+w("empty.plist", {}, False)
+open(os.path.join(d, "values.txt"), "w").write("\n".join([c.ICLOUD_CONTAINER, c.APP_GROUP, "production"]) + "\n")
+EOF
+E="$t/ent"
+out="$(python3 "$EC" plists "$E/app-good.plist" "$E/app-good-prof.plist" "$E/top.plist" "$E/top-prof.plist" 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'signed with the iCloud container and the CloudKit service' && ok "entitlement check: a correctly signed app passes (a profile with the wildcard services counts)" || bad "good case rc=$rc: $out"
+printf '%s' "$out" | grep -E '^  app +signed +icloud-container-identifiers +yes$' >/dev/null && printf '%s' "$out" | grep -E '^  topshelf +signed +application-groups +yes$' >/dev/null \
+  && printf '%s' "$out" | grep -E '^  topshelf +signed +icloud-container-identifiers +no$' >/dev/null && ok "entitlement check: one yes or no line per key, app and Top Shelf" || bad "yes/no lines: $out"
+leak=0; while IFS= read -r v; do printf '%s' "$out" | grep -qF "$v" && leak=1; done < "$E/values.txt"
+[ "$leak" -eq 0 ] && ok "entitlement check: no identifier or value is printed (container, App Group, aps value)" || bad "a value was printed"
+out="$(python3 "$EC" plists "$E/app-nocontainer.plist" "$E/app-good-prof.plist" "$E/top.plist" "$E/top-prof.plist" 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'ENTITLEMENT ERROR: the signed entitlements of the app lack the iCloud container' && ok "entitlement check: a signed app without the iCloud container fails" || bad "no container rc=$rc"
+out="$(python3 "$EC" plists "$E/app-noservice.plist" "$E/app-good-prof.plist" "$E/top.plist" "$E/top-prof.plist" 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'the signed entitlements of the app lack the CloudKit service' && ok "entitlement check: a signed app without the CloudKit service fails" || bad "no service rc=$rc"
+out="$(python3 "$EC" plists "$E/app-good.plist" "$E/app-nocontainer-prof.plist" "$E/top.plist" "$E/top-prof.plist" 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'the embedded profile of the app lacks the iCloud container' && ok "entitlement check: a readable embedded profile without the container fails" || bad "profile without container rc=$rc"
+out="$(python3 "$EC" plists "$E/empty.plist" "$E/app-good-prof.plist" "$E/top.plist" "$E/top-prof.plist" 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && ok "entitlement check: an app with no entitlements at all fails" || bad "empty app rc=$rc"
+python3 "$EC" plists "$E/app-good.plist" "$E/app-good-prof.plist" "$E/empty.plist" "$E/empty.plist" >/dev/null 2>&1 && ok "entitlement check: a Top Shelf extension without iCloud does not fail the step" || bad "Top Shelf lacking keys failed the step"
+python3 "$EC" >/dev/null 2>&1; [ "$?" -eq 2 ] && ok "entitlement check: no arguments prints the usage and exits 2" || bad "usage exit"
+ecode="$(grep -vE '^[[:space:]]*(#|"""|$)' "$EC")"
+python3 - "$E" <<'EOF2'
+import plistlib, sys
+d = sys.argv[1]
+ent = plistlib.load(open(d + "/app-good.plist", "rb"))
+ent.update({"application-identifier": "SENTINELTEAM.example.sentinel", "com.apple.developer.team-identifier": "SENTINELTEAM", "x-secret-looking": "SENTINELVALUE"})
+plistlib.dump(ent, open(d + "/app-sentinel.plist", "wb"))
+prof = {"Entitlements": ent, "TeamName": "SENTINELNAME", "Name": "SENTINELPROFILE", "DeveloperCertificates": [b"SENTINELCERT"]}
+plistlib.dump(prof, open(d + "/app-sentinel-prof.plist", "wb"))
+EOF2
+out="$(python3 "$EC" plists "$E/app-sentinel.plist" "$E/app-sentinel-prof.plist" "$E/top.plist" "$E/top-prof.plist" 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q 'SENTINEL' && ok "entitlement check: a Team ID, a profile name, a certificate and other values in the plists never reach the output" || bad "a sentinel value was printed (rc=$rc)"
+printf '%s\n' "$ecode" | grep -qE 'codesign.*(--sign|-s )|security[[:space:]]+(import|create|delete|set-key)|"-f"|--force' && bad "the check can sign or change a keychain" || ok "entitlement check: read-only commands only (codesign -d, security cms -D)"
 
 # R248: the pre-push exception is narrow. The real scripts/pre-push-check.sh runs in a throwaway repository holding only
 # itself and one workflow variant; only its workflow messages are read.
