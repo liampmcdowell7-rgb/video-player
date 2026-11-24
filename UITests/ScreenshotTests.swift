@@ -1890,6 +1890,15 @@ final class ScreenshotTests: XCTestCase {
         } else { hierarchy("57-movie-detail", of: app); notReached("57-movie-detail", "The movie detail page did not open.") }
         app.terminate()
 
+        // R452: the same page over a plain white picture (the brightest artwork there can be), no network: the title, the
+        // metadata and the buttons must stay readable over it (ArtReadability gives the numbers; this picture is the check by eye).
+        app = launch("-UITestFixtures", open: "Sample Movie 1", extra: ["-UITestBrightBackdrop"])
+        if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 1", in: app) {
+            settle(); shot("57-movie-detail-bright")
+            textContrast("57-movie-detail-bright", in: app)
+        } else { hierarchy("57-movie-detail-bright", of: app); notReached("57-movie-detail-bright", "The movie detail page did not open.") }
+        app.terminate()
+
         app = launch("-UITestFixtures", open: "Sample Movie 2")
         if waitForScreen("screen.item", in: app, timeout: 60), waitFor("Sample Movie 2", in: app) {
             settle(); shot("60-movie-detail-two-versions")

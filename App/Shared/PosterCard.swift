@@ -94,6 +94,7 @@ struct PosterCard: View {
                 if let progress = card.progress {
                     ProgressView(value: progress)
                         .padding()
+                        .progressScrim() // R452
                 }
             }
     }

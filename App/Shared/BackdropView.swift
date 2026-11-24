@@ -23,6 +23,10 @@ struct BackdropView: View {
     /// R387: the episode page's hero is the episode's own still (`OnlineServices.episodeStill`), not the show's backdrop;
     /// the show's backdrop only when the episode has no still, never its poster.
     var prefersEpisodeStill = false
+    /// R452: where the page's first line of text begins (global y, from `ArtTextTop`); the cover starts one ramp above it
+    /// (`ArtReadability.coverStart`), not at a fixed share of the picture. Nil until the page has measured it.
+    var textTop: CGFloat? = nil
+    @State private var height: CGFloat = 0
     @Environment(AppServices.self) private var services
     @State private var result: ArtworkResult = .none
 
@@ -33,6 +37,7 @@ struct BackdropView: View {
             // design-lint:allow a decorative full-bleed background picture holds no content, so it may reach the screen edges
             .ignoresSafeArea()
             .accessibilityHidden(true)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
             .task(id: "\(artworkKey)|\(services.online.keyRevision)") {
                 result = await load()
             }
@@ -49,6 +54,32 @@ struct BackdropView: View {
         return await services.online.backdrop(key: artworkKey)
     }
 
+    /// The cover over the picture (see `BackdropStyle`).
+    @ViewBuilder
+    private var cover: some View {
+            switch style {
+            case .page:
+                // design-lint:allow R336: the system regular material over the full-strength backdrop, Apple's tvOS media catalog sample's product page (a standard material in the content layer, HIG Materials; not glass)
+                Rectangle().fill(.regularMaterial)
+            case .hero:
+                // R452: the system material under a masked gradient (Apple's sample), plus our black cover under
+                // the text: Apple states no darkening for a material, so the contrast proof (ArtReadabilityTests)
+                // counts none and needs the cover. Both start where the text starts (`ArtReadability.coverStart`).
+                let start: Double = ArtReadability.coverStart(textTop: textTop.map { Double($0) }, height: Double(height))
+                let full: Double = min(start + ArtReadability.rampFraction, 1)
+                ZStack {
+                    // design-lint:allow R349, R350: the system regular material over the lower part of the artwork only, the sample's material gradient
+                    Rectangle().fill(.regularMaterial)
+                        .mask {
+                            LinearGradient(stops: [.init(color: .clear, location: start), .init(color: .primary, location: full)],
+                                           startPoint: .top, endPoint: .bottom)
+                        }
+                    // design-lint:allow R452: our own cover where the system material alone does not prove 4.5:1 (ArtReadability)
+                    LinearGradient(stops: [.init(color: .black.opacity(0), location: start), .init(color: .black.opacity(ArtReadability.scrimMaxOpacity), location: full)], startPoint: .top, endPoint: .bottom)
+                }
+            }
+    }
+
     @ViewBuilder
     private var picture: some View {
         switch result {
@@ -56,25 +87,13 @@ struct BackdropView: View {
             AsyncImage(url: url) { phase in
                 if case .success(let image) = phase {
                     image.resizable().aspectRatio(contentMode: .fill)
-                        .overlay {
-                            switch style {
-                            case .page:
-                                // design-lint:allow R336: the system regular material over the full-strength backdrop, Apple's tvOS media catalog sample's product page (a standard material in the content layer, HIG Materials; not glass)
-                                Rectangle().fill(.regularMaterial)
-                            case .hero:
-                                // design-lint:allow R349, R350: the system regular material over the lower part of the artwork only (Home's featured area, the movie and show pages), so the title, metadata and buttons stay readable while the top of the picture stays clear (the TV app's featured area and product pages); the mask is the material's shape, not a colour of ours
-                                Rectangle().fill(.regularMaterial)
-                                    .mask {
-                                        LinearGradient(stops: [.init(color: .clear, location: BackdropStyle.heroClearTop),
-                                                               .init(color: .primary, location: 1)],
-                                                       startPoint: .top, endPoint: .bottom)
-                                    }
-                            }
-                        }
+                        .overlay { cover }
                 }
             }
         case .none:
-            EmptyView()
+            // R452: only the readability picture (`-UITestBrightBackdrop`, debug UI-test mode): a plain white picture, no network.
+            // design-lint:allow R452: a white test picture (debug UI-test mode only), the brightest artwork there can be
+            if UITestMode.brightBackdrop { Color.white.overlay { cover } } else { EmptyView() }
         }
     }
 }

@@ -28,6 +28,8 @@ struct ItemDetailContentView: View {
     @FocusState private var playFocused: Bool
     /// R350: the height of the page's scroll view, so the hero area fills the first screen (`ProductPageLayout`).
     @State private var pageHeight: CGFloat = 0
+    /// R452: where the title (the first line of text) begins, for the cover behind it.
+    @State private var textTop: CGFloat?
     /// R387: the show's age rating, asked for only when an episode has none of its own (`EpisodePage.needsSeriesRating`).
     @State private var seriesRating: String?
     /// R387: the episode's show, for the row of the season's other episodes (the show page's model, so a card's context
@@ -81,7 +83,8 @@ struct ItemDetailContentView: View {
         // (`-UITestOpen`, a Top Shelf link) gets the focus the tab bar had, and `defaultFocus` alone only picks where the
         // focus lands when it moves INTO the page. Asking for Play once the page is on screen moves it there.
         .task(id: content.itemID) { playFocused = true }
-        .background { BackdropView(artworkKey: content.artworkKey, style: .hero, prefersEpisodeStill: content.kind == .episode) }
+        .artTextTop($textTop)
+        .background { BackdropView(artworkKey: content.artworkKey, style: .hero, prefersEpisodeStill: content.kind == .episode, textTop: textTop) }
         .task(id: "\(content.artworkKey)|\(services.online.keyRevision)") {
             // R387: an episode asks too; only the source's own layer answers for one (Wikidata and TMDB give nothing).
             var own = await services.online.details(key: content.artworkKey)

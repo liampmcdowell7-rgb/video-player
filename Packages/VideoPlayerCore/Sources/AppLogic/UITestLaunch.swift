@@ -25,6 +25,9 @@ public enum UITestLaunch: Equatable, Sendable {
     public static let textSizeArgument = "-UITestTextSize"
     /// `-UITestBoldText`: draws the app's text bold (rule 17, Bold Text), as the system Bold Text setting would.
     public static let boldTextArgument = "-UITestBoldText"
+    /// R452: `-UITestBrightBackdrop` draws a plain white picture where a page has no artwork (fixtures have none), so the
+    /// readability of text over the brightest possible artwork can be seen. No network.
+    public static let brightBackdropArgument = "-UITestBrightBackdrop"
     /// The sizes `-UITestTextSize` accepts: the larger standard sizes and the accessibility sizes (SwiftUI `DynamicTypeSize`).
     public static let textSizes = ["xLarge", "xxLarge", "xxxLarge", "accessibility1", "accessibility2", "accessibility3",
                                    "accessibility4", "accessibility5"]
@@ -54,6 +57,11 @@ public enum UITestLaunch: Equatable, Sendable {
     /// True when `-UITestBoldText` is given and a UI-test mode is on.
     public static func boldText(arguments: [String], mode: UITestLaunch) -> Bool {
         mode != .off && arguments.contains(boldTextArgument)
+    }
+
+    /// True when `-UITestBrightBackdrop` is given and a UI-test mode is on.
+    public static func brightBackdrop(arguments: [String], mode: UITestLaunch) -> Bool {
+        mode != .off && arguments.contains(brightBackdropArgument)
     }
 
     /// #26: `-UITestFakeTMDBKey` stores this synthetic key in the in-memory key store, so the Online Lookup screenshot shows a

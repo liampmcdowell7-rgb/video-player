@@ -81,6 +81,9 @@ enum UITestMode {
         }
     }
 
+    /// `-UITestBrightBackdrop` (R452): a plain white backdrop picture.
+    static var brightBackdrop: Bool { UITestLaunch.brightBackdrop(arguments: ProcessInfo.processInfo.arguments, mode: current) }
+
     /// `-UITestBoldText` (rule 17 screenshots).
     static var boldText: Bool { UITestLaunch.boldText(arguments: ProcessInfo.processInfo.arguments, mode: current) }
 

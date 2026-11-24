@@ -46,6 +46,7 @@ struct EpisodeCard: View {
                     if let progress = episode.progress {
                         ProgressView(value: progress)
                             .padding()
+                            .progressScrim() // R452
                     }
                 }
                 // #36 7 (OPEN_QUESTIONS R259): the artwork is the source of the card's size, as in Apple's tvOS media catalog

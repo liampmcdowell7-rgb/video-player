@@ -13,6 +13,8 @@ import AppLogic
 struct HomeRows: View {
     let rows: [HomeRow]
     @State private var belowFold: Bool = false
+    /// R452: where the featured title begins, for the cover behind it.
+    @State private var textTop: CGFloat?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion: Bool
 
     var body: some View {
@@ -31,6 +33,7 @@ struct HomeRows: View {
                 }
             }
         }
+        .artTextTop($textTop)
         // R345: the focused cards grow past the page's scroll view; it must not clip them.
         .scrollClipDisabled()
         // R346 (item A): one focus region, so Up from a lower shelf scrolls back to the featured area before the tab bar.
@@ -38,7 +41,7 @@ struct HomeRows: View {
         .background {
             if let featured {
                 // R357: behind the whole page, ignoring the safe area (BackdropView), not inside the scroll content.
-                BackdropView(artworkKey: featured.titleArtworkKey, style: belowFold ? .page : .hero)
+                BackdropView(artworkKey: featured.titleArtworkKey, style: belowFold ? .page : .hero, textTop: textTop)
             }
         }
     }

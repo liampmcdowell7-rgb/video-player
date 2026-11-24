@@ -29,6 +29,8 @@ struct SeasonsList: View {
     /// #22 B (OPEN_QUESTIONS R193): the show's synopsis and cast, from the same details lookup as the movie page. Nil (no
     /// key, no match, or both empty) draws nothing: no empty band (rule L6).
     @State private var details: TitleDetails?
+    /// R452: where the title begins, for the cover behind it.
+    @State private var textTop: CGFloat?
     @FocusState private var playFocused: Bool
     /// R339: the season the person chose with the tabs; nil until they choose (then `SeasonTabs.shown` picks).
     @State private var chosenSeason: Int?
@@ -99,7 +101,8 @@ struct SeasonsList: View {
         // tab bar's focus).
         .task(id: seriesID) { playFocused = true }
         // #15 5.2: the show's fan art (or its matched online backdrop) behind the page, as on the movie page.
-        .background { BackdropView(artworkKey: "series-\(seriesID)", style: .hero) }
+        .artTextTop($textTop)
+        .background { BackdropView(artworkKey: "series-\(seriesID)", style: .hero, textTop: textTop) }
         .task(id: "series-\(seriesID)|\(services.online.keyRevision)") {
             details = await services.online.details(key: "series-\(seriesID)")
         }
