@@ -31,7 +31,7 @@ struct ItemDetailView: View {
         }
         .taskCover(isPresented: $showEdit) {
             if let content = model?.screen.state.content, !editKeys.isEmpty {
-                MetadataEditView(title: content.episodeTitle ?? content.title, keys: editKeys)
+                MetadataEditView(title: content.episodeTitle ?? content.title, keys: editKeys, artworkKey: "item-\(itemID)", level: content.kind == .movie ? .movie : .episode)
             }
         }
         .taskCover(isPresented: $showSortInfo) {

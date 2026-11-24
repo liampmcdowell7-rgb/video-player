@@ -64,6 +64,18 @@ public struct TMDBArtworkProvider: OnlineArtworkProviding {
 
     public func backdropURL(path: String) async -> URL? { await client.imageURLBuilder().url(path: path, kind: .backdrop) }
 
+    /// R455: gallery thumbnails use the small size of the kind (`ArtworkGalleryKind.thumbnailSize`).
+    public func thumbnailURL(path: String, kind: ArtworkGalleryKind) async -> URL? {
+        let imageKind: ImageKind
+        switch kind {
+        case .poster, .seasonPoster: imageKind = .poster
+        case .background: imageKind = .backdrop
+        case .logo: imageKind = .logo
+        case .episodeStill: imageKind = .still
+        }
+        return await client.imageURLBuilder().url(path: path, kind: imageKind, size: kind.thumbnailSize)
+    }
+
     /// #15 6.2: overview and cast come with the same cached title details (`append_to_response=credits`).
     public func details(forItem item: LibraryItem) async -> TitleDetails? {
         guard item.kind == .movie, let id = item.tmdbID, let movie = try? await client.movie(id: id) else { return nil }

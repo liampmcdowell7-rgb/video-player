@@ -3,6 +3,7 @@ import VideoPlayerCore
 import LibraryIndex
 import MetadataLocal
 import MetadataOnline
+import UserData
 
 // Artwork for the library cards (docs/ARTWORK_DISCOVER.md). Precedence, strongest first (docs/METADATA.md, "local sidecar
 // data wins over online data"):
@@ -61,6 +62,8 @@ public protocol OnlineArtworkProviding: Sendable {
     func logoURL(path: String) async -> URL?
     /// Turns a backdrop path into an address (#15 6.2).
     func backdropURL(path: String) async -> URL?
+    /// R455: the small picture of a gallery candidate (the kind's thumbnail size); the full size is fetched only for the choice.
+    func thumbnailURL(path: String, kind: ArtworkGalleryKind) async -> URL?
     /// Synopsis and cast of the title a movie is already matched to (no new matching), or nil (#15 6.2).
     func details(forItem item: LibraryItem) async -> TitleDetails?
     /// Synopsis and cast of a series by its online id, or nil (#22 B, show page).
@@ -72,6 +75,7 @@ public extension OnlineArtworkProviding {
     func images(forSeriesID tmdbID: Int) async -> ImageSet? { nil }
     func logoURL(path: String) async -> URL? { nil }
     func backdropURL(path: String) async -> URL? { nil }
+    func thumbnailURL(path: String, kind: ArtworkGalleryKind) async -> URL? { nil }
     func details(forItem item: LibraryItem) async -> TitleDetails? { nil }
     func details(forSeriesID tmdbID: Int) async -> TitleDetails? { nil }
 }
@@ -82,6 +86,8 @@ public struct LogoCandidate: Equatable, Sendable {
     public var source: TitleLogoSource
     /// `.file` (read from the source, cached) or `.remote` (fetched by the system image loader).
     public var location: ArtworkResult
+    /// R455: the user's own choice. It is drawn without `TitleLogoRules.check` (the user looked at it in the gallery).
+    public var isUserChoice: Bool = false
 }
 
 public actor ArtworkEngine {
@@ -95,6 +101,8 @@ public actor ArtworkEngine {
     private let reader: any SidecarReading
     private let online: (any OnlineArtworkProviding)?
     private let server: (any ServerMetadataProviding)?
+    /// R455: the user's artwork choices (the user layer), asked before every source.
+    private let overrides: (any ArtworkOverriding)?
     private let now: @Sendable () -> Date
     private var misses: [String: Date] = [:]
     /// How long a "found nothing" answer is remembered, so scrolling past a title does not repeat the lookups. PROVISIONAL.
@@ -102,7 +110,9 @@ public actor ArtworkEngine {
 
     /// - Parameter server: the media server's own pictures (Plex, R307); asked only for files of a Plex source.
     public init(store: any LibraryStore, cache: ArtworkDiskCache, reader: any SidecarReading, online: (any OnlineArtworkProviding)?,
-                server: (any ServerMetadataProviding)? = nil, now: @escaping @Sendable () -> Date = { Date() }) {
+                server: (any ServerMetadataProviding)? = nil, overrides: (any ArtworkOverriding)? = nil,
+                now: @escaping @Sendable () -> Date = { Date() }) {
+        self.overrides = overrides
         self.store = store
         self.cache = cache
         self.reader = reader
@@ -113,6 +123,8 @@ public actor ArtworkEngine {
 
     public func resolve(key text: String) async -> ArtworkResult {
         guard let key = ArtworkKey(text) else { return .none }
+        // R455: the user's choice beats every source, so a rescan, Fix Match or an online refresh never replaces it.
+        if let field = await overrideField(for: key), let chosen = await overrides?.override(key: text, field: field) { return chosen }
         if let at = misses[text], now().timeIntervalSince(at) < Self.missMemory { return .none }
         let result: ArtworkResult
         do {
@@ -134,6 +146,7 @@ public actor ArtworkEngine {
     /// `.none` for a movie or a series key.
     public func episodeStill(key text: String) async -> ArtworkResult {
         guard case .item(let id)? = ArtworkKey(text), let item = try? await store.item(id: id), item.kind == .episode else { return .none }
+        if let chosen = await overrides?.override(key: text, field: .episodeStill) { return chosen }
         return (try? await resolveItem(id, stillOnly: true)) ?? .none
     }
 
@@ -214,6 +227,7 @@ public actor ArtworkEngine {
     public func logoCandidates(key text: String, userLanguage: String?) async -> [LogoCandidate] {
         guard let key = ArtworkKey(text) else { return [] }
         var out: [LogoCandidate] = []
+        if let chosen = await overrides?.override(key: text, field: .logo) { return [LogoCandidate(source: .localFile, location: chosen, isUserChoice: true)] }
         do {
             switch key {
             case .item(let id):
@@ -254,6 +268,7 @@ public actor ArtworkEngine {
     /// (only with a key). An episode uses its show's. `.none`: the page keeps its plain background.
     public func backdrop(key text: String, userLanguage: String?) async -> ArtworkResult {
         guard let key = ArtworkKey(text) else { return .none }
+        if let chosen = await overrides?.override(key: text, field: .backdrop) { return chosen }
         do {
             switch key {
             case .item(let id):
@@ -336,6 +351,17 @@ public actor ArtworkEngine {
         return (hit, file.sourceID)
     }
 
+    /// R455: the field a card's key is edited under: a movie or show poster; an episode card shows the still.
+    private func overrideField(for key: ArtworkKey) async -> UDEditField? {
+        switch key {
+        case .series: return .poster
+        case .item(let id):
+            guard let item = try? await store.item(id: id) else { return nil }
+            return item.kind == .episode ? .episodeStill : .poster
+        case .remote: return nil
+        }
+    }
+
     // MARK: Helpers
 
     /// The artwork cache key of a picture read from a source. The iCloud backup uses the same function to tell which cached
@@ -371,4 +397,104 @@ public actor ArtworkEngine {
 
 private extension String {
     var isVideoExtension: Bool { FileClassifier.videoExtensions.contains(self) }
+}
+
+// MARK: Gallery candidates (R455)
+
+public extension ArtworkEngine {
+    /// The candidates of one kind for the item or show behind `key`, in the gallery's order: online (only when `onlineOn`),
+    /// From Your Files, From the Server. The "Web Address" candidate is typed by the user and is not listed here. Nothing is
+    /// fetched except small lists the title details already hold; pictures are fetched by the screen, thumbnails only.
+    func gallery(key text: String, kind: ArtworkGalleryKind, userLanguage: String?, onlineOn: Bool) async -> ArtworkGallery {
+        var found: [ArtworkCandidate] = []
+        if onlineOn, let set = await onlineImageSet(key: text) {
+            found += ArtworkCandidates.online(set, kind: kind)
+        }
+        found += await localCandidates(key: text, kind: kind)
+        return ArtworkGallery(kind: kind, candidates: ArtworkCandidates.sorted(found, userLanguage: userLanguage), onlineSwitchOff: !onlineOn)
+    }
+
+    /// The thumbnail address of an online candidate (small size); nil without an online provider.
+    func thumbnailURL(path: String, kind: ArtworkGalleryKind) async -> URL? {
+        await online?.thumbnailURL(path: path, kind: kind)
+    }
+
+    /// The full-size address of an online candidate, fetched only for the chosen picture.
+    func fullURL(path: String, kind: ArtworkGalleryKind) async -> URL? {
+        switch kind {
+        case .poster, .seasonPoster: return await online?.imageURL(path: path)
+        case .background, .episodeStill: return await online?.backdropURL(path: path)
+        case .logo: return await online?.logoURL(path: path)
+        }
+    }
+
+    /// The cached file of a candidate that is not online (From Your Files, From the Server), for its thumbnail and for the copy
+    /// that is stored when it is chosen. Reads the picture once, through the artwork cache.
+    func localPicture(_ candidate: ArtworkCandidate, key text: String) async -> ArtworkResult {
+        switch candidate.origin {
+        case .online: return .none
+        case let .yourFile(sourceID, path):
+            let entry = SourceEntry(path: path, name: String(path.split(separator: "/").last ?? ""), isDirectory: false, size: nil, modified: nil)
+            return await cached(entry, sourceID) ?? .none
+        case .server:
+            guard let server, case .item(let id)? = ArtworkKey(text), let item = try? await store.item(id: id),
+                  let serverFile = await ServerMetadataKinds.file(forItem: item, store: store),
+                  let picture = await server.poster(for: serverFile) else { return .none }
+            return await cached(picture) ?? .none
+        }
+    }
+
+    private func onlineImageSet(key text: String) async -> ImageSet? {
+        guard let online, let key = ArtworkKey(text) else { return nil }
+        switch key {
+        case .item(let id):
+            guard let item = try? await store.item(id: id) else { return nil }
+            return await online.images(forItem: item)
+        case .series(let seriesID):
+            guard let tmdbID = try? await seriesOnlineID(seriesID) else { return nil }
+            return await online.images(forSeriesID: tmdbID)
+        case .remote: return nil
+        }
+    }
+
+    private func localCandidates(key text: String, kind: ArtworkGalleryKind) async -> [ArtworkCandidate] {
+        guard let key = ArtworkKey(text) else { return [] }
+        var out: [ArtworkCandidate] = []
+        let role: SidecarImageRole
+        switch kind {
+        case .poster, .seasonPoster: role = .poster
+        case .background: role = .backdrop
+        case .logo: role = .logo
+        case .episodeStill: role = .thumb
+        }
+        do {
+            switch key {
+            case .item(let id):
+                guard let item = try await store.item(id: id) else { return [] }
+                let versions = try await store.versions(of: id)
+                guard let file = versions.first(where: { $0.id == item.preferredFileID }) ?? versions.first else { return [] }
+                let entries = try await folderEntries(sourceID: file.sourceID, folder: file.parentPath)
+                let found: SidecarImages
+                if item.kind == .movie {
+                    let videos = entries.filter { !$0.isDirectory && FileClassifier.fileExtension(of: $0.name).isVideoExtension }.count
+                    found = SidecarImageFinder.images(forMovie: file.name, in: entries, folderHoldsOneVideo: videos <= 1)
+                } else {
+                    found = SidecarImageFinder.images(forEpisode: file.name, in: entries)
+                }
+                if let hit = found[role] { out.append(ArtworkCandidate(source: .yourFiles, origin: .yourFile(sourceID: file.sourceID, path: hit.path))) }
+                if let server, let serverFile = await ServerMetadataKinds.file(forItem: item, store: store),
+                   kind == .poster || kind == .episodeStill, let picture = await server.poster(for: serverFile) {
+                    out.append(ArtworkCandidate(source: .server, origin: .server(picture.cacheKey)))
+                }
+            case .series(let seriesID):
+                if let hit = try await showFolderEntry(seriesID: seriesID, role: role) {
+                    out.append(ArtworkCandidate(source: .yourFiles, origin: .yourFile(sourceID: hit.sourceID, path: hit.entry.path)))
+                }
+            case .remote: break
+            }
+        } catch {
+            return out
+        }
+        return out
+    }
 }

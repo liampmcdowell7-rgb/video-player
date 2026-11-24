@@ -15,6 +15,13 @@ protocol ArtworkResolving: TitleDetailsSource {
     func episodeStill(key: String) async -> ArtworkResult
     /// Synopsis and cast of a movie (#15 6.2), or nil.
     func details(key: String) async -> TitleDetails?
+    /// R455: the candidates of one picture kind for the gallery.
+    func gallery(key: String, kind: ArtworkGalleryKind, userLanguage: String?, onlineOn: Bool) async -> ArtworkGallery
+    /// R455: the small address of an online candidate, the full-size address (only for the chosen picture) and the cached file
+    /// of a picture that is not online.
+    func thumbnailURL(path: String, kind: ArtworkGalleryKind) async -> URL?
+    func fullURL(path: String, kind: ArtworkGalleryKind) async -> URL?
+    func localPicture(_ candidate: ArtworkCandidate, key: String) async -> ArtworkResult
 }
 
 struct EngineArtworkResolver: ArtworkResolving {
@@ -26,6 +33,12 @@ struct EngineArtworkResolver: ArtworkResolving {
     func backdrop(key: String, userLanguage: String?) async -> ArtworkResult { await engine.backdrop(key: key, userLanguage: userLanguage) }
     func episodeStill(key: String) async -> ArtworkResult { await engine.episodeStill(key: key) }
     func details(key: String) async -> TitleDetails? { await engine.details(key: key) }
+    func gallery(key: String, kind: ArtworkGalleryKind, userLanguage: String?, onlineOn: Bool) async -> ArtworkGallery {
+        await engine.gallery(key: key, kind: kind, userLanguage: userLanguage, onlineOn: onlineOn)
+    }
+    func thumbnailURL(path: String, kind: ArtworkGalleryKind) async -> URL? { await engine.thumbnailURL(path: path, kind: kind) }
+    func fullURL(path: String, kind: ArtworkGalleryKind) async -> URL? { await engine.fullURL(path: path, kind: kind) }
+    func localPicture(_ candidate: ArtworkCandidate, key: String) async -> ArtworkResult { await engine.localPicture(candidate, key: key) }
 }
 
 /// Reads a picture file from a source: the first `maxBytes` bytes only.

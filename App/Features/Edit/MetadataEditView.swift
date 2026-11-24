@@ -11,6 +11,9 @@ import UserData
 struct MetadataEditView: View {
     let title: String
     let keys: [UDEditKey]
+    /// R455: the artwork key ("item-42") and level of the title, for the artwork galleries of Edit > Artwork; nil: no gallery.
+    var artworkKey: String? = nil
+    var level: ArtworkGalleryKind.Level = .movie
     @Environment(AppServices.self) private var services
     @Environment(\.dismiss) private var dismiss
     @State private var confirmReset = false
@@ -21,7 +24,7 @@ struct MetadataEditView: View {
             List {
                 Section {
                     ForEach(UDEditField.Group.allCases, id: \.self) { group in
-                        NavigationLink(group.title) { EditGroupScreen(group: group, keys: keys, onSaved: { revision += 1 }) }
+                        NavigationLink(group.title) { EditGroupScreen(group: group, keys: keys, artworkKey: artworkKey, level: level, onSaved: { revision += 1 }) }
                             .accessibilityIdentifier("edit.group." + group.rawValue)
                     }
                 } footer: {
@@ -71,6 +74,8 @@ extension UDEditField.Group {
 struct EditGroupScreen: View {
     let group: UDEditField.Group
     let keys: [UDEditKey]
+    var artworkKey: String? = nil
+    var level: ArtworkGalleryKind.Level = .movie
     var onSaved: () -> Void
     @Environment(AppServices.self) private var services
     @Environment(\.dismiss) private var dismiss
@@ -80,10 +85,25 @@ struct EditGroupScreen: View {
     @State private var working = false
 
     private var fields: [UDEditField] { UDEditField.allCases.filter { $0.group == group } }
+    /// R455: the kinds a gallery already chooses; the typed address of those is the gallery's own "Web Address" section.
+    private var galleryFields: [UDEditField] { artworkKey == nil ? [] : ArtworkGalleryKind.kinds(for: level).map(\.field) }
 
     var body: some View {
         Form {
-            ForEach(fields, id: \.self) { field in
+            if group == .artwork, let artworkKey {
+                // R455: a gallery of candidate pictures per kind of this level; the typed address fields below stay.
+                Section {
+                    ForEach(ArtworkGalleryKind.kinds(for: level), id: \.self) { kind in
+                        NavigationLink(kind.title) { ArtworkGalleryView(kind: kind, artworkKey: artworkKey, keys: keys, onChanged: onSaved) }
+                            .accessibilityIdentifier("edit.gallery." + kind.rawValue)
+                    }
+                } header: {
+                    Text("Choose a Picture")
+                } footer: {
+                    Text("Pictures come from online, your files, your media server or a web address. Your choice stays on this device and in your iCloud backup.")
+                }
+            }
+            ForEach(fields.filter { artworkKey == nil || group != .artwork || galleryFields.contains($0) == false }, id: \.self) { field in
                 Section {
                     if long(field) {
                         TextField(field.label, text: binding(field), axis: .vertical).lineLimit(3...8)

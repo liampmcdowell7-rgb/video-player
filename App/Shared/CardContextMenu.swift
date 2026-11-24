@@ -47,7 +47,7 @@ struct CardContextMenu: ViewModifier {
                 }
             }
             .taskCover(item: $move) { target in SortMoveSheet(target: target) }
-            .taskCover(isPresented: $showEdit) { if !editKeys.isEmpty { MetadataEditView(title: card.title, keys: editKeys) } }
+            .taskCover(isPresented: $showEdit) { if !editKeys.isEmpty { MetadataEditView(title: card.title, keys: editKeys, artworkKey: "item-\(card.id)", level: card.kind == .movie ? .movie : .episode) } }
     }
 
     private func openEdit() async {

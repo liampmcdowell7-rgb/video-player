@@ -214,3 +214,6 @@ test17_EditScreens	80-edit-general-larger-text
 test17_EditScreens	80-edit-artwork-larger-text
 test17_EditScreens	80-edit-cast-and-crew-larger-text
 test17_EditScreens	80-edit-tags-larger-text
+test17_EditScreens	80-artwork-gallery-poster
+test17_EditScreens	80-artwork-gallery-background
+test17_EditScreens	80-artwork-gallery-logo

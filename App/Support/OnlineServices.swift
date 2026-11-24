@@ -37,6 +37,10 @@ final class OnlineServices {
     /// R381: the user-data ledger that the iCloud sync uploads; Fix Match choices are written into it (`CloudMatchStore`).
     /// Nil keeps them in matches.json only (as before R381).
     @ObservationIgnored private let ledger: UserDataLedger?
+    /// R455: the user's artwork choices (the user layer), asked by the engine before every source.
+    private static func choices(_ ledger: UserDataLedger?, _ store: SQLiteLibraryStore) -> (any ArtworkOverriding)? {
+        ledger.map { UserLayerArtworkOverrides(ledger: $0, store: store) }
+    }
 
     init(keys: OnlineKeyStore, store: SQLiteLibraryStore, reader: any SidecarReading, server: (any ServerMetadataProviding)? = nil,
          ledger: UserDataLedger? = nil) {
@@ -47,7 +51,7 @@ final class OnlineServices {
         self.server = server
         self.diskCache = ArtworkDiskCache(directory: ArtworkFolders.sidecars)
         self.imageSession = ArtworkFolders.makeImageSession()
-        self.resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: nil, server: server))
+        self.resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: nil, server: server, overrides: Self.choices(ledger, store)))
         rebuild()
     }
 
@@ -74,7 +78,7 @@ final class OnlineServices {
         guard let key = keys.key(.tmdb), !Self.isUITestLaunch else {
             tmdbClient = nil
             rebuildSegmentLookup()
-            resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: nil, server: server))
+            resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: nil, server: server, overrides: Self.choices(ledger, store)))
             searcher = UnavailableMatchSearcher()
             recorder = nil
             discoverSource = nil
@@ -87,7 +91,7 @@ final class OnlineServices {
         let matchStore: any MatchStore = ledger.map { CloudMatchStore(url: matchFile, ledger: $0) } ?? JSONFileMatchStore(url: matchFile)
         let service = FixMatchService(engine: MatchEngine(provider: client), store: matchStore)
         let provider = TMDBArtworkProvider(client: client, matcher: service, store: store)
-        resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: provider, server: server))
+        resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: provider, server: server, overrides: Self.choices(ledger, store)))
         searcher = TMDBMatchSearcher(client: client)
         recorder = StoredMatchRecorder(service: service, store: store)
         discoverSource = client
@@ -155,6 +159,44 @@ final class OnlineServices {
     }
 
     func resolveArtwork(key: String) async -> ArtworkResult { await resolver.resolve(key: key) }
+
+    // MARK: Artwork choices (R455)
+
+    /// A picture was chosen or reset: every card, hero and page that draws artwork asks again.
+    func artworkChanged() { keyRevision += 1 }
+
+    /// The candidates of one kind. Online pictures only while Online Lookup has its key (R209); the others always.
+    func artworkGallery(key: String, kind: ArtworkGalleryKind) async -> ArtworkGallery {
+        #if DEBUG
+        if UITestMode.current == .fixtures { return UITestFixtureGallery.gallery(kind) }
+        #endif
+        return await resolver.gallery(key: key, kind: kind, userLanguage: Locale.preferredLanguages.first, onlineOn: hasCatalogueKey)
+    }
+
+    func thumbnailURL(path: String, kind: ArtworkGalleryKind) async -> URL? { await resolver.thumbnailURL(path: path, kind: kind) }
+
+    /// A candidate's small picture: an online address, or the cached file of a picture from a source or the server.
+    func thumbnail(of candidate: ArtworkCandidate, key: String, kind: ArtworkGalleryKind) async -> URL? {
+        switch candidate.origin {
+        case let .online(path): return await resolver.thumbnailURL(path: path, kind: kind)
+        default:
+            if case .file(let url) = await resolver.localPicture(candidate, key: key) { return url }
+            return nil
+        }
+    }
+
+    /// Copies the chosen picture into the user-artwork folder (the full size is fetched only here) and returns its file name,
+    /// or the reason it could not (R455 item 4: it then works offline and is in the backup).
+    func storeChosenPicture(_ candidate: ArtworkCandidate, key: String, kind: ArtworkGalleryKind) async -> (name: String?, problem: String?) {
+        switch candidate.origin {
+        case let .online(path):
+            guard let url = await resolver.fullURL(path: path, kind: kind) else { return (nil, "Online pictures need Online Lookup in Settings.") }
+            return await UserArtworkFolder.download(url.absoluteString)
+        default:
+            guard case .file(let url) = await resolver.localPicture(candidate, key: key) else { return (nil, "The picture could not be read.") }
+            return UserArtworkFolder.add(fileAt: url)
+        }
+    }
 
     /// Title-logo pictures for a movie or show page, in the device's first preferred language order (#15 9.3).
     func logoCandidates(key: String) async -> [LogoCandidate] {

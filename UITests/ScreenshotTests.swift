@@ -2466,7 +2466,17 @@ final class ScreenshotTests: XCTestCase {
             }
             settle(); shot("80-edit-hub" + suffix); checkCover("80-edit-hub" + suffix, in: app)
             for (label, name) in [("General", "80-edit-general"), ("Artwork", "80-edit-artwork"), ("Cast and Crew", "80-edit-cast-and-crew"), ("Tags", "80-edit-tags")] {
-                if open(label, in: app, name: name + suffix) { settle(); shot(name + suffix); back() }
+                if open(label, in: app, name: name + suffix) {
+                    settle(); shot(name + suffix)
+                    // R455: one gallery picture per kind (fixture candidates, no network), once (not again at the larger text size).
+                    if label == "Artwork", suffix.isEmpty {
+                        for (kind, galleryName) in [("poster", "80-artwork-gallery-poster"), ("background", "80-artwork-gallery-background"), ("logo", "80-artwork-gallery-logo")] {
+                            if open(kind.capitalized, id: "edit.gallery." + kind, in: app, name: galleryName) { settle(); shot(galleryName); back() }
+                            else { notReached(galleryName, "The \(kind) gallery did not open from Edit > Artwork.") }
+                        }
+                    }
+                    back()
+                }
                 else { notReached(name + suffix, "\(label) did not open from the edit screen.") }
             }
             app.terminate()

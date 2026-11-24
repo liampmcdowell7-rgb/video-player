@@ -2,6 +2,7 @@ import XCTest
 import VideoPlayerCore
 import LibraryIndex
 import MetadataOnline
+import UserData
 @testable import AppLogic
 
 // FIXTURE: the "pictures" below are a few bytes of invented data and the online provider is a fake; no file server or service is contacted.
@@ -102,8 +103,9 @@ private final class FakeOnline: OnlineArtworkProviding, @unchecked Sendable {
     func imageURL(path: String) async -> URL? { URL(string: "https://images.example.invalid/w500" + path) }
     private(set) var imageCalls = 0
     var logos: [ImageRef] = []
-    func images(forItem item: LibraryItem) async -> ImageSet? { lock.withLock { imageCalls += 1 }; return item.tmdbID == nil ? nil : ImageSet(backdrops: backdrops, logos: logos) }
-    func images(forSeriesID tmdbID: Int) async -> ImageSet? { lock.withLock { imageCalls += 1 }; return ImageSet(backdrops: backdrops, logos: logos) }
+    var posters: [ImageRef] = []
+    func images(forItem item: LibraryItem) async -> ImageSet? { lock.withLock { imageCalls += 1 }; return item.tmdbID == nil ? nil : ImageSet(posters: posters, backdrops: backdrops, logos: logos) }
+    func images(forSeriesID tmdbID: Int) async -> ImageSet? { lock.withLock { imageCalls += 1 }; return ImageSet(posters: posters, backdrops: backdrops, logos: logos) }
     func logoURL(path: String) async -> URL? { URL(string: "https://images.example.invalid/original" + path) }
     var backdrops: [ImageRef] = []
     var details: TitleDetails?
@@ -409,5 +411,82 @@ final class ArtworkEngineTests: XCTestCase {
         XCTAssertEqual(ArtworkKey("series-7"), .series(7))
         XCTAssertEqual(ArtworkKey("remote:/p.jpg"), .remote("/p.jpg"))
         XCTAssertNil(ArtworkKey("item-"))
+    }
+}
+
+
+/// R455: the artwork override of the user layer. FIXTURE: the override answers with a fixed result; no file or service is read.
+private struct FixedOverrides: ArtworkOverriding {
+    var answers: [UDEditField: ArtworkResult]
+    func override(key: String, field: UDEditField) async -> ArtworkResult? { answers[field] }
+}
+
+extension ArtworkEngineTests {
+    private func engine(_ r: Rig, overrides: [UDEditField: ArtworkResult], online: Bool = true) -> ArtworkEngine {
+        ArtworkEngine(store: r.lib.store, cache: ArtworkDiskCache(directory: r.dir, maxBytes: 1_000_000), reader: r.reader,
+                      online: online ? r.online : nil, overrides: FixedOverrides(answers: overrides))
+    }
+
+    private func movieRig() async throws -> (Rig, Int64) {
+        let r = try await rig([("/Movies/Sample Movie One (1995)/Sample Movie One (1995).mkv", 10_000), ("/Movies/Sample Movie One (1995)/poster.jpg", 5)])
+        r.reader.files["/Movies/Sample Movie One (1995)/poster.jpg"] = Data([1, 2, 3, 4, 5])
+        return (r, try await r.lib.movieID("Sample Movie One"))
+    }
+
+    func testTheChosenPosterBeatsTheSidecarAndTheOnlinePosterAndAutomaticBringsThemBack() async throws {
+        let (r, id) = try await movieRig()
+        let chosen = ArtworkResult.file(URL(fileURLWithPath: "/chosen/poster.jpg"))
+        let withChoice = await engine(r, overrides: [.poster: chosen]).resolve(key: "item-\(id)")
+        XCTAssertEqual(withChoice, chosen, "the user's choice beats the picture next to the file")
+        XCTAssertEqual(r.online.itemCalls, 0, "nothing is asked online while a choice exists")
+        let automatic = await engine(r, overrides: [:]).resolve(key: "item-\(id)")
+        guard case .file = automatic else { return XCTFail("Automatic gives the sidecar again: \(automatic)") }
+        XCTAssertNotEqual(automatic, chosen)
+    }
+
+    func testTheChoiceSurvivesAnOnlineRefreshAndANewScan() async throws {
+        let (r, id) = try await movieRig()
+        let chosen = ArtworkResult.file(URL(fileURLWithPath: "/chosen/poster.jpg"))
+        let first = await engine(r, overrides: [.poster: chosen]).resolve(key: "item-\(id)")
+        // An online refresh: the supplier's poster changes. A new scan: the sidecar changes. The choice is a separate record.
+        r.online.itemURL = URL(string: "https://images.example.invalid/new.jpg")
+        r.reader.files["/Movies/Sample Movie One (1995)/poster.jpg"] = Data([9, 9, 9])
+        let later = await engine(r, overrides: [.poster: chosen]).resolve(key: "item-\(id)")
+        XCTAssertEqual(first, chosen)
+        XCTAssertEqual(later, chosen)
+    }
+
+    func testTheChosenBackgroundAndLogoBeatEverySource() async throws {
+        let (r, id) = try await movieRig()
+        let bg = ArtworkResult.file(URL(fileURLWithPath: "/chosen/bg.jpg"))
+        let logo = ArtworkResult.file(URL(fileURLWithPath: "/chosen/logo.png"))
+        let e = engine(r, overrides: [.backdrop: bg, .logo: logo])
+        let backdrop = await e.backdrop(key: "item-\(id)", userLanguage: "en")
+        XCTAssertEqual(backdrop, bg)
+        let logos = await e.logoCandidates(key: "item-\(id)", userLanguage: "en")
+        XCTAssertEqual(logos.map(\.location), [logo])
+        XCTAssertEqual(logos.first?.isUserChoice, true, "a chosen logo skips the automatic quality check")
+    }
+
+    func testTheGalleryListsOnlineAndYourFilesAndKeepsOnlineOutWhenTheSwitchIsOff() async throws {
+        let (r, id) = try await movieRig()
+        r.online.posters = [ImageRef(path: "/a.jpg", width: 2000, height: 3000, language: "en", voteAverage: 5),
+                            ImageRef(path: "/b.jpg", width: 1000, height: 1500, language: nil, voteAverage: 4)]
+        try await r.lib.store.setMetadata(itemID: id, ItemMetadata(tmdbID: 603))
+        let e = engine(r, overrides: [:])
+        let on = await e.gallery(key: "item-\(id)", kind: .poster, userLanguage: "en", onlineOn: true)
+        XCTAssertEqual(on.candidates.map(\.source), [.online, .online, .yourFiles])
+        XCTAssertFalse(on.onlineSwitchOff)
+        let off = await e.gallery(key: "item-\(id)", kind: .poster, userLanguage: "en", onlineOn: false)
+        XCTAssertEqual(off.candidates.map(\.source), [.yourFiles], "no online picture without the switch")
+        XCTAssertTrue(off.onlineSwitchOff)
+        XCTAssertEqual(r.online.imageCalls, 1, "the online list was asked once, only with the switch on")
+    }
+
+    func testAKindWithNoPicturesIsEmpty() async throws {
+        let (r, id) = try await movieRig()
+        let logo = await engine(r, overrides: [:]).gallery(key: "item-\(id)", kind: .logo, userLanguage: "en", onlineOn: true)
+        XCTAssertTrue(logo.isEmpty)
+        XCTAssertTrue(logo.emptyText.contains("logo"))
     }
 }

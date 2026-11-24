@@ -29,4 +29,12 @@ enum UserArtworkFolder {
             return (nil, "The picture could not be loaded.")
         }
     }
+
+    /// R455: a picture that is already a file (read from a source or the server, cached): copied into the folder by its content.
+    static func add(fileAt url: URL) -> (name: String?, problem: String?) {
+        guard let data = try? Data(contentsOf: url), !data.isEmpty else { return (nil, "The picture could not be read.") }
+        guard data.count <= 20_000_000 else { return (nil, "The picture is larger than 20 MB.") }
+        let ext = url.pathExtension.isEmpty ? "jpg" : url.pathExtension
+        do { return (try store.add(data, fileExtension: ext), nil) } catch { return (nil, "The picture could not be saved.") }
+    }
 }
