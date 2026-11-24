@@ -103,6 +103,8 @@ public actor ArtworkEngine {
     private let server: (any ServerMetadataProviding)?
     /// R455: the user's artwork choices (the user layer), asked before every source.
     private let overrides: (any ArtworkOverriding)?
+    /// R456: Metadata and Artwork > Prefer Local Artwork (on by default): a picture next to the media before the online one.
+    private let preferLocalArtwork: @Sendable () -> Bool
     private let now: @Sendable () -> Date
     private var misses: [String: Date] = [:]
     /// How long a "found nothing" answer is remembered, so scrolling past a title does not repeat the lookups. PROVISIONAL.
@@ -111,7 +113,8 @@ public actor ArtworkEngine {
     /// - Parameter server: the media server's own pictures (Plex, R307); asked only for files of a Plex source.
     public init(store: any LibraryStore, cache: ArtworkDiskCache, reader: any SidecarReading, online: (any OnlineArtworkProviding)?,
                 server: (any ServerMetadataProviding)? = nil, overrides: (any ArtworkOverriding)? = nil,
-                now: @escaping @Sendable () -> Date = { Date() }) {
+                preferLocalArtwork: @escaping @Sendable () -> Bool = { true }, now: @escaping @Sendable () -> Date = { Date() }) {
+        self.preferLocalArtwork = preferLocalArtwork
         self.overrides = overrides
         self.store = store
         self.cache = cache
@@ -156,6 +159,8 @@ public actor ArtworkEngine {
         guard let item = try await store.item(id: id) else { return .none }
         let versions = try await store.versions(of: id)
         let file = versions.first { $0.id == item.preferredFileID } ?? versions.first
+        // R456: with Prefer Local Artwork off, a movie's online poster comes before the picture next to the file.
+        if !preferLocalArtwork(), !stillOnly, item.kind == .movie, let url = await online?.posterURL(forItem: item, file: file) { return .remote(url) }
         if let file {
             let entries = try await folderEntries(sourceID: file.sourceID, folder: file.parentPath)
             if item.kind == .movie {

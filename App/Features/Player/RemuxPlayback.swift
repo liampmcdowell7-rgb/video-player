@@ -29,6 +29,8 @@ final class RemuxPlayback {
     static func open(reader: any ByteRangeReader, fileOpened: @MainActor () -> Void = {}) async throws -> RemuxPlayback {
         // Profile 7 to 8.1 conversion is part of the engine options (AppLogic, docs/DOLBY_VISION.md).
         var options = RemuxPlaybackModel.engineOptions()
+        // R456: Playback > Streaming Cache sets the read-ahead budget (Auto is the engine's own 192 MB).
+        options.budget = StreamingCache.stored(UserDefaults.standard.string(forKey: AppPreference.streamingCache.rawValue)).budget
         // DTS, DTS-HD, Dolby TrueHD, MLP, Opus and Vorbis are decoded and repackaged as FLAC (docs/AUDIO_PIPELINE.md).
         let useCore = UserDefaults.standard.object(forKey: SettingsKey.trueHDCompatibilityCore.rawValue) as? Bool
             ?? SettingsKey.trueHDCompatibilityCore.defaultBool

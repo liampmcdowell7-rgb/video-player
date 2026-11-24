@@ -116,10 +116,11 @@ public struct ItemGridViewModel: QueryGridScreen {
         self.query = ItemQuery(filter: base, sort: sort)
     }
 
-    public static func movies(store: any LibraryStore) -> ItemGridViewModel {
+    /// R456: `sort` is General > Sort Order (the title order by default).
+    public static func movies(store: any LibraryStore, sort: ItemSort = ItemSort()) -> ItemGridViewModel {
         var base = ItemFilter()
         base.kinds = [.movie]
-        return ItemGridViewModel(store: store, base: base, noun: "movies")
+        return ItemGridViewModel(store: store, base: base, sort: sort, noun: "movies")
     }
 
     // MARK: Reading
@@ -407,9 +408,11 @@ public struct ShowsViewModel: QueryGridScreen {
     public private(set) var query = ItemQuery(filter: ShowsViewModel.base, sort: ItemSort(key: .title, ascending: true))
     public private(set) var savedViews: [SavedView] = []
 
-    public init(store: any LibraryStore, catalog: (any SeriesCatalog)? = nil) {
+    /// R456: `sort` is General > Sort Order. A rating sort is not offered for shows (they carry no rating), so it opens by title.
+    public init(store: any LibraryStore, catalog: (any SeriesCatalog)? = nil, sort: ItemSort = ItemSort(key: .title, ascending: true)) {
         self.store = store
         self.catalog = catalog ?? EpisodeGroupingCatalog(store: store)
+        self.query.sort = sort.key == .rating ? ItemSort(key: .title, ascending: true) : sort
     }
 
     public var sortChoices: [SortChoice] { SortChoice.shows }

@@ -38,6 +38,16 @@ final class OnlineServices {
     /// Nil keeps them in matches.json only (as before R381).
     @ObservationIgnored private let ledger: UserDataLedger?
     /// R455: the user's artwork choices (the user layer), asked by the engine before every source.
+    /// R456: Language > Artwork (Auto follows the Apple TV's first language): the order of language in logos, backgrounds and the gallery.
+    static var artworkLanguage: String {
+        LanguagePreference.resolved(UserDefaults.standard.string(forKey: AppPreference.artworkLanguage.rawValue), system: Locale.preferredLanguages)
+    }
+
+    /// R456: read at each lookup, so a change in Settings applies without rebuilding the engine.
+    @Sendable private static func preferLocalArtwork() -> Bool {
+        UserDefaults.standard.object(forKey: AppPreference.preferLocalArtwork.rawValue) as? Bool ?? true
+    }
+
     private static func choices(_ ledger: UserDataLedger?, _ store: SQLiteLibraryStore) -> (any ArtworkOverriding)? {
         ledger.map { UserLayerArtworkOverrides(ledger: $0, store: store) }
     }
@@ -51,7 +61,7 @@ final class OnlineServices {
         self.server = server
         self.diskCache = ArtworkDiskCache(directory: ArtworkFolders.sidecars)
         self.imageSession = ArtworkFolders.makeImageSession()
-        self.resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: nil, server: server, overrides: Self.choices(ledger, store)))
+        self.resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: nil, server: server, overrides: Self.choices(ledger, store), preferLocalArtwork: Self.preferLocalArtwork))
         rebuild()
     }
 
@@ -78,7 +88,7 @@ final class OnlineServices {
         guard let key = keys.key(.tmdb), !Self.isUITestLaunch else {
             tmdbClient = nil
             rebuildSegmentLookup()
-            resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: nil, server: server, overrides: Self.choices(ledger, store)))
+            resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: nil, server: server, overrides: Self.choices(ledger, store), preferLocalArtwork: Self.preferLocalArtwork))
             searcher = UnavailableMatchSearcher()
             recorder = nil
             discoverSource = nil
@@ -91,7 +101,7 @@ final class OnlineServices {
         let matchStore: any MatchStore = ledger.map { CloudMatchStore(url: matchFile, ledger: $0) } ?? JSONFileMatchStore(url: matchFile)
         let service = FixMatchService(engine: MatchEngine(provider: client), store: matchStore)
         let provider = TMDBArtworkProvider(client: client, matcher: service, store: store)
-        resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: provider, server: server, overrides: Self.choices(ledger, store)))
+        resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: provider, server: server, overrides: Self.choices(ledger, store), preferLocalArtwork: Self.preferLocalArtwork))
         searcher = TMDBMatchSearcher(client: client)
         recorder = StoredMatchRecorder(service: service, store: store)
         discoverSource = client
@@ -129,9 +139,8 @@ final class OnlineServices {
     /// The language Wikidata answers in: the device's first preferred language, two letters. The stored-only client of the
     /// person page (R341) uses the same, so it reads the same stored answers.
     static var wikidataLanguage: String {
-        var language = "en"
-        if let preferred: String = Locale.preferredLanguages.first { language = String(preferred.prefix(2)) }
-        return language
+        // R456: Language > Metadata (Auto follows the Apple TV's first language).
+        return LanguagePreference.resolved(UserDefaults.standard.string(forKey: AppPreference.metadataLanguage.rawValue), system: Locale.preferredLanguages)
     }
 
     private func rebuildSegmentLookup() {
@@ -170,7 +179,7 @@ final class OnlineServices {
         #if DEBUG
         if UITestMode.current == .fixtures { return UITestFixtureGallery.gallery(kind) }
         #endif
-        return await resolver.gallery(key: key, kind: kind, userLanguage: Locale.preferredLanguages.first, onlineOn: hasCatalogueKey)
+        return await resolver.gallery(key: key, kind: kind, userLanguage: Self.artworkLanguage, onlineOn: hasCatalogueKey)
     }
 
     func thumbnailURL(path: String, kind: ArtworkGalleryKind) async -> URL? { await resolver.thumbnailURL(path: path, kind: kind) }
@@ -200,12 +209,12 @@ final class OnlineServices {
 
     /// Title-logo pictures for a movie or show page, in the device's first preferred language order (#15 9.3).
     func logoCandidates(key: String) async -> [LogoCandidate] {
-        await resolver.logoCandidates(key: key, userLanguage: Locale.preferredLanguages.first)
+        await resolver.logoCandidates(key: key, userLanguage: Self.artworkLanguage)
     }
 
     /// The backdrop of a movie or show page (#15 6.2): fan art next to the media, then the matched online backdrop.
     func backdrop(key: String) async -> ArtworkResult {
-        await resolver.backdrop(key: key, userLanguage: Locale.preferredLanguages.first)
+        await resolver.backdrop(key: key, userLanguage: Self.artworkLanguage)
     }
 
     /// R387: the episode page's hero picture, the episode's own still only (no show poster); `.none` without one.

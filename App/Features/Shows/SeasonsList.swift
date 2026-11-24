@@ -38,6 +38,7 @@ struct SeasonsList: View {
     @State private var pageHeight: CGFloat = 0
     /// R453: the episode card that has the focus, the one it rested on (`InfoBlockLayout.focusRestSeconds`), and the details
     /// asked for so far; the info block shows the resting episode, else the show.
+    @AppStorage("hideSpoilers") private var hideSpoilers = false
     @State private var focusedEpisodeID: Int64?
     @State private var restingEpisodeID: Int64?
     @State private var episodeDetails: [Int64: TitleDetails] = [:]
@@ -56,7 +57,8 @@ struct SeasonsList: View {
         let facts = InfoFacts(runtime: episode.runtimeText, date: d?.releaseDate, contentRating: d?.contentRating,
                               resolution: episode.badges.first { $0.group == .resolution }?.text,
                               audio: episode.badges.first { $0.group == .audio }?.text,
-                              genres: d?.genres ?? [], synopsis: d?.overview)
+                              genres: d?.genres ?? [],
+                              synopsis: SpoilerRules.synopsis(d?.overview, watched: episode.isWatched, hideSpoilers: hideSpoilers))
         return InfoBlock.episode(season: season.season, number: episode.number, title: episode.title, facts: facts, show: showFacts)
     }
 

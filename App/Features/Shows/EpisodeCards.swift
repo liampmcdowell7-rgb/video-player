@@ -40,12 +40,15 @@ struct EpisodeCard: View {
     let model: ScreenModel<SeasonsViewModel>
     var focusedID: Binding<Int64?>? = nil
     @FocusState private var isFocused: Bool
+    @AppStorage("hideSpoilers") private var hideSpoilers = false
 
     var body: some View {
         NavigationLink(value: Route.item(episode.id)) {
             // R360 (item 7): the still and the captions are siblings in the label (Apple's sample lockup), so the borderless
             // style moves the text out of the way of the lifted still.
             ArtworkView(key: episode.artworkKey, symbol: "tv", wide: true)
+                // R456: Hide Spoilers blurs the still of an unwatched episode.
+                .blur(radius: SpoilerRules.hidesStill(watched: episode.isWatched, hideSpoilers: hideSpoilers) ? 30 : 0) // design-lint:allow R456: the spoiler blur of an unwatched episode's still, only while Hide Spoilers is on; not a glass or scrim
                 .overlay(alignment: .bottom) {
                     // R453: the watched check and the progress stay on the still, over the same cover as every bar over art (R452).
                     if episode.progress != nil || episode.isWatched {

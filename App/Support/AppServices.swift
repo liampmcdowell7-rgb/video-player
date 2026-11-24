@@ -421,6 +421,8 @@ final class AppServices {
             failed.status = .failed("The start-up sync did not finish.")
             return failed
         })
+        // R456: settings another device (or a restore) set arrive with the user data.
+        pullSettings()
     }
 
     /// After "Restore from iCloud" replaced the index: merges with iCloud and loads the ledger's watch state and saved views
@@ -429,6 +431,7 @@ final class AppServices {
         let target = LibraryRestoreAdapter(store: sqlite, deviceID: ledger.deviceID, scan: { [weak self] in await self?.scanAll() })
         let bootstrap = LibraryBootstrap(ledger: ledger, engine: syncEngine, essentials: essentials, credentials: secrets.local)
         _ = try? await bootstrap.run(health: .ok, ledgerWasLost: false, target: target)
+        pullSettings()
         libraryRevision += 1
     }
 

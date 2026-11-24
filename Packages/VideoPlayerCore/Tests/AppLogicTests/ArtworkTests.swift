@@ -489,4 +489,18 @@ extension ArtworkEngineTests {
         XCTAssertTrue(logo.isEmpty)
         XCTAssertTrue(logo.emptyText.contains("logo"))
     }
+
+    func testWithPreferLocalArtworkOffTheOnlinePosterComesBeforeTheSidecar() async throws {
+        let (r, id) = try await movieRig()
+        let off = ArtworkEngine(store: r.lib.store, cache: ArtworkDiskCache(directory: r.dir, maxBytes: 1_000_000), reader: r.reader, online: r.online,
+                                preferLocalArtwork: { false })
+        let result = await off.resolve(key: "item-\(id)")
+        XCTAssertEqual(result, .remote(URL(string: "https://images.example.invalid/item.jpg")!))
+        let on = await engine(r, overrides: [:]).resolve(key: "item-\(id)")
+        guard case .file = on else { return XCTFail("on (the default): the picture next to the file first: \(on)") }
+        let chosen = ArtworkResult.file(URL(fileURLWithPath: "/chosen/poster.jpg"))
+        let withChoice = await ArtworkEngine(store: r.lib.store, cache: ArtworkDiskCache(directory: r.dir, maxBytes: 1_000_000), reader: r.reader, online: r.online,
+                                             overrides: FixedOverrides(answers: [.poster: chosen]), preferLocalArtwork: { false }).resolve(key: "item-\(id)")
+        XCTAssertEqual(withChoice, chosen, "the user's own choice is first whatever the order")
+    }
 }

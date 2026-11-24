@@ -12,6 +12,7 @@ struct PlaybackSettingsView: View {
     @AppStorage(SettingsKey.showPlaybackStatsButton.rawValue) private var statsButton = true
     @AppStorage(SettingsKey.rememberTrackChoicePerShow.rawValue) private var rememberTracks = true
     @AppStorage(SettingsKey.trueHDCompatibilityCore.rawValue) private var trueHDCore = false
+    @AppStorage(AppPreference.streamingCache.rawValue) private var streamingCache = StreamingCache.default.rawValue
     /// R311: the last playback that failed on this Apple TV (`PlaybackProblemLog`), tokens removed.
     @AppStorage(PlaybackProblem.storageKey) private var problemData: Data?
 
@@ -25,6 +26,13 @@ struct PlaybackSettingsView: View {
                 LearnMoreLink(title: SettingsTexts.skipLearnMoreTitle, text: SettingsTexts.skipFull)
             } footer: {
                 Text(SettingsTexts.skipShort)
+            }
+            Section {
+                Picker("Streaming Cache", selection: $streamingCache) {
+                    ForEach(StreamingCache.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                }
+            } footer: {
+                Text("How much of a file is read ahead. Applies to the next video you start.")
             }
             Section {
                 SettingToggle("Remember Audio and Subtitle Choice for Each Show", isOn: $rememberTracks)

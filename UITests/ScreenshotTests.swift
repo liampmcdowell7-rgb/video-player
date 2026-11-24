@@ -1472,8 +1472,10 @@ final class ScreenshotTests: XCTestCase {
         settle()
         shot("30-settings")
         hierarchy("30-settings", of: app)
-        let pages = [("31", "Playback"), ("32", "Home Screen"), ("33", "Sources"), ("35", "Library"), ("36", "Online Lookup"),
-                     ("37", "Storage and iCloud"), ("38", "Accessibility")]
+        // R456: the reorganised top level. Online Lookup and Storage and iCloud are one level down now (their pictures keep their
+        // names); Language is new (45).
+        let pages = [("31", "Playback"), ("32", "General"), ("33", "Sources"), ("35", "Library"), ("36", "Metadata and Artwork"),
+                     ("37", "Sync and Backup"), ("38", "Accessibility"), ("45", "Language")]
         for (n, page) in pages {
             let name = "\(n)-settings-" + page.lowercased().replacingOccurrences(of: " ", with: "-")
             guard open(page, in: app, name: name) else { continue }
@@ -1492,6 +1494,12 @@ final class ScreenshotTests: XCTestCase {
             if page == "Library" {
                 // R389: the counts below Needs Review hold no control; Down must reach the last one (Files).
                 lastRowCheck(name, in: app)
+            }
+            if page == "Metadata and Artwork", open("Metadata Fetching", in: app, name: "36-settings-online-lookup") {
+                settle(); shot("36-settings-online-lookup"); textContrast("36-settings-online-lookup", in: app); back()
+            }
+            if page == "Sync and Backup", open("Storage and iCloud", in: app, name: "37-settings-storage-and-icloud") {
+                settle(); shot("37-settings-storage-and-icloud"); textContrast("37-settings-storage-and-icloud", in: app); back()
             }
             if page == "Sources", open("Sample Library", in: app, name: "34-settings-source-detail") {
                 settle(); shot("34-settings-source-detail"); textContrast("34-settings-source-detail", in: app); back()
@@ -1537,7 +1545,8 @@ final class ScreenshotTests: XCTestCase {
         guard waitForScreen("screen.settings", in: keyed), waitFor("Playback", in: keyed) else {
             return notReached("36-settings-online-lookup-key-set", "Settings did not open with the synthetic key.")
         }
-        if open("Online Lookup", in: keyed, name: "36-settings-online-lookup-key-set") {
+        if open("Metadata and Artwork", in: keyed, name: "36-settings-online-lookup-key-set"),
+           open("Metadata Fetching", in: keyed, name: "36-settings-online-lookup-key-set") {
             settle()
             let masked = keyed.descendants(matching: .any).matching(identifier: ControlID.keyValue("tmdb")).firstMatch
             if !masked.waitForExistence(timeout: 5) {
@@ -2793,7 +2802,7 @@ final class ScreenshotTests: XCTestCase {
             guard waitForScreen("screen.settings", in: app, timeout: wait), waitFor("Playback", in: app, timeout: wait) else {
                 return fail(app, "Settings did not open within \(Int(wait)) s.")
             }
-            return step(app, "Backup") ? app : nil
+            return step(app, "Sync and Backup") && step(app, "Backup") ? app : nil
         case "add-source", "source-form":
             let app = launch("-UITestEmpty", extra: extra, launchTimeout: wait)
             guard waitForScreen("screen.home", in: app, timeout: wait), waitFor("Add a Source", in: app, timeout: wait) else {

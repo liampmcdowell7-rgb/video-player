@@ -93,6 +93,11 @@ struct ItemDetailContentView: View {
                 let files = (try? await services.store.versions(of: content.itemID)) ?? []
                 own = EditTarget.apply(services.ledger.edits(for: EditTarget.keys(for: item, files: files)), to: own)
             }
+            // R456: Hide Spoilers replaces the description of an unwatched episode (the user's own edit is hidden too: it is a description).
+            if content.kind == .episode, var hidden = own, UserDefaults.standard.bool(forKey: AppPreference.hideSpoilers.rawValue) {
+                hidden.overview = SpoilerRules.synopsis(hidden.overview, watched: content.isWatched, hideSpoilers: true)
+                own = hidden
+            }
             details = own
             if EpisodePage.needsSeriesRating(kind: content.kind, seriesID: content.seriesID, ownRating: own?.contentRating),
                let seriesID = content.seriesID {

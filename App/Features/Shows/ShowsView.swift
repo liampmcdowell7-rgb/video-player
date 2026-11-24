@@ -57,7 +57,7 @@ struct ShowsView: View {
     }
 
     private func reload() async {
-        if model == nil { model = ScreenModel(ShowsViewModel(store: services.store)) }
+        if model == nil { model = ScreenModel(ShowsViewModel(store: services.store, sort: LibrarySortDefault.stored(UserDefaults.standard.string(forKey: AppPreference.sortOrder.rawValue)).itemSort)) }
         await model?.run { await $0.load() }
         await model?.run { await $0.refreshSavedViews() }
         reviewCount = (try? await services.store.needsReviewCount()) ?? 0
