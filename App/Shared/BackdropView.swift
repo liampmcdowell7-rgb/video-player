@@ -91,9 +91,13 @@ struct BackdropView: View {
                 }
             }
         case .none:
+            #if DEBUG
             // R452: only the readability picture (`-UITestBrightBackdrop`, debug UI-test mode): a plain white picture, no network.
             // design-lint:allow R452: a white test picture (debug UI-test mode only), the brightest artwork there can be
             if UITestMode.brightBackdrop { Color.white.overlay { cover } } else { EmptyView() }
+            #else
+            EmptyView() // R462: UITestMode exists only in Debug builds, so a Release build shows nothing here.
+            #endif
         }
     }
 }
