@@ -47,8 +47,12 @@ button. It costs nothing: the repository is public and the runner is one of GitH
   they are kept, so tick the box only for the build you need to read a crash of. Send the crash report (`.ips`) of THAT same
   build, then tell me.
 - **The entitlement check** (R466): a step after the archive prints `yes` or `no` for the iCloud container, the iCloud
-  services, the App Group and the push environment, in the app and the Top Shelf extension. It never prints a value. If the
-  app lacks the iCloud container or the CloudKit service, the run stops before anything is uploaded.
+  services, the App Group and the push environment, in the app and the Top Shelf extension. It never prints a value. It reads
+  the signed entitlements with `codesign` and, if that gives nothing, from the file Xcode writes into the archived app
+  (R467). If the app's entitlements were read and lack the iCloud container or the CloudKit service, the run stops before
+  anything is uploaded. If they could NOT be read (run #5 of 0bcf4b0 printed `n/a` everywhere), the step prints `n/a`, one
+  `WARNING` line and a few safe facts (exit codes, whether two files exist, a short list of file names), and the run goes on to the
+  export and the upload: that is not a pass, it only means the check could not look.
 - **Logs**: the run page shows only short result lines and, on a failure, the error lines (names and e-mail addresses
   removed). No log file is saved anywhere.
 
@@ -68,7 +72,7 @@ Open the red step and copy its last lines into a message to me. The lines are al
 | Prepare | `missing ...` or `binary target ... missing` | A committed file is missing from the repository; tell me |
 | Archive | `SIGNING ERROR` lines | The profiles or the certificate do not fit; the line names the target |
 | Archive | `BUILD NUMBER ERROR` | The build number did not reach a bundle; tell me |
-| Check the signed entitlements | `ENTITLEMENT ERROR: ... lack the iCloud container` or `... the CloudKit service` | The archive was signed without iCloud. Copy the yes/no lines and tell me; do not upload anything from this run |
+| Check the signed entitlements | `ENTITLEMENT ERROR: ... lack the iCloud container` or `... the CloudKit service` | The archive was signed without iCloud (the entitlements were read). Copy the yes/no lines and tell me; do not upload anything from this run. A `WARNING ... could not be read` is not red: the run went on; copy the `facts` lines and tell me |
 | Export | `no .ipa` | The export wrote nothing; tell me |
 | Upload | `90575`, `aps-environment` | Push Notifications is missing on the app's App ID or profile; tick it on developer.apple.com and run again |
 | Upload | `has already been used` or `redundant binary upload` | A build with that number exists; run again later (a new minute gives a new number) |

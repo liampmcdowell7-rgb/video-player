@@ -170,7 +170,7 @@ out="$(python3 "$EC" plists "$E/app-nocontainer.plist" "$E/app-good-prof.plist" 
 out="$(python3 "$EC" plists "$E/app-noservice.plist" "$E/app-good-prof.plist" "$E/top.plist" "$E/top-prof.plist" 2>&1)"; rc=$?
 [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'the signed entitlements of the app lack the CloudKit service' && ok "entitlement check: a signed app without the CloudKit service fails" || bad "no service rc=$rc"
 out="$(python3 "$EC" plists "$E/app-good.plist" "$E/app-nocontainer-prof.plist" "$E/top.plist" "$E/top-prof.plist" 2>&1)"; rc=$?
-[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'the embedded profile of the app lacks the iCloud container' && ok "entitlement check: a readable embedded profile without the container fails" || bad "profile without container rc=$rc"
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '^WARNING: the embedded profile of the app lacks the iCloud container' && ok "entitlement check: a readable embedded profile without the container is a WARNING, not a failure (R467)" || bad "profile without container rc=$rc"
 out="$(python3 "$EC" plists "$E/empty.plist" "$E/app-good-prof.plist" "$E/top.plist" "$E/top-prof.plist" 2>&1)"; rc=$?
 [ "$rc" -eq 1 ] && ok "entitlement check: an app with no entitlements at all fails" || bad "empty app rc=$rc"
 python3 "$EC" plists "$E/app-good.plist" "$E/app-good-prof.plist" "$E/empty.plist" "$E/empty.plist" >/dev/null 2>&1 && ok "entitlement check: a Top Shelf extension without iCloud does not fail the step" || bad "Top Shelf lacking keys failed the step"
@@ -188,6 +188,68 @@ EOF2
 out="$(python3 "$EC" plists "$E/app-sentinel.plist" "$E/app-sentinel-prof.plist" "$E/top.plist" "$E/top-prof.plist" 2>&1)"; rc=$?
 [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q 'SENTINEL' && ok "entitlement check: a Team ID, a profile name, a certificate and other values in the plists never reach the output" || bad "a sentinel value was printed (rc=$rc)"
 printf '%s\n' "$ecode" | grep -qE 'codesign.*(--sign|-s )|security[[:space:]]+(import|create|delete|set-key)|"-f"|--force' && bad "the check can sign or change a keychain" || ok "entitlement check: read-only commands only (codesign -d, security cms -D)"
+
+# R467: `bundles` mode with stand-ins for codesign and security (Linux has neither): the order of the reads (codesign, the second
+# codesign form, the archive's .xcent file), the one WARNING and the safe facts when nothing can be read, and the exit codes.
+B="$t/bundles"; mkdir -p "$B/bin"
+cat > "$B/bin/codesign" <<'EOF3'
+#!/bin/sh
+for a; do last="$a"; done
+case "$CS_MODE" in
+  fail) exit 1 ;;
+  junk) echo "Executable=x" >&2; echo "not a plist"; exit 0 ;;
+  second) case " $* " in *" :- "*) exit 1 ;; esac; cat "$last/codesign.stub" ;;
+  good) cat "$last/codesign.stub" ;;
+esac
+EOF3
+cat > "$B/bin/security" <<'EOF3'
+#!/bin/sh
+cat "$(dirname "$4")/profile.plist.stub" 2>/dev/null || exit 1
+EOF3
+chmod +x "$B/bin/codesign" "$B/bin/security"
+mkb() { # DIR XCENT|- CODESIGN_PLIST|- PROFILE_PLIST|-   (a bundle folder with only the named files)
+  mkdir -p "$1"; : > "$1/Info.plist"
+  [ "$2" = - ] || cp "$2" "$1/archived-expanded-entitlements.xcent"
+  [ "$3" = - ] || cp "$3" "$1/codesign.stub"
+  if [ "$4" != - ]; then : > "$1/embedded.mobileprovision"; cp "$4" "$1/profile.plist.stub"; fi
+}
+runb() { PATH="$B/bin:$PATH" CS_MODE="$1" python3 "$EC" bundles "$2" "$3" 2>&1; }
+# a: codesign gives junk, the .xcent file is there (a Team ID and other sentinel values inside it)
+mkb "$B/a/VideoPlayer.app" "$E/app-sentinel.plist" - -; mkb "$B/a/TopShelf.appex" "$E/top.plist" - -
+out="$(runb junk "$B/a/VideoPlayer.app" "$B/a/TopShelf.appex")"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qE '^  app +signed +source xcent$' && printf '%s' "$out" | grep -qE '^  app +signed +icloud-container-identifiers +yes$' \
+  && printf '%s' "$out" | grep -q 'the app is signed with the iCloud container and the CloudKit service' && ! printf '%s' "$out" | grep -q 'SENTINEL' \
+  && ok "entitlement check: codesign output unparseable, the .xcent file present: read from the file, yes, exit 0, no value printed (R467)" || bad "xcent fallback rc=$rc: $out"
+# b: nothing readable; names that could carry an identifier are only counted
+mkb "$B/b/VideoPlayer.app" - - -; mkb "$B/b/TopShelf.appex" - - -
+mkdir -p "$B/b/VideoPlayer.app/en.lproj" "$B/b/VideoPlayer.app/_CodeSignature"
+: > "$B/b/VideoPlayer.app/SENTINELTEAM.bundle"; : > "$B/b/VideoPlayer.app/Apple Distribution Sentinel"; : > "$B/b/VideoPlayer.app/AAAAAAAAAAAAAAAA"
+out="$(runb fail "$B/b/VideoPlayer.app" "$B/b/TopShelf.appex")"; rc=$?
+nw="$(printf '%s\n' "$out" | grep -c '^WARNING:')"
+[ "$rc" -eq 0 ] && [ "$nw" -eq 1 ] && printf '%s' "$out" | grep -qE '^  app +signed +all keys n/a' && printf '%s' "$out" | grep -q 'could not be read by any form' \
+  && printf '%s' "$out" | grep -q 'NOT a pass' && ok "entitlement check: nothing readable: n/a, exactly one WARNING, exit 0, and the last line says it is not a pass (R467)" || bad "unreadable rc=$rc warnings=$nw: $out"
+printf '%s' "$out" | grep -q 'app      facts   codesign exit codes 1,1; embedded.mobileprovision no; archived-expanded-entitlements.xcent no; top-level names: ' \
+  && printf '%s' "$out" | grep -q '_CodeSignature' && printf '%s' "$out" | grep -q 'en.lproj' && printf '%s' "$out" | grep -q 'Info.plist' \
+  && ok "entitlement check: the safe facts: codesign exit codes, two yes/no file facts, the names on the safe list" || bad "facts line: $out"
+if printf '%s' "$out" | grep -qE 'SENTINEL|Apple Distribution|AAAAAAAA'; then bad "a name that could carry an identifier was printed"
+elif printf '%s' "$out" | grep -qE '\(\+[1-9][0-9]* other names, not shown\)'; then ok "entitlement check: a name that could carry a Team ID, a profile or a certificate is only counted"
+else bad "names not counted: $out"; fi
+# c: readable and missing the container: the only failure
+mkb "$B/c/VideoPlayer.app" "$E/app-nocontainer.plist" - -; mkb "$B/c/TopShelf.appex" "$E/top.plist" - -
+out="$(runb junk "$B/c/VideoPlayer.app" "$B/c/TopShelf.appex")"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'ENTITLEMENT ERROR: the signed entitlements of the app lack the iCloud container' && ok "entitlement check: read and missing the container: exit 1 (R467)" || bad "read, no container rc=$rc"
+# d: readable through codesign, with a readable profile
+mkb "$B/d/VideoPlayer.app" - "$E/app-good.plist" "$E/app-good-prof.plist"; mkb "$B/d/TopShelf.appex" - "$E/top.plist" "$E/top-prof.plist"
+out="$(runb good "$B/d/VideoPlayer.app" "$B/d/TopShelf.appex")"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qE '^  app +signed +source codesign$' && printf '%s' "$out" | grep -qE '^  app +profile +icloud-services \(CloudKit\) +yes$' \
+  && printf '%s' "$out" | grep -q 'the app is signed with the iCloud container' && ok "entitlement check: readable and complete through codesign: exit 0, the profile read too" || bad "complete rc=$rc: $out"
+# e: the first codesign form fails, the second (--xml) works
+out="$(runb second "$B/d/VideoPlayer.app" "$B/d/TopShelf.appex")"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qE '^  app +signed +source codesign$' && ok "entitlement check: the second codesign form is tried when the first gives nothing" || bad "second form rc=$rc"
+# f: a Top Shelf extension that cannot be read does not decide anything
+mkb "$B/f/TopShelf.appex" - - -
+out="$(runb good "$B/d/VideoPlayer.app" "$B/f/TopShelf.appex")"; rc=$?
+[ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q '^WARNING:' && ok "entitlement check: an unreadable Top Shelf extension alone: no warning, exit 0" || bad "unreadable Top Shelf rc=$rc"
 
 # R248: the pre-push exception is narrow. The real scripts/pre-push-check.sh runs in a throwaway repository holding only
 # itself and one workflow variant; only its workflow messages are read.

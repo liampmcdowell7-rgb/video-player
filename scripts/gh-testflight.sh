@@ -10,8 +10,10 @@
 #   gh-testflight.sh check-entitlements  READ-ONLY (R466): after the archive, before the export and the upload, prints yes or
 #                                  no (never a value) for the iCloud container, the iCloud services, the App Group and
 #                                  aps-environment, in the archived app and the Top Shelf extension, signed and in the
-#                                  embedded profile (scripts/gh-entitlement-check.py); fails when the app lacks the iCloud
-#                                  container or the CloudKit service.
+#                                  embedded profile (scripts/gh-entitlement-check.py); fails ONLY when the app's signed
+#                                  entitlements were read and lack the iCloud container or the CloudKit service. When they
+#                                  cannot be read (codesign, then the archive's .xcent file) it prints n/a, one WARNING and
+#                                  safe facts, and exits 0 (R467): the export and the upload go on.
 #   gh-testflight.sh upload        uploads the archive with `xcodebuild -exportArchive` (the export options that
 #                                  `xcode-project use-profiles` wrote, plus destination upload) and the API key flags.
 #                                  The profiles and the certificate are the same as in the export, so nothing new is signed.

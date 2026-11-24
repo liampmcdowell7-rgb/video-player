@@ -33,8 +33,9 @@
 #   5. scripts/cm-testflight.sh archive        use-profiles, build number, Release archive, build-number check
 #      scripts/gh-testflight.sh check-entitlements  (R466) read-only: yes or no, never a value, for the iCloud container, the
 #                                              iCloud services, the App Group and aps-environment in the archived app and the
-#                                              Top Shelf extension; fails before the export when the app lacks the container
-#                                              or the CloudKit service
+#                                              Top Shelf extension; fails before the export ONLY when the app's signed
+#                                              entitlements were read and lack the container or the CloudKit service; when
+#                                              they cannot be read it warns and goes on (R467)
 #   6. scripts/cm-testflight.sh export         the .ipa (method app-store)
 #   7. scripts/gh-testflight.sh upload         xcodebuild -exportArchive with destination upload and the API key
 # The Codemagic command line tools (open source, pip package codemagic-cli-tools) are installed into a virtual environment
@@ -189,7 +190,7 @@ jobs:
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Archive (Release, tvOS devices, manual signing)"
           bash scripts/cm-testflight.sh archive
 
-      - name: Check the signed entitlements of the archive (read-only; yes or no only, never a value; stops before the export)
+      - name: Check the signed entitlements of the archive (read-only; yes or no only, never a value; stops only if they were read and lack iCloud)
         timeout-minutes: 5
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Entitlement check"
