@@ -57,6 +57,8 @@ public extension MediaInfo {
     static func withRating(_ rows: [MediaInfoRow], details: TitleDetails?) -> [MediaInfoRow] {
         var top: [MediaInfoRow] = []
         if let rating = details?.contentRating { top.append(MediaInfoRow(label: "Rating", value: rating)) }
+        // R453: the release date (an episode's air date, a show's first air date) as the date formatter writes it.
+        if let date = details?.releaseDate { top.append(MediaInfoRow(label: "Release Date", value: InfoDateText.text(date))) }
         if let advice = details?.contentDescriptors, !advice.isEmpty {
             top.append(MediaInfoRow(label: "Content Advice", value: advice.joined(separator: ShortLine.separator)))
         }

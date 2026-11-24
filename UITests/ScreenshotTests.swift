@@ -570,6 +570,7 @@ final class ScreenshotTests: XCTestCase {
     /// lists the seasons whose cards are on screen; it fails when there is not exactly one.
     func seasonTabsCheck(_ name: String, in app: XCUIApplication) {
         let tabs: Bool = app.segmentedControls[ControlID.seasonTabs].exists || app.buttons[ControlID.seasonTabs].exists
+            || app.descendants(matching: .any).matching(identifier: ControlID.seasonTabs).firstMatch.exists
         let labels: [String] = app.buttons.allElementsBoundByIndex.map(\.label)
         let result: CheckResult = ScreenRules.oneSeasonListed(cardLabels: labels)
         note("\(name)-SEASONS", (tabs ? "season tabs found" : "SEASON TABS NOT FOUND") + "\n" + result.text)
@@ -853,6 +854,41 @@ final class ScreenshotTests: XCTestCase {
         note(name + "-PRODUCT", lines.joined(separator: "\n"))
         XCTAssertTrue(problems.isEmpty, "\(name): " + verdict)
         titleGapNote(name, in: app)
+    }
+
+    /// R453: the frame of the page's info block (`product.infoBlock`), nil when the page has none.
+    func infoBlockFrame(in app: XCUIApplication) -> CGRect? {
+        let block: XCUIElement = app.descendants(matching: .any).matching(identifier: "product.infoBlock").firstMatch
+        return block.exists ? block.frame : nil
+    }
+
+    /// R453: "<name>-INFOBLOCK": the info block keeps ONE size when the focus moves from the show to an episode and back
+    /// (`before` and `after`, when both are given), no text of it is cut (the synopsis, the title line and the genres end
+    /// inside the block), and the metadata line, with its date, stays on ONE line (its height is that of one line). Fails with
+    /// the measured numbers; the picture beside it is the check by eye.
+    func infoBlockCheck(_ name: String, before: CGRect?, after: CGRect?, expectBlock: Bool, in app: XCUIApplication) {
+        var problems: [String] = []
+        var lines: [String] = []
+        let current: CGRect? = after ?? infoBlockFrame(in: app)
+        if let current { lines.append("info block \(Int(current.width)) x \(Int(current.height)) at y \(Int(current.minY))") }
+        else if expectBlock { problems.append("no info block on the page") }
+        if let a = before, let b = after, abs(a.width - b.width) > 1 || abs(a.height - b.height) > 1 {
+            problems.append("the info block changed size from \(Int(a.width)) x \(Int(a.height)) to \(Int(b.width)) x \(Int(b.height))")
+        }
+        if let block = current {
+            for id in ["product.infoBlock.title", "product.infoBlock.genres", "product.infoBlock.synopsis", "product.metadataLine"] {
+                let part: XCUIElement = app.descendants(matching: .any).matching(identifier: id).firstMatch
+                if part.exists, part.frame.maxY > block.maxY + 1 || part.frame.maxX > block.maxX + 1 { problems.append("\(id) runs out of the block (\(part.frame))") }
+            }
+        }
+        let line: XCUIElement = app.descendants(matching: .any).matching(identifier: "product.metadataLine").firstMatch
+        if line.exists {
+            lines.append("metadata line \(Int(line.frame.width)) x \(Int(line.frame.height)): \(line.label)")
+            if line.frame.height > 70 { problems.append("the metadata line is \(Int(line.frame.height)) pt high: it broke across lines (a date must not)") }
+        }
+        let verdict: String = problems.isEmpty ? "INFO BLOCK OK" : "INFO BLOCK PROBLEM: " + problems.joined(separator: "; ")
+        note(name + "-INFOBLOCK", (lines + [verdict]).joined(separator: "\n"))
+        XCTAssertTrue(problems.isEmpty, "\(name): " + verdict)
     }
 
     /// R404 (owner's review of the run on f0a67d3, item 6 b): "<name>-TITLE-GAP", the space between the title's bottom
@@ -1837,15 +1873,25 @@ final class ScreenshotTests: XCTestCase {
             checkGap("55-show-page", tree: pageTree, anchors: [ControlID.play, ControlID.more], kinds: ["StaticText"], minimum: 40, what: "buttons to the first season heading")
             // R339 (docs/HIG_AUDIT.md T10): the season tabs, and the episodes of ONE season under them.
             seasonTabsCheck("55-show-page", in: app)
+            // R453: the info block of the show, then with the focus on an episode card (down to the season strip, down to the
+            // cards), then back: the same size each time, nothing cut, the date line on one line.
+            let blockAtRest: CGRect? = infoBlockFrame(in: app)
+            infoBlockCheck("55-show-page", before: nil, after: nil, expectBlock: true, in: app)
+            for _ in 0..<2 { XCUIRemote.shared.press(.down) }; sleep(1)
+            infoBlockCheck("55-show-page-episode-focused", before: blockAtRest, after: infoBlockFrame(in: app), expectBlock: true, in: app)
+            for _ in 0..<2 { XCUIRemote.shared.press(.up) }; sleep(1)
             // #15 item 1.6: the scrolled states of the show page (each must differ from the one before).
             for step in 1...2 { XCUIRemote.shared.press(.down); sleep(1); let mustChange: String? = step == 1 ? "Down on the show page" : nil; shot("55-show-page-scrolled-\(step)", mustChangeAfter: mustChange, endOfScroll: step == 1 ? nil : "Down on the show page") }
             for _ in 0..<2 { XCUIRemote.shared.press(.up) }; sleep(1)
             // R339: seasons are tabs above one episode list. Focus on the Season 2 tab selects it (HIG Segmented controls, tvOS);
             // then the list holds season 2's episodes only.
-            let seasonTwo: XCUIElement = app.segmentedControls[ControlID.seasonTabs].buttons["Season 2"]
+            let seasonTwo: XCUIElement = app.buttons["Season 2"]
             if focus(seasonTwo.exists ? seasonTwo : control("Season 2", in: app), in: app), waitFor("S2, E1", in: app, timeout: 10) {
                 settle(); seasonTabsCheck("56-show-season-2-tab", in: app)
-                if focus(control("S2, E1", in: app), in: app) { settle(); shot("56-show-season-2-episode-row", endOfScroll: "moving the focus to the season 2 row") }
+                if focus(control("S2, E1", in: app), in: app) {
+                    settle(); shot("56-show-season-2-episode-row", endOfScroll: "moving the focus to the season 2 row")
+                    infoBlockCheck("56-show-season-2-episode-row", before: blockAtRest, after: infoBlockFrame(in: app), expectBlock: true, in: app)
+                }
                 else { notReached("56-show-season-2-episode-row", "Could not move the focus to a season 2 episode (focus on \(focusedLabel(in: app))).") }
             } else { notReached("56-show-season-2-episode-row", "The Season 2 tab did not show season 2's episodes (focus on \(focusedLabel(in: app))).") }
             // #30 Part 2 / #36 group 4 (R264): S2 E3 has the longest caption. It wraps at the readable floor instead of being
@@ -1868,6 +1914,7 @@ final class ScreenshotTests: XCTestCase {
             settle(); shot("57-movie-detail")
             let movieTop: String = focusedLabel(in: app)
             productPageCheck("57-movie-detail", information: true, in: app)
+            infoBlockCheck("57-movie-detail", before: nil, after: nil, expectBlock: true, in: app)
             badgesNotCutCheck("57-movie-detail", expectBadges: true, rating: "PG-13", in: app)
             let movieTree: String = app.debugDescription
             note("57-movie-detail-HIERARCHY", movieTree)
@@ -2000,7 +2047,7 @@ final class ScreenshotTests: XCTestCase {
         let episodeLabel: String = "S1, E1, A quiet beginning"
         // R339: one season's episodes under the season tabs; S1 E1 is under Season 1 (focus selects a tab).
         if !app.buttons[episodeLabel].exists {
-            let seasonOne: XCUIElement = app.segmentedControls[ControlID.seasonTabs].buttons["Season 1"]
+            let seasonOne: XCUIElement = app.buttons["Season 1"]
             _ = focus(seasonOne.exists ? seasonOne : control("Season 1", in: app), in: app); sleep(1)
         }
         guard open(episodeLabel, in: app, name: "22-player-skip-intro"), waitForScreen("screen.item", in: app, timeout: 20) else {
@@ -2012,6 +2059,7 @@ final class ScreenshotTests: XCTestCase {
         // screen, the check, then the page scrolled once (Down from Play), and back up to Play.
         shot("22-episode-page")
         episodePageCheck("22-episode-page", code: "S1, E1", title: "A quiet beginning", season: "Season 1", in: app)
+        infoBlockCheck("22-episode-page", before: nil, after: nil, expectBlock: false, in: app)
         XCUIRemote.shared.press(.down); sleep(1); shot("22-episode-page-scrolled-1")
         XCUIRemote.shared.press(.up); sleep(1)
         // S01E01 is watched in the sample library, so its button says "Play Again" ("Play" matches it).
@@ -2138,7 +2186,7 @@ final class ScreenshotTests: XCTestCase {
         }
         let episodeLabel: String = "S1, E1, A quiet beginning"
         if !app.buttons[episodeLabel].exists {
-            let seasonOne: XCUIElement = app.segmentedControls[ControlID.seasonTabs].buttons["Season 1"]
+            let seasonOne: XCUIElement = app.buttons["Season 1"]
             _ = focus(seasonOne.exists ? seasonOne : control("Season 1", in: app), in: app); sleep(1)
         }
         guard open(episodeLabel, in: app, name: number), waitForScreen("screen.item", in: app, timeout: 20) else {

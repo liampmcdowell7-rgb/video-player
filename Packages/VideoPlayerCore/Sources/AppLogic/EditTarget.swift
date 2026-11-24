@@ -34,6 +34,12 @@ public enum EditTarget {
         var d: TitleDetails = details ?? TitleDetails(overview: nil, cast: [])
         if let text = edits[.overview]?.text { d.overview = text }
         if let rating = edits[.certification]?.text { d.contentRating = rating }
+        // R453: an edited date, genres or runtime replace what the layers gave (the same fields the edit screens write).
+        if let text = edits[.releaseDate]?.text, let date = PartialDate(iso: text) { d.releaseDate = date }
+        else if let y = edits[.year]?.number, (1800...2200).contains(Int(y)) { d.releaseDate = PartialDate(year: Int(y)) }
+        if let text = edits[.airDate]?.text, let date = PartialDate(iso: text) { d.releaseDate = date }
+        if let genres = edits[.genres]?.list, !genres.isEmpty { d.genres = genres }
+        if let minutes = edits[.runtime]?.number, minutes > 0 { d.runtimeMinutes = Int(minutes) }
         if let people = edits[.cast]?.people {
             d.cast = people.enumerated().map { TitleDetails.CastMember(id: 2_000_000 + $0, name: $1.name, role: $1.role.isEmpty ? nil : $1.role) }
         }

@@ -25,6 +25,9 @@ enum ControlID {
     static let startOver = "control.startOver"
     static let extras = "control.extras"
     static let more = "control.more"
+    /// R453: the round Watched and Favourite buttons of a page's button row.
+    static let watched = "control.watched"
+    static let favorite = "control.favorite"
     /// R349: Home's featured area and its two buttons.
     static let featured = "home.featured"
     static let featuredPlay = "control.featuredPlay"

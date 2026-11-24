@@ -8,13 +8,15 @@ import AppLogic
 struct EpisodeShelfRow: View {
     let episodes: [EpisodeRow]
     let model: ScreenModel<SeasonsViewModel>
+    /// R453: the episode that has the focus (nil when none), for the show page's info block.
+    var focusedID: Binding<Int64?>? = nil
 
     var body: some View {
         ScrollView(.horizontal) {
             // design-lint:allow HIG Layout, 40 pt horizontal spacing between cards (docs/DESIGN_SYSTEM.md section 4)
             LazyHStack(alignment: .top, spacing: 40) {
                 ForEach(episodes) { episode in
-                    EpisodeCard(episode: episode, model: model)
+                    EpisodeCard(episode: episode, model: model, focusedID: focusedID)
                         // design-lint:allow HIG Layout, four columns of the grid width for 16:9 episode cards (R189)
                         .containerRelativeFrame(.horizontal, count: 4, spacing: 40)
                 }
@@ -36,6 +38,8 @@ struct EpisodeShelfRow: View {
 struct EpisodeCard: View {
     let episode: EpisodeRow
     let model: ScreenModel<SeasonsViewModel>
+    var focusedID: Binding<Int64?>? = nil
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         NavigationLink(value: Route.item(episode.id)) {
@@ -43,10 +47,20 @@ struct EpisodeCard: View {
             // style moves the text out of the way of the lifted still.
             ArtworkView(key: episode.artworkKey, symbol: "tv", wide: true)
                 .overlay(alignment: .bottom) {
-                    if let progress = episode.progress {
-                        ProgressView(value: progress)
-                            .padding()
-                            .progressScrim() // R452
+                    // R453: the watched check and the progress stay on the still, over the same cover as every bar over art (R452).
+                    if episode.progress != nil || episode.isWatched {
+                        VStack(alignment: .trailing) {
+                            if episode.isWatched {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.caption)
+                                    .accessibilityHidden(true) // the card's value says "Watched"
+                            }
+                            if let progress = episode.progress {
+                                ProgressView(value: progress)
+                            }
+                        }
+                        .padding()
+                        .progressScrim() // R452
                     }
                 }
                 // #36 7 (OPEN_QUESTIONS R259): the artwork is the source of the card's size, as in Apple's tvOS media catalog
@@ -66,6 +80,11 @@ struct EpisodeCard: View {
             captions
         }
         .buttonStyle(.borderless)
+        .focused($isFocused)
+        .onChange(of: isFocused) { _, now in
+            guard let focusedID else { return }
+            if now { focusedID.wrappedValue = episode.id } else if focusedID.wrappedValue == episode.id { focusedID.wrappedValue = nil }
+        }
         .accessibilityLabel("\(episode.code), \(episode.title)")
         .accessibilityValue(accessibilityValue)
         // R427 (run #28, item 4 b): the card's own identifier. Without one, the card button carried its badges' identifiers
@@ -88,30 +107,12 @@ struct EpisodeCard: View {
         return parts.joined(separator: ", ")
     }
 
+    /// R453: ONE line, "4. Title", fitted to its text (`FittingText`, rule S1); no tag chips (the resolution, HDR and sound of
+    /// the focused episode are in the page's info block). The watched check and the progress are on the still.
     private var captions: some View {
-        VStack(alignment: .leading) {
-            // #25 B7: always "S2, E1 · Title" (R358: the player's form) (the title is "Episode 1" when the file names none, never the code again).
-            // #36 group 4 (R264): shrinks to the floor, then wraps, never cut; the row's tallest caption height.
-            CardCaption(text: episode.code + " · " + episode.title)
-            // R391 (shared fault 1): one tight group at the leading edge (`BadgeSpacing`). Before: an `HStack` at the
-            // system's default spacing (the run on fd9731f: "43 min" and "1080p" 60 pt apart) and a fixed 44 pt slot for
-            // the watched mark (`SymbolColumn`), drawn or not.
-            HStack(spacing: CGFloat(BadgeSpacing.afterText)) {
-                if let runtime = episode.runtimeText {
-                    FittingText(runtime, style: .caption2)
-                        .foregroundStyle(.secondary)
-                }
-                // R370: the episode's own badges (resolution, HDR, Dolby Atmos), dropped from the end where space is short.
-                BadgeRow(badges: episode.badges)
-                if episode.isWatched {
-                    Image(systemName: "checkmark.circle")
-                        .font(.caption2)
-                        .accessibilityLabel("Watched")
-                }
-            }
-        }
-        .padding(.horizontal)
-        // R393 (item 6 c): the row's equal height is reserved under the runtime line, not between the title and it.
-        .equalCaptionBlock()
+        FittingText(episode.cardCaption, style: .caption)
+            .padding(.horizontal)
+            // R393 (item 6 c): the row's equal height is reserved under the caption.
+            .equalCaptionBlock()
     }
 }

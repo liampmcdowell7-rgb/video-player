@@ -132,19 +132,22 @@ struct ItemDetailContentView: View {
                 if let advice = details?.contentDescriptors, !advice.isEmpty {
                     ContentAdviceLine(descriptors: advice)
                 }
-                if let overview = details?.overview {
-                    SynopsisLink(title: content.episodeTitle ?? content.title, text: overview, artworkKey: content.artworkKey,
-                                 prefersEpisodeStill: content.kind == .episode)
-                } else if content.kind == .movie, !services.online.hasCatalogueKey {
+                // R453 (PROVISIONAL): the typed info (runtime, release date, the rating box, resolution, audio; the genres; the
+                // synopsis) as on the show page, parts with no data left out. The synopsis stays the whole-text button (L5).
+                let block: InfoBlock = InfoBlock.show(InfoFacts(content: content, details: details, contentRating: rating))
+                InfoBlockView(block: block, fullText: (title: content.episodeTitle ?? content.title, artworkKey: content.artworkKey,
+                                                       prefersEpisodeStill: content.kind == .episode))
+                if details?.overview == nil, content.kind == .movie, !services.online.hasCatalogueKey {
                     // #26 item 4: one short line saying the synopsis needs the key and where to add it.
                     StatusText(OnlineLookupText.detailsNeedKey)
                 }
-                // R350: ONE line, the facts then the outlined format badges (dropped from the end when it does not fit).
-                // R392 (item 5 b; audit M3): the time left ("29 min left", #15 D3) is the last fact of this line. Apple's
-                // product pages show no progress line at all (B1, A4), so there is no Apple place to move it to.
-                let facts: String = ProductPage.factsLine(content.facts, timeLeft: content.timeLeft)
-                if !facts.isEmpty || !content.badges.isEmpty || rating != nil {
-                    ProductMetadataLine(facts: facts, rating: rating, badges: content.badges)
+                // R392 (item 5 b; audit M3): the time left ("29 min left", #15 D3), plain text under the block. Apple's product
+                // pages show no progress line at all (B1, A4), so there is no Apple place to move it to.
+                if let timeLeft = content.timeLeft {
+                    Text(timeLeft)
+                        .font(.callout)
+                        .foregroundStyle(ReadableSecondary.style)
+                        .accessibilityIdentifier("product.timeLeft")
                 }
                 actions
             }
@@ -186,6 +189,25 @@ struct ItemDetailContentView: View {
             if !content.extras.isEmpty {
                 ExtrasMenu(extras: content.extras)
             }
+            // R453 (PROVISIONAL): round icon-only buttons of one size, in the owner's order: Watched (the check when watched,
+            // the eye when not), Favourite, More. No Watchlist or Add to List: the library has neither (docs in R453).
+            Button { Task { await model.run { await $0.setWatched(!content.isWatched) } } } label: {
+                ActionLabel("Watched", systemImage: PageButtonSymbols.watched(content.isWatched), iconOnly: true)
+            }
+            .roundAction()
+            // The More menu keeps the "Mark as Watched" items (the existing pictures 44 to 46), so this one is named by its state.
+            .accessibilityLabel("Watched")
+            .accessibilityValue(content.isWatched ? "On" : "Off")
+            .accessibilityHint(content.isWatched ? "Marks it as unwatched" : "Marks it as watched")
+            .accessibilityIdentifier(ControlID.watched)
+            Button { Task { await model.run { await $0.toggleFavorite() } } } label: {
+                ActionLabel("Favorite", systemImage: PageButtonSymbols.favourite(content.isFavorite), iconOnly: true)
+            }
+            .roundAction()
+            .accessibilityLabel("Favorite")
+            .accessibilityValue(content.isFavorite ? "On" : "Off")
+            .accessibilityHint(content.isFavorite ? "Removes it from your favorites" : "Adds it to your favorites")
+            .accessibilityIdentifier(ControlID.favorite)
             moreMenu
         }
     }
@@ -240,6 +262,8 @@ struct SynopsisLink: View {
     /// The artwork behind the cover ("item-N" or "series-N"); nil keeps the plain system background.
     var artworkKey: String? = nil
     var prefersEpisodeStill: Bool = false
+    /// R453: the three lines are reserved even for a shorter text (the show page's info block keeps one height).
+    var reservesSpace: Bool = false
     @State private var showsWholeText = false
 
     var body: some View {
@@ -248,7 +272,7 @@ struct SynopsisLink: View {
         } label: {
             Text(text)
                 .font(.callout)
-                .lineLimit(3)
+                .lineLimit(3, reservesSpace: reservesSpace)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }

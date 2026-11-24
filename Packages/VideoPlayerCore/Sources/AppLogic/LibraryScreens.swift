@@ -542,6 +542,8 @@ public struct ShowsViewModel: QueryGridScreen {
 public struct EpisodeRow: Equatable, Sendable, Identifiable {
     public var id: Int64
     public var title: String
+    /// R453: the episode's number in its season (0 when the file has none), for the card caption "4. Title".
+    public var number: Int = 0
     /// "S2 E4".
     public var code: String
     public var runtimeText: String?
@@ -550,6 +552,9 @@ public struct EpisodeRow: Equatable, Sendable, Identifiable {
     public var artworkKey: String
     /// R370: the episode's badges (`FormatBadges.item`: resolution, HDR, Dolby Atmos).
     public var badges: [FormatBadgeItem] = []
+
+    /// R453: the card's caption, "4. Title" (the number, then the title); only the title when the file gives no number.
+    public var cardCaption: String { number > 0 ? "\(number). \(title)" : title }
 }
 
 public struct SeasonSection: Equatable, Sendable, Identifiable {
@@ -609,6 +614,7 @@ public struct SeasonsViewModel: Sendable {
                 // #25 B7: a title that is only the code again ("S01E01") or the show's name is no title: "Episode 1" instead,
                 // so the card never reads "S1 E1 · S01E01".
                 EpisodeRow(id: item.id, title: CardBuilder.episodeTitleIsReal(item) ? item.title : "Episode \(item.episode ?? 0)",
+                           number: item.episode ?? 0,
                            code: DisplayText.episodeCode(season: item.season, episode: item.episode, episodeEnd: item.episodeEnd) ?? "",
                            runtimeText: (item.runtime ?? item.watch.duration).map(DisplayText.runtime),
                            progress: CardBuilder.progressFraction(item), isWatched: item.watch.watched, artworkKey: "item-\(item.id)",

@@ -36,6 +36,29 @@ struct SeasonsList: View {
     @State private var chosenSeason: Int?
     /// R350: the height of the page's scroll view, so the hero area fills the first screen (`ProductPageLayout`).
     @State private var pageHeight: CGFloat = 0
+    /// R453: the episode card that has the focus, the one it rested on (`InfoBlockLayout.focusRestSeconds`), and the details
+    /// asked for so far; the info block shows the resting episode, else the show.
+    @State private var focusedEpisodeID: Int64?
+    @State private var restingEpisodeID: Int64?
+    @State private var episodeDetails: [Int64: TitleDetails] = [:]
+
+    private var showFacts: InfoFacts {
+        InfoFacts(date: details?.releaseDate, contentRating: details?.contentRating, genres: details?.genres ?? [],
+                  synopsis: details?.overview)
+    }
+
+    /// R453: what the block says: the resting episode of the shown season, else the show's own data.
+    private var infoBlock: InfoBlock {
+        guard let id = restingEpisodeID, let season = shownSeason, let episode = season.episodes.first(where: { $0.id == id }) else {
+            return InfoBlock.show(showFacts)
+        }
+        let d: TitleDetails? = episodeDetails[id]
+        let facts = InfoFacts(runtime: episode.runtimeText, date: d?.releaseDate, contentRating: d?.contentRating,
+                              resolution: episode.badges.first { $0.group == .resolution }?.text,
+                              audio: episode.badges.first { $0.group == .audio }?.text,
+                              genres: d?.genres ?? [], synopsis: d?.overview)
+        return InfoBlock.episode(season: season.season, number: episode.number, title: episode.title, facts: facts, show: showFacts)
+    }
 
     private var shownSeason: SeasonSection? {
         SeasonTabs.shown(content.seasons, chosen: chosenSeason, resumeEpisodeID: content.resumeEpisodeID)
@@ -47,16 +70,16 @@ struct SeasonsList: View {
                 // R350 (item D): the hero area fills the first screen, its content at the bottom over the clear artwork.
                 VStack(alignment: .leading) {
                     TitleHeader(title: content.seriesTitle, artworkKey: "series-\(seriesID)")
-                    // R350: the one metadata line (the seasons; no format badges for a whole show).
-                    ProductMetadataLine(facts: ProductPage.showFacts(seasonCount: content.seasons.count), rating: details?.contentRating, badges: [])
                     // R404: nothing in the stack without content advice, as on the movie page.
                     if let advice = details?.contentDescriptors, !advice.isEmpty {
                         ContentAdviceLine(descriptors: advice)
                     }
-                    // As on the movie page: the synopsis above the buttons (three lines, the whole text one press away).
-                    if let overview = details?.overview {
-                        SynopsisLink(title: content.seriesTitle, text: overview, artworkKey: "series-\(seriesID)")
-                    } else if !services.online.hasCatalogueKey {
+                    // R453 (PROVISIONAL): the info block of the focused episode (the show's own data when focus is elsewhere), of
+                    // one fixed height. The show's whole synopsis is still one press away (rule L5).
+                    InfoBlockView(block: infoBlock,
+                                  fullText: (title: content.seriesTitle, artworkKey: "series-\(seriesID)", prefersEpisodeStill: false),
+                                  fixedHeight: true)
+                    if details?.overview == nil, !services.online.hasCatalogueKey {
                         // #26 item 4: one short line saying the synopsis needs the key and where to add it.
                         StatusText(OnlineLookupText.detailsNeedKey)
                     }
@@ -64,7 +87,7 @@ struct SeasonsList: View {
                         // #33 I (OPEN_QUESTIONS R239, PROVISIONAL): room between the button row and the first season heading.
                         .padding(.bottom, DetailPageLayout.belowActions)
                 }
-                .productHero(pageHeight: pageHeight)
+                .productHero(pageHeight: pageHeight, fraction: CGFloat(InfoBlockLayout.showHeroFraction))
                 // R424 (run #28, 56-show-page-SCROLL-UP): as on the movie page, Up from any card below climbs back into
                 // the hero, and Play takes the focus there (reasons: ItemDetailContentView's hero).
                 .focusSection()
@@ -75,9 +98,9 @@ struct SeasonsList: View {
                     // R424: Up from an episode card at the right (x 980 in run #28) reaches the picker at the left.
                     .productPageRow()
                 if let season = shownSeason {
-                    StatusText(season.summary)
+                    // R453: no "N of M watched" line under the strip (PROVISIONAL: the watched checks are on the stills).
                     // R387: the shelf is shared with the episode page (EpisodeCards.swift).
-                    EpisodeShelfRow(episodes: season.episodes, model: model)
+                    EpisodeShelfRow(episodes: season.episodes, model: model, focusedID: $focusedEpisodeID)
                     // R339: another season starts at its first episode.
                     .id(season.season)
                     // R424: Up from any cast entry reaches the episodes.
@@ -106,6 +129,22 @@ struct SeasonsList: View {
         .task(id: "series-\(seriesID)|\(services.online.keyRevision)") {
             details = await services.online.details(key: "series-\(seriesID)")
         }
+        // R453: the block changes only when the focus has rested on a card (or left the cards) for a moment.
+        .task(id: focusedEpisodeID) {
+            try? await Task.sleep(for: .seconds(InfoBlockLayout.focusRestSeconds))
+            guard !Task.isCancelled else { return }
+            restingEpisodeID = focusedEpisodeID
+        }
+        // R453: the resting episode's own details (synopsis, date, genres, rating), the source's layer and the user's edits.
+        .task(id: restingEpisodeID) {
+            guard let id = restingEpisodeID, episodeDetails[id] == nil, let episode = shownSeason?.episodes.first(where: { $0.id == id }) else { return }
+            var own = await services.online.details(key: episode.artworkKey)
+            if let item = try? await services.store.item(id: id) {
+                let files = (try? await services.store.versions(of: id)) ?? []
+                own = EditTarget.apply(services.ledger.edits(for: EditTarget.keys(for: item, files: files)), to: own)
+            }
+            if let own { episodeDetails[id] = own }
+        }
         .pushedScreen(content.seriesTitle)
     }
 
@@ -118,13 +157,23 @@ struct SeasonsList: View {
                 ShelfHeader(season.title)
             }
         case .segmented:
-            Picker("Season", selection: choice) {
-                ForEach(content.seasons) { Text($0.title).tag($0.season) }
+            // R453 (PROVISIONAL; replaces the segmented picker of R339, R393): the chosen season is a filled capsule, the
+            // others plain text (system button styles, the capsule border shape). Alternative: the segmented picker.
+            HStack {
+                ForEach(content.seasons) { season in
+                    if season.season == choice.wrappedValue {
+                        Button { choice.wrappedValue = season.season } label: { FittingText(season.title).padding(.horizontal) }
+                            .buttonStyle(.borderedProminent)
+                            .buttonBorderShape(.capsule)
+                            .accessibilityAddTraits(.isSelected)
+                    } else {
+                        Button { choice.wrappedValue = season.season } label: { FittingText(season.title).padding(.horizontal) }
+                            .buttonStyle(.plain)
+                    }
+                }
             }
-            .pickerStyle(.segmented)
-            // R393 (item 6 a; PROVISIONAL): as wide as its segments, at the leading edge. Before, the system gave the
-            // control the page's whole width, edge to edge.
             .fixedSize()
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier(ControlID.seasonTabs)
         case .menu:
             Picker("Season", selection: choice) {
@@ -143,6 +192,21 @@ struct SeasonsList: View {
                     .buttonStyle(.borderedProminent)
                     .focused($playFocused)
                     .accessibilityIdentifier(ControlID.play)
+            }
+            // R453: the round Watched button: the check when everything is watched, the eye otherwise. With the focus on this
+            // button no episode is focused, so it acts on the whole show; one episode is marked from its card's menu.
+            if content.canMarkWatched || content.canMarkUnwatched {
+                let everythingWatched: Bool = !content.canMarkWatched
+                Button {
+                    Task { await model.run { await $0.markSeries(watched: !everythingWatched) } }
+                } label: {
+                    ActionLabel("Watched", systemImage: PageButtonSymbols.watched(everythingWatched), iconOnly: true)
+                }
+                .roundAction()
+                .accessibilityLabel("Watched")
+                .accessibilityValue(everythingWatched ? "On" : "Off")
+                .accessibilityHint(everythingWatched ? "Marks the whole show as unwatched" : "Marks the whole show as watched")
+                .accessibilityIdentifier(ControlID.watched)
             }
             if content.canMarkWatched || content.canMarkUnwatched {
                 Menu {

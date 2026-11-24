@@ -70,6 +70,10 @@ public struct TMDBArtworkProvider: OnlineArtworkProviding {
         var details = TitleDetails(overview: movie.overview, people: movie.credits.cast)
         // R371: TMDB's certification for the Region setting (the client's region), the rating's second layer.
         details.contentRating = ContentRating.clean(movie.certification)
+        // R453: the full release date (TMDB's own), the genres and the runtime, for the typed metadata line.
+        details.releaseDate = movie.releaseDate.map { PartialDate(year: $0.year, month: $0.month, day: $0.day) }
+        details.genres = movie.genres
+        details.runtimeMinutes = movie.runtimeMinutes
         return details
     }
 
@@ -79,6 +83,9 @@ public struct TMDBArtworkProvider: OnlineArtworkProviding {
         guard let series = try? await client.series(id: tmdbID) else { return nil }
         var details = TitleDetails(overview: series.overview, people: series.credits.cast)
         details.contentRating = ContentRating.clean(series.certification)
+        // R453: the first air date and the genres of the show.
+        details.releaseDate = series.firstAirDate.map { PartialDate(year: $0.year, month: $0.month, day: $0.day) }
+        details.genres = series.genres
         return details
     }
 

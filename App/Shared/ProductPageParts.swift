@@ -160,8 +160,10 @@ enum ProductPageLayout {
 extension View {
     /// R350: the hero area of a product page: at least `ProductPageLayout.heroFraction` of the page's height, content at the
     /// bottom left. A MINIMUM height, so at Larger Text the hero grows instead of being cut (rule L7).
-    func productHero(pageHeight: CGFloat) -> some View {
-        frame(maxWidth: .infinity, minHeight: pageHeight * ProductPageLayout.heroFraction, alignment: .bottomLeading)
+    /// R453: `fraction` is the show page's smaller share (`InfoBlockLayout.showHeroFraction`), so its first screen also holds
+    /// the season strip, the episode shelf and the "Cast and Crew" heading.
+    func productHero(pageHeight: CGFloat, fraction: CGFloat = ProductPageLayout.heroFraction) -> some View {
+        frame(maxWidth: .infinity, minHeight: pageHeight * fraction, alignment: .bottomLeading)
     }
 
     /// R424 (run #28 on 4af6cb0, item 1; PROVISIONAL): one row of a product page (the season tabs, a shelf of episodes, the

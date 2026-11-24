@@ -68,6 +68,10 @@ public struct ItemDetailContent: Equatable, Sendable {
     /// R396 (audit E1): an episode's OWN title, the page's large title ("A quiet beginning"; "Episode 3" when the file
     /// names none). `title` is the card's title, which for an episode is its show's name. Nil for a movie.
     public var episodeTitle: String? = nil
+    /// R453: the runtime as its own part of the typed metadata line ("1 h 52 min"); nil when unknown.
+    public var runtimeText: String? = nil
+    /// R453: the library's year (movies), shown alone only when no full date is known.
+    public var year: Int? = nil
 }
 
 public struct ItemDetailViewModel: Sendable {
@@ -179,7 +183,9 @@ public struct ItemDetailViewModel: Sendable {
                                  isWatched: item.watch.watched, isFavorite: item.watch.favorite, progress: progress, timeLeft: timeLeft,
                                  versions: versions, extras: extras, artworkKey: card.artworkKey, mediaInfo: mediaInfo,
                                  allBadges: badges.all, episodeCode: episodeCode, season: item.kind == .episode ? item.season : nil,
-                                 episodeTitle: Self.episodeTitle(item))
+                                 episodeTitle: Self.episodeTitle(item),
+                                 runtimeText: (item.runtime ?? item.watch.duration).flatMap { $0 > 0 ? DisplayText.runtime($0) : nil },
+                                 year: item.kind == .movie ? item.year.flatMap { $0 > 0 ? $0 : nil } : nil)
     }
 
     /// R396 (audit E1): the episode's own name; "Episode 3" when its title is empty, only its code or its show's name;

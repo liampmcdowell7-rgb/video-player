@@ -161,6 +161,13 @@ public struct TitleDetails: Equatable, Sendable {
     /// R372: Wikidata's content descriptors ("Violence", "Language"), only while Free Data Sources is on; empty when
     /// Wikidata has none.
     public var contentDescriptors: [String] = []
+    /// R453: the release date of a movie (full date from TMDB) or the first air date of a show; a user's edit replaces it.
+    /// Nil when no layer has one (the page then falls back to the library's year).
+    public var releaseDate: PartialDate? = nil
+    /// R453: genres, in the source's order; a user's edit replaces them.
+    public var genres: [String] = []
+    /// R453: runtime in minutes from the online layer (the library's own runtime wins on the page); an edit replaces it.
+    public var runtimeMinutes: Int? = nil
 
     /// The longest cast shelf. PROVISIONAL (OPEN_QUESTIONS R182).
     public static let castLimit = 15
@@ -181,5 +188,8 @@ public struct TitleDetails: Equatable, Sendable {
         }
     }
 
-    public var isEmpty: Bool { overview == nil && cast.isEmpty && contentRating == nil && contentDescriptors.isEmpty }
+    public var isEmpty: Bool {
+        overview == nil && cast.isEmpty && contentRating == nil && contentDescriptors.isEmpty && releaseDate == nil && genres.isEmpty
+            && runtimeMinutes == nil
+    }
 }

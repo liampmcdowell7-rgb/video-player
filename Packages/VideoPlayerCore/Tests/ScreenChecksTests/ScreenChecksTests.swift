@@ -498,7 +498,8 @@ final class ScreenChecksTests: XCTestCase {
         let label: String = try labelOfEpisodeCard(source)
         XCTAssertTrue(label.contains(".containerRelativeFrame(.horizontal, count: 4, spacing: 40)"), "the artwork does not set the width:\n\(label)")
         XCTAssertTrue(label.contains(".hoverEffect(.highlight)"), "no highlight on the episode artwork:\n\(label)")
-        XCTAssertTrue(source.contains("CardCaption(text: episode.code"), "the episode title is not a CardCaption")
+        // R453: the caption is ONE line "number. title", fitted to its text (`FittingText`), no longer the wrapping `CardCaption`.
+        XCTAssertTrue(source.contains("FittingText(episode.cardCaption"), "the episode caption is not the one fitted line (R453)")
 
         let old: String = """
         private struct EpisodeCard: View { var body: some View { NavigationLink(value: x) { VStack { ArtworkView(key: k).overlay { p }

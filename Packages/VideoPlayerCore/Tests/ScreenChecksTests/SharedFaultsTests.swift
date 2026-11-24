@@ -32,7 +32,9 @@ extension ScreenChecksTests {
         XCTAssertTrue(try body(of: "BadgeOutline", in: parts).contains(".fixedSize()"), "a badge is not at its own width")
 
         let card: String = try body(of: "EpisodeCard", in: episodes)
-        XCTAssertTrue(card.contains("HStack(spacing: CGFloat(BadgeSpacing.afterText))"), "the episode card's runtime and badges do not give their spacing")
+        // R453: the card's caption is one line "number. title"; the runtime and the tag chips are no longer on the card.
+        XCTAssertFalse(card.contains("BadgeRow("), "the episode card draws tag chips again (R453)")
+        XCTAssertTrue(card.contains("cardCaption"), "the episode card's caption is not the one line \"number. title\" (R453)")
         XCTAssertFalse(card.contains("HStack {"), "the episode card has a stack at the system's default spacing")
         XCTAssertFalse(card.contains("SymbolColumn("), "the episode card still keeps a fixed slot for the watched mark")
         let featured: String = try body(of: "HomeFeaturedView", in: home)
