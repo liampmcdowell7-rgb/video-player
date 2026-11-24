@@ -67,13 +67,13 @@ else
       if grep -nEi 'github\.token|secrets: *inherit|GITHUB_TOKEN|secrets\[' "$w"; then
         echo "!! $w refers to the GitHub token or to secrets in a form other than \${{ secrets.NAME }} (lines above)."; WBAD=1
       fi
-      OTHER="$(grep -nEi '\$\{\{[^}]*secrets' "$w" | grep -vE '\$\{\{ secrets\.(ASC_KEY_ID|ASC_ISSUER_ID|ASC_KEY_P8|APPLE_TEAM_ID) \}\}' || true)"
-      OTHER2="$(grep -oE '\$\{\{[^}]*secrets[^}]*\}\}' "$w" | grep -vxE '\$\{\{ secrets\.(ASC_KEY_ID|ASC_ISSUER_ID|ASC_KEY_P8|APPLE_TEAM_ID) \}\}' || true)"
+      OTHER="$(grep -nEi '\$\{\{[^}]*secrets' "$w" | grep -vE '\$\{\{ secrets\.(ASC_KEY_ID|ASC_ISSUER_ID|ASC_KEY_P8|DIST_CERT_PRIVATE_KEY) \}\}' || true)"
+      OTHER2="$(grep -oE '\$\{\{[^}]*secrets[^}]*\}\}' "$w" | grep -vxE '\$\{\{ secrets\.(ASC_KEY_ID|ASC_ISSUER_ID|ASC_KEY_P8|DIST_CERT_PRIVATE_KEY) \}\}' || true)"
       if [ -n "$OTHER$OTHER2" ]; then
         printf '%s\n%s\n' "$OTHER" "$OTHER2" | sed '/^$/d'
-        echo "!! $w uses a secret other than ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8, APPLE_TEAM_ID (above)."; WBAD=1
+        echo "!! $w uses a secret other than ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8, DIST_CERT_PRIVATE_KEY (above)."; WBAD=1
       else
-        echo "   secrets: only ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8, APPLE_TEAM_ID (the TestFlight exception, R248)"
+        echo "   secrets: only ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8, DIST_CERT_PRIVATE_KEY (the TestFlight exception, R248)"
       fi
     elif grep -nEi '\$\{\{[^}]*(secrets|github\.token)|secrets: *inherit|GITHUB_TOKEN' "$w"; then
       echo "!! $w refers to secrets or the GitHub token (lines above)."; WBAD=1
@@ -96,7 +96,7 @@ else
     done < <(grep -E '^[[:space:]]*runs-on:' "$w" | sed -E 's/^[[:space:]]*runs-on:[[:space:]]*//; s/[][" '"'"']//g' | tr ',' '\n')
   done <<< "$WF"
   if [ "$WBAD" -ne 0 ]; then echo "!! Workflow problem found above. Do NOT push."; exit 1; fi
-  echo "Workflows: manual trigger only, no secrets (testflight.yml: its four named secrets only, R248), standard runners only."
+  echo "Workflows: manual trigger only, no secrets (testflight.yml: its four named secrets only, R248, R463), standard runners only."
 fi
 
 # --- codemagic.yaml (OPEN_QUESTIONS R266) ---
@@ -150,6 +150,28 @@ if printf '%s\n' "$LIST" | grep -qx 'codemagic.yaml'; then
   done
   if [ "$CBAD" -ne 0 ]; then echo "!! codemagic.yaml problem found above. Do NOT push."; exit 1; fi
   echo "codemagic.yaml: manual only, one workflow, integration asc-testflight only, no secrets, App Store Connect publishing only, mac_mini_m2, at most 30 minutes, exact Xcode, ios_signing app_store for com.liamp.videoplayer only, no key or certificate made."
+fi
+
+# --- TestFlight on GitHub (OPEN_QUESTIONS R463) ---
+# testflight.yml and scripts/gh-testflight.sh import the owner's ONE existing distribution certificate (its private key is the
+# secret DIST_CERT_PRIVATE_KEY). They must never make, revoke or delete a key or a certificate: the same commands the
+# Codemagic section refuses, except `security import` and `create-keychain` (the temporary keychain) and `openssl pkcs12 -export`
+# (the throw-away .p12), which gh-testflight.sh needs. Comment lines are ignored.
+if printf '%s\n' "$LIST" | grep -qE '^(scripts/gh-testflight\.sh|\.github/workflows/testflight\.yml)$'; then
+  echo
+  echo "== TestFlight on GitHub (R463) =="
+  GBAD=0
+  GKEYGEN='genrsa|genpkey|ecparam|ssh-keygen|openssl[[:space:]]+req|-newkey|certificates[[:space:]]+(create|delete|revoke)|fetch-signing-files|--certificate-key|CERTIFICATE_PRIVATE_KEY|--create|--delete-stale-profiles|profiles[[:space:]]+delete|keychain[[:space:]]+add-certificates|security[[:space:]]+delete-(identity|certificate)'
+  for f in scripts/gh-testflight.sh .github/workflows/testflight.yml; do
+    [ -f "$f" ] || continue
+    hits="$(grep -vE '^[[:space:]]*#' "$f" | grep -nE "$GKEYGEN" | cut -c1-120)"
+    if [ -n "$hits" ]; then echo "!! $f could make, revoke or delete a key or certificate: $hits"; GBAD=1; fi
+  done
+  if grep -vE '^[[:space:]]*#' .github/workflows/testflight.yml 2>/dev/null | grep -qE 'echo[^|]*\$\{?(ASC_KEY_P8|DIST_CERT_PRIVATE_KEY|DIST_KEY_FILE)\b'; then
+    echo "!! testflight.yml echoes a key"; GBAD=1
+  fi
+  if [ "$GBAD" -ne 0 ]; then echo "!! TestFlight workflow problem found above. Do NOT push."; exit 1; fi
+  echo "testflight.yml and gh-testflight.sh: no key or certificate is made, revoked or deleted; no key is echoed."
 fi
 
 # --- Claude Code files (#28 item 8) ---

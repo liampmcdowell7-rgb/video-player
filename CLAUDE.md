@@ -22,7 +22,7 @@ Free GitHub Actions on standard runners only (`xcode-27`, `ubuntu-latest` and th
 `scripts/pre-push-check.sh` allows). Never a `-large` / `-xlarge` or self-hosted runner. Workflows are started by hand
 only (`workflow_dispatch`), use no secrets and no GitHub token. Runbook: docs/GITHUB_ACTIONS_RUNBOOK.md.
 One exception (OPEN_QUESTIONS R248, PROVISIONAL): `.github/workflows/testflight.yml` reads exactly four repository
-secrets (`ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`, `APPLE_TEAM_ID`), still no GitHub token; the pre-push check
+secrets (`ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`, `DIST_CERT_PRIVATE_KEY`), still no GitHub token; the pre-push check
 enforces it. The owner adds those secrets on GitHub (docs/TESTFLIGHT.md); never a key, certificate or key header in the
 repository.
 

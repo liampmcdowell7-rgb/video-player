@@ -1,7 +1,7 @@
 # Codemagic: the TestFlight upload ONLY (OPEN_QUESTIONS R266, PROVISIONAL; owner's decision of 20 Nov 2026). Compile
 # checks, package tests and UI tests stay on GitHub Actions (.github/workflows/compile-check.yml). The GitHub TestFlight
-# workflow (.github/workflows/testflight.yml) stays as the fallback; it stops at the archive because automatic signing
-# asks for a Development profile, which needs a registered device (docs/TESTFLIGHT.md).
+# workflow (.github/workflows/testflight.yml) was rewritten on 24 Nov 2026 (R463) to do the same with manual signing and the
+# same scripts; this file stays until the owner decides (R465; docs/TESTFLIGHT.md).
 #
 # MANUAL ONLY: there is no `triggering:` section. Codemagic's codemagic.yaml reference (read 20 Nov 2026,
 # https://docs.codemagic.io/yaml-basic-configuration/yaml-getting-started/): "If no events are defined, you can start

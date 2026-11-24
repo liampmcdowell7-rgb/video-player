@@ -16,7 +16,8 @@
 | docs/PLAYBACK_AUTOSKIP_NOWPLAYING.md | Plan (no code): auto skip settings, binge playback, on-device intro and credits detection, learning from the owner, community timestamps, Now Playing and iPhone remote control; R280 to R291 |
 | docs/HIG_AUDIT.md | Apple HIG audit of each screen |
 | docs/CODEMAGIC_SETUP.md | One-time setup steps |
-| docs/TESTFLIGHT.md | TestFlight from GitHub Actions: the owner's Apple and GitHub steps, in order (R244 to R252) |
+| docs/TESTFLIGHT.md | TestFlight from GitHub Actions: the four secrets, how to start a run, where the build appears, what each failure means (R463) |
+| docs/TESTFLIGHT_BACKGROUND.md | The long Apple-website steps (App IDs, iCloud container, App Group, app record, API key) and the Codemagic route; the first GitHub form (R244 to R252, automatic signing, stopped at Archive) |
 | docs/LIBRARY_INDEX.md | Library database, incremental sync, filters, measured timings |
 | docs/METADATA_LOCAL.md | NFO, sidecar images, embedded MKV tags and chapters |
 | docs/METADATA.md | TMDB and OMDb clients, matching order, Fix Match, cache, Your Library Only (the wording the user gave, copied here because this index is not the spec) |

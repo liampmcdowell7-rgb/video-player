@@ -119,6 +119,28 @@ def cert_id(certs_json, identities, id_out, sha_out):
     return 0
 
 
+def cert_files(certs_json, out_dir):
+    """GitHub route (R463, scripts/gh-testflight.sh): writes each listed certificate's DER content to out_dir/cert-N.der so
+    the caller can pick the one that belongs to its private key. Prints a count only."""
+    n = 0
+    for r in resources(certs_json):
+        content = field(r, "certificateContent")
+        if not isinstance(content, str):
+            continue
+        try:
+            der = base64.b64decode(content)
+        except Exception:
+            continue
+        n += 1
+        with open(os.path.join(out_dir, "cert-%d.der" % n), "wb") as f:
+            f.write(der)
+    print("SIGNING: %d certificate(s) listed by App Store Connect" % n)
+    if n == 0:
+        print("SIGNING ERROR: App Store Connect lists no certificate with content (the CLI's JSON layout is UNVERIFIED)")
+        return 1
+    return 0
+
+
 def bundle_rid(bundle_json, identifier, out):
     found = [r for r in resources(bundle_json) if field(r, "identifier") == identifier and r.get("id")]
     if len(found) != 1:
@@ -176,6 +198,8 @@ def main(argv):
     try:
         if len(argv) == 6 and argv[1] == "cert-id":
             return cert_id(*argv[2:])
+        if len(argv) == 4 and argv[1] == "cert-files":
+            return cert_files(*argv[2:])
         if len(argv) == 5 and argv[1] == "bundle-rid":
             return bundle_rid(*argv[2:])
         if len(argv) == 4 and argv[1] == "profile-ids":

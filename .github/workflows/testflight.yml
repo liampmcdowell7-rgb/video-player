@@ -1,54 +1,63 @@
-# TestFlight upload: archive the app for tvOS devices, sign it automatically with an App Store Connect API key, export it
-# and upload it to App Store Connect, where it appears in TestFlight. Setup for the owner (website steps): docs/TESTFLIGHT.md.
-# Open choices: OPEN_QUESTIONS.md R244 to R252 (all PROVISIONAL).
+# TestFlight upload on GitHub Actions (OPEN_QUESTIONS R463, PROVISIONAL; it replaces the first form of this file, R244 to R252,
+# which signed automatically and stopped at the archive). It does what the Codemagic workflow "tvOS TestFlight (manual)" does:
+# a Release archive of the tvOS app and its Top Shelf extension, an export with the app-store method, the upload to App Store
+# Connect, and (only when you tick the box) the .ipa as the one artifact. Steps for the owner: docs/TESTFLIGHT.md.
 #
 # MANUAL ONLY: the only trigger is workflow_dispatch (the "Run workflow" button on the Actions tab). Nothing runs on push,
-# pull request, tag or schedule. Only people with write access to the repository can press the button.
+# pull request, tag or schedule. Only people with write access to the repository can press the button. Two runs never
+# overlap (concurrency), and a run stops by itself after 30 minutes.
 #
 # SECRETS: this is the ONE workflow allowed to use secrets (R248; scripts/pre-push-check.sh enforces it), and only these four
 # repository secrets, which the owner adds on GitHub (docs/TESTFLIGHT.md). Nothing secret is in the repository.
-#   ASC_KEY_ID      App Store Connect API key ID (Team key)
-#   ASC_ISSUER_ID   the Issuer ID shown above the Team Keys table
-#   ASC_KEY_P8      the text of the downloaded AuthKey_<id>.p8 file (whole, or only its middle lines: the first and last
-#                   lines are rebuilt at run time, R251, so no key header is ever in the repository)
-#   APPLE_TEAM_ID   the 10-character Team ID from the Apple Developer account
-# No GitHub token is used (permissions: contents: read; the checkout keeps no credentials). The key is written to the
-# runner's temporary folder with mode 600 and deleted in a final step that runs after a failure too. No artifact is
-# uploaded: the full xcodebuild logs can name the signing certificate's holder (a personal name), and on a public
-# repository artifacts and logs are readable by anyone (R249). The log shows only result lines and, on failure, the error
-# lines with signing identities removed.
+#   ASC_KEY_ID              App Store Connect API key ID (Team key)
+#   ASC_ISSUER_ID           the Issuer ID shown above the Team Keys table
+#   ASC_KEY_P8              the text of the downloaded AuthKey_<id>.p8 file (whole, or only its middle lines: the first and
+#                           last lines are rebuilt at run time, R251, so no key header is ever in the repository)
+#   DIST_CERT_PRIVATE_KEY   the private key of the owner's existing Apple Distribution certificate (PEM text)
+# The Team ID is NOT needed (R463): the signing profiles carry it, as they did on Codemagic. No GitHub token is used
+# (permissions: contents: read; the checkout keeps no credentials). The keys are written to the runner's temporary folder
+# with mode 600 and deleted in a final step that runs after a failure too. Logs: every command writes to a file; the log
+# shows only result lines and, on failure, error lines with signing identities removed (scripts/ci-testflight-log.sh,
+# scripts/cm-testflight.sh redact). No log is uploaded (R249).
+#
+# SIGNING (R463, the Codemagic route's way, which produced the TestFlight builds so far, R266): MANUAL signing, one App Store profile per
+# target (the app and the Top Shelf extension), the one existing distribution certificate, no device needed. Automatic
+# signing is not used: Apple's cloud signing (WWDC21 session 10204) takes the DEVELOPER-signed app in an archive and signs
+# it again for distribution, and the developer signature needs a Development profile, which needs a registered Apple TV
+# (R266: "Your team has no devices from which to generate a provisioning profile"). The alternative is R464.
+#   1. scripts/gh-testflight.sh install-cert   the certificate that belongs to DIST_CERT_PRIVATE_KEY, into a temporary keychain
+#   2. scripts/cm-testflight.sh signing        checks it against App Store Connect; per bundle ID takes an existing active
+#                                              TVOS_APP_STORE profile or makes a profile (never a certificate or a key)
+#   3. scripts/cm-testflight.sh check-profiles iCloud container, App Group and aps-environment in the two profiles
+#   4. scripts/cm-testflight.sh prepare        scripts/ci-prepare.sh, the same preparation as the compile check
+#   5. scripts/cm-testflight.sh archive        use-profiles, build number, Release archive, build-number check
+#   6. scripts/cm-testflight.sh export         the .ipa (method app-store)
+#   7. scripts/gh-testflight.sh upload         xcodebuild -exportArchive with destination upload and the API key
+# The Codemagic command line tools (open source, pip package codemagic-cli-tools) are installed into a virtual environment
+# on the runner for the steps `app-store-connect` and `xcode-project`. Unpinned until the first run shows a version (R463).
 #
 # MINUTES (R250; GitHub, "About billing for GitHub Actions", read 20 Nov 2026,
 # https://docs.github.com/en/billing/managing-billing-for-your-products/managing-billing-for-github-actions/about-billing-for-github-actions):
 #   "Standard GitHub-hosted runners in public repositories" are free and do not use the included minutes. This repository
-#   is public and `xcode-27` is a standard runner, so a run costs nothing. If the repository were made private, macOS
-#   minutes would be charged at USD 0.062 per minute (Linux 2-core USD 0.006, so about 10 times) against USD 12 of included
-#   use per month on GitHub Free. NEVER use a -large / -xlarge label: larger runners are billed even when public.
-#   Estimated time per run: about 15 to 20 minutes (prepare about 3, archive about 8 to 12, export and upload about 2 to 5).
-#   An ESTIMATE from the compile check's device build (about 6.5 minutes); never measured, because it has never run.
-#
-# SIGNING (R245): automatic. Apple's Xcode 13 release notes: xcodebuild "supports the use of App Store Connect API keys for
-# authentication", which "enables the use of automatic signing via xcodebuild in headless environments", through
-# -authenticationKeyPath, -authenticationKeyID and -authenticationKeyIssuerID. No certificate or provisioning profile is
-# made by hand or stored. UNVERIFIED (no Mac, never run): that Xcode 27 creates the distribution certificate and the
-# profiles for both targets (app, Top Shelf) with their iCloud, App Group and keychain entitlements on this runner.
-# The archive passes CODE_SIGN_STYLE=Automatic and the team, and NO CODE_SIGN_IDENTITY: Xcode refuses an automatically
-# signed target whose identity is set by hand ("... is automatically signed, but code signing identity ... has been
-# manually specified"; reported by the owner, not read on an Apple page). Xcode picks the archive's identity itself; the
-# export step then signs for distribution (method app-store-connect, signingStyle automatic, -allowProvisioningUpdates and
-# the key). Xcode 13 notes: cloud signing "is available when signing for App Store Connect" (said of the distribution
-# assistant; that -exportArchive uses it too is UNVERIFIED). UNVERIFIED (no Mac, never run): whether the archive's own
-# automatic signing needs a registered Apple TV when the team has none; the Apple pages read do not say. If a run stops
-# on that, the alternatives are in R245 (register the Apple TV; archive with CODE_SIGNING_ALLOWED=NO and sign at export;
-# manual signing). There is no Run-button choice any more: the identity override it set is gone.
-# BUILD NUMBER (R246): the UTC time yyyyMMddHHmm, the same scheme as codemagic.yaml, so each upload is unique.
-# UPLOAD (R247): xcodebuild -exportArchive with method app-store-connect and destination upload (ExportOptions keys are
-# UNVERIFIED on an Apple page; see OPEN_QUESTIONS R247 for the alternatives, altool and Transporter).
+#   is public and `xcode-27` is a standard runner (the same label and Xcode 27.2 as compile-check.yml), so a run costs
+#   nothing. If the repository were made private, macOS minutes would be charged (USD 0.062 per minute at that reading).
+#   NEVER use a -large / -xlarge label: larger runners are billed even when public.
+#   Estimated time per run: 15 to 25 minutes (the Codemagic estimate; NOT measured here).
+# BUILD NUMBER (R246): the UTC time yyyyMMddHHmm (scripts/cm-build-number.sh, taken in the archive step, which then checks
+# that both bundles carry it, R279), so each upload is unique and rising.
+# UPLOAD: no submission for TestFlight review; internal testers need none.
+# ARTIFACT: none unless "Keep the .ipa" is ticked (default off): the .ipa carries the Team ID (profile and entitlements) and
+# a public repository's artifacts can be downloaded by anyone signed in to GitHub (R463).
 
 name: TestFlight upload (tvOS, manual)
 
 on:
   workflow_dispatch:
+    inputs:
+      keep_ipa:
+        description: "Keep the .ipa as a downloadable artifact (1 day). It carries your Team ID, and anyone signed in to GitHub can download artifacts of a public repository."
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -61,12 +70,9 @@ jobs:
   testflight:
     name: Archive, sign and upload to TestFlight
     runs-on: xcode-27
-    timeout-minutes: 45
+    timeout-minutes: 30
     env:
       XCODE_APP: /Applications/Xcode_27.2.app
-      # The same pinned XcodeGen as compile-check.yml (release page https://github.com/yonaskolb/XcodeGen/releases/tag/2.46.0).
-      XCODEGEN_VERSION: "2.46.0"
-      XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
       OUT: build/testflight
     steps:
       - name: Check out the repository (with the committed Vendor/ packages and xcframeworks)
@@ -80,133 +86,126 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          DIST_CERT_PRIVATE_KEY: ${{ secrets.DIST_CERT_PRIVATE_KEY }}
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Check secrets"
           bad=0
-          for n in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 APPLE_TEAM_ID; do
-            if [ -z "${!n}" ]; then echo "::error::The repository secret $n is missing (docs/TESTFLIGHT.md step 16)."; bad=1; else echo "ok      $n is set"; fi
+          for n in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 DIST_CERT_PRIVATE_KEY; do
+            if [ -z "${!n}" ]; then echo "::error::The repository secret $n is missing (docs/TESTFLIGHT.md, the secrets)."; bad=1; else echo "ok      $n is set"; fi
           done
           [ "$bad" -eq 0 ] || exit 1
-          # The key's body (base64) must be there; its first and last lines are optional (built at run time in the key step,
-          # so the repository never contains a key header, R251).
+          # The API key's body (base64) must be there; its first and last lines are optional (built at run time, R251).
           body="$(printf '%s\n' "$ASC_KEY_P8" | grep -v -- '-----' | tr -d ' \r\n\t')"
           if [ "${#body}" -ge 100 ] && printf '%s' "$body" | grep -Eq '^[A-Za-z0-9+/]+=*$'; then
             echo "ok      ASC_KEY_P8 holds a key body of ${#body} base64 characters"
           else
-            echo "::error::ASC_KEY_P8 must be the text of the .p8 file (open it in Notepad, select all, copy, paste; docs/TESTFLIGHT.md step 15)."; exit 1
+            echo "::error::ASC_KEY_P8 must be the text of the .p8 file (open it in Notepad, select all, copy, paste; docs/TESTFLIGHT.md)."; exit 1
           fi
-          if printf '%s' "$APPLE_TEAM_ID" | grep -Eq '^[A-Z0-9]{10}$'; then echo "ok      APPLE_TEAM_ID has 10 letters and digits"
-          else echo "::error::APPLE_TEAM_ID must be the 10-character Team ID (Membership details), with no spaces."; exit 1; fi
+          if printf '%s\n' "$DIST_CERT_PRIVATE_KEY" | grep -q -- '-----'; then echo "ok      DIST_CERT_PRIVATE_KEY looks like PEM text"
+          else echo "::error::DIST_CERT_PRIVATE_KEY must be the PEM text of the private key, with its first and last lines (docs/TESTFLIGHT.md)."; exit 1; fi
 
-      - name: Prepare (select Xcode 27.2, check vendored files, install XcodeGen, generate, resolve)
+      - name: Read the XcodeGen pin from compile-check.yml (one source) and select Xcode 27.2
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Prepare (select Xcode, check vendored files, install XcodeGen, generate, resolve)"
-          bash scripts/ci-prepare.sh
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Pins, select Xcode"
+          set -euo pipefail
+          # compile-check.yml holds the pinned XcodeGen release and its SHA-256 (release page
+          # https://github.com/yonaskolb/XcodeGen/releases/tag/2.46.0); this workflow reads them from there, so the two cannot drift.
+          v="$(sed -nE 's/^[[:space:]]+XCODEGEN_VERSION: "([^"]+)"$/\1/p' .github/workflows/compile-check.yml | sort -u)"
+          s="$(sed -nE 's/^[[:space:]]+XCODEGEN_SHA256: "([^"]+)"$/\1/p' .github/workflows/compile-check.yml | sort -u)"
+          [ "$(printf '%s\n' "$v" | wc -l)" -eq 1 ] && printf '%s' "$v" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::no single XcodeGen version in compile-check.yml"; exit 1; }
+          [ "$(printf '%s\n' "$s" | wc -l)" -eq 1 ] && printf '%s' "$s" | grep -Eq '^[0-9a-f]{64}$' || { echo "::error::no single XcodeGen SHA-256 in compile-check.yml"; exit 1; }
+          echo "XCODEGEN_VERSION=$v" >> "$GITHUB_ENV"
+          echo "XCODEGEN_SHA256=$s" >> "$GITHUB_ENV"
+          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          xcodebuild -version
 
-      - name: Write the API key to the runner's temporary folder (mode 600) and pick the build number
+      - name: Install the command line tools for signing (virtual environment, no secrets in this step)
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Install the signing tools"
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/cli"
+          "$RUNNER_TEMP/cli/bin/pip" install --quiet codemagic-cli-tools
+          echo "$RUNNER_TEMP/cli/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/cli/bin/pip" show codemagic-cli-tools | sed -n '1,2p'
+
+      - name: Write the keys to the runner's temporary folder (mode 600) and install the certificate
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          DIST_CERT_PRIVATE_KEY: ${{ secrets.DIST_CERT_PRIVATE_KEY }}
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Write key, build number"
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Keys and certificate"
           umask 077
           mkdir -p "$RUNNER_TEMP/asc"
-          # R251: the file is rebuilt from the secret's base64 body, 64 characters per line, between a first and last line
-          # assembled here from their words, so neither the repository nor the log ever holds the key or a key header.
+          # R251: the API key file is rebuilt from the secret's base64 body, 64 characters per line, between a first and last
+          # line assembled here from their words, so neither the repository nor the log ever holds a key header.
           kind="PRIVATE"
           first="-----BEGIN $kind KEY-----"
           last="-----END $kind KEY-----"
           body="$(printf '%s\n' "$ASC_KEY_P8" | grep -v -- '-----' | tr -d ' \r\n\t')"
           { echo "$first"; printf '%s\n' "$body" | fold -w 64; echo "$last"; } > "$RUNNER_TEMP/asc/AuthKey_$ASC_KEY_ID.p8"
           unset body
-          chmod 600 "$RUNNER_TEMP/asc/AuthKey_$ASC_KEY_ID.p8"
+          printf '%s\n' "$DIST_CERT_PRIVATE_KEY" > "$RUNNER_TEMP/asc/dist.key"
+          chmod 600 "$RUNNER_TEMP/asc/AuthKey_$ASC_KEY_ID.p8" "$RUNNER_TEMP/asc/dist.key"
           echo "ASC_KEY_PATH=$RUNNER_TEMP/asc/AuthKey_$ASC_KEY_ID.p8" >> "$GITHUB_ENV"
-          BUILD_NUMBER="$(date -u +%Y%m%d%H%M)"
-          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
-          echo "Build number (CFBundleVersion): $BUILD_NUMBER"
+          echo "DIST_KEY_FILE=$RUNNER_TEMP/asc/dist.key" >> "$GITHUB_ENV"
+          export APP_STORE_CONNECT_KEY_IDENTIFIER="$ASC_KEY_ID" APP_STORE_CONNECT_ISSUER_ID="$ASC_ISSUER_ID"
+          export APP_STORE_CONNECT_PRIVATE_KEY="@file:$RUNNER_TEMP/asc/AuthKey_$ASC_KEY_ID.p8"
+          export DIST_KEY_FILE="$RUNNER_TEMP/asc/dist.key"
+          bash scripts/gh-testflight.sh install-cert
 
-      - name: Archive for tvOS devices (Release, automatic signing with the API key)
-        timeout-minutes: 30
+      - name: Signing files (the existing certificate; existing or new TVOS_APP_STORE profiles for the app and Top Shelf)
+        timeout-minutes: 10
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Archive (Release, tvOS devices, automatic signing)"
-          mkdir -p "$RUNNER_TEMP/logs"
-          # R245: automatic signing with no CODE_SIGN_IDENTITY override; the export step signs for distribution.
-          echo "Archive: automatic signing, identity chosen by Xcode (R245)"
-          set +e
-          xcodebuild archive \
-            -project VideoPlayer.xcodeproj \
-            -scheme VideoPlayer \
-            -configuration Release \
-            -destination 'generic/platform=tvOS' \
-            -archivePath "$RUNNER_TEMP/VideoPlayer.xcarchive" \
-            -clonedSourcePackagesDirPath build/SourcePackages \
-            -derivedDataPath build/DerivedData \
-            -skipPackagePluginValidation \
-            -skipMacroValidation \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
-            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-            > "$RUNNER_TEMP/logs/archive.log" 2>&1
-          rc=$?
-          set -e
-          bash scripts/ci-testflight-log.sh "$RUNNER_TEMP/logs/archive.log" "Archive" "$rc"
-          exit "$rc"
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Signing files"
+          export APP_STORE_CONNECT_KEY_IDENTIFIER="$ASC_KEY_ID" APP_STORE_CONNECT_ISSUER_ID="$ASC_ISSUER_ID"
+          export APP_STORE_CONNECT_PRIVATE_KEY="@file:$ASC_KEY_PATH"
+          bash scripts/cm-testflight.sh signing
+          bash scripts/cm-testflight.sh check-profiles
 
-      - name: Export and upload to App Store Connect (TestFlight)
-        timeout-minutes: 20
+      - name: Prepare (check vendored files, pinned XcodeGen, generate, resolve packages)
+        timeout-minutes: 15
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Prepare (vendored files, XcodeGen, generate, resolve)"
+          bash scripts/cm-testflight.sh prepare
+
+      - name: Archive for tvOS devices (Release, manual signing, one profile per target)
+        timeout-minutes: 25
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Archive (Release, tvOS devices, manual signing)"
+          bash scripts/cm-testflight.sh archive
+
+      - name: Export the .ipa (method app-store)
+        timeout-minutes: 10
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Export"
+          bash scripts/cm-testflight.sh export
+
+      - name: Upload to App Store Connect (TestFlight; no submission for review)
+        timeout-minutes: 15
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Export and upload"
-          # R245: this step does the distribution signing (automatic, with the key and -allowProvisioningUpdates).
-          umask 077
-          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key><string>app-store-connect</string>
-            <key>destination</key><string>upload</string>
-            <key>signingStyle</key><string>automatic</string>
-            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
-            <key>manageAppVersionAndBuildNumber</key><false/>
-            <key>uploadSymbols</key><true/>
-          </dict>
-          </plist>
-          EOF
-          plutil -lint "$RUNNER_TEMP/ExportOptions.plist"
-          set +e
-          xcodebuild -exportArchive \
-            -archivePath "$RUNNER_TEMP/VideoPlayer.xcarchive" \
-            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
-            -exportPath "$RUNNER_TEMP/export" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            > "$RUNNER_TEMP/logs/export.log" 2>&1
-          rc=$?
-          set -e
-          bash scripts/ci-testflight-log.sh "$RUNNER_TEMP/logs/export.log" "Export and upload" "$rc"
-          exit "$rc"
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Upload"
+          bash scripts/gh-testflight.sh upload
 
-      - name: Delete the key, the export options and the archive (always, also after a failure)
+      - name: Keep the .ipa (only when the box was ticked)
+        if: ${{ inputs.keep_ipa }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: testflight-ipa
+          path: build/ios/ipa/*.ipa
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Delete the keys, the temporary keychain and the logs (always, also after a failure)
         if: always()
-        run: |
-          rm -rf "$RUNNER_TEMP/asc" "$RUNNER_TEMP/ExportOptions.plist" "$RUNNER_TEMP/export" "$RUNNER_TEMP/VideoPlayer.xcarchive" "$RUNNER_TEMP/logs"
-          if [ -e "$RUNNER_TEMP/asc" ]; then echo "::error::The key folder is still there."; exit 1; fi
-          echo "Key, export options, archive and logs deleted."
+        run: bash scripts/gh-testflight.sh cleanup
 
       - name: Summary
         if: always()
@@ -214,10 +213,10 @@ jobs:
           {
             echo "## TestFlight upload"
             echo
-            echo "Build number: ${BUILD_NUMBER:-not set (the job stopped before the archive)}"
+            echo "The build number is the UTC time of the archive step (its log line 'Build number (CFBundleVersion)')."
             echo
             echo "If every step is green: App Store Connect > your app > TestFlight shows the build as Processing, then ready"
-            echo "(docs/TESTFLIGHT.md steps 23 to 26). If a step is red: copy its error lines (docs/TESTFLIGHT.md step 22)."
+            echo "(docs/TESTFLIGHT.md). If a step is red: copy its error lines (docs/TESTFLIGHT.md, 'If a step is red')."
             echo
           } >> "$GITHUB_STEP_SUMMARY"
           bash scripts/ci-stage.sh --summary "TestFlight upload"
