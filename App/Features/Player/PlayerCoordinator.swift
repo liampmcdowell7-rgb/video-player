@@ -779,6 +779,9 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     private func addArtworkToMetadata() async {
         guard let key = resolved.content.artworkKey else { return }
         var found: Data? = nil
+        // R457: with Hide Spoilers on, the Info tab of an unwatched episode gets no picture of the episode (its still, or the
+        // card picture that can be the same still).
+        if await hidesEpisodeSpoilers() { return }
         if resolved.content.kind == .episode { found = await services.online.episodeStillBytes(key: key) }
         if found == nil { found = await services.online.artworkBytes(key: key) }
         guard let bytes = found, !stopped else { return }
@@ -798,13 +801,22 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         item.externalMetadata.append(entry)
     }
 
+    /// R457: Hide Spoilers is on and this is an episode that is not watched yet (a started one counts as not watched).
+    private func hidesEpisodeSpoilers() async -> Bool {
+        guard resolved.content.kind == .episode, UserDefaults.standard.bool(forKey: AppPreference.hideSpoilers.rawValue),
+              let text = resolved.content.externalID, let id = Int64(text), let item = try? await services.store.item(id: id) else { return false }
+        return SpoilerRules.hidesStill(watched: item.watch.watched, hideSpoilers: true)
+    }
+
     /// R394 (item 12; PROVISIONAL): the title's own synopsis as the system's description item
     /// (`AVMetadataIdentifier.commonIdentifierDescription`), which the Info tab shows under the title. For an episode
     /// this is the episode's synopsis from its source (the same lookup as its page, R387); nothing when there is none.
     /// That the Info tab shows an item added after playback started is the same device check as the artwork's.
     private func addDescriptionToMetadata() async {
-        guard let key = resolved.content.artworkKey, let overview = await services.online.details(key: key)?.overview,
-              !overview.isEmpty, !stopped else { return }
+        guard let key = resolved.content.artworkKey, let found = await services.online.details(key: key)?.overview,
+              !found.isEmpty, !stopped else { return }
+        // R457: Hide Spoilers replaces the description the Info tab shows for an unwatched episode (the same rule as its page).
+        let overview = SpoilerRules.synopsis(found, watched: !(await hidesEpisodeSpoilers()), hideSpoilers: true) ?? found
         let entry = AVMutableMetadataItem()
         entry.identifier = .commonIdentifierDescription
         entry.value = overview as NSString

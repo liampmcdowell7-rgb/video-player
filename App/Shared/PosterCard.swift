@@ -24,6 +24,8 @@ import AppLogic
 /// fixed (`fixedSize`), so a caption can never take height from it.
 struct PosterCard: View {
     let card: ItemCard
+    /// R457: Hide Spoilers also covers the Continue Watching and Next Up cards: an episode is unwatched until it is watched (a started one too).
+    @AppStorage(AppPreference.hideSpoilers.rawValue) private var hideSpoilers = false
     /// #15 4.1: a 16:9 card for Continue Watching (OPEN_QUESTIONS R185); portrait everywhere else.
     var wide = false
 
@@ -90,6 +92,7 @@ struct PosterCard: View {
     // and every card keeps the same height. Fixed in code, verify in next screenshots.
     private var artwork: some View {
         ArtworkView(key: card.artworkKey, symbol: card.kind == .movie ? "film" : "tv", wide: wide)
+            .blur(radius: card.kind == .episode && SpoilerRules.hidesStill(watched: card.isWatched, hideSpoilers: hideSpoilers) ? 30 : 0) // design-lint:allow R457: the spoiler blur of an unwatched episode's picture, only while Hide Spoilers is on; not a glass or scrim
             .overlay(alignment: .bottom) {
                 if let progress = card.progress {
                     ProgressView(value: progress)

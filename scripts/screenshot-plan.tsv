@@ -39,7 +39,6 @@ test03_Settings	35-settings-library
 test03_Settings	36-settings-metadata-and-artwork
 test03_Settings	36-settings-online-lookup
 test03_Settings	37-settings-sync-and-backup
-test03_Settings	37-settings-storage-and-icloud
 test03_Settings	38-settings-accessibility
 test03_Settings	45-settings-language
 test03_Settings	40-about
@@ -164,6 +163,7 @@ test06_LargerTextAndBoldText	98-bold-text-settings-backup
 test06_LargerTextAndBoldText	99-bold-text-add-source
 test06_LargerTextAndBoldText	100-bold-text-source-form
 test06_LargerTextAndBoldText	101-bold-text-search
+test06_LargerTextAndBoldText	118-larger-text-settings-playback
 test11_AccessibilityDefaults	102-default-home
 test11_AccessibilityDefaults	103-default-movies
 test11_AccessibilityDefaults	104-default-settings
@@ -175,6 +175,7 @@ test11_AccessibilityDefaults	109-default-settings-backup
 test11_AccessibilityDefaults	110-default-add-source
 test11_AccessibilityDefaults	111-default-source-form
 test11_AccessibilityDefaults	112-default-search
+test11_AccessibilityDefaults	119-default-settings-playback
 test16_LibraryToolbars	07-shows-toolbar
 test16_LibraryToolbars	07-shows-toolbar-sort-filter-menu
 test16_LibraryToolbars	07-shows-toolbar-sort-submenu

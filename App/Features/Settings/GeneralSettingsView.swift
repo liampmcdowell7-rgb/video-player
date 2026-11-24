@@ -20,7 +20,7 @@ struct GeneralSettingsView: View {
                 }
                 SettingToggle("Hide Spoilers", isOn: $hideSpoilers)
             } footer: {
-                Text("Blurs the picture and hides the description of episodes you have not watched.")
+                Text(SpoilerRules.footer)
             }
             Section("Home") {
                 SettingToggle("Continue Watching", isOn: $showContinue)

@@ -1472,8 +1472,8 @@ final class ScreenshotTests: XCTestCase {
         settle()
         shot("30-settings")
         hierarchy("30-settings", of: app)
-        // R456: the reorganised top level. Online Lookup and Storage and iCloud are one level down now (their pictures keep their
-        // names); Language is new (45).
+        // R456: the reorganised top level. Online Lookup is one level down now (its picture keeps its name); Language is new (45).
+        // R457: Storage and iCloud and Backup are ONE page, Sync and Backup (37), so there is no second picture of it.
         let pages = [("31", "Playback"), ("32", "General"), ("33", "Sources"), ("35", "Library"), ("36", "Metadata and Artwork"),
                      ("37", "Sync and Backup"), ("38", "Accessibility"), ("45", "Language")]
         for (n, page) in pages {
@@ -1497,9 +1497,6 @@ final class ScreenshotTests: XCTestCase {
             }
             if page == "Metadata and Artwork", open("Metadata Fetching", in: app, name: "36-settings-online-lookup") {
                 settle(); shot("36-settings-online-lookup"); textContrast("36-settings-online-lookup", in: app); back()
-            }
-            if page == "Sync and Backup", open("Storage and iCloud", in: app, name: "37-settings-storage-and-icloud") {
-                settle(); shot("37-settings-storage-and-icloud"); textContrast("37-settings-storage-and-icloud", in: app); back()
             }
             if page == "Sources", open("Sample Library", in: app, name: "34-settings-source-detail") {
                 settle(); shot("34-settings-source-detail"); textContrast("34-settings-source-detail", in: app); back()
@@ -2802,7 +2799,14 @@ final class ScreenshotTests: XCTestCase {
             guard waitForScreen("screen.settings", in: app, timeout: wait), waitFor("Playback", in: app, timeout: wait) else {
                 return fail(app, "Settings did not open within \(Int(wait)) s.")
             }
-            return step(app, "Sync and Backup") && step(app, "Backup") ? app : nil
+            return step(app, "Sync and Backup") ? app : nil
+        case "settings-playback":
+            // R457: the longest Settings page at Larger Text (118) and at the default size (119, the comparison).
+            let app = launch("-UITestFixtures", tab: "settings", extra: extra, launchTimeout: wait)
+            guard waitForScreen("screen.settings", in: app, timeout: wait), waitFor("Playback", in: app, timeout: wait) else {
+                return fail(app, "Settings did not open within \(Int(wait)) s.")
+            }
+            return step(app, "Playback") ? app : nil
         case "add-source", "source-form":
             let app = launch("-UITestEmpty", extra: extra, launchTimeout: wait)
             guard waitForScreen("screen.home", in: app, timeout: wait), waitFor("Add a Source", in: app, timeout: wait) else {
@@ -3104,6 +3108,8 @@ final class ScreenshotTests: XCTestCase {
         accessibilityShots("bold-text", screens: numbered(Self.coreAccessibilityScreens, from: 85), extra: bold)
         accessibilityShots("larger-text", screens: numbered(Self.moreAccessibilityScreens, from: 90), extra: larger)
         accessibilityShots("bold-text", screens: numbered(Self.moreAccessibilityScreens, from: 96), extra: bold)
+        // R457: the Playback page, the longest Settings page, at Larger Text (the top level is 82).
+        accessibilityShots("larger-text", screens: [(118, "settings-playback")], extra: larger)
     }
 
     /// The same eleven screens with no override (102-112), in the same job: scripts/ci-a11y-compare.py compares every
@@ -3111,6 +3117,7 @@ final class ScreenshotTests: XCTestCase {
     /// reviewed CI run the Bold Text screenshots differed from the normal ones only in the tab bar).
     func test11_AccessibilityDefaults() {
         accessibilityShots("default", screens: numbered(Self.coreAccessibilityScreens + Self.moreAccessibilityScreens, from: 102))
+        accessibilityShots("default", screens: [(119, "settings-playback")])
     }
 
     // The next three are run only by the CI job, each on its own, AFTER it has turned the setting on in the simulator

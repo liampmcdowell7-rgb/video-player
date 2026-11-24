@@ -503,4 +503,71 @@ extension ArtworkEngineTests {
                                              overrides: FixedOverrides(answers: [.poster: chosen]), preferLocalArtwork: { false }).resolve(key: "item-\(id)")
         XCTAssertEqual(withChoice, chosen, "the user's own choice is first whatever the order")
     }
+
+    // R457 item 4: Prefer Local Artwork reaches every kind of picture the engine resolves. The user's own choice is first in all.
+    private func engine(_ r: Rig, preferLocal: Bool, overrides: [UDEditField: ArtworkResult] = [:]) -> ArtworkEngine {
+        ArtworkEngine(store: r.lib.store, cache: ArtworkDiskCache(directory: r.dir, maxBytes: 1_000_000), reader: r.reader, online: r.online,
+                      overrides: FixedOverrides(answers: overrides), preferLocalArtwork: { preferLocal })
+    }
+
+    func testPreferLocalArtworkOrdersTheMovieBackdropAndLogoOnAndOff() async throws {
+        let r = try await rig([("/Movies/Sample Movie One (1995)/Sample Movie One (1995).mkv", 10_000), ("/Movies/Sample Movie One (1995)/fanart.jpg", 5),
+                               ("/Movies/Sample Movie One (1995)/clearlogo.png", 5)])
+        r.reader.files["/Movies/Sample Movie One (1995)/fanart.jpg"] = Data([4])
+        r.reader.files["/Movies/Sample Movie One (1995)/clearlogo.png"] = Data([9])
+        let id = try await r.lib.movieID("Sample Movie One")
+        try await r.lib.store.setMetadata(itemID: id, ItemMetadata(tmdbID: 42))
+        r.online.backdrops = [ImageRef(path: "/b.jpg", width: 1920, language: nil)]
+        r.online.logos = [ImageRef(path: "/en.png", width: 800, language: "en")]
+        let key = "item-\(id)"
+        // On: the picture next to the file first.
+        guard case .file = await engine(r, preferLocal: true).backdrop(key: key, userLanguage: "en") else { return XCTFail("on: file first") }
+        let onLogos = await engine(r, preferLocal: true).logoCandidates(key: key, userLanguage: "en")
+        XCTAssertEqual(onLogos.map(\.source), [.localFile, .online])
+        // Off: online first, the local file fills the gap.
+        let offBackdrop = await engine(r, preferLocal: false).backdrop(key: key, userLanguage: "en")
+        XCTAssertEqual(offBackdrop, .remote(URL(string: "https://images.example.invalid/w1280/b.jpg")!))
+        let offLogos = await engine(r, preferLocal: false).logoCandidates(key: key, userLanguage: "en")
+        XCTAssertEqual(offLogos.map(\.source), [.online, .localFile])
+        // Off and nothing online: the local file still shows (a gap is filled, never left empty).
+        r.online.backdrops = []
+        guard case .file = await engine(r, preferLocal: false).backdrop(key: key, userLanguage: "en") else { return XCTFail("off, no online backdrop: file") }
+        // The user's choice is first in both orders.
+        let bg = ArtworkResult.file(URL(fileURLWithPath: "/chosen/bg.jpg")), logo = ArtworkResult.file(URL(fileURLWithPath: "/chosen/logo.png"))
+        for preferLocal in [true, false] {
+            let e = engine(r, preferLocal: preferLocal, overrides: [.backdrop: bg, .logo: logo])
+            let chosenBackdrop = await e.backdrop(key: key, userLanguage: "en")
+            XCTAssertEqual(chosenBackdrop, bg)
+            let chosenLogos = await e.logoCandidates(key: key, userLanguage: "en")
+            XCTAssertEqual(chosenLogos.map(\.location), [logo])
+        }
+    }
+
+    func testPreferLocalArtworkOrdersAShowsPosterAndBackdropOnAndOffAndLeavesEpisodeStillsAlone() async throws {
+        let r = try await rig([("/TV/Show One (2010)/Season 1/Show One - S01E01 - A.mkv", 1_000), ("/TV/Show One (2010)/Season 1/Show One - S01E01 - A-thumb.jpg", 5),
+                               ("/TV/Show One (2010)/poster.jpg", 5), ("/TV/Show One (2010)/fanart.jpg", 5)])
+        r.reader.files["/TV/Show One (2010)/Season 1/Show One - S01E01 - A-thumb.jpg"] = Data([1])
+        r.reader.files["/TV/Show One (2010)/poster.jpg"] = Data([2])
+        r.reader.files["/TV/Show One (2010)/fanart.jpg"] = Data([3])
+        r.online.backdrops = [ImageRef(path: "/b.jpg", width: 1920, language: nil)]
+        let eps = try await r.lib.episodes(ofSeriesTitle: "Show One")
+        let ep = try XCTUnwrap(eps.first)
+        let series = "series-\(try XCTUnwrap(ep.seriesID))"
+        guard case .file = await engine(r, preferLocal: true).resolve(key: series) else { return XCTFail("on: show folder poster") }
+        let offPoster = await engine(r, preferLocal: false).resolve(key: series)
+        XCTAssertEqual(offPoster, .remote(URL(string: "https://images.example.invalid/item.jpg")!), "off: the online show poster first (no stored id: asked through an episode)")
+        guard case .file = await engine(r, preferLocal: true).backdrop(key: series, userLanguage: nil) else { return XCTFail("on: show fanart") }
+        // A show with no stored online id still reaches the online backdrop only with an id; the poster path asked the matcher above.
+        // An episode's card and still stay its own picture in both orders: its only online "poster" is the show's (R387), not a still.
+        for preferLocal in [true, false] {
+            guard case .file(let url) = await engine(r, preferLocal: preferLocal).resolve(key: "item-\(ep.id)") else { return XCTFail("episode card: its own still") }
+            XCTAssertEqual(try Data(contentsOf: url), Data([1]))
+            guard case .file = await engine(r, preferLocal: preferLocal).episodeStill(key: "item-\(ep.id)") else { return XCTFail("episode still") }
+        }
+        let chosen = ArtworkResult.file(URL(fileURLWithPath: "/chosen/poster.jpg"))
+        for preferLocal in [true, false] {
+            let picked = await engine(r, preferLocal: preferLocal, overrides: [.poster: chosen]).resolve(key: series)
+            XCTAssertEqual(picked, chosen, "the choice is first in both orders")
+        }
+    }
 }

@@ -325,6 +325,8 @@ final class AppServices {
     /// screen meanwhile. If the restore has not started when the box runs out, it is not started at all (Settings > Restore).
     func launch(scanOnLaunch: Bool) async {
         Task { await refreshCloudStatus() }
+        // R457: every completed sync reconciles the settings (own edits first, then the newest values).
+        sync.onSynced = { [weak self] in self?.reconcileSettings() }
         let cloud = Task { await startCloudSync() }
         let finishedInTime = await TimeBox.wait(atMost: TimeBox.launchWait) { await cloud.value } != nil
         guard scanOnLaunch else { return }
@@ -422,7 +424,7 @@ final class AppServices {
             return failed
         })
         // R456: settings another device (or a restore) set arrive with the user data.
-        pullSettings()
+        reconcileSettings()
     }
 
     /// After "Restore from iCloud" replaced the index: merges with iCloud and loads the ledger's watch state and saved views
@@ -431,7 +433,7 @@ final class AppServices {
         let target = LibraryRestoreAdapter(store: sqlite, deviceID: ledger.deviceID, scan: { [weak self] in await self?.scanAll() })
         let bootstrap = LibraryBootstrap(ledger: ledger, engine: syncEngine, essentials: essentials, credentials: secrets.local)
         _ = try? await bootstrap.run(health: .ok, ledgerWasLost: false, target: target)
-        pullSettings()
+        reconcileSettings()
         libraryRevision += 1
     }
 

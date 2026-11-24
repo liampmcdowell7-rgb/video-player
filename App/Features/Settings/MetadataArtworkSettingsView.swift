@@ -20,8 +20,7 @@ struct MetadataArtworkSettingsView: View {
                 SettingToggle("Prefer Local Artwork", isOn: $preferLocalArtwork)
                 SettingToggle("Show Title Logos", isOn: $showTitleLogos)
             } footer: {
-                Text(preferLocalArtwork ? "Pictures next to your files come first, then your server's, then online. Your own choices always win."
-                                        : "Online pictures come first, then the ones next to your files. Your own choices always win.")
+                Text(ArtworkPrecedence.footer(preferLocal: preferLocalArtwork))
             }
             Section {
                 Button(role: .destructive) { confirmClear = true } label: {

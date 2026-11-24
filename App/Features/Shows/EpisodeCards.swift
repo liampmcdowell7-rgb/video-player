@@ -40,7 +40,7 @@ struct EpisodeCard: View {
     let model: ScreenModel<SeasonsViewModel>
     var focusedID: Binding<Int64?>? = nil
     @FocusState private var isFocused: Bool
-    @AppStorage("hideSpoilers") private var hideSpoilers = false
+    @AppStorage(AppPreference.hideSpoilers.rawValue) private var hideSpoilers = false
 
     var body: some View {
         NavigationLink(value: Route.item(episode.id)) {

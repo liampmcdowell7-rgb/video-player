@@ -97,6 +97,9 @@ public enum SpoilerRules {
     }
 
     public static func hidesStill(watched: Bool, hideSpoilers: Bool) -> Bool { hideSpoilers && !watched }
+
+    /// What the footer under the switch says it hides (R457): every place that follows the rule.
+    public static let footer = "Hides the picture and the description of episodes you have not finished: on the show and episode pages, in Continue Watching and Next Up, and in the player's Info tab."
 }
 
 /// Metadata and Artwork > Prefer Local Artwork: which comes first for a picture. With it on (the default and today's rule,
@@ -108,14 +111,35 @@ public enum ArtworkPrecedence {
     public static func order(preferLocal: Bool) -> [Source] {
         preferLocal ? [.userChoice, .localFile, .server, .online] : [.userChoice, .online, .localFile, .server]
     }
+
+    /// The line under the switch: what it covers (R457: posters of movies and shows, backgrounds and logos) and what it does
+    /// not (an episode's picture has no online source).
+    public static func footer(preferLocal: Bool) -> String {
+        let order = preferLocal ? "next to your files first, then your server's, then online" : "online first, then next to your files and your server's"
+        return "Posters, backgrounds and logos of movies and shows: \(order). Your own choices always win."
+    }
 }
 
-/// The settings of this commit and the ones that travel in "Settings and Watch State".
+/// Every setting that travels in "Settings and Watch State" (R457: all switches and pickers of Settings, one field each; R456
+/// began with six). The raw value IS the UserDefaults key, so a screen reads `AppPreference.x.rawValue` and never a literal.
+/// NEVER in this list: keys and tokens of the online sources, passwords, the Parental PIN, source addresses and account names
+/// (the sources have their own sync) and device-only values (recent searches, the backup switches, the last-backup time, the
+/// device ID, the playback problem report, the sync baseline below).
 public enum AppPreference: String, CaseIterable, Sendable {
-    case sortOrder, hideSpoilers, streamingCache, metadataLanguage, artworkLanguage, preferLocalArtwork
+    // General
+    case sortOrder, hideSpoilers, showContinueWatching, showNextUp, showRecentlyAdded, continueWatchingDays, showDiscover
+    // Library and Metadata and Artwork
+    case scanOnLaunch, showTitleLogos, preferLocalArtwork, onlineRegion, onlineFreeSources
+    // Language
+    case metadataLanguage, artworkLanguage
+    // Playback
+    case streamingCache, autoPlayNextEpisode, showSkipButtons, skipIntrosAutomatically, skipCreditsAutomatically
+    case showPlaybackStatsButton, rememberTrackChoicePerShow, trueHDCompatibilityCore
 
     public static let schemaVersion = 1
     public static let schemaKey = "prefs.schema"
+    /// Where the device keeps what it last wrote to or read from the user data (device-only, never synced).
+    public static let baselineKey = "vp.prefs.baseline"
 
     public var defaultValue: UDValue {
         switch self {
@@ -124,17 +148,74 @@ public enum AppPreference: String, CaseIterable, Sendable {
         case .streamingCache: return .string(StreamingCache.default.rawValue)
         case .metadataLanguage, .artworkLanguage: return .string(LanguagePreference.auto)
         case .preferLocalArtwork: return .bool(true)
+        case .onlineRegion: return .string(OnlineLookupPrefs.defaultRegion)
+        case .onlineFreeSources: return .bool(OnlineLookupPrefs.freeSourcesDefault)
+        case .continueWatchingDays: return .int(Int64(SettingsKey.defaultContinueWatchingDays))
+        case .showDiscover, .autoPlayNextEpisode, .showSkipButtons, .skipIntrosAutomatically, .skipCreditsAutomatically,
+             .showPlaybackStatsButton, .rememberTrackChoicePerShow, .showContinueWatching, .showNextUp, .showRecentlyAdded,
+             .scanOnLaunch, .trueHDCompatibilityCore, .showTitleLogos:
+            return .bool(SettingsKey(rawValue: rawValue)?.defaultBool ?? true)
         }
     }
 
     /// Every key that may be synced or backed up. A PIN, a passcode or a password is never in this list.
     public static var synced: [String] { allCases.map(\.rawValue) }
+
+    /// What UserDefaults holds for this key, as the ledger writes it. The type follows the default (a switch is a bool, a
+    /// choice a string, the days an integer), so a stored 1 is never read as `true` by mistake. Anything else is nil.
+    public func read(_ object: Any?) -> UDValue? {
+        guard let object else { return nil }
+        switch defaultValue {
+        case .bool: return (object as? Bool).map { .bool($0) }
+        case .string: return (object as? String).map { .string($0) }
+        case .int: return (object as? Int).map { .int(Int64($0)) }
+        default: return nil
+        }
+    }
+}
+
+/// What this device last wrote to the ledger or took from it, per key. A setting is pushed only when its stored value differs
+/// from this, so a device that merely opens Settings never overwrites a newer value from another device (R457 item 1).
+public struct PreferenceBaseline: Equatable, Sendable {
+    public var values: [String: UDValue]
+
+    public init(values: [String: UDValue] = [:]) { self.values = values }
+
+    /// The device-only text form (a JSON object of "b:true", "s:rating", "i:90").
+    public var encoded: String {
+        var out: [String: String] = [:]
+        for (key, value) in values {
+            switch value {
+            case let .bool(b): out[key] = "b:\(b)"
+            case let .string(s): out[key] = "s:" + s
+            case let .int(i): out[key] = "i:\(i)"
+            default: break
+            }
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: out, options: [.sortedKeys]) else { return "{}" }
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    public init?(encoded: String?) {
+        guard let encoded, let data = encoded.data(using: .utf8), let object = try? JSONSerialization.jsonObject(with: data) as? [String: String] else { return nil }
+        var values: [String: UDValue] = [:]
+        for (key, text) in object {
+            guard AppPreference(rawValue: key) != nil, text.count >= 2 else { continue }
+            let body = String(text.dropFirst(2))
+            switch text.prefix(2) {
+            case "b:": values[key] = .bool(body == "true")
+            case "s:": values[key] = .string(body)
+            case "i:": if let i = Int64(body) { values[key] = .int(i) }
+            default: break
+            }
+        }
+        self.values = values
+    }
 }
 
 /// The round trip between the device's stored values and the user-data settings record.
 public enum PreferenceSync {
-    /// What this device would write: every setting that has a stored value (nil = never changed here, so nothing is written
-    /// and a value from another device is not overwritten).
+    /// Every setting that has a stored value (nil = never changed here). Used for the list of keys and the first baseline.
     public static func export(stored: (String) -> UDValue?) -> [String: UDValue] {
         var out: [String: UDValue] = [AppPreference.schemaKey: .int(Int64(AppPreference.schemaVersion))]
         for key in AppPreference.allCases { if let v = stored(key.rawValue) { out[key.rawValue] = v } }
@@ -159,25 +240,47 @@ public enum PreferenceSync {
         default: return false
         }
     }
-}
 
-public extension PreferenceSync {
-    /// Writes every setting changed on this device into the ledger (one field per setting, so two devices changing different
-    /// settings both win). A value equal to the ledger's is not written again.
-    static func push(to ledger: UserDataLedger, stored: (String) -> UDValue?, at date: Date? = nil) {
-        let current = ledger.settingValues()
-        for (key, value) in export(stored: stored) where current[key] != value { ledger.setSetting(key, value, at: date) }
+    /// The first baseline of a device that has none: everything stored now counts as already synced, so nothing old is written
+    /// with a new stamp; the values of the ledger then arrive by `pull`.
+    public static func firstBaseline(stored: (String) -> UDValue?) -> PreferenceBaseline {
+        var values: [String: UDValue] = [:]
+        for key in AppPreference.allCases { if let v = stored(key.rawValue) { values[key.rawValue] = v } }
+        return PreferenceBaseline(values: values)
     }
 
-    /// The values to store on this device from the ledger (after a sync or a restore).
-    static func pull(from ledger: UserDataLedger) -> [String: UDValue] { importable(ledger.settingValues()) }
-
-    /// The stored value of a setting as the ledger writes it: a switch is a bool, a choice a string.
-    static func value(of object: Any?) -> UDValue? {
-        switch object {
-        case let b as Bool: return .bool(b)
-        case let s as String: return .string(s)
-        default: return nil
+    /// The settings this device changed since the baseline: a stored value that differs from what was last written or read.
+    /// A value merely different from the ledger is not a change (the ledger may hold another device's newer edit).
+    public static func changes(stored: (String) -> UDValue?, baseline: PreferenceBaseline) -> [String: UDValue] {
+        var out: [String: UDValue] = [:]
+        for key in AppPreference.allCases {
+            guard let v = stored(key.rawValue), baseline.values[key.rawValue] != v else { continue }
+            out[key.rawValue] = v
         }
+        return out
+    }
+
+    /// Writes the changed settings into the ledger (one field per setting, so two devices changing different settings both win)
+    /// and returns the new baseline. Nothing changed, nothing written.
+    @discardableResult
+    public static func push(to ledger: UserDataLedger, stored: (String) -> UDValue?, baseline: PreferenceBaseline, at date: Date? = nil) -> PreferenceBaseline {
+        var next = baseline
+        for (key, value) in changes(stored: stored, baseline: baseline) {
+            ledger.setSetting(key, value, at: date)
+            next.values[key] = value
+        }
+        return next
+    }
+
+    /// What to store on this device from the ledger (after a sync or a restore), with the new baseline: the baseline takes the
+    /// ledger's value for every key the ledger holds, so the next push does not write it back.
+    public static func pull(from ledger: UserDataLedger, stored: (String) -> UDValue?, baseline: PreferenceBaseline) -> (apply: [String: UDValue], baseline: PreferenceBaseline) {
+        var next = baseline
+        var apply: [String: UDValue] = [:]
+        for (key, value) in importable(ledger.settingValues()) {
+            next.values[key] = value
+            if stored(key) != value { apply[key] = value }
+        }
+        return (apply, next)
     }
 }

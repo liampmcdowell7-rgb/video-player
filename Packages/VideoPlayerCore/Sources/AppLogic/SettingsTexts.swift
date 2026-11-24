@@ -57,3 +57,10 @@ public enum SettingsTexts {
     /// The short footers, for the length test.
     public static let shortFooters = [skipShort, statsFooter, trueHDShort, continueFooter, discoverFooter, whatIsSentShort, titleLogosFooter]
 }
+
+/// R457: the texts of Settings > Sync and Backup that depend on what travels.
+public enum SyncAndBackupText {
+    public static let summary = "Your settings, edits and watch state sync through iCloud. A backup keeps what the app built from your videos."
+    /// One line under "What Is Backed Up": the settings are part of the sync, and no passcode or key is.
+    public static let settingsFooter = "Settings, edits and watch state sync through iCloud, not through the backup. No passcode or key is part of them."
+}

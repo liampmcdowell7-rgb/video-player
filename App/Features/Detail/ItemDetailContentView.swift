@@ -24,6 +24,8 @@ struct ItemDetailContentView: View {
     var onEdit: () -> Void = {}
     @Environment(AppServices.self) private var services
     @State private var details: TitleDetails?
+    /// R457: Hide Spoilers covers the episode page's own picture and description.
+    @AppStorage(AppPreference.hideSpoilers.rawValue) private var hideSpoilers = false
     /// #15 6.2: Play (or Resume) has focus when the page opens, although the synopsis sits above it.
     @FocusState private var playFocused: Bool
     /// R350: the height of the page's scroll view, so the hero area fills the first screen (`ProductPageLayout`).
@@ -84,8 +86,11 @@ struct ItemDetailContentView: View {
         // focus lands when it moves INTO the page. Asking for Play once the page is on screen moves it there.
         .task(id: content.itemID) { playFocused = true }
         .artTextTop($textTop)
-        .background { BackdropView(artworkKey: content.artworkKey, style: .hero, prefersEpisodeStill: content.kind == .episode, textTop: textTop) }
-        .task(id: "\(content.artworkKey)|\(services.online.keyRevision)") {
+        .background {
+            BackdropView(artworkKey: content.artworkKey, style: .hero, prefersEpisodeStill: content.kind == .episode, textTop: textTop)
+                .blur(radius: content.kind == .episode && SpoilerRules.hidesStill(watched: content.isWatched, hideSpoilers: hideSpoilers) ? 30 : 0) // design-lint:allow R457: the spoiler blur of an unwatched episode's still, only while Hide Spoilers is on; not a glass or scrim
+        }
+        .task(id: "\(content.artworkKey)|\(services.online.keyRevision)|\(hideSpoilers)|\(content.isWatched)") {
             // R387: an episode asks too; only the source's own layer answers for one (Wikidata and TMDB give nothing).
             var own = await services.online.details(key: content.artworkKey)
             // R449: the user's edits (description, cast, content rating) on top of every layer, read each time the page loads.
@@ -94,8 +99,8 @@ struct ItemDetailContentView: View {
                 own = EditTarget.apply(services.ledger.edits(for: EditTarget.keys(for: item, files: files)), to: own)
             }
             // R456: Hide Spoilers replaces the description of an unwatched episode (the user's own edit is hidden too: it is a description).
-            if content.kind == .episode, var hidden = own, UserDefaults.standard.bool(forKey: AppPreference.hideSpoilers.rawValue) {
-                hidden.overview = SpoilerRules.synopsis(hidden.overview, watched: content.isWatched, hideSpoilers: true)
+            if content.kind == .episode, var hidden = own, hideSpoilers {
+                hidden.overview = SpoilerRules.synopsis(hidden.overview, watched: content.isWatched, hideSpoilers: hideSpoilers)
                 own = hidden
             }
             details = own

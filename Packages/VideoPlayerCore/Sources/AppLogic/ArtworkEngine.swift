@@ -193,21 +193,26 @@ public actor ArtworkEngine {
     // MARK: Series
 
     private func resolveSeries(_ seriesID: Int64) async throws -> ArtworkResult {
+        // R457: with Prefer Local Artwork off the online poster of a show comes before the picture in the show folder.
+        if !preferLocalArtwork(), let url = try await onlineSeriesPoster(seriesID) { return .remote(url) }
         if let r = try await showFolderArtwork(seriesID: seriesID) { return r }
-        guard let online else { return .none }
+        if let url = try await onlineSeriesPoster(seriesID) { return .remote(url) }
+        return .none
+    }
+
+    private func onlineSeriesPoster(_ seriesID: Int64) async throws -> URL? {
+        guard let online else { return nil }
         let episodes = try await store.episodes(ofSeries: seriesID)
         let ids = episodes.compactMap(\.tmdbID)
         if ids.isEmpty {
             // No online id yet: ask the matcher through one episode, which also records the id for next time.
-            guard let first = episodes.first else { return .none }
+            guard let first = episodes.first else { return nil }
             let file = try await store.versions(of: first.id).first
-            if let url = await online.posterURL(forItem: first, file: file) { return .remote(url) }
-            return .none
+            return await online.posterURL(forItem: first, file: file)
         }
         let counts = Dictionary(grouping: ids, by: { $0 }).mapValues(\.count)
-        guard let best = counts.max(by: { $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key })?.key else { return .none }
-        if let url = await online.posterURL(forSeriesID: best) { return .remote(url) }
-        return .none
+        guard let best = counts.max(by: { $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key })?.key else { return nil }
+        return await online.posterURL(forSeriesID: best)
     }
 
     /// The poster inside the show folder (the folder above the season folders). An episode folder that is not named like a
@@ -261,9 +266,16 @@ public actor ArtworkEngine {
                 return []
             }
         } catch {
-            return out
+            return Self.ordered(out, preferLocal: preferLocalArtwork())
         }
-        return out
+        return Self.ordered(out, preferLocal: preferLocalArtwork())
+    }
+
+    /// R457: the logo candidates in the order of Prefer Local Artwork: local files first (on) or online first (off); each group
+    /// keeps its own order. The user's own choice never gets here (it returns alone, first).
+    static func ordered(_ candidates: [LogoCandidate], preferLocal: Bool) -> [LogoCandidate] {
+        let local = candidates.filter { $0.source == .localFile }, other = candidates.filter { $0.source != .localFile }
+        return preferLocal ? local + other : other + local
     }
 
     // MARK: Backdrops and details (#15 6.2)
@@ -282,6 +294,11 @@ public actor ArtworkEngine {
                     return await backdrop(key: "series-\(seriesID)", userLanguage: userLanguage)
                 }
                 let versions = try await store.versions(of: id)
+                // R457: with Prefer Local Artwork off the online backdrop comes before the picture next to the file.
+                if !preferLocalArtwork(), let online, let set = await online.images(forItem: item), let ref = set.bestBackdrop(language: userLanguage),
+                   let url = await online.backdropURL(path: ref.path) {
+                    return .remote(url)
+                }
                 if let file = versions.first(where: { $0.id == item.preferredFileID }) ?? versions.first {
                     let entries = try await folderEntries(sourceID: file.sourceID, folder: file.parentPath)
                     let videos = entries.filter { !$0.isDirectory && FileClassifier.fileExtension(of: $0.name).isVideoExtension }.count
@@ -293,6 +310,10 @@ public actor ArtworkEngine {
                     return .remote(url)
                 }
             case .series(let seriesID):
+                if !preferLocalArtwork(), let online, let tmdbID = try await seriesOnlineID(seriesID), let set = await online.images(forSeriesID: tmdbID),
+                   let ref = set.bestBackdrop(language: userLanguage), let url = await online.backdropURL(path: ref.path) {
+                    return .remote(url)
+                }
                 if let hit = try await showFolderEntry(seriesID: seriesID, role: .backdrop), let r = await cached(hit.entry, hit.sourceID) {
                     return r
                 }

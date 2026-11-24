@@ -38,7 +38,7 @@ struct SeasonsList: View {
     @State private var pageHeight: CGFloat = 0
     /// R453: the episode card that has the focus, the one it rested on (`InfoBlockLayout.focusRestSeconds`), and the details
     /// asked for so far; the info block shows the resting episode, else the show.
-    @AppStorage("hideSpoilers") private var hideSpoilers = false
+    @AppStorage(AppPreference.hideSpoilers.rawValue) private var hideSpoilers = false
     @State private var focusedEpisodeID: Int64?
     @State private var restingEpisodeID: Int64?
     @State private var episodeDetails: [Int64: TitleDetails] = [:]

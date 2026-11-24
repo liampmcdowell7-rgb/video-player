@@ -17,6 +17,8 @@ final class CloudSyncHost {
     @ObservationIgnored private var started = false
     /// Set when iCloud cannot be used at all by this copy of the app: the sync never starts and the line says why.
     private(set) var unavailableReason: String?
+    /// Called after every sync that completed (R457): the settings are reconciled then.
+    @ObservationIgnored var onSynced: (() -> Void)?
 
     static var ledgerFile: URL {
         (FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory).appendingPathComponent("user-data-ledger.json")
@@ -27,7 +29,12 @@ final class CloudSyncHost {
         self.ledger = ledger
         let box = StateBox()
         self.coordinator = CloudSyncCoordinator(ledger: ledger, engine: engine, ledgerFile: Self.ledgerFile, onState: { box.deliver($0) })
-        box.onMain = { [weak self] new in self?.state = new }
+        box.onMain = { [weak self] new in
+            guard let self else { return }
+            let finished = new.lastSynced != nil && new.lastSynced != self.state.lastSynced
+            self.state = new
+            if finished { self.onSynced?() }
+        }
     }
 
     /// Reads the saved ledger file now (call before anything records into the ledger). True when the ledger was lost.
