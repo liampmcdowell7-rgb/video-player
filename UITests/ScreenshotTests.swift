@@ -2125,7 +2125,7 @@ final class ScreenshotTests: XCTestCase {
         // system uses each view controller's title as the tab title. Right once per tab, the picture at once, no Select
         // (whether moving onto a tab shows its content without a press is UNVERIFIED: the pictures show it).
         var tabLines: [String] = []
-        for (picture, tab) in [("24-player-episodes-tab", "Episodes"), ("24-player-stats-tab", "Playback Stats")] {
+        for (picture, tab) in [("24-player-video-tab", "Video"), ("24-player-episodes-tab", "Episodes"), ("24-player-stats-tab", "Playback Stats")] {
             XCUIRemote.shared.press(.right); sleep(1)
             shot(picture)
             let seconds: String = String(format: "%.1f", Date().timeIntervalSince(panelOpened))
@@ -2133,7 +2133,7 @@ final class ScreenshotTests: XCTestCase {
         }
         episodeCodeCheck("24-player-info-panel", in: app)
         tabLines.append("after the pictures: focus on \(focusedLabel(in: app))")
-        for tab in ["Episodes", "Playback Stats"] {
+        for tab in ["Video", "Episodes", "Playback Stats"] {
             tabLines.append("\(tab) in the tree: " + (waitFor(tab, in: app, timeout: 1) ? "found" : "NOT FOUND"))
         }
         note("24-player-info-panel-TABS", tabLines.joined(separator: "\n"))

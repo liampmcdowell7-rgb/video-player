@@ -22,6 +22,19 @@ enum PlayerInfoPanels {
     }
 }
 
+/// R454 (owner's photo of the reference player's info panel, 23 Nov 2026; PROVISIONAL): the Video tab, ONE plain-text line of
+/// the file's facts (`VideoTabLine`: runtime, year, file size, codec with resolution, audio, bitrate, frame rate, genre,
+/// content rating). One line, scaled to its floor and never cut (`FittingText`, rule S1).
+struct VideoTabPanel: View {
+    let line: String
+
+    var body: some View {
+        FittingText(line, style: .callout)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier("player.videoTab")
+    }
+}
+
 /// The Episodes tab: the season that is playing, as 16:9 lockups (the show page's episode card, one system `.borderless`
 /// button each). Choosing another episode plays it; the one playing says "Now Playing" and does nothing.
 struct PlayerEpisodesPanel: View {

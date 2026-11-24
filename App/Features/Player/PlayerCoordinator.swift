@@ -44,6 +44,8 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     private let item: AVPlayerItem
     private let probe: PlaybackProbe
     private let stats = StatsOverlayModel()
+    /// R454: the facts of the Video tab, read once after playback started (`readVideoFacts`).
+    private var videoFacts = VideoTabFacts()
     private let skipPresenter = SkipButtonPresenter()
     private let proposalPresenter = ProposalPresenter()
     /// Created when the length of the file is known; nil before that (and when there is nothing to show).
@@ -365,12 +367,15 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         Task { @MainActor [weak self] in await self?.addRatingToMetadata() }
         // R394: the synopsis for the system's Info tab, added the same way.
         Task { @MainActor [weak self] in await self?.addDescriptionToMetadata() }
+        // R454: the genre for the Info tab, the same way.
+        Task { @MainActor [weak self] in await self?.addGenreToMetadata() }
         await probe.load()
         await probe.refreshAudioSelection()
         reloadOverlay()
         startLearning()
         // R340: the Episodes tab once the season is read; the tabs are set once (R311).
         episodes = await PlayerEpisodes.load(itemID: itemID, store: services.store)
+        videoFacts = await readVideoFacts()
         installInfoPanels()
     }
 
@@ -702,6 +707,11 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     private func installInfoPanels() {
         guard let controller, !stopped else { return }
         var tabs: [UIViewController] = []
+        // R454: Video first (after the system's Info), then Episodes, then Playback Stats.
+        let videoLine: String = VideoTabLine.line(videoFacts)
+        if !videoLine.isEmpty {
+            tabs.append(PlayerInfoPanels.controller(title: "Video", services: services) { VideoTabPanel(line: videoLine) })
+        }
         if let episodes {
             tabs.append(PlayerInfoPanels.controller(title: PlayerEpisodes.tabTitle, services: services) {
                 PlayerEpisodesPanel(content: episodes, onPlay: { [weak self] id in self?.play(id) })
@@ -800,6 +810,39 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         entry.value = overview as NSString
         entry.extendedLanguageTag = "und"
         item.externalMetadata = item.externalMetadata.filter { $0.identifier != .commonIdentifierDescription } + [entry]
+    }
+
+    /// R454 (PROVISIONAL): the genres for the system's Info tab (`AVMetadataIdentifier.quickTimeMetadataGenre`, one of the six
+    /// items the player presents: Apple's "Customizing the tvOS playback experience"). The source's genres, joined; nothing
+    /// when there are none.
+    private func addGenreToMetadata() async {
+        guard let key = resolved.content.artworkKey, let genres = await services.online.details(key: key)?.genres,
+              !genres.isEmpty, !stopped else { return }
+        let entry = AVMutableMetadataItem()
+        entry.identifier = .quickTimeMetadataGenre
+        entry.value = genres.joined(separator: ", ") as NSString
+        entry.extendedLanguageTag = "und"
+        item.externalMetadata = item.externalMetadata.filter { $0.identifier != .quickTimeMetadataGenre } + [entry]
+    }
+
+    /// R454: the Video tab's facts. Runtime: the player's duration. Year: the library item's. File size and the codec,
+    /// resolution, audio and bitrate the scan read (`StoredFile.technical`); the codec and the frame rate also from the
+    /// player's own tracks (`PlaybackProbe`), which win. Bitrate: the file's when the scan read one, else ESTIMATED as file
+    /// size over runtime (`VideoTabLine.bitrate`). Genre: the first of the source's genres. Rating: the one the player has.
+    private func readVideoFacts() async -> VideoTabFacts {
+        let t = resolved.file?.technical
+        var facts = VideoTabFacts()
+        facts.runtimeSeconds = resolved.duration
+        facts.year = resolved.content.year
+        facts.fileSizeBytes = resolved.file?.size
+        facts.videoCodec = probe.trackVideoCodec ?? t?.videoCodec.map(FormatNames.videoCodec)
+        facts.resolution = MediaInfo.resolutionName(height: t?.height)
+        facts.audioFormat = t.flatMap { FormatNames.audio(codec: $0.audioCodec, channels: $0.audioChannels, atmos: $0.hasAtmos) }
+        facts.bitrateBitsPerSecond = t?.bitrate.map { Double($0) }
+        facts.frameRate = probe.trackFrameRate
+        if let key = resolved.content.artworkKey { facts.genre = await services.online.details(key: key)?.genres.first }
+        facts.contentRating = resolved.startRating?.value
+        return facts
     }
 
     /// R319 (owner's request of 21 Nov 2026): the title's content rating in the Info tab, as the system's own item.

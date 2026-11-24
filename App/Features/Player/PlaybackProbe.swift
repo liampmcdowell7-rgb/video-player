@@ -26,6 +26,10 @@ final class PlaybackProbe {
     /// shows the values of the previous fetch and starts the next one, so they lag by one refresh of the overlay.
     private var lastAccess: (observed: Double, indicatedAverage: Double, dropped: Int)?
 
+    /// R454: what the player's own tracks said (nil until `load()` has read them), for the Video tab.
+    var trackFrameRate: Double? { frameRate }
+    var trackVideoCodec: String? { videoCodec }
+
     init(item: AVPlayerItem, remux: RemuxPlayback? = nil) {
         self.item = item
         self.remux = remux
