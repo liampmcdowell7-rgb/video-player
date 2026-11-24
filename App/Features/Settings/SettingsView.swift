@@ -1,5 +1,6 @@
 import SwiftUI
 import AppLogic
+import VideoPlayerCore
 
 /// Settings: one row per area, each opening its own page. #15 3.1: the rows sit in the bounded right column with a symbol
 /// each (L1, L2, L10); the left column says what Settings holds (L6: the tab bar names the tab, the page title is not

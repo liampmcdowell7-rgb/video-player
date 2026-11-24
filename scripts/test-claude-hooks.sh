@@ -112,5 +112,40 @@ else
   X=$((X + 1)); echo "FAIL  $AFTER is missing"
 fi
 
+# R461: the import check of scripts/parse-app.sh (the after-edit hook runs that script), on a small invented tree. No swiftc needed.
+echo "== parse-app.sh --imports (R461) =="
+FX="$TMP/fx"
+mkdir -p "$FX/Packages/VideoPlayerCore/Sources/ModA" "$FX/Packages/VideoPlayerCore/Sources/ModB" "$FX/App"
+printf 'public enum AppThing { public static let version = "1" }\n@MainActor public final class Store {}\n' >"$FX/Packages/VideoPlayerCore/Sources/ModA/A.swift"
+printf 'public struct OtherThing {}\n' >"$FX/Packages/VideoPlayerCore/Sources/ModB/B.swift"
+printf 'import SwiftUI\nimport ModA\nlet a = AppThing.version\n' >"$FX/App/Good.swift"
+printf 'import SwiftUI\nlet a = AppThing.version\n' >"$FX/App/Bad.swift"
+printf 'import ModB\nlet a = AppThing.version\n' >"$FX/App/Wrong.swift"
+printf 'import SwiftUI\nlet s = Store()\n' >"$FX/App/Attr.swift"
+printf 'import ModB\nlet b = Foo.AppThing\n// AppThing in a comment\nlet s = "AppThing in a string"\n/* Store\n   in a block */\n' >"$FX/App/Quiet.swift"
+printf 'struct OtherThing {}\nlet c = OtherThing()\n' >"$FX/App/Local.swift"
+run_imports() { PARSE_APP_ROOT="$FX" bash "$HERE/scripts/parse-app.sh" --imports "$@" 2>&1; }
+says() { printf '%s\n' "$IMP" | grep -qF -- "$1"; }
+imports_case() { # label rc-wanted
+  if [ "$2" -eq 0 ]; then P=$((P + 1)); echo "ok    $1"; else X=$((X + 1)); echo "FAIL  $1"; printf '%s\n' "$IMP" | sed 's/^/      /'; fi
+}
+IMP="$(run_imports)"; rc=$?
+[ "$rc" -eq 1 ]; imports_case "a file that names a package type without importing its module fails (exit 1)" $?
+says "Bad.swift: AppThing (module ModA) is used without \`import ModA\`"; imports_case "the miss is named with the type and the module" $?
+says "Wrong.swift: AppThing"; imports_case "importing a different module does not help" $?
+says "Attr.swift: Store (module ModA)"; imports_case "a type declared after an attribute (@MainActor public final class) is read" $?
+! says "Good.swift"; imports_case "a file with the import passes" $?
+! says "Quiet.swift"; imports_case "a name after a dot, in a comment, in a string or in a block comment is not read" $?
+! says "Local.swift"; imports_case "a type the app declares itself is not a package type" $?
+says "imports: 3 file(s) with a missing import"; imports_case "the summary counts the files" $?
+IMP="$(run_imports "$FX/App/Good.swift" "$FX/App/Quiet.swift")"; rc=$?
+[ "$rc" -eq 0 ]; imports_case "with file arguments only those files are checked (the hook)" $?
+rm -f "$FX/App/Bad.swift" "$FX/App/Wrong.swift" "$FX/App/Attr.swift"
+IMP="$(run_imports)"; rc=$?
+[ "$rc" -eq 0 ] && says "imports: 0 file(s)"; imports_case "without the three bad files: exit 0" $?
+rm -rf "$FX/Packages"
+IMP="$(run_imports)"; rc=$?
+[ "$rc" -eq 1 ] && says "the check cannot run"; imports_case "a tree without the package sources fails loudly, it does not pass silently" $?
+
 echo "claude hook tests: passed $P, failed $X"
 [ "$X" -eq 0 ]
