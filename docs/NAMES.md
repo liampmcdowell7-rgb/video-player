@@ -301,6 +301,7 @@ Source
 About
 Online Lookup
 Fix Match
+Restrictions
 Web Link
 Playback Stats
 Continue Watching

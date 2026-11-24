@@ -37,6 +37,18 @@ public struct RatingScale: Equatable, Sendable {
         }
     }
 
+    /// R460: the systems the Rating System row offers, in the order the row lists them.
+    public static var systems: [RatingScale] { [us, gb, de] }
+
+    /// R460: the system's name in words (the row shows words, not codes alone).
+    public var name: String {
+        switch region {
+        case "GB": return "United Kingdom"
+        case "DE": return "Germany"
+        default: return "United States"
+        }
+    }
+
     static let us = RatingScale(
         region: "US",
         movieTiers: [Tier(title: "G", labels: ["G"]), Tier(title: "PG", labels: ["PG"]), Tier(title: "PG-13", labels: ["PG-13"]),
@@ -73,20 +85,34 @@ public struct ParentalSettings: Equatable, Sendable {
     public var episodeTier: String?
     /// Titles with no rating at all. Off: they are hidden while Restrictions are on (PROVISIONAL, R459).
     public var allowUnrated = false
+    /// R460 (PROVISIONAL): the rating system ("US", "GB", "DE") stored when Restrictions are turned on, so that changing Online
+    /// Lookup's region afterwards (a setting the passcode does not guard) cannot change what is allowed. Nil until stored.
+    public var scaleRegion: String?
 
-    public init(enabled: Bool = false, movieTier: String? = nil, episodeTier: String? = nil, allowUnrated: Bool = false) {
+    public init(enabled: Bool = false, movieTier: String? = nil, episodeTier: String? = nil, allowUnrated: Bool = false, scaleRegion: String? = nil) {
         self.enabled = enabled
         self.movieTier = movieTier
         self.episodeTier = episodeTier
         self.allowUnrated = allowUnrated
+        self.scaleRegion = scaleRegion
     }
 
-    /// The rule the library applies; nil while Restrictions are off.
+    /// R460: the same settings with the rating system stored: the stored one stays, otherwise the lookup region's at this moment.
+    public func pinningScale(region: String?) -> ParentalSettings {
+        var copy = self
+        if copy.scaleRegion == nil { copy.scaleRegion = RatingScale.forRegion(region).region }
+        return copy
+    }
+
+    /// The rating system the page and the rule use: the stored one, else the lookup region's (before one is stored).
+    public func scale(region: String?) -> RatingScale { RatingScale.forRegion(scaleRegion ?? region) }
+
+    /// The rule the library applies; nil while Restrictions are off. `region` is only the fallback for a system not stored yet.
     public func rule(region: String?) -> LibraryRestrictions.RatingRule? {
         guard enabled else { return nil }
-        let scale = RatingScale.forRegion(region)
-        return LibraryRestrictions.RatingRule(movieLabels: scale.allowedMovies(upTo: movieTier),
-                                              episodeLabels: scale.allowedEpisodes(upTo: episodeTier),
+        let system = scale(region: region)
+        return LibraryRestrictions.RatingRule(movieLabels: system.allowedMovies(upTo: movieTier),
+                                              episodeLabels: system.allowedEpisodes(upTo: episodeTier),
                                               allowUnrated: allowUnrated)
     }
 }
@@ -98,11 +124,13 @@ public enum ParentalKeys {
     public static let movieTier = "vp.restrict.movie"
     public static let episodeTier = "vp.restrict.episode"
     public static let allowUnrated = "vp.restrict.unrated"
-    public static var all: [String] { [enabled, movieTier, episodeTier, allowUnrated] }
+    public static let scale = "vp.restrict.scale"
+    public static var all: [String] { [enabled, movieTier, episodeTier, allowUnrated, scale] }
 
     public static func read(_ defaults: UserDefaults = .standard) -> ParentalSettings {
         ParentalSettings(enabled: defaults.bool(forKey: enabled), movieTier: defaults.string(forKey: movieTier),
-                         episodeTier: defaults.string(forKey: episodeTier), allowUnrated: defaults.bool(forKey: allowUnrated))
+                         episodeTier: defaults.string(forKey: episodeTier), allowUnrated: defaults.bool(forKey: allowUnrated),
+                         scaleRegion: defaults.string(forKey: scale))
     }
 }
 
@@ -233,10 +261,30 @@ public final class ParentalPIN: @unchecked Sendable {
 public enum ParentalText {
     public static let title = "Parental Controls"
     public static let restrictions = "Restrictions"
-    public static let footer = "While on, titles above the allowed ratings are not shown anywhere in the app, and Discover is off. The passcode stays on this device."
+    public static let footer = "While on, titles above the allowed ratings are hidden. Discover and Fix Match, which list titles from outside your library, are off. The passcode stays on this device."
+    public static let systemFooter = "The rating system is saved when Restrictions are turned on. Changing the region in Online Lookup does not change it."
+    public static let ratingSystem = "Rating System"
+    public static let withoutRating = "Titles Without a Rating"
     public static let unratedFooter = "Titles with no rating found are hidden unless this is on. Ratings are read from the server or the title's information file."
     public static func locked(until: Date, now: Date = Date()) -> String {
         let minutes = max(1, Int((until.timeIntervalSince(now) / 60).rounded(.up)))
         return "Too many tries. Try again in \(minutes) minute" + (minutes == 1 ? "." : "s.")
     }
+}
+
+// MARK: Surfaces that list titles outside the library (R460)
+
+/// The screens that list titles which are NOT in the library. A title outside the library has no rating the rule
+/// (`LibraryRestrictions.RatingRule`) can see, so while Restrictions are on every one of these is off and sends no request.
+/// The app asks `isAvailable` with `services.restrictionsOn` at each site; this list is the audit (OPEN_QUESTIONS R460).
+public enum OnlineTitleSurface: CaseIterable, Sendable {
+    /// The Search tab's Discover rows (trending, popular, similar to your library).
+    case discover
+    /// A Discover card's title page (where to watch, watchlist).
+    case discoverTitlePage
+    /// The Fix Match screen: it lists catalogue titles with their posters.
+    case fixMatchCandidates
+
+    /// False while Restrictions are on.
+    public func isAvailable(restricted: Bool) -> Bool { !restricted }
 }

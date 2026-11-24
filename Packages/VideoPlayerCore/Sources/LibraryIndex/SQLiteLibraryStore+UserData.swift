@@ -34,6 +34,19 @@ extension SQLiteLibraryStore {
                     [.int(id), .int(Int64(max(1, limit)))], Self.mapItem)
     }
 
+    /// R460: how many titles have no usable rating (none kept, or the source and the file say none), whatever the restrictions
+    /// say. A film counts by its own rating, an episode by its own or its show's: the same reading as the rating rule. The
+    /// Parental Controls page shows it as "Titles Without a Rating".
+    public func unratedCount() throws -> Int {
+        let expressions = LibraryRestrictions.ratingSQL()
+        let none = LibraryRestrictions.RatingRule.noRating.sorted()
+        let marks = Array(repeating: "?", count: none.count).joined(separator: ",")
+        let movie = Self.code(.movie)
+        let sql = "SELECT COUNT(*) FROM items i WHERE i.version_count > 0 AND i.review = 0 AND ((i.kind = \(movie) AND \(expressions.movie) IN (\(marks))) OR (i.kind <> \(movie) AND \(expressions.episode) IN (\(marks))))"
+        let list: [SQLValue] = none.map { SQLValue.text($0) }
+        return try db.first(sql, list + list, cached: false) { $0.int(0) } ?? 0
+    }
+
     /// Items created from now on take their watch state from the restored data. Cleared when the rescan has finished.
     public func clearPendingRestore() { pendingWatch = [:] }
     public var pendingRestoreCount: Int { pendingWatch.count }

@@ -17,12 +17,13 @@ struct ParentalControlsView: View {
     @State private var enableAfterCreate = false
     @State private var message: String?
     @State private var clearCount = 0
-    @State private var reading = false
     @State private var readCount: Int?
+    @State private var unrated: Int?
 
     enum Entry: Equatable { case unlock, create, confirm(String) }
 
-    private var scale: RatingScale { RatingScale.forRegion(services.online.region) }
+    /// R460: the stored rating system, else the lookup region's (only until one is stored).
+    private var scale: RatingScale { settings.scale(region: services.online.region) }
 
     var body: some View {
         Group {
@@ -39,6 +40,8 @@ struct ParentalControlsView: View {
             started = true
             if services.parental.isSet { entry = .unlock }
         }
+        // R460: the count follows the library (a scan or a reading ends with a new revision).
+        .task(id: "\(services.libraryRevision)|\(services.isReadingRatings)") { unrated = await services.unratedTitleCount() }
     }
 
     // MARK: Page
@@ -54,6 +57,10 @@ struct ParentalControlsView: View {
                 Text(ParentalText.footer)
             }
             Section {
+                Picker(ParentalText.ratingSystem, selection: Binding(get: { scale.region },
+                                                                     set: { settings.scaleRegion = $0; settings.movieTier = nil; settings.episodeTier = nil; save() })) {
+                    ForEach(RatingScale.systems, id: \.region) { Text($0.name).tag($0.region) }
+                }
                 Picker("Allowed Movie Ratings", selection: Binding(get: { settings.movieTier ?? scale.movieDefault },
                                                                    set: { settings.movieTier = $0; save() })) {
                     ForEach(scale.movieTiers, id: \.title) { Text($0.title).tag($0.title) }
@@ -64,13 +71,14 @@ struct ParentalControlsView: View {
                 }
                 SettingToggle("Allow Unrated", isOn: Binding(get: { settings.allowUnrated }, set: { settings.allowUnrated = $0; save() }))
             } footer: {
-                Text(ParentalText.unratedFooter)
+                Text(ParentalText.systemFooter + " " + ParentalText.unratedFooter)
             }
             Section {
                 TaskButtonRow {
-                    TaskButton(reading ? "Reading Ratings" : "Read Ratings") { readRatings() }
-                        .disabled(reading)
+                    TaskButton(services.isReadingRatings ? "Reading Ratings" : "Read Ratings") { readRatings() }
+                        .disabled(services.isReadingRatings)
                 }
+                if let unrated { ValueRow(ParentalText.withoutRating, value: String(unrated)).readableRow() }
                 if let readCount { ValueRow("Ratings Found", value: String(readCount)).readableRow() }
             } footer: {
                 Text("Reads the rating of every title that has none kept yet. This can take a while.")
@@ -102,12 +110,7 @@ struct ParentalControlsView: View {
     }
 
     private func readRatings() {
-        reading = true
-        Task {
-            readCount = await services.online.readRatings()
-            reading = false
-            await services.setParental(settings)
-        }
+        Task { readCount = await services.readRatings() }
     }
 
     private func handle(_ digits: String, for current: Entry) {
@@ -166,9 +169,8 @@ struct PINEntryView: UIViewControllerRepresentable {
         controller.isSecureDigitEntry = true
         controller.titleText = title
         controller.promptText = prompt
-        controller.entryCompletionHandler = { digits in
-            if let digits { onComplete(digits) }
-        }
+        // Apple: `var entryCompletionHandler: (String) -> Void` (tvOS 12.0+): the digits are not optional.
+        controller.entryCompletionHandler = { digits in onComplete(digits) }
         context.coordinator.cleared = clearCount
         return controller
     }
@@ -176,9 +178,8 @@ struct PINEntryView: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: TVDigitEntryViewController, context: Context) {
         controller.titleText = title
         controller.promptText = prompt
-        controller.entryCompletionHandler = { digits in
-            if let digits { onComplete(digits) }
-        }
+        // Apple: `var entryCompletionHandler: (String) -> Void` (tvOS 12.0+): the digits are not optional.
+        controller.entryCompletionHandler = { digits in onComplete(digits) }
         if context.coordinator.cleared != clearCount {
             context.coordinator.cleared = clearCount
             controller.clearEntry(animated: true)

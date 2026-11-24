@@ -134,6 +134,29 @@ final class ParentalRatingTests: XCTestCase {
         XCTAssertTrue(continueNone.allSatisfy { $0.seriesID != seriesID })
     }
 
+    func testTheCountOfTitlesWithoutARatingReadsFilmsAndEpisodesLikeTheRule() async throws {
+        let h = try await library()
+        defer { h.cleanup() }
+        let all = try await h.store.page(ItemQuery(), limit: 100, after: nil).items
+        let total = all.count
+        let before = try await h.store.unratedCount()
+        XCTAssertEqual(before, total, "nothing is rated yet")
+        try await rate(h, "Kidfilm", "US:G")
+        try await rate(h, "Darkfilm", "Not Rated")
+        let afterFilms = try await h.store.unratedCount()
+        XCTAssertEqual(afterFilms, total - 1, "a rated film leaves the count; \"Not Rated\" stays in it")
+        // One episode's rating is the whole show's.
+        let episodes = all.filter { $0.seriesTitle == "Show One" }
+        let first = try XCTUnwrap(episodes.first)
+        try await h.store.setMetadata(itemID: first.id, ItemMetadata(contentRating: "TV-14"))
+        let afterShow = try await h.store.unratedCount()
+        XCTAssertEqual(afterShow, total - 1 - episodes.count)
+        // Restrictions do not change the count: it is the number of titles the reading still lacks an answer for.
+        await h.store.setRestrictions(LibraryRestrictions(ratings: rule))
+        let restricted = try await h.store.unratedCount()
+        XCTAssertEqual(restricted, afterShow)
+    }
+
     func testTheRatingRuleAndAHiddenSourceWorkTogetherAndOffChangesNothing() async throws {
         let h = try await library()
         defer { h.cleanup() }

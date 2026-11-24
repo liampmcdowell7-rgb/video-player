@@ -57,6 +57,8 @@ final class AppServices {
     var libraryRevision = 0
     /// R459: Restrictions are on (read from this device's settings; Discover and online suggestions are off meanwhile).
     private(set) var restrictionsOn = ParentalKeys.read().enabled
+    /// R460: the rating pass is running (the page shows it and the Read Ratings button waits).
+    private(set) var isReadingRatings = false
     /// R459: the passcode and its lockout, in this device's Keychain.
     @ObservationIgnored let parental = ParentalPIN(store: KeychainPINStore())
     var pendingLink: DeepLink?
@@ -223,6 +225,9 @@ final class AppServices {
             libraryRevision += 1
             backup.libraryChanged()
             await writeTopShelf()
+            // R460: while Restrictions are on, a new title is read for its rating by this scan, so it does not wait hidden
+            // for the button (the lists are read again when the reading ends).
+            if restrictionsOn { await readRatings() }
         }
         // Stored before the first suspension: this method and the task body both run on the main actor, so the body cannot
         // start before the handle is here, and a later cancel always finds it. The syncer reads `Task.isCancelled` at every
@@ -318,7 +323,12 @@ final class AppServices {
     /// The library's one rule of which titles show: hidden sources (R458) and the rating rule of Parental Controls (R459).
     /// Restrictions that are on stay on when the passcode record is gone (the rule fails closed).
     func applyRestrictions() async {
-        let settings = ParentalKeys.read()
+        var settings = ParentalKeys.read()
+        if settings.enabled, settings.scaleRegion == nil {
+            // R460: Restrictions that were turned on before the rating system was stored keep today's system from now on.
+            settings = settings.pinningScale(region: online.region)
+            UserDefaults.standard.set(settings.scaleRegion, forKey: ParentalKeys.scale)
+        }
         restrictionsOn = settings.enabled
         await sqlite.setRestrictions(LibraryRestrictions(hiddenSourceIDs: HideSourceOption.hiddenIDs(definitions),
                                                          ratings: settings.rule(region: online.region)))
@@ -328,8 +338,14 @@ final class AppServices {
 
     /// Saves the Parental Controls settings on this device only (never the user data) and applies them everywhere at once:
     /// every list, Continue Watching and Next Up, and the Top Shelf are read again.
-    func setParental(_ settings: ParentalSettings) async {
+    func setParental(_ requested: ParentalSettings) async {
         let defaults = UserDefaults.standard
+        let wasOn = restrictionsOn
+        var settings = requested
+        // R460: the rating system is stored when Restrictions are turned on (the lookup region's at that moment) and is
+        // forgotten when they are turned off, so the next time starts from the region again.
+        if settings.enabled { settings = settings.pinningScale(region: online.region) } else if wasOn { settings.scaleRegion = nil }
+        if let region = settings.scaleRegion { defaults.set(region, forKey: ParentalKeys.scale) } else { defaults.removeObject(forKey: ParentalKeys.scale) }
         defaults.set(settings.enabled, forKey: ParentalKeys.enabled)
         defaults.set(settings.allowUnrated, forKey: ParentalKeys.allowUnrated)
         if let tier = settings.movieTier { defaults.set(tier, forKey: ParentalKeys.movieTier) } else { defaults.removeObject(forKey: ParentalKeys.movieTier) }
@@ -337,7 +353,25 @@ final class AppServices {
         await applyRestrictions()
         libraryRevision += 1
         await writeTopShelf()
+        // R460: turning Restrictions on starts reading the ratings of the titles already there, in the background.
+        if settings.enabled, !wasOn { Task { _ = await readRatings() } }
     }
+
+    /// R460: reads the rating of every title that has none kept yet and shows the lists again. One reading at a time; a second
+    /// call while one runs returns 0 at once.
+    @discardableResult
+    func readRatings() async -> Int {
+        guard !isReadingRatings else { return 0 }
+        isReadingRatings = true
+        let found = await online.readRatings()
+        isReadingRatings = false
+        libraryRevision += 1
+        await writeTopShelf()
+        return found
+    }
+
+    /// R460: the number of titles with no usable rating (the page's "Titles Without a Rating").
+    func unratedTitleCount() async -> Int { (try? await sqlite.unratedCount()) ?? 0 }
 
     func setSourceHidden(_ hidden: Bool, for definition: UDSourceDefinition) async {
         try? await definitionSaver.saveDefinition(HideSourceOption.setting(hidden, on: definition))

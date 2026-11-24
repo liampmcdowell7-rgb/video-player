@@ -63,6 +63,48 @@ final class ParentalControlsTests: XCTestCase {
         XCTAssertEqual(ParentalSettings(enabled: true).rule(region: "US")?.allowUnrated, false, "unrated hidden by default")
     }
 
+    // MARK: R460: the rating system is stored, and surfaces outside the library are off
+
+    func testChangingTheRegionAfterTurningRestrictionsOnDoesNotChangeWhatIsAllowed() {
+        // Turned on while the lookup region was US: the system is stored then.
+        let on = ParentalSettings(enabled: true).pinningScale(region: "US")
+        XCTAssertEqual(on.scaleRegion, "US")
+        let before = on.rule(region: "US")
+        // The region setting is not behind the passcode and changes to GB and to DE: the allowed labels stay the same.
+        XCTAssertEqual(on.rule(region: "GB"), before)
+        XCTAssertEqual(on.rule(region: "DE"), before)
+        XCTAssertEqual(on.rule(region: "GB")?.movieLabels, ["G", "PG", "PG13"])
+        // Pinning again later keeps the stored system; it never follows the region.
+        XCTAssertEqual(on.pinningScale(region: "GB").scaleRegion, "US")
+        // Before a system is stored the region is the fallback, and the default for the first pin.
+        XCTAssertEqual(ParentalSettings(enabled: true).rule(region: "GB")?.movieLabels, ["U", "PG", "12", "12A"])
+        XCTAssertEqual(ParentalSettings(enabled: true).pinningScale(region: "DE").scaleRegion, "DE")
+        XCTAssertEqual(ParentalSettings(enabled: true).pinningScale(region: "BR").scaleRegion, "US", "an unknown region stores the US system")
+    }
+
+    func testTheRatingSystemRowOffersThreeSystemsInWordsAndIsReadFromTheDeviceKey() {
+        XCTAssertEqual(RatingScale.systems.map(\.region), ["US", "GB", "DE"])
+        XCTAssertEqual(RatingScale.systems.map(\.name), ["United States", "United Kingdom", "Germany"])
+        let device = UserDefaults(suiteName: "parental-scale-\(UUID().uuidString)")!
+        device.set("DE", forKey: ParentalKeys.scale)
+        XCTAssertEqual(ParentalKeys.read(device).scaleRegion, "DE")
+        XCTAssertTrue(ParentalKeys.all.contains(ParentalKeys.scale))
+        XCTAssertNil(AppPreference(rawValue: ParentalKeys.scale), "the system is device-only like the other keys")
+    }
+
+    func testEverySurfaceThatListsTitlesOutsideTheLibraryIsOffWhileRestrictionsAreOn() {
+        XCTAssertEqual(OnlineTitleSurface.allCases.count, 3)
+        for surface in OnlineTitleSurface.allCases {
+            XCTAssertFalse(surface.isAvailable(restricted: true), "\(surface)")
+            XCTAssertTrue(surface.isAvailable(restricted: false), "\(surface)")
+        }
+        // The Search tab: with Discover off for Restrictions the empty field shows the plain prompt and loads nothing.
+        let shown = OnlineTitleSurface.discover.isAvailable(restricted: true)
+        XCTAssertEqual(SearchTabContent.forQuery("", showDiscover: true && shown), .prompt)
+        XCTAssertFalse(SearchTabContent.forQuery("", showDiscover: true && shown).loadsDiscover)
+        XCTAssertTrue(SearchTabContent.forQuery("", showDiscover: true && OnlineTitleSurface.discover.isAvailable(restricted: false)).loadsDiscover)
+    }
+
     func testRatingTextIsReadTheSameWhateverTheSourceWroteIt() {
         for text in ["PG-13", "Rated PG-13", "US:PG-13", "pg 13", "  PG13 "] {
             XCTAssertEqual(LibraryRestrictions.RatingRule.normalize(text), "PG13", text)
@@ -163,6 +205,7 @@ final class ParentalControlsTests: XCTestCase {
         let device = UserDefaults(suiteName: "parental-test-\(UUID().uuidString)")!
         device.set(true, forKey: ParentalKeys.enabled)
         device.set("PG", forKey: ParentalKeys.movieTier)
+        device.set("GB", forKey: ParentalKeys.scale)
         device.set("4821", forKey: "parentalPIN")   // what a careless future change might do: even then it cannot travel
         device.set(record.hash, forKey: "passcodeHash")
         let stored: (String) -> UDValue? = { key in
@@ -176,7 +219,7 @@ final class ParentalControlsTests: XCTestCase {
         XCTAssertTrue(Set(ledger.settingValues().keys).isSubset(of: Set(AppPreference.synced).union([AppPreference.schemaKey])))
         // The user-data export is what the backup and the file export carry.
         let exported = String(data: try UDExport.export(ledger), encoding: .utf8) ?? ""
-        for forbidden in [ParentalKeys.enabled, ParentalKeys.movieTier, "parentalPIN", "passcodeHash", record.hash, record.salt, "4821"] {
+        for forbidden in [ParentalKeys.enabled, ParentalKeys.movieTier, ParentalKeys.scale, "parentalPIN", "passcodeHash", record.hash, record.salt, "4821"] {
             XCTAssertFalse(exported.contains(forbidden), forbidden)
         }
         // And the other direction: a record that names those keys sets nothing here.

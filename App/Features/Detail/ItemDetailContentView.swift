@@ -232,7 +232,10 @@ struct ItemDetailContentView: View {
             }
             Button("Edit", systemImage: "pencil", action: onEdit)
                 .accessibilityIdentifier(ControlID.editMetadata)
-            Button("Fix Match", systemImage: "magnifyingglass", action: onFixMatch)
+            // R460: Fix Match lists catalogue titles that are not in the library, so it is off while Restrictions are on.
+            if OnlineTitleSurface.fixMatchCandidates.isAvailable(restricted: services.restrictionsOn) {
+                Button("Fix Match", systemImage: "magnifyingglass", action: onFixMatch)
+            }
             // docs/SORTING.md: which rule put this title in Movies or Shows, with Move and Sort Automatically.
             Button("How This Was Sorted", systemImage: "arrow.up.arrow.down", action: onSortInfo)
             // R396 (audit E2): the show's page, reached from here now that the show's name above the title is text.

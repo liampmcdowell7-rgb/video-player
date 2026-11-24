@@ -27,7 +27,7 @@ struct SearchView: View {
 
     /// R459: Discover lists titles from online sources that are not in the library, so no rating rule reaches them; it is off
     /// while Parental Controls' Restrictions are on, and no discovery request is made.
-    private var content: SearchTabContent { .forQuery(query, showDiscover: showDiscover && !services.restrictionsOn) }
+    private var content: SearchTabContent { .forQuery(query, showDiscover: showDiscover && OnlineTitleSurface.discover.isAvailable(restricted: services.restrictionsOn)) }
 
     var body: some View {
         VStack(alignment: .leading) {

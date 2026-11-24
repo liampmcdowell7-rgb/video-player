@@ -43,6 +43,21 @@ public struct LibraryRestrictions: Equatable, Sendable {
         public static let noRating: Set<String> = ["", "NR", "UN", "NOT", "NA", "NONE", "UNKNOWN"]
     }
 
+    /// SQL twin of `RatingRule.normalize`: capitals, no spaces or hyphens, no "RATED", then the text after a colon (with no
+    /// colon, `instr` is 0 and `substr(x, 1)` is the whole text).
+    static func normalizedSQL(_ raw: String) -> String {
+        let inner = "REPLACE(UPPER(REPLACE(REPLACE(TRIM(\(raw)),' ',''),'-','')),'RATED','')"
+        return "substr(\(inner), instr(\(inner),':') + 1)"
+    }
+
+    /// The normalised rating of a film (its own) and of an episode (its own, else another episode's of the same show) for items
+    /// aliased `i`. The rule and the count of unrated titles both read these two, so they cannot disagree.
+    static func ratingSQL(alias i: String = "i") -> (movie: String, episode: String) {
+        let own = "COALESCE(\(i).content_rating,'')"
+        let inherited = "COALESCE(NULLIF(TRIM(\(i).content_rating),''), (SELECT s.content_rating FROM items s WHERE s.series_id = \(i).series_id AND TRIM(COALESCE(s.content_rating,'')) <> '' LIMIT 1), '')"
+        return (normalizedSQL(own), normalizedSQL(inherited))
+    }
+
     /// The SQL terms (joined with AND by the caller) and their arguments for items aliased `alias`.
     func terms(alias i: String = "i") -> (sql: [String], args: [SQLValue]) {
         var sql: [String] = []
@@ -53,21 +68,14 @@ public struct LibraryRestrictions: Equatable, Sendable {
             args += hiddenSourceIDs.sorted().map { .text($0) }
         }
         if let rule = ratings {
-            // SQL twin of `RatingRule.normalize`: capitals, no spaces or hyphens, no "RATED", then the text after a colon (with no
-            // colon, `instr` is 0 and `substr(x, 1)` is the whole text).
-            func norm(_ raw: String) -> String {
-                let inner = "REPLACE(UPPER(REPLACE(REPLACE(TRIM(\(raw)),' ',''),'-','')),'RATED','')"
-                return "substr(\(inner), instr(\(inner),':') + 1)"
-            }
             func clause(_ x: String, labels: Set<String>) -> (String, [SQLValue]) {
                 let list = (rule.allowUnrated ? labels.union(RatingRule.noRating) : labels).sorted()
                 let marks = list.isEmpty ? "NULL" : Array(repeating: "?", count: list.count).joined(separator: ",")
                 return ("\(x) IN (\(marks))", list.map { .text($0) })
             }
-            let own = "COALESCE(\(i).content_rating,'')"
-            let inherited = "COALESCE(NULLIF(TRIM(\(i).content_rating),''), (SELECT s.content_rating FROM items s WHERE s.series_id = \(i).series_id AND TRIM(COALESCE(s.content_rating,'')) <> '' LIMIT 1), '')"
-            let (movieSQL, movieArgs) = clause(norm(own), labels: rule.movieLabels)
-            let (episodeSQL, episodeArgs) = clause(norm(inherited), labels: rule.episodeLabels)
+            let expressions = Self.ratingSQL(alias: i)
+            let (movieSQL, movieArgs) = clause(expressions.movie, labels: rule.movieLabels)
+            let (episodeSQL, episodeArgs) = clause(expressions.episode, labels: rule.episodeLabels)
             sql.append("((\(i).kind = \(SQLiteLibraryStore.code(.movie)) AND \(movieSQL)) OR (\(i).kind <> \(SQLiteLibraryStore.code(.movie)) AND \(episodeSQL)))")
             args += movieArgs + episodeArgs
         }

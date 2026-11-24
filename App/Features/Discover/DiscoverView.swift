@@ -44,7 +44,8 @@ final class DiscoverLoader {
 
     func reload() async {
         guard let services else { return }
-        var source: (any DiscoverDataSource)? = services.online.discoverSource
+        // R460: titles outside the library have no rating the rule can see, so no source is used while Restrictions are on.
+        var source: (any DiscoverDataSource)? = OnlineTitleSurface.discover.isAvailable(restricted: services.restrictionsOn) ? services.online.discoverSource : nil
         var library: any DiscoverLibraryProviding = StoreDiscoverLibrary(store: services.store)
         #if DEBUG
         // R342: the screenshot job's invented Discover (`-UITestFakeDiscover`; no key, no network). Not in Release.
