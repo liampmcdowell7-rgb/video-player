@@ -129,6 +129,22 @@ extension ScreenChecksTests {
         XCTAssertTrue(detail.contains("var lines: Int = 3"), "the show page's info block keeps three")
     }
 
+    /// R471 (48): cards, backdrops and cast photos are decoded at their display size, not whole (no AsyncImage left there).
+    func testPicturesAreDecodedAtTheirDisplaySize() throws {
+        guard let fitted = try appSource("App/Shared/FittedImage.swift"),
+              let artwork = try appSource("App/Shared/ArtworkView.swift"),
+              let backdrop = try appSource("App/Shared/BackdropView.swift"),
+              let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift") else { return }
+        XCTAssertTrue(fitted.contains("CGImageSourceCreateThumbnailAtIndex(source, 0, options)"))
+        XCTAssertTrue(fitted.contains("kCGImageSourceShouldCacheImmediately: true"), "decoded off the main thread, before it is drawn")
+        XCTAssertTrue(fitted.contains("ImageSizing.maxPixelSize("))
+        XCTAssertTrue(fitted.contains("if new != size { size = new }"), "the size is written only when it changes")
+        for (name, text) in [("ArtworkView", artwork), ("BackdropView", backdrop), ("ItemDetailContentView", detail)] {
+            XCTAssertTrue(text.contains("FittedImage(url: url, session: services.online.imageSession)"), name)
+            XCTAssertFalse(text.contains("AsyncImage("), "\(name) still decodes whole files")
+        }
+    }
+
     /// R471 (45): a cast name is headline size (as the About title), its role caption and secondary (as the genre line).
     func testCastNamesMatchTheAboutTitle() throws {
         guard let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift") else { return }

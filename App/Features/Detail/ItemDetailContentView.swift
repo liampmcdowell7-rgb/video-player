@@ -682,16 +682,16 @@ private struct CastCaption: View {
 private struct CastPhoto: View {
     let url: URL?
     let name: String
+    @Environment(AppServices.self) private var services
 
     var body: some View {
         Group {
             if let url {
-                AsyncImage(url: url) { phase in
-                    if case .success(let image) = phase {
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } else {
-                        placeholder
-                    }
+                // R471 (48): decoded at the circle's pixels, through the capped image session (`FittedImage`).
+                FittedImage(url: url, session: services.online.imageSession) { image in
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    placeholder
                 }
             } else {
                 placeholder

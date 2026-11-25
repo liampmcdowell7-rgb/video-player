@@ -33,15 +33,12 @@ struct ArtworkView: View {
     private var content: some View {
         switch result {
         case .file(let url), .remote(let url):
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().aspectRatio(contentMode: .fill)
-                default:
-                    placeholder
-                }
+            // R471 (48): decoded at the card's own pixels (`FittedImage`), not the whole file.
+            FittedImage(url: url, session: services.online.imageSession) { image in
+                image.resizable().aspectRatio(contentMode: .fill)
+            } placeholder: {
+                placeholder
             }
-            .asyncImageURLSession(services.online.imageSession)
         case .none:
             placeholder
         }

@@ -106,11 +106,12 @@ struct BackdropView: View {
     private var picture: some View {
         switch result {
         case .file(let url), .remote(let url):
-            AsyncImage(url: url) { phase in
-                if case .success(let image) = phase {
-                    image.resizable().aspectRatio(contentMode: .fill)
-                        .overlay { cover }
-                }
+            // R471 (48): decoded at the screen's pixels (`FittedImage`): a 4K fan-art file is not held whole behind the page.
+            FittedImage(url: url, session: services.online.imageSession) { image in
+                image.resizable().aspectRatio(contentMode: .fill)
+                    .overlay { cover }
+            } placeholder: {
+                EmptyView()
             }
         case .none:
             #if DEBUG
