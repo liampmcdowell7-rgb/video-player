@@ -164,6 +164,10 @@ struct ItemDetailContentView: View {
         }
         // R471 item 7: Related, from the library only (no online lookup), again when the genres or the library change.
         .task(id: "\((details?.genres ?? []).joined(separator: "|"))|\(services.libraryRevision)") {
+            // R471 (25): the movie's genres go to the library first, so other pages can match it (nothing wrote them before).
+            if content.kind == .movie {
+                await services.genreRecorder.record(details?.genres ?? [], itemIDs: [content.itemID], store: services.store)
+            }
             guard content.kind == .movie, let query = RelatedTitles.query(kind: .movie, genres: details?.genres ?? []),
                   let found = try? await services.store.page(query, limit: RelatedTitles.candidateLimit, offset: 0) else {
                 related = []

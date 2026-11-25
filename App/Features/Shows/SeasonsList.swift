@@ -32,6 +32,8 @@ struct SeasonsList: View {
     /// #22 B (OPEN_QUESTIONS R193): the show's synopsis and cast, from the same details lookup as the movie page. Nil (no
     /// key, no match, or both empty) draws nothing: no empty band (rule L6).
     @State private var details: TitleDetails?
+    /// R471 (25): the library's other shows that share a genre with this one (`RelatedShows`).
+    @State private var relatedShows: [SeriesSummary] = []
     /// R452: where the title begins, for the cover behind it.
     @State private var textTop: CGFloat?
     /// R471 item 1: the page is scrolled below its hero (the backdrop is the blurred copy).
@@ -179,8 +181,12 @@ struct SeasonsList: View {
                 if let cast = details?.cast, !cast.isEmpty {
                     CastShelf(cast: cast)
                 }
+                // R471 (25): Related, from the library's own shows, between the cast and About as on the movie page.
+                if !relatedShows.isEmpty {
+                    RelatedShowsShelf(shows: relatedShows)
+                }
                 // R471 item 6 (frames show t16s to t20s): About, then the columns; each only with data. How to Watch and its
-                // "Seasons" line were removed by the owner (R471 (21)): About follows the cast directly.
+                // "Seasons" line were removed by the owner (R471 (21)).
                 let guidance: AgeGuidance? = AgeGuidance.make(rating: details?.contentRating, layer: ratingLayer,
                                                               descriptors: details?.contentDescriptors ?? [])
                 if details?.overview != nil || guidance != nil {
@@ -230,6 +236,13 @@ struct SeasonsList: View {
             ratingLayer = layered.ratingLayer
             showStars = services.ledger.rating(for: EditTarget.showKeys(tmdbID: showTMDB, title: content.seriesTitle))
             showRef = await services.titleRef(seriesID: seriesID)
+        }
+        // R471 (25): the show's genres go to its episodes in the library (so other pages can match it), then Related is
+        // found from the library only (no online lookup), again when the genres or the library change.
+        .task(id: "\((details?.genres ?? []).joined(separator: "|"))|\(services.libraryRevision)") {
+            let genres = details?.genres ?? []
+            await services.genreRecorder.record(genres, itemIDs: content.seasons.flatMap { $0.episodes.map(\.id) }, store: services.store)
+            relatedShows = (try? await RelatedShows.find(seriesID: seriesID, genres: genres, store: services.store)) ?? []
         }
         .taskCover(item: Binding(get: { editRequest }, set: { new in
             if new == nil, editRequest != nil { editRevision += 1 }

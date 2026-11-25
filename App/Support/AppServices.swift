@@ -249,6 +249,8 @@ final class AppServices {
     @ObservationIgnored private var scanTask: Task<Void, Never>?
     /// Needs Review files already checked online in this launch (not sent again until the next launch).
     @ObservationIgnored private var onlineSortTried: Set<String> = []
+    /// R471 (25): keeps the genres a title page has read in the library, for Related on the movie and show pages.
+    let genreRecorder = GenreRecorder()
 
     /// One pass over every source. Each file is sorted on its own (docs/SORTING.md): Move choices come from the ledger,
     /// the source's "Sort by filename" setting is applied, and every decision is logged (category "Sorting").
