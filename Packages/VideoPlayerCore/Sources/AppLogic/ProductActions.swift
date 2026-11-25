@@ -92,8 +92,7 @@ public enum ProductAction: String, CaseIterable, Sendable {
         // R471 (18): Refresh Details is built (one title's kept online answers dropped and fetched again).
         // R471 (19): Analyze File is built (streams read again; an episode's intro and credits found again).
         // R471 (20): Play History is built (one entry per playback in the user layer; Clear asks first).
-        case .audio, .subtitles:
-            return false
+        // R471 (38): Audio and Subtitles are built (the file's own tracks; a pick is kept for this title).
         default:
             return true
         }
@@ -137,6 +136,8 @@ public struct ProductActionContext: Equatable, Sendable {
     /// Matched to the catalogue (TMDB id known): the watchlist and Unmatch need it.
     public var matched: Bool = false
     public var hasFile: Bool = false
+    /// R471 (38): the preferred file's tracks have been read (the Audio and Subtitles rows list them).
+    public var hasTracks: Bool = false
     public var versionCount: Int = 0
     /// Fix Match is off while Restrictions are on (R460).
     public var fixMatchAllowed: Bool = true
@@ -153,6 +154,7 @@ public enum ProductActions {
         switch c.kind {
         case .movie:
             out += c.started ? [.resume, .restart] : []
+            out += [.audio, .subtitles]
             if c.matched { out.append(c.onWatchlist ? .removeFromWatchlist : .addToWatchlist) }
             out += [.addToList, .addToPlaylistOrCollection, .rate]
             out.append(c.watched ? .markUnwatched : .markWatched)
@@ -197,7 +199,14 @@ public enum ProductActions {
     /// What the details button shows: the built actions only; Manage only when something inside it is built.
     public static func list(_ c: ProductActionContext) -> [ProductAction] {
         let builtManage = manage(c).filter(\.isBuilt)
-        return all(c).filter { $0 == .manage ? !builtManage.isEmpty : $0.isBuilt }
+        return all(c).filter { action in
+            switch action {
+            case .manage: return !builtManage.isEmpty
+            // R471 (38): only once the file's tracks are known.
+            case .audio, .subtitles: return c.hasTracks
+            default: return action.isBuilt
+            }
+        }
     }
 
     public static func manageList(_ c: ProductActionContext) -> [ProductAction] { manage(c).filter(\.isBuilt) }

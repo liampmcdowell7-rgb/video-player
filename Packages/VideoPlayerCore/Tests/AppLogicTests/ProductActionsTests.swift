@@ -6,10 +6,10 @@ final class ProductActionsTests: XCTestCase {
     func testAMoviesFullListIsTheOwnersOrder() {
         var c = ProductActionContext(kind: .movie)
         c.started = true; c.matched = true; c.hasFile = true; c.versionCount = 2
-        XCTAssertEqual(ProductActions.all(c), [.resume, .restart, .addToWatchlist, .addToList, .addToPlaylistOrCollection, .rate,
-                                              .markWatched, .manage, .fileInfo, .moreWaysToWatch])
+        XCTAssertEqual(ProductActions.all(c), [.resume, .restart, .audio, .subtitles, .addToWatchlist, .addToList,
+                                              .addToPlaylistOrCollection, .rate, .markWatched, .manage, .fileInfo, .moreWaysToWatch])
         c.onWatchlist = true; c.watched = true; c.started = false
-        XCTAssertEqual(Array(ProductActions.all(c).prefix(2)), [.removeFromWatchlist, .addToList])
+        XCTAssertEqual(Array(ProductActions.all(c).prefix(3)), [.audio, .subtitles, .removeFromWatchlist])
         XCTAssertTrue(ProductActions.all(c).contains(.markUnwatched))
     }
 

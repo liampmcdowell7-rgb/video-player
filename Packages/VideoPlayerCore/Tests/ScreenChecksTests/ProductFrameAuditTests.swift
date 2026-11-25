@@ -42,4 +42,20 @@ extension ScreenChecksTests {
         XCTAssertTrue(series.contains("startSeason: startSeason)"))
         XCTAssertTrue(seasons.contains("chosen: chosenSeason ?? startSeason"), "the person's own tab choice still wins")
     }
+
+    /// R471 (38): the actions menu's Audio and Subtitles rows list the file's tracks, and the player applies a title's own pick.
+    func testAudioAndSubtitlesInTheMenuReachThePlayer() throws {
+        guard let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift"),
+              let menu = try appSource("App/Features/Detail/TrackChoiceMenu.swift"),
+              let start = try appSource("App/Features/Player/StartTrackChoice.swift"),
+              let player = try appSource("App/Features/Player/PlayerCoordinator.swift") else { return }
+        XCTAssertTrue(detail.contains("case .audio, .subtitles:"))
+        XCTAssertTrue(detail.contains("TrackChoiceMenu(kind:"))
+        XCTAssertTrue(detail.contains("c.hasTracks ="))
+        XCTAssertTrue(menu.contains(".pickerStyle(.menu)"), "a system menu picker, not custom rows")
+        XCTAssertTrue(menu.contains("StartTrackChoice.keep(choice, itemID: itemID)"))
+        XCTAssertTrue(start.contains("ItemTrackMenu.startChoice(item: itemChoice(itemID"), "a title's own pick wins at the start")
+        XCTAssertTrue(player.contains("StartTrackChoice.apply(to: item, seriesTitle: resolved.content.seriesTitle, itemID: itemID)"))
+        XCTAssertTrue(player.contains("StartTrackChoice.remember(from: item, seriesTitle: resolved.content.seriesTitle, itemID: itemID)"))
+    }
 }

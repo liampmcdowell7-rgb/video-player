@@ -1,6 +1,7 @@
 import AVFoundation
 import AppLogic
 import Subtitles
+import LibraryIndex
 
 /// R458: at the start of a playback the stored defaults (Settings > Language > Audio and Subtitles, Playback > Subtitles) pick
 /// the audio and subtitle option of the system player's own item. The choice a person made for this show earlier wins; with
@@ -16,11 +17,13 @@ enum StartTrackChoice {
         var subtitles: [SubtitleTrackInfo] = []
     }
 
-    static func apply(to item: AVPlayerItem, seriesTitle: String?, defaults: UserDefaults = .standard) async {
+    static func apply(to item: AVPlayerItem, seriesTitle: String?, itemID: Int64? = nil, defaults: UserDefaults = .standard) async {
         let audioStored = defaults.string(forKey: AppPreference.audioLanguage.rawValue)
         let subtitleStored = defaults.string(forKey: AppPreference.subtitleLanguage.rawValue)
         let mode = SubtitleMode(rawValue: defaults.string(forKey: AppPreference.subtitleMode.rawValue) ?? "") ?? .auto
-        let remembered = rememberedChoice(for: seriesTitle, defaults: defaults)
+        // R471 (38): a choice made for this title in its actions menu wins over the show's.
+        let remembered = ItemTrackMenu.startChoice(item: itemChoice(itemID, defaults: defaults),
+                                                   series: rememberedChoice(for: seriesTitle, defaults: defaults))
         if remembered == nil, StartTrackRules.usesSystemChoice(audio: audioStored, subtitleLanguage: subtitleStored, mode: mode) { return }
         let lists = await read(item)
         let system = Locale.preferredLanguages
@@ -42,8 +45,11 @@ enum StartTrackChoice {
     }
 
     /// Keeps what the person picked in the player for this show (Remember Audio and Subtitle Choice for Each Show).
-    static func remember(from item: AVPlayerItem, seriesTitle: String?, defaults: UserDefaults = .standard) async {
-        guard let seriesTitle, defaults.object(forKey: SettingsKey.rememberTrackChoicePerShow.rawValue) as? Bool ?? true else { return }
+    static func remember(from item: AVPlayerItem, seriesTitle: String?, itemID: Int64? = nil, defaults: UserDefaults = .standard) async {
+        // R471 (38): a title with its own choice keeps the one made in the player too, so the menu shows what was last heard.
+        let keepsItem = itemChoice(itemID, defaults: defaults) != nil
+        let keepsSeries = seriesTitle != nil && (defaults.object(forKey: SettingsKey.rememberTrackChoicePerShow.rawValue) as? Bool ?? true)
+        guard keepsItem || keepsSeries else { return }
         let lists = await read(item)
         let selection = item.currentMediaSelection
         let audio = lists.audioGroup.flatMap { group in
@@ -53,7 +59,31 @@ enum StartTrackChoice {
             selection.selectedMediaOption(in: group).flatMap { group.options.firstIndex(of: $0) }
         }.flatMap { index in lists.subtitles.first { $0.id == String(index) } }
         let choice = SeriesTrackChoice(audio: audio, subtitle: subtitle)
-        if let data = try? JSONEncoder().encode(choice) { defaults.set(data, forKey: StartTrackRules.rememberKey(seriesTitle: seriesTitle)) }
+        guard let data = try? JSONEncoder().encode(choice) else { return }
+        if keepsSeries, let seriesTitle { defaults.set(data, forKey: StartTrackRules.rememberKey(seriesTitle: seriesTitle)) }
+        if keepsItem, let itemID { defaults.set(data, forKey: ItemTrackMenu.storeKey(itemID: itemID)) }
+    }
+
+    /// R471 (38): the Audio and Subtitles rows of a title's actions menu, with the track playback would start with selected.
+    static func menuState(tracks: FileTrackDetails, itemID: Int64, seriesTitle: String?, defaults: UserDefaults = .standard) -> ItemTrackMenuState {
+        let system = Locale.preferredLanguages
+        let mode = SubtitleMode(rawValue: defaults.string(forKey: AppPreference.subtitleMode.rawValue) ?? "") ?? .auto
+        return ItemTrackMenu.state(
+            tracks: tracks,
+            audioLanguage: TrackLanguageChoice.tag(stored: defaults.string(forKey: AppPreference.audioLanguage.rawValue), system: system),
+            subtitleLanguage: TrackLanguageChoice.tag(stored: defaults.string(forKey: AppPreference.subtitleLanguage.rawValue), system: system),
+            mode: mode, itemChoice: itemChoice(itemID, defaults: defaults),
+            seriesChoice: rememberedChoice(for: seriesTitle, defaults: defaults))
+    }
+
+    /// R471 (38): keeps a pick from the actions menu for this title only.
+    static func keep(_ choice: SeriesTrackChoice, itemID: Int64, defaults: UserDefaults = .standard) {
+        if let data = try? JSONEncoder().encode(choice) { defaults.set(data, forKey: ItemTrackMenu.storeKey(itemID: itemID)) }
+    }
+
+    private static func itemChoice(_ itemID: Int64?, defaults: UserDefaults) -> SeriesTrackChoice? {
+        guard let itemID, let data = defaults.data(forKey: ItemTrackMenu.storeKey(itemID: itemID)) else { return nil }
+        return try? JSONDecoder().decode(SeriesTrackChoice.self, from: data)
     }
 
     private static func rememberedChoice(for seriesTitle: String?, defaults: UserDefaults) -> SeriesTrackChoice? {

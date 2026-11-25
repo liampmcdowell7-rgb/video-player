@@ -352,7 +352,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     /// Runs once, when the item is ready to play (R311): the move to the saved position, play, then everything that may wait.
     private func begin() async {
         // R458: the stored language and subtitle defaults pick the options before the first frame; a show's own choice wins.
-        await StartTrackChoice.apply(to: item, seriesTitle: resolved.content.seriesTitle)
+        await StartTrackChoice.apply(to: item, seriesTitle: resolved.content.seriesTitle, itemID: itemID)
         ignoreSelectionUntil = ProcessInfo.processInfo.systemUptime + 2
         // R458: Playback Speed. Apple: `defaultRate` is the rate `play()` starts at (tvOS 16 and later).
         player.defaultRate = PlaybackSpeed.rate(UserDefaults.standard.string(forKey: AppPreference.playbackSpeed.rawValue))
@@ -521,7 +521,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         guard !stopped else { return }
         // R458: a choice the person makes in the player is kept for this show (when Remember ... is on).
         if begun, ProcessInfo.processInfo.systemUptime > ignoreSelectionUntil {
-            await StartTrackChoice.remember(from: item, seriesTitle: resolved.content.seriesTitle)
+            await StartTrackChoice.remember(from: item, seriesTitle: resolved.content.seriesTitle, itemID: itemID)
         }
         await probe.refreshAudioSelection()
         if stats.isVisible { stats.update(from: probe, player: player) }

@@ -366,6 +366,8 @@ struct ItemDetailContentView: View {
         c.onWatchlist = onWatchlist
         c.matched = content.tmdbID != nil
         c.hasFile = !content.mediaInfo.isEmpty
+        // R471 (38): Audio and Subtitles once the preferred file's tracks are read.
+        c.hasTracks = content.tracks.map { !$0.audio.isEmpty || !$0.subtitles.isEmpty } ?? false
         c.versionCount = content.versions.count
         // R460: Fix Match lists catalogue titles that are not in the library, so it is off while Restrictions are on.
         c.fixMatchAllowed = OnlineTitleSurface.fixMatchCandidates.isAvailable(restricted: services.restrictionsOn)
@@ -383,6 +385,12 @@ struct ItemDetailContentView: View {
         case .restart:
             Button(action.title, systemImage: action.symbol) { onPlay(true) }
                 .accessibilityIdentifier(ControlID.startOver)
+        case .audio, .subtitles:
+            // R471 (38): the file's tracks, the current one checked; a pick is kept for this title.
+            if let tracks = content.tracks {
+                TrackChoiceMenu(kind: action == .audio ? .audio : .subtitles, itemID: content.itemID,
+                                seriesTitle: content.kind == .episode ? (content.seriesTitle ?? content.title) : nil, tracks: tracks)
+            }
         case .addToWatchlist, .removeFromWatchlist:
             if let id = content.tmdbID {
                 Button(action.title, systemImage: action.symbol) { toggleWatchlist(id) }
