@@ -277,6 +277,16 @@ final class OnlineServices {
         await resolver.episodeStill(key: key)
     }
 
+    /// R471 (22): a season's own name and synopsis online, only with the catalogue key (nil otherwise, and in the screenshot
+    /// fixtures, which hold no seasons).
+    func season(key: String) async -> SeasonMetadata? {
+        #if DEBUG
+        if UITestMode.current == .fixtures { return nil }
+        #endif
+        guard hasCatalogueKey else { return nil }
+        return await resolver.season(key: key)
+    }
+
     /// Synopsis and cast of a movie page ("item-N", #15 6.2) or a show page ("series-N", #22 B), layered (#26 item 6,
     /// PROVISIONAL R210): the source's own details (Plex's synopsis for Plex files, R307; none for other sources), then
     /// Wikidata while Free Data Sources is on, then TMDB with the user's key. Nil when no layer has anything.

@@ -29,6 +29,14 @@ struct UserLayerArtworkOverrides: ArtworkOverriding {
             let ids = ((try? await store.episodes(ofSeries: seriesID)) ?? []).compactMap(\.tmdbID)
             guard let tmdb = Dictionary(grouping: ids, by: { $0 }).max(by: { $0.value.count < $1.value.count })?.key else { return [] }
             return [UDEditKey.show(tmdbID: tmdb)]
+        case let .season(seriesID, number)?:
+            // R471 (22): the keys the show page edits a season under (`EditTarget.seasonKeys`): the show's online id and its
+            // name (as `SeasonsContent.seriesTitle` gives it), each with the season number.
+            let episodes: [LibraryItem] = (try? await store.episodes(ofSeries: seriesID)) ?? []
+            guard let first = episodes.first else { return [] }
+            let ids = episodes.compactMap(\.tmdbID)
+            let tmdb = Dictionary(grouping: ids, by: { $0 }).max(by: { $0.value.count < $1.value.count })?.key
+            return EditTarget.seasonKeys(tmdbID: tmdb, title: first.seriesTitle ?? first.title, season: number)
         default:
             return []
         }

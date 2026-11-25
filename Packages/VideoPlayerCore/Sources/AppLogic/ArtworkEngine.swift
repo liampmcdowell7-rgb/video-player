@@ -16,12 +16,23 @@ import UserData
 public enum ArtworkKey: Equatable, Sendable {
     case item(Int64)
     case series(Int64)
+    /// R471 (22): one season of a show: "season-<seriesID>-<number>" (0 is Specials).
+    case season(seriesID: Int64, number: Int)
     /// A poster path from TMDB (Discover cards): "remote:/abc.jpg".
     case remote(String)
+
+    /// R471 (22): the key of one season's poster.
+    public static func seasonKey(seriesID: Int64, number: Int) -> String { "season-" + String(seriesID) + "-" + String(number) }
 
     public init?(_ text: String) {
         if text.hasPrefix("item-"), let id = Int64(text.dropFirst(5)) { self = .item(id); return }
         if text.hasPrefix("series-"), let id = Int64(text.dropFirst(7)) { self = .series(id); return }
+        if text.hasPrefix("season-") {
+            let parts = text.dropFirst(7).split(separator: "-", omittingEmptySubsequences: false)
+            guard parts.count == 2, let id = Int64(parts[0]), let number = Int(parts[1]), number >= 0 else { return nil }
+            self = .season(seriesID: id, number: number)
+            return
+        }
         if text.hasPrefix("remote:") {
             let path = String(text.dropFirst(7))
             guard path.hasPrefix("/"), path.count > 1 else { return nil }
@@ -68,6 +79,8 @@ public protocol OnlineArtworkProviding: Sendable {
     func details(forItem item: LibraryItem) async -> TitleDetails?
     /// Synopsis and cast of a series by its online id, or nil (#22 B, show page).
     func details(forSeriesID tmdbID: Int) async -> TitleDetails?
+    /// R471 (22): one season of a series by its online id (its name, synopsis and poster path), or nil.
+    func season(forSeriesID tmdbID: Int, number: Int) async -> SeasonMetadata?
 }
 
 public extension OnlineArtworkProviding {
@@ -78,6 +91,7 @@ public extension OnlineArtworkProviding {
     func thumbnailURL(path: String, kind: ArtworkGalleryKind) async -> URL? { nil }
     func details(forItem item: LibraryItem) async -> TitleDetails? { nil }
     func details(forSeriesID tmdbID: Int) async -> TitleDetails? { nil }
+    func season(forSeriesID tmdbID: Int, number: Int) async -> SeasonMetadata? { nil }
 }
 
 /// One title-logo picture to try, in order (#15 9.2). The app decodes it and checks it with `TitleLogoRules.check`; the
@@ -134,6 +148,7 @@ public actor ArtworkEngine {
             switch key {
             case .item(let id): result = try await resolveItem(id)
             case .series(let id): result = try await resolveSeries(id)
+            case let .season(seriesID, number): result = try await resolveSeason(seriesID, number)
             case .remote(let path): result = await online?.imageURL(path: path).map { .remote($0) } ?? .none
             }
         } catch {
@@ -229,6 +244,52 @@ public actor ArtworkEngine {
         return await cached(hit, file.sourceID)
     }
 
+    // MARK: Seasons (R471 (22))
+
+    /// A season's poster: the picture for that season next to the media (`SidecarImageFinder.images(forSeason:)`: in the show
+    /// folder, then in the season's own folder), then the season's online poster. With Prefer Local Artwork off, the online
+    /// one first (as R457 does for a show). No fallback to the show's poster: the page shows the season's text without one.
+    private func resolveSeason(_ seriesID: Int64, _ number: Int) async throws -> ArtworkResult {
+        if !preferLocalArtwork(), let url = try await onlineSeasonPoster(seriesID, number) { return .remote(url) }
+        if let hit = try await seasonFolderEntry(seriesID: seriesID, season: number, role: .poster),
+           let r = await cached(hit.entry, hit.sourceID) { return r }
+        if let url = try await onlineSeasonPoster(seriesID, number) { return .remote(url) }
+        return .none
+    }
+
+    private func onlineSeasonPoster(_ seriesID: Int64, _ number: Int) async throws -> URL? {
+        guard let online, let tmdbID = try await seriesOnlineID(seriesID),
+              let path = await online.season(forSeriesID: tmdbID, number: number)?.posterPath else { return nil }
+        return await online.imageURL(path: path)
+    }
+
+    /// A picture of `role` for one season. The folder of the season's first episode is the season folder when it is named
+    /// like one (the show folder is the one above it); otherwise it is the show folder itself.
+    private func seasonFolderEntry(seriesID: Int64, season: Int, role: SidecarImageRole) async throws -> (entry: SourceEntry, sourceID: String)? {
+        let episodes = try await store.episodes(ofSeries: seriesID)
+        guard let episode = episodes.first(where: { $0.season == season }),
+              let file = try await store.versions(of: episode.id).first else { return nil }
+        let folder = file.parentPath
+        let last = String(folder.split(separator: "/").last ?? "")
+        var showFolder = folder
+        var seasonEntries: [SourceEntry]?
+        if SidecarImageFinder.seasonNumber(ofFolder: last) != nil {
+            showFolder = Self.parent(of: folder)
+            seasonEntries = try await folderEntries(sourceID: file.sourceID, folder: folder)
+        }
+        let showEntries = try await folderEntries(sourceID: file.sourceID, folder: showFolder)
+        guard let hit = SidecarImageFinder.images(forSeason: season, showFolder: showEntries, seasonFolder: seasonEntries)[role] else { return nil }
+        return (hit, file.sourceID)
+    }
+
+    /// R471 (22): a season's own name and synopsis online (nil without online lookup or a match). The page puts the user's
+    /// edits on top (`SeasonHeader.make`).
+    public func season(key text: String) async -> SeasonMetadata? {
+        guard let online, case let .season(seriesID, number)? = ArtworkKey(text),
+              let tmdbID = try? await seriesOnlineID(seriesID) else { return nil }
+        return await online.season(forSeriesID: tmdbID, number: number)
+    }
+
     // MARK: Title logos (#15 Part 9)
 
     /// The title-logo pictures to try for a movie page (`item-N`) or a show page (`series-N`), strongest source first: a
@@ -262,7 +323,7 @@ public actor ArtworkEngine {
                 if let online, let tmdbID = try await seriesOnlineID(seriesID), let set = await online.images(forSeriesID: tmdbID) {
                     out += await onlineLogos(set, online, userLanguage)
                 }
-            case .remote:
+            case .remote, .season:
                 return []
             }
         } catch {
@@ -321,7 +382,7 @@ public actor ArtworkEngine {
                    let ref = set.bestBackdrop(language: userLanguage), let url = await online.backdropURL(path: ref.path) {
                     return .remote(url)
                 }
-            case .remote:
+            case .remote, .season:
                 return .none
             }
         } catch {
@@ -385,6 +446,7 @@ public actor ArtworkEngine {
             guard let item = try? await store.item(id: id) else { return nil }
             return item.kind == .episode ? .episodeStill : .poster
         case .remote: return nil
+        case .season: return .seasonPoster
         }
     }
 
@@ -479,7 +541,7 @@ public extension ArtworkEngine {
         case .series(let seriesID):
             guard let tmdbID = try? await seriesOnlineID(seriesID) else { return nil }
             return await online.images(forSeriesID: tmdbID)
-        case .remote: return nil
+        case .remote, .season: return nil
         }
     }
 
@@ -514,6 +576,11 @@ public extension ArtworkEngine {
                 }
             case .series(let seriesID):
                 if let hit = try await showFolderEntry(seriesID: seriesID, role: role) {
+                    out.append(ArtworkCandidate(source: .yourFiles, origin: .yourFile(sourceID: hit.sourceID, path: hit.entry.path)))
+                }
+            case let .season(seriesID, number):
+                // R471 (22): the season's own picture next to the media.
+                if kind == .seasonPoster, let hit = try await seasonFolderEntry(seriesID: seriesID, season: number, role: .poster) {
                     out.append(ArtworkCandidate(source: .yourFiles, origin: .yourFile(sourceID: hit.sourceID, path: hit.entry.path)))
                 }
             case .remote: break

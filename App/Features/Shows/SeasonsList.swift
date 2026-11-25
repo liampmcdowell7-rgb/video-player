@@ -46,7 +46,10 @@ struct SeasonsList: View {
     @State private var episodeDetails: [Int64: TitleDetails] = [:]
     /// R471 item 6: the layer the show's rating came from (the age guidance card says where it came from).
     @State private var ratingLayer: DetailsLayer?
-    /// R471 item 6: the next-up episode's source and tracks (How to Watch, Languages, Accessibility).
+    /// R471 (22): the shown season's own title and synopsis, and whether a poster of that season was found.
+    @State private var seasonHeader: SeasonHeader?
+    @State private var seasonHasPoster = false
+    /// R471 item 6: the next-up episode's source (the kind line) and tracks (Languages, Accessibility).
     @State private var nextSource: (kind: SourceKind?, name: String?)?
     @State private var nextTracks: FileTrackDetails?
     /// R471 Part 3: Mark All as Watched or Unwatched waiting for its confirmation.
@@ -153,6 +156,12 @@ struct SeasonsList: View {
                 seasonTabs
                     // R424: Up from an episode card at the right (x 980 in run #28) reaches the picker at the left.
                     .productPageRow()
+                // R471 (22): the season's own poster, title and synopsis, only when they say more than the picker.
+                if let season = shownSeason, let seasonHeader,
+                   seasonHeader.isWorthShowing(libraryTitle: season.title, hasPoster: seasonHasPoster) {
+                    SeasonHeaderRow(header: seasonHeader, artworkKey: ArtworkKey.seasonKey(seriesID: seriesID, number: season.season),
+                                    showsPoster: seasonHasPoster)
+                }
                 if let season = shownSeason {
                     // R453: no "N of M watched" line under the strip (PROVISIONAL: the watched checks are on the stills).
                     // R387: the shelf is shared with the episode page (EpisodeCards.swift).
@@ -273,7 +282,19 @@ struct SeasonsList: View {
                 if let own { episodeDetails[id] = own }
             }
         }
-        // R471 item 6: the next-up episode's source (How to Watch) and its file's cached tracks (Languages, Accessibility);
+        // R471 (22): the shown season's own text (online, with the user's season edits on top) and whether it has a poster.
+        // Asked again when another season is chosen, the online key changes, an edit screen closes or the show's id arrives.
+        .task(id: "\(shownSeason?.season ?? -1)|\(services.online.keyRevision)|\(editRevision)|\(showTMDB ?? 0)") {
+            guard let season = shownSeason else { seasonHeader = nil; seasonHasPoster = false; return }
+            let key: String = ArtworkKey.seasonKey(seriesID: seriesID, number: season.season)
+            let online = await services.online.season(key: key)
+            let edits = services.ledger.edits(for: EditTarget.seasonKeys(tmdbID: showTMDB, title: content.seriesTitle, season: season.season))
+            let poster: ArtworkResult = await services.online.resolveArtwork(key: key)
+            if Task.isCancelled { return }
+            seasonHeader = SeasonHeader.make(libraryTitle: season.title, online: online, edits: edits)
+            seasonHasPoster = poster != .none
+        }
+        // R471 item 6: the next-up episode's source (the kind line) and its file's cached tracks (Languages, Accessibility);
         // only what the index already holds, nothing read from the file here.
         .task(id: content.resumeEpisodeID) {
             guard let id = content.resumeEpisodeID, let item = try? await services.store.item(id: id) else { nextSource = nil; nextTracks = nil; return }
@@ -400,7 +421,9 @@ struct SeasonsList: View {
                                         editRequest = ShowEditRequest(id: "season-\(season.season)", title: "\(content.seriesTitle), \(season.title)",
                                                                       keys: EditTarget.seasonKeys(tmdbID: showTMDB, title: content.seriesTitle,
                                                                                                   season: season.season),
-                                                                      artworkKey: nil, level: .season)
+                                                                      // R471 (22): the season's poster key, so its gallery lists the season's own picture.
+                                                                      artworkKey: ArtworkKey.seasonKey(seriesID: seriesID, number: season.season),
+                                                                      level: .season)
                                     }
                                 }
                                 // R471 (18): Refresh Details for the show (its seasons and episodes with it): a real refetch.
@@ -508,7 +531,7 @@ struct ShowEditRequest: Identifiable {
     let id: String
     let title: String
     let keys: [UDEditKey]
-    /// The artwork galleries' key; nil for a season (no season artwork key yet, R471 (11)).
+    /// The artwork galleries' key ("series-N", or a season's "season-N-S" since R471 (22)); nil: no gallery.
     let artworkKey: String?
     let level: ArtworkGalleryKind.Level
     /// R471 (13): the group the screen opens on (Artwork for Change Artwork); nil: the list of groups.

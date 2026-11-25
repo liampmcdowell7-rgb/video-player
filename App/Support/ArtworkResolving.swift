@@ -1,5 +1,6 @@
 import Foundation
 import VideoPlayerCore
+import MetadataOnline
 import AppLogic
 
 /// Turns the artwork key a card carries ("item-42", "series-7", "remote:/abc.jpg") into something to draw: a file read from the
@@ -15,6 +16,8 @@ protocol ArtworkResolving: TitleDetailsSource {
     func episodeStill(key: String) async -> ArtworkResult
     /// Synopsis and cast of a movie (#15 6.2), or nil.
     func details(key: String) async -> TitleDetails?
+    /// R471 (22): a season's own name, synopsis and poster path online ("season-<seriesID>-<number>"), or nil.
+    func season(key: String) async -> SeasonMetadata?
     /// R455: the candidates of one picture kind for the gallery.
     func gallery(key: String, kind: ArtworkGalleryKind, userLanguage: String?, onlineOn: Bool) async -> ArtworkGallery
     /// R455: the small address of an online candidate, the full-size address (only for the chosen picture) and the cached file
@@ -33,6 +36,7 @@ struct EngineArtworkResolver: ArtworkResolving {
     func backdrop(key: String, userLanguage: String?) async -> ArtworkResult { await engine.backdrop(key: key, userLanguage: userLanguage) }
     func episodeStill(key: String) async -> ArtworkResult { await engine.episodeStill(key: key) }
     func details(key: String) async -> TitleDetails? { await engine.details(key: key) }
+    func season(key: String) async -> SeasonMetadata? { await engine.season(key: key) }
     func gallery(key: String, kind: ArtworkGalleryKind, userLanguage: String?, onlineOn: Bool) async -> ArtworkGallery {
         await engine.gallery(key: key, kind: kind, userLanguage: userLanguage, onlineOn: onlineOn)
     }

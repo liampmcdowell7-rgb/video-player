@@ -118,6 +118,11 @@ public struct TMDBArtworkProvider: OnlineArtworkProviding {
         return details
     }
 
+    /// R471 (22): one season (its name, synopsis and poster path), from the client's cache while fresh (`policy.season`).
+    public func season(forSeriesID tmdbID: Int, number: Int) async -> SeasonMetadata? {
+        try? await client.season(seriesID: tmdbID, number: number)
+    }
+
     private func poster(kind: TitleKind, id: Int) async -> URL? {
         let path: String?
         switch kind {

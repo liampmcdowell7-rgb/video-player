@@ -114,6 +114,13 @@ private final class FakeOnline: OnlineArtworkProviding, @unchecked Sendable {
     var seriesDetails: TitleDetails?
     private(set) var seriesDetailCalls: [Int] = []
     func details(forSeriesID tmdbID: Int) async -> TitleDetails? { lock.withLock { seriesDetailCalls.append(tmdbID) }; return seriesDetails }
+    /// R471 (22): the poster path of each season number; a season without one has none.
+    var seasonPosters: [Int: String] = [:]
+    private(set) var seasonCalls: [String] = []
+    func season(forSeriesID tmdbID: Int, number: Int) async -> SeasonMetadata? {
+        lock.withLock { seasonCalls.append(String(tmdbID) + "/" + String(number)) }
+        return SeasonMetadata(seriesID: tmdbID, seasonNumber: number, name: "Online " + String(number), posterPath: seasonPosters[number])
+    }
 }
 
 final class ArtworkEngineTests: XCTestCase {
@@ -569,5 +576,67 @@ extension ArtworkEngineTests {
             let picked = await engine(r, preferLocal: preferLocal, overrides: [.poster: chosen]).resolve(key: series)
             XCTAssertEqual(picked, chosen, "the choice is first in both orders")
         }
+    }
+}
+
+/// R471 (22): a season's own poster ("season-<seriesID>-<number>"): the picture for that season next to the media, then the
+/// season's online poster; never the show's poster. FIXTURE: invented bytes and a fake online provider.
+extension ArtworkEngineTests {
+    func testSeasonKeysParseAndRoundTrip() {
+        XCTAssertEqual(ArtworkKey("season-7-2"), .season(seriesID: 7, number: 2))
+        XCTAssertEqual(ArtworkKey("season-7-0"), .season(seriesID: 7, number: 0), "Specials")
+        XCTAssertEqual(ArtworkKey(ArtworkKey.seasonKey(seriesID: 12, number: 3)), .season(seriesID: 12, number: 3))
+        for bad in ["season-7", "season-7-", "season--2", "season-x-1", "season-7-2-3", "season-7--1"] {
+            XCTAssertNil(ArtworkKey(bad), bad)
+        }
+    }
+
+    func testASeasonUsesItsOwnPictureInTheShowFolderThenInItsOwnFolder() async throws {
+        let r = try await rig([("/TV/Show One (2010)/Season 1/Show One - S01E01 - A.mkv", 1_000),
+                               ("/TV/Show One (2010)/Season 2/Show One - S02E01 - B.mkv", 1_000),
+                               ("/TV/Show One (2010)/Season 3/Show One - S03E01 - C.mkv", 1_000),
+                               ("/TV/Show One (2010)/season01-poster.jpg", 5), ("/TV/Show One (2010)/Season 2/poster.jpg", 5),
+                               ("/TV/Show One (2010)/poster.jpg", 5)])
+        r.reader.files["/TV/Show One (2010)/season01-poster.jpg"] = Data([1])
+        r.reader.files["/TV/Show One (2010)/Season 2/poster.jpg"] = Data([2])
+        r.reader.files["/TV/Show One (2010)/poster.jpg"] = Data([9])
+        let eps = try await r.lib.episodes(ofSeriesTitle: "Show One")
+        let seriesID = try XCTUnwrap(eps.first?.seriesID)
+        let engine = r.engine(withOnline: false)
+        guard case .file(let one) = await engine.resolve(key: ArtworkKey.seasonKey(seriesID: seriesID, number: 1)),
+              case .file(let two) = await engine.resolve(key: ArtworkKey.seasonKey(seriesID: seriesID, number: 2)) else {
+            return XCTFail("no season pictures")
+        }
+        XCTAssertEqual(try Data(contentsOf: one), Data([1]), "season01-poster in the show folder")
+        XCTAssertEqual(try Data(contentsOf: two), Data([2]), "poster.jpg in the season's own folder")
+        let three = await engine.resolve(key: ArtworkKey.seasonKey(seriesID: seriesID, number: 3))
+        XCTAssertEqual(three, .none, "no picture of season 3: none, never the show's poster")
+        let missing = await engine.resolve(key: ArtworkKey.seasonKey(seriesID: seriesID, number: 8))
+        XCTAssertEqual(missing, .none, "a season the library does not hold")
+        let gallery = await engine.gallery(key: ArtworkKey.seasonKey(seriesID: seriesID, number: 2), kind: .seasonPoster, userLanguage: nil, onlineOn: false)
+        XCTAssertTrue(gallery.candidates.contains { (candidate: ArtworkCandidate) -> Bool in
+            if case let .yourFile(_, path) = candidate.origin { return path == "/TV/Show One (2010)/Season 2/poster.jpg" }
+            return false
+        }, "the season's own picture is a From Your Files candidate")
+    }
+
+    func testASeasonWithoutAPictureAsksOnlineByTheShowsID() async throws {
+        let r = try await rig([("/TV/Show One (2010)/Season 1/Show One - S01E01 - A.mkv", 1_000),
+                               ("/TV/Show One (2010)/Season 2/Show One - S02E01 - B.mkv", 1_000), ("/TV/Show One (2010)/poster.jpg", 5)])
+        r.reader.files["/TV/Show One (2010)/poster.jpg"] = Data([9])
+        let eps = try await r.lib.episodes(ofSeriesTitle: "Show One")
+        for e in eps { try await r.lib.store.setMetadata(itemID: e.id, ItemMetadata(tmdbID: 7)) }
+        let seriesID = try XCTUnwrap(eps.first?.seriesID)
+        r.online.seasonPosters = [1: "/s1.jpg"]
+        let engine = r.engine()
+        let one = await engine.resolve(key: ArtworkKey.seasonKey(seriesID: seriesID, number: 1))
+        XCTAssertEqual(one, .remote(URL(string: "https://images.example.invalid/w500/s1.jpg")!))
+        let two = await engine.resolve(key: ArtworkKey.seasonKey(seriesID: seriesID, number: 2))
+        XCTAssertEqual(two, .none, "no online poster for season 2 either: none")
+        XCTAssertEqual(r.online.seasonCalls, ["7/1", "7/2"])
+        let text = await engine.season(key: ArtworkKey.seasonKey(seriesID: seriesID, number: 2))
+        XCTAssertEqual(text?.name, "Online 2")
+        let offline = await r.engine(withOnline: false).season(key: ArtworkKey.seasonKey(seriesID: seriesID, number: 2))
+        XCTAssertNil(offline, "no online lookup: no season text")
     }
 }
