@@ -3,6 +3,7 @@ import AppLogic
 import VideoPlayerCore
 import LibraryIndex
 import UserData
+import MetadataOnline
 
 /// The show page (#15 5.1, 5.2; R350, item D: the TV app's product page, the hero area on the first screen over the clear
 /// artwork, then the season tabs and episodes, then Cast & Crew): backdrop, the title (or its title logo, #15 Part 9), the synopsis, Play and More as buttons,
@@ -70,6 +71,8 @@ struct SeasonsList: View {
     @State private var pendingDelete: LibraryRemover.Target?
     /// R471 (16): the show's own rating (the user layer).
     @State private var showStars: Int?
+    /// R471 (61): the matched show is on the watchlist (the details button says Add or Remove).
+    @State private var onWatchlist = false
     /// R471 (17): the show's key for the user's lists, and the name page of a new list.
     @State private var showRef: UDTitleRef?
     @State private var naming: ListNameRequest?
@@ -253,6 +256,7 @@ struct SeasonsList: View {
             ratingLayer = layered.ratingLayer
             showStars = services.ledger.rating(for: EditTarget.showKeys(tmdbID: showTMDB, title: content.seriesTitle))
             showRef = await services.titleRef(seriesID: seriesID)
+            refreshWatchlist()
         }
         // R471 (25): the show's genres go to its episodes in the library (so other pages can match it), then Related is
         // found from the library only (no online lookup), again when the genres or the library change.
@@ -471,6 +475,11 @@ struct SeasonsList: View {
                     // listed (R471 (8)). Mark All asks first (system confirmation dialog).
                     ForEach(showMenuActions, id: \.self) { action in
                         switch action {
+                        case .addToWatchlist, .removeFromWatchlist:
+                            // R471 (61): the owner's list for a matched show (R471 (8)); the same watchlist as the movie page's "+".
+                            if let id = showTMDB {
+                                Button(action.title, systemImage: action.symbol) { toggleWatchlist(id) }
+                            }
                         case .rate:
                             // R471 (16): the show's rating, and the season on screen's (the app only: not sent to a server).
                             RateMenu(current: showStars) { chosen in
@@ -587,6 +596,7 @@ struct SeasonsList: View {
         c.someUnwatched = content.canMarkWatched
         c.someWatched = content.canMarkUnwatched
         c.matched = showTMDB != nil
+        c.onWatchlist = onWatchlist
         // R460: Fix Match lists catalogue titles that are not in the library, so it is off while Restrictions are on.
         c.fixMatchAllowed = OnlineTitleSurface.fixMatchCandidates.isAvailable(restricted: services.restrictionsOn)
         // R471 (15): Delete from Library is off while Restrictions are on.
@@ -613,10 +623,27 @@ struct SeasonsList: View {
     /// One of the show's episodes: the next-up one, else the first. Fix Match for the whole show goes through it.
     private var anyEpisodeID: Int64? { content.resumeEpisodeID ?? content.seasons.first?.episodes.first?.id }
 
-    /// The entries of the show's list this page can act on today (Mark All, and Manage with Edit Details, R471 (11)); the
-    /// rest of the list is not built for a show.
+    /// The entries of the show's list this page can act on today (R471 (61): the watchlist of a matched show, then Mark All,
+    /// and Manage with Edit Details, R471 (11)); the rest of the list is not built for a show.
     private var showMenuActions: [ProductAction] {
-        ProductActions.list(showActions).filter { [.addToList, .addToPlaylistOrCollection, .rate, .markAllWatched, .markAllUnwatched, .manage].contains($0) }
+        ProductActions.list(showActions).filter { [.addToWatchlist, .removeFromWatchlist,
+                                                   .addToList, .addToPlaylistOrCollection, .rate, .markAllWatched, .markAllUnwatched, .manage].contains($0) }
+    }
+
+    /// R471 (61): whether the show is on the watchlist (the user layer, R456 sync), under the show's kind.
+    private func refreshWatchlist() {
+        onWatchlist = WatchlistMembership.contains(services.ledger.watchlist(), kind: .series, tmdbID: showTMDB)
+    }
+
+    /// R471 (61): adds or removes the show, as the movie page's "+" does for a movie.
+    private func toggleWatchlist(_ tmdbID: Int) {
+        if onWatchlist {
+            services.ledger.removeFromWatchlist(kind: TitleKind.series.rawValue, tmdbID: tmdbID)
+        } else {
+            services.ledger.addToWatchlist(UDWatchlistEntry(kind: TitleKind.series.rawValue, tmdbID: tmdbID,
+                                                            title: content.seriesTitle, addedAt: Date()))
+        }
+        refreshWatchlist()
     }
 }
 

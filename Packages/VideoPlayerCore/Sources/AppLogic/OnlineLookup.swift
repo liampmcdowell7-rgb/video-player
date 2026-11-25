@@ -2,6 +2,15 @@ import Foundation
 import MetadataOnline
 import UserData
 
+/// R471 (61), PROVISIONAL: whether a title is on the watchlist, under its own kind (a movie and a show may share an
+/// online id). The movie page asks for `.movie`, the show page for `.series`; no id (not matched): never.
+public enum WatchlistMembership {
+    public static func contains(_ entries: [UDWatchlistEntry], kind: TitleKind, tmdbID: Int?) -> Bool {
+        guard let tmdbID else { return false }
+        return entries.contains { $0.kind == kind.rawValue && $0.tmdbID == tmdbID }
+    }
+}
+
 // Online lookup settings: the user's own keys, where they are kept, and the exact words the screens use (docs/ARTWORK_DISCOVER.md).
 // Services keep their real names in UI text (user rule of 2026-11-17, replaces R91).
 
