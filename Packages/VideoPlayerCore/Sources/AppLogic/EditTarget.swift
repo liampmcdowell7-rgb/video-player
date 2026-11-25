@@ -28,6 +28,12 @@ public enum EditTarget {
         return out
     }
 
+    /// R471 (11): one season of the show page: the show's keys with the season number, so a season's edits follow the show's
+    /// online id when known and its name otherwise ("show-1399-s2", "showname-…-s2").
+    public static func seasonKeys(tmdbID: Int?, title: String, season: Int) -> [UDEditKey] {
+        showKeys(tmdbID: tmdbID, title: title).map { $0.season(season) }
+    }
+
     /// The synopsis, cast and content rating of a page with the user's edits on top (an edited field replaces the layers').
     public static func apply(_ edits: UDEditValues, to details: TitleDetails?) -> TitleDetails? {
         guard !edits.isEmpty else { return details }

@@ -2,6 +2,7 @@ import SwiftUI
 import AppLogic
 import VideoPlayerCore
 import LibraryIndex
+import UserData
 
 /// The show page (#15 5.1, 5.2; R350, item D: the TV app's product page, the hero area on the first screen over the clear
 /// artwork, then the season tabs and episodes, then Cast & Crew): backdrop, the title (or its title logo, #15 Part 9), the synopsis, Play and More as buttons,
@@ -50,6 +51,11 @@ struct SeasonsList: View {
     @State private var nextTracks: FileTrackDetails?
     /// R471 Part 3: Mark All as Watched or Unwatched waiting for its confirmation.
     @State private var pendingMarkAll: ProductAction?
+    /// R471 (11): the show's online id (from one of its episodes), the open edit screen, and a count bumped when it closes so
+    /// the page reads the edits again.
+    @State private var showTMDB: Int?
+    @State private var editRequest: ShowEditRequest?
+    @State private var editRevision = 0
 
     /// R471 item 6: the description of the hero: the next-up episode's synopsis after its code and title, else the show's.
     private var heroDescription: (prefix: String?, text: String)? {
@@ -187,10 +193,22 @@ struct SeasonsList: View {
         // #15 5.2: the show's fan art (or its matched online backdrop) behind the page, as on the movie page.
         .artTextTop($textTop)
         .background { BackdropView(artworkKey: "series-\(seriesID)", style: .hero, textTop: textTop, belowHero: belowHero) }
-        .task(id: "series-\(seriesID)|\(services.online.keyRevision)") {
+        .task(id: "series-\(seriesID)|\(services.online.keyRevision)|\(editRevision)") {
             let layered = await services.online.layeredDetails(key: "series-\(seriesID)")
-            details = layered.details
+            // R471 (11): the show's own edits on top of the layers (R449), keyed by its online id once an episode gives it.
+            if showTMDB == nil, let id = content.resumeEpisodeID ?? content.seasons.first?.episodes.first?.id,
+               let item = try? await services.store.item(id: id) {
+                showTMDB = item.tmdbID
+            }
+            details = EditTarget.apply(services.ledger.edits(for: EditTarget.showKeys(tmdbID: showTMDB, title: content.seriesTitle)),
+                                       to: layered.details)
             ratingLayer = layered.ratingLayer
+        }
+        .taskCover(item: Binding(get: { editRequest }, set: { new in
+            if new == nil, editRequest != nil { editRevision += 1 }
+            editRequest = new
+        })) { request in
+            MetadataEditView(title: request.title, keys: request.keys, artworkKey: request.artworkKey, level: request.level)
         }
         // R471 item 6: the episodes' own details (synopsis, date, rating) for the shown season's cards and the next-up
         // episode, the source's layer and the user's edits (as R453 did for the focused card).
@@ -292,6 +310,24 @@ struct SeasonsList: View {
                         switch action {
                         case .markAllWatched, .markAllUnwatched:
                             Button(action.title, systemImage: action.symbol) { pendingMarkAll = action }
+                        case .manage:
+                            // R471 (11): Edit Details for the show, and for the season on screen (the season's own edits).
+                            Menu(action.title, systemImage: action.symbol) {
+                                let edit = ProductAction.editMetadata
+                                Button(edit.title, systemImage: edit.symbol) {
+                                    editRequest = ShowEditRequest(id: "show", title: content.seriesTitle,
+                                                                  keys: EditTarget.showKeys(tmdbID: showTMDB, title: content.seriesTitle),
+                                                                  artworkKey: "series-\(seriesID)", level: .show)
+                                }
+                                if let season = shownSeason {
+                                    Button("Edit \(season.title) Details", systemImage: edit.symbol) {
+                                        editRequest = ShowEditRequest(id: "season-\(season.season)", title: "\(content.seriesTitle), \(season.title)",
+                                                                      keys: EditTarget.seasonKeys(tmdbID: showTMDB, title: content.seriesTitle,
+                                                                                                  season: season.season),
+                                                                      artworkKey: nil, level: .season)
+                                    }
+                                }
+                            }
                         default:
                             EmptyView()
                         }
@@ -330,8 +366,19 @@ struct SeasonsList: View {
         return c
     }
 
-    /// The entries of the show's list this page can act on today (Mark All); the rest of the list is not built for a show.
+    /// The entries of the show's list this page can act on today (Mark All, and Manage with Edit Details, R471 (11)); the
+    /// rest of the list is not built for a show.
     private var showMenuActions: [ProductAction] {
-        ProductActions.list(showActions).filter { $0 == .markAllWatched || $0 == .markAllUnwatched }
+        ProductActions.list(showActions).filter { [.markAllWatched, .markAllUnwatched, .manage].contains($0) }
     }
+}
+
+/// R471 (11): one edit screen opened from the show page (the show itself, or the season on screen).
+struct ShowEditRequest: Identifiable {
+    let id: String
+    let title: String
+    let keys: [UDEditKey]
+    /// The artwork galleries' key; nil for a season (no season artwork key yet, R471 (11)).
+    let artworkKey: String?
+    let level: ArtworkGalleryKind.Level
 }
