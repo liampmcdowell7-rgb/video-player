@@ -13,6 +13,8 @@ struct CardContextMenu: ViewModifier {
     @State private var showEdit = false
     @State private var editKeys: [UDEditKey] = []
     @State private var editStart: UDEditField.Group?
+    /// R471 (14): Unmatch is asked about first (system confirmation dialog).
+    @State private var askUnmatch = false
 
     func body(content: Content) -> some View {
         content
@@ -27,7 +29,7 @@ struct CardContextMenu: ViewModifier {
                 }
                 // R471 (10): the page's own actions list, kept to what a card can run, in the page's order and words.
                 ForEach(ProductActions.cardList(card.actionContext), id: \.self) { action in
-                    Button(action.title, systemImage: action.symbol) { run(action) }
+                    Button(action.title, systemImage: action.symbol, role: action == .unmatch ? .destructive : nil) { run(action) }
                 }
                 Button(card.isFavorite ? "Remove from Favorites" : "Add to Favorites", systemImage: card.isFavorite ? "heart.slash" : "heart") {
                     Task { await services.setFavorite(card.id, !card.isFavorite) }
@@ -44,8 +46,18 @@ struct CardContextMenu: ViewModifier {
                     Button("Move to Movies", systemImage: "film") { move = .item(card.id, .movie) }
                 }
             }
+            .confirmationDialog(unmatchText.title, isPresented: $askUnmatch, titleVisibility: .visible) {
+                Button(unmatchText.button, role: .destructive) { Task { await services.unmatch(.movie(itemID: card.id)) } }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(unmatchText.message)
+            }
             .taskCover(item: $move) { target in SortMoveSheet(target: target) }
             .taskCover(isPresented: $showEdit) { if !editKeys.isEmpty { MetadataEditView(title: card.title, keys: editKeys, artworkKey: "item-\(card.id)", level: card.kind == .movie ? .movie : .episode, startGroup: editStart) } }
+    }
+
+    private var unmatchText: (title: String, message: String, button: String) {
+        Unmatcher.confirmation(.movie(itemID: card.id), title: card.title)
     }
 
     /// Runs one entry of `ProductActions.cardList`; the list holds nothing else (`ProductActions.cardSupported`).
@@ -57,6 +69,8 @@ struct CardContextMenu: ViewModifier {
         case .editMetadata: Task { await openEdit() }
         // R471 (13): the same screen opened on Artwork.
         case .changeArtwork: Task { await openEdit(start: .artwork) }
+        // R471 (14): the same confirmation as the page.
+        case .unmatch: askUnmatch = true
         default: break
         }
     }

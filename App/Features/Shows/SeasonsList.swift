@@ -51,6 +51,8 @@ struct SeasonsList: View {
     @State private var nextTracks: FileTrackDetails?
     /// R471 Part 3: Mark All as Watched or Unwatched waiting for its confirmation.
     @State private var pendingMarkAll: ProductAction?
+    /// R471 (14): Unmatch for the whole show is asked about (system confirmation dialog).
+    @State private var askUnmatch = false
     /// R471 (11): the show's online id (from one of its episodes), the open edit screen, and a count bumped when it closes so
     /// the page reads the edits again.
     @State private var showTMDB: Int?
@@ -213,6 +215,19 @@ struct SeasonsList: View {
             MetadataEditView(title: request.title, keys: request.keys, artworkKey: request.artworkKey, level: request.level,
                              startGroup: request.startGroup)
         }
+        // R471 (14): Unmatch the show; the confirmation says what changes and what stays (`Unmatcher.confirmation`).
+        .confirmationDialog(unmatchText.title, isPresented: $askUnmatch, titleVisibility: .visible) {
+            Button(unmatchText.button, role: .destructive) {
+                Task {
+                    await services.unmatch(.show(seriesID: seriesID, title: content.seriesTitle))
+                    showTMDB = nil
+                    editRevision += 1
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(unmatchText.message)
+        }
         .taskCover(item: Binding(get: { fixMatchEpisode }, set: { new in
             if new == nil, fixMatchEpisode != nil { showTMDB = nil; editRevision += 1 }
             fixMatchEpisode = new
@@ -349,6 +364,11 @@ struct SeasonsList: View {
                                     let fix = ProductAction.fixMatch
                                     Button(fix.title, systemImage: fix.symbol) { fixMatchEpisode = FixMatchRequest(id: episodeID) }
                                 }
+                                // R471 (14): Unmatch the whole show (its seasons and episodes follow), after the confirmation.
+                                if ProductActions.manageList(showActions).contains(.unmatch) {
+                                    let unmatch = ProductAction.unmatch
+                                    Button(unmatch.title, systemImage: unmatch.symbol, role: .destructive) { askUnmatch = true }
+                                }
                             }
                         default:
                             EmptyView()
@@ -384,9 +404,16 @@ struct SeasonsList: View {
         var c = ProductActionContext(kind: .show)
         c.someUnwatched = content.canMarkWatched
         c.someWatched = content.canMarkUnwatched
+        c.matched = showTMDB != nil
         // R460: Fix Match lists catalogue titles that are not in the library, so it is off while Restrictions are on.
         c.fixMatchAllowed = OnlineTitleSurface.fixMatchCandidates.isAvailable(restricted: services.restrictionsOn)
         return c
+    }
+
+    /// R471 (14): the Unmatch confirmation for this show.
+    private var unmatchText: (title: String, message: String, button: String) {
+        Unmatcher.confirmation(.show(seriesID: seriesID, title: content.seriesTitle), title: content.seriesTitle,
+                               episodeCount: content.seasons.reduce(0) { $0 + $1.episodes.count })
     }
 
     /// One of the show's episodes: the next-up one, else the first. Fix Match for the whole show goes through it.

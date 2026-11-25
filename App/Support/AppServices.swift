@@ -651,6 +651,12 @@ extension AppServices {
         libraryRevision += 1
     }
 
+    /// R471 (14): Unmatch a movie or a whole show (after the confirmation); the pages reload on the revision.
+    func unmatch(_ target: Unmatcher.Target) async {
+        _ = try? await Unmatcher(store: store, ledger: ledger, forgetter: online.forgetter).run(target)
+        libraryRevision += 1
+    }
+
     func hideFromContinue(_ itemID: Int64) async {
         try? await store.hideFromContinue(itemID: itemID, hidden: true)
         libraryRevision += 1

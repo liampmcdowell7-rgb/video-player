@@ -27,6 +27,8 @@ public struct ItemCard: Equatable, Sendable, Identifiable {
     /// (started, not finished, not already removed from the row), so "Remove from Continue Watching" changes something.
     public var seriesID: Int64? = nil
     public var canRemoveFromContinue = false
+    /// R471 (14): matched to the catalogue (an online id), so the long press can offer Unmatch.
+    public var isMatched = false
 
     /// #21 F: the long-press menu's way to the title's page: "Go to Movie" for a movie, "Go to Show" for an episode with a
     /// show; nil for an episode without one (its card already opens its own page).
@@ -82,7 +84,7 @@ public enum CardBuilder {
             progress: style == .nextUp ? nil : progress, isWatched: item.watch.watched, isFavorite: item.watch.favorite,
             badges: badgeList, artworkKey: "item-\(item.id)", subtitleLine: subtitleLine, badgeLine: badgeLine(badgeList),
             seriesID: item.kind == .episode ? item.seriesID : nil,
-            canRemoveFromContinue: progress != nil && !item.watch.hiddenFromContinue)
+            canRemoveFromContinue: progress != nil && !item.watch.hiddenFromContinue, isMatched: item.tmdbID != nil)
     }
 
     /// How long each part of a card's lines is kept when the line does not fit (rule S1; #17 C). Higher is kept longer.

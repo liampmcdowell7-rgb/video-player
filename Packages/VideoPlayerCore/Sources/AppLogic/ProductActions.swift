@@ -85,8 +85,9 @@ public enum ProductAction: String, CaseIterable, Sendable {
     public var isBuilt: Bool {
         switch self {
         // R471 (13): Change Artwork is built (the edit screen's Artwork group, R455).
+        // R471 (14): Unmatch is built (movie and show; asks first).
         case .audio, .subtitles, .addToList, .addToPlaylistOrCollection, .rate, .refreshMetadata, .analyze,
-             .unmatch, .playHistory, .delete:
+             .playHistory, .delete:
             return false
         default:
             return true
@@ -175,7 +176,7 @@ public enum ProductActions {
     public static func manageList(_ c: ProductActionContext) -> [ProductAction] { manage(c).filter(\.isBuilt) }
 
     /// The actions a long press on a poster or card can run without opening the page (R471 (10)).
-    public static let cardSupported: Set<ProductAction> = [.markWatched, .markUnwatched, .changeArtwork, .editMetadata]
+    public static let cardSupported: Set<ProductAction> = [.markWatched, .markUnwatched, .changeArtwork, .editMetadata, .unmatch]
 
     /// A long press on a card: the page's own list (Manage opened out), kept to what the card can run, in the page's order.
     /// So a card never offers an action the page does not, and both use the same words.
@@ -190,6 +191,7 @@ public extension ItemCard {
         var c = ProductActionContext(kind: kind == .movie ? .movie : .episode)
         c.started = progress != nil
         c.watched = isWatched
+        c.matched = isMatched
         c.hasFile = true
         return c
     }

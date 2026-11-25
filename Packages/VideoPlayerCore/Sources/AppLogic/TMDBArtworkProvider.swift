@@ -13,10 +13,27 @@ public struct TMDBArtworkProvider: OnlineArtworkProviding {
     public let matcher: FixMatchService
     public let store: any LibraryStore
 
-    public init(client: TMDBClient, matcher: FixMatchService, store: any LibraryStore) {
+    /// R471 (14): whether the user unmatched this file (`UDUnmatchHold`); a held file takes only a saved Fix Match choice.
+    public let isHeldUnmatched: @Sendable (StoredFile) -> Bool
+
+    public init(client: TMDBClient, matcher: FixMatchService, store: any LibraryStore,
+                isHeldUnmatched: @escaping @Sendable (StoredFile) -> Bool = { _ in false }) {
         self.client = client
         self.matcher = matcher
         self.store = store
+        self.isHeldUnmatched = isHeldUnmatched
+    }
+
+    /// The match for a file without an online id: a held file (Unmatch) only takes a saved choice, never the automatic matcher.
+    func match(_ item: LibraryItem, file: StoredFile) async -> Int? {
+        let input = Self.matchInput(for: item, file: file)
+        let identity = Self.identity(of: file)
+        if isHeldUnmatched(file) {
+            let season = input.parsed.isSpecial ? 0 : input.parsed.season
+            return await matcher.store.lookup(file: identity, season: season)?.tmdbID
+        }
+        if case .matched(let match)? = try? await matcher.resolve(file: identity, input: input) { return match.tmdbID }
+        return nil
     }
 
     /// The identity under which Fix Match choices are saved for a file (docs/METADATA.md: keyed by path, so a rename loses it).
@@ -31,12 +48,9 @@ public struct TMDBArtworkProvider: OnlineArtworkProviding {
     public func posterURL(forItem item: LibraryItem, file: StoredFile?) async -> URL? {
         let kind: TitleKind = item.kind == .movie ? .movie : .series
         var id = item.tmdbID
-        if id == nil, let file {
-            let input = Self.matchInput(for: item, file: file)
-            if case .matched(let match)? = try? await matcher.resolve(file: Self.identity(of: file), input: input) {
-                id = match.tmdbID
-                try? await store.setMetadata(itemID: item.id, ItemMetadata(tmdbID: match.tmdbID))
-            }
+        if id == nil, let file, let found = await match(item, file: file) {
+            id = found
+            try? await store.setMetadata(itemID: item.id, ItemMetadata(tmdbID: found))
         }
         guard let id else { return nil }
         return await poster(kind: kind, id: id)

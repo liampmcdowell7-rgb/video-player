@@ -8,6 +8,8 @@ struct ItemDetailView: View {
     @Environment(AppServices.self) private var services
     @State private var model: ScreenModel<ItemDetailViewModel>?
     @State private var showFixMatch = false
+    /// R471 (14): Unmatch is asked about (system confirmation dialog).
+    @State private var askUnmatch = false
     @State private var showSortInfo = false
     @State private var showEdit = false
     @State private var editKeys: [UDEditKey] = []
@@ -23,7 +25,8 @@ struct ItemDetailView: View {
                 ScreenStateView(state: model.screen.state, onRetry: { Task { await reload() } }) { content in
                     ItemDetailContentView(content: content, model: model, onPlay: play, onFixMatch: { showFixMatch = true },
                                           onSortInfo: { showSortInfo = true }, onEdit: { Task { await openEdit() } },
-                                          onChangeArtwork: { Task { await openEdit(start: .artwork) } })
+                                          onChangeArtwork: { Task { await openEdit(start: .artwork) } },
+                                          onUnmatch: { askUnmatch = true })
                 }
             } else {
                 LoadingView()
@@ -41,6 +44,13 @@ struct ItemDetailView: View {
                 }
             }
         }
+        // R471 (14): Unmatch says what changes and what stays before it acts (a movie; an episode follows its show).
+        .confirmationDialog(unmatchText.title, isPresented: $askUnmatch, titleVisibility: .visible) {
+            Button(unmatchText.button, role: .destructive) { Task { await services.unmatch(.movie(itemID: itemID)) } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(unmatchText.message)
+        }
         .taskCover(isPresented: $showFixMatch) {
             if let content = model?.screen.state.content {
                 FixMatchView(itemID: itemID, kind: content.kind, currentTitle: content.title)
@@ -57,6 +67,10 @@ struct ItemDetailView: View {
                 SortInfoSheet(itemID: itemID, kind: content.kind)
             }
         }
+    }
+
+    private var unmatchText: (title: String, message: String, button: String) {
+        Unmatcher.confirmation(.movie(itemID: itemID), title: model?.screen.state.content?.title ?? "")
     }
 
     /// R449: the keys this item's edits live under (online id and file), then the edit screens.

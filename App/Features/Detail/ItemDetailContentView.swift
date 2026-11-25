@@ -24,6 +24,8 @@ struct ItemDetailContentView: View {
     var onEdit: () -> Void = {}
     /// R471 (13): Manage > Change Artwork (the edit screen opened on Artwork).
     var onChangeArtwork: () -> Void = {}
+    /// R471 (14): Manage > Unmatch (the page asks first).
+    var onUnmatch: () -> Void = {}
     @Environment(AppServices.self) private var services
     @State private var details: TitleDetails?
     /// R457: Hide Spoilers covers the episode page's own picture and description.
@@ -366,6 +368,9 @@ struct ItemDetailContentView: View {
                 .accessibilityIdentifier(ControlID.editMetadata)
         case .fixMatch:
             Button(action.title, systemImage: action.symbol, action: onFixMatch)
+        case .unmatch:
+            Button(action.title, systemImage: action.symbol, role: .destructive, action: onUnmatch)
+                .accessibilityIdentifier("product.unmatch")
         case .fileInfo:
             Button(action.title, systemImage: action.symbol) { showsFileInfo = true }
                 .accessibilityIdentifier("product.fileInfo")

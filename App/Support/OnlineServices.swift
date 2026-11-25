@@ -19,6 +19,8 @@ final class OnlineServices {
     private(set) var resolver: any ArtworkResolving
     private(set) var searcher: any MatchSearching = UnavailableMatchSearcher()
     private(set) var recorder: (any MatchChoiceRecording)?
+    /// R471 (14): Unmatch removes the saved Fix Match choices of the files through this (with or without a key).
+    private(set) var forgetter: (any MatchChoiceForgetting)?
     private(set) var discoverSource: (any DiscoverDataSource)?
     /// The title search that sorts Needs Review files (signal d, docs/SORTING.md); nil without a key.
     private(set) var sortLookup: (any SortLookup)?
@@ -83,6 +85,9 @@ final class OnlineServices {
     func rebuild() {
         hasCatalogueKey = keys.has(.tmdb)
         rebuildFreeSources()
+        // R471 (14): the match store, also without a key, so Unmatch can remove a saved choice.
+        let matchStore: any MatchStore = ledger.map { CloudMatchStore(url: matchFile, ledger: $0) } ?? JSONFileMatchStore(url: matchFile)
+        forgetter = StoredMatchForgetter(matches: matchStore, store: store)
         // UI-test modes never send anything: a key in the in-memory store (-UITestFakeTMDBKey) shows as set, but no client
         // that could use it is made.
         guard let key = keys.key(.tmdb), !Self.isUITestLaunch else {
@@ -98,9 +103,11 @@ final class OnlineServices {
         }
         let client = TMDBClient(credentials: OnlineKeyStore.tmdbCredentials(key), transport: URLSessionTransport(),
                                 cache: JSONFileMetadataCache(directory: ArtworkFolders.metadata), region: region)
-        let matchStore: any MatchStore = ledger.map { CloudMatchStore(url: matchFile, ledger: $0) } ?? JSONFileMatchStore(url: matchFile)
         let service = FixMatchService(engine: MatchEngine(provider: client), store: matchStore)
-        let provider = TMDBArtworkProvider(client: client, matcher: service, store: store)
+        let heldLedger = ledger
+        let provider = TMDBArtworkProvider(client: client, matcher: service, store: store, isHeldUnmatched: { file in
+            heldLedger?.isHeldUnmatched(.file(sourceID: file.sourceID, path: file.path)) ?? false
+        })
         resolver = EngineArtworkResolver(engine: ArtworkEngine(store: store, cache: diskCache, reader: reader, online: provider, server: server, overrides: Self.choices(ledger, store), preferLocalArtwork: Self.preferLocalArtwork))
         searcher = TMDBMatchSearcher(client: client)
         recorder = StoredMatchRecorder(service: service, store: store)

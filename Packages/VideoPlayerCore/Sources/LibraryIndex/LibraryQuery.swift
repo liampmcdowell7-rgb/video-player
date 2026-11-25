@@ -172,6 +172,8 @@ public protocol LibraryStore: Sendable {
 
     // Metadata and technical facts
     func setMetadata(itemID: Int64, _ metadata: ItemMetadata) async throws
+    /// R471 (14): Unmatch: removes the online id from these items; their title, files, watch state and edits are unchanged.
+    func clearMatch(itemIDs: [Int64]) async throws
     func setTechnicalInfo(fileID: Int64, _ info: FileTechnicalInfo) async throws
     /// #21 C: the frame rate and tracks read from the file's header (nil when not read yet, or the file changed size).
     func trackDetails(fileID: Int64) async throws -> FileTrackDetails?

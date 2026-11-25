@@ -64,9 +64,9 @@ final class ProductActionsTests: XCTestCase {
     func testALongPressOffersThePagesOwnActionsInThePagesOrder() {
         var movie = ProductActionContext(kind: .movie)
         movie.started = true; movie.hasFile = true; movie.matched = true
-        XCTAssertEqual(ProductActions.cardList(movie), [.markWatched, .changeArtwork, .editMetadata])
+        XCTAssertEqual(ProductActions.cardList(movie), [.markWatched, .changeArtwork, .editMetadata, .unmatch])
         movie.watched = true
-        XCTAssertEqual(ProductActions.cardList(movie), [.markUnwatched, .changeArtwork, .editMetadata])
+        XCTAssertEqual(ProductActions.cardList(movie), [.markUnwatched, .changeArtwork, .editMetadata, .unmatch])
         for kind in [ProductActionContext.Kind.movie, .episode, .show, .season] {
             var c = ProductActionContext(kind: kind)
             c.started = true; c.matched = true; c.hasFile = true; c.someWatched = true; c.someUnwatched = true

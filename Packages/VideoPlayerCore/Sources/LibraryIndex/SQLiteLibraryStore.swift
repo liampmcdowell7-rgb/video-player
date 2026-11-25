@@ -310,6 +310,13 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
         }
     }
 
+    /// R471 (14): Unmatch. Only the online id goes; the title, the files, the watch state and the edits stay.
+    public func clearMatch(itemIDs: [Int64]) throws {
+        try db.transaction {
+            for id in itemIDs { try db.run("UPDATE items SET tmdb_id = NULL WHERE id = ?", [.int(id)]) }
+        }
+    }
+
     // MARK: Watch state
 
     public func updateProgress(itemID: Int64, position: Double, duration: Double?, at date: Date) throws {
