@@ -555,6 +555,10 @@ public struct EpisodeRow: Equatable, Sendable, Identifiable {
     public var artworkKey: String
     /// R370: the episode's badges (`FormatBadges.item`: resolution, HDR, Dolby Atmos).
     public var badges: [FormatBadgeItem] = []
+    /// R471: the duration in seconds (the Play button's time left, the card's "43m"); nil when unknown.
+    public var durationSeconds: Double? = nil
+    /// R471: the season number (the show page's next-up line "S4, E4"); nil when the file gives none.
+    public var season: Int? = nil
 
     /// R453: the card's caption, "4. Title" (the number, then the title); only the title when the file gives no number.
     public var cardCaption: String { number > 0 ? "\(number). \(title)" : title }
@@ -582,6 +586,13 @@ public struct SeasonsContent: Equatable, Sendable {
     /// Mark Show as Unwatched while any is watched (both in the middle of a show).
     public var canMarkWatched: Bool { seasons.contains { $0.watchedCount < $0.episodes.count } }
     public var canMarkUnwatched: Bool { seasons.contains { $0.watchedCount > 0 } }
+
+    /// R471: the episode the Play button starts (`resumeEpisodeID`), for its progress, time left and the next-up line.
+    public var resumeEpisode: EpisodeRow? {
+        guard let id = resumeEpisodeID else { return nil }
+        for s in seasons { if let e = s.episodes.first(where: { $0.id == id }) { return e } }
+        return nil
+    }
 }
 
 public struct SeasonsViewModel: Sendable {
@@ -621,7 +632,9 @@ public struct SeasonsViewModel: Sendable {
                            code: DisplayText.episodeCode(season: item.season, episode: item.episode, episodeEnd: item.episodeEnd) ?? "",
                            runtimeText: (item.runtime ?? item.watch.duration).map(DisplayText.runtime),
                            progress: CardBuilder.progressFraction(item), isWatched: item.watch.watched, artworkKey: "item-\(item.id)",
-                           badges: FormatBadges.item(item))
+                           badges: FormatBadges.item(item),
+                           durationSeconds: (item.runtime ?? item.watch.duration).flatMap { $0 > 0 ? $0 : nil },
+                           season: item.season)
             }
             return SeasonSection(season: season, title: season == 0 ? "Specials" : "Season \(season)", episodes: rows,
                                  watchedCount: rows.filter(\.isWatched).count)

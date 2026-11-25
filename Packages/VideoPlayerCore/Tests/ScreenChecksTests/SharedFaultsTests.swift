@@ -126,8 +126,10 @@ extension ScreenChecksTests {
         XCTAssertTrue(home.contains(".frame(maxWidth: CGFloat(RowSpacing.textColumn)"), "Home's synopsis line does not take the shared text column")
         XCTAssertTrue(home.contains("RowSpacing.featuredToShelf - RowSpacing.stackGap"), "Home's gap to the first shelf is not the shared value")
         XCTAssertTrue(row.contains("count: RowSpacing.landscapeShelfColumns"), "the landscape shelf does not take the shared column count")
-        // Every secondary action of the pages is a round icon button; Play stays the one prominent button.
-        XCTAssertEqual(detail.components(separatedBy: ".buttonStyle(.borderedProminent)").count - 1, 1, "the movie page has more or fewer than one prominent button")
+        // Every secondary action of the pages is a round icon button; Play is the one capsule (R471 item 3: the system
+        // bordered capsule, light only when focused, as in the reference frames, so no prominent button is left).
+        XCTAssertEqual(detail.components(separatedBy: "PlayCapsuleButton(").count - 1, 1, "the movie page has more or fewer than one Play capsule")
+        XCTAssertEqual(detail.components(separatedBy: ".buttonStyle(.borderedProminent)").count - 1, 0, "the movie page still has a prominent button")
         XCTAssertFalse(detail.contains("ActionLabel(\"More\", systemImage: \"ellipsis\")"), "More is still a text button on the movie page")
         XCTAssertFalse(home.contains("ActionLabel(\"More\", systemImage: \"ellipsis\")"), "More is still a text button on Home")
         for name in ["Start Over", "Go to Show", "Fix Match", "How This Was Sorted"] {

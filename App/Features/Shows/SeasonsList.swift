@@ -198,12 +198,16 @@ struct SeasonsList: View {
     }
 
     private var actions: some View {
+        // R471 item 3 (frames: show t08s and t10s): the capsule Play with the next-up episode's progress and time left, the
+        // round watched check, the round details button.
         ActionRow {
             if let resume = content.resumeEpisodeID {
-                Button { onPlay(resume) } label: { ActionLabel(content.playTitle, systemImage: "play.fill") }
-                    .buttonStyle(.borderedProminent)
-                    .focused($playFocused)
-                    .accessibilityIdentifier(ControlID.play)
+                let episode: EpisodeRow? = content.resumeEpisode
+                PlayCapsuleButton(capsule: PlayCapsule.make(progress: episode?.progress, durationSeconds: episode?.durationSeconds)) {
+                    onPlay(resume)
+                }
+                .focused($playFocused)
+                .accessibilityIdentifier(ControlID.play)
             }
             // R453: the round Watched button: the check when everything is watched, the eye otherwise. With the focus on this
             // button no episode is focused, so it acts on the whole show; one episode is marked from its card's menu.
@@ -233,7 +237,8 @@ struct SeasonsList: View {
                         }
                     }
                 } label: {
-                    ActionLabel("More", systemImage: "ellipsis", iconOnly: true)
+                    // R471 item 3: the frames' round details button (a page glyph), still named "More".
+                    ActionLabel("More", systemImage: "doc.text", iconOnly: true)
                 }
                 // R396 (audit SF2): a round icon button beside Play, as on the TV app's show page (picture A4).
                 .roundAction()

@@ -34,6 +34,8 @@ struct ItemDetailContentView: View {
     @State private var textTop: CGFloat?
     /// R471 item 1: the page is scrolled below its hero (the backdrop is the blurred copy).
     @State private var belowHero = false
+    /// R471 item 3: the movie is on the watchlist (the round "+" shows a check).
+    @State private var onWatchlist = false
     /// R387: the show's age rating, asked for only when an episode has none of its own (`EpisodePage.needsSeriesRating`).
     @State private var seriesRating: String?
     /// R387: the episode's show, for the row of the season's other episodes (the show page's model, so a card's context
@@ -171,14 +173,7 @@ struct ItemDetailContentView: View {
                 HeroFactsLineView(texts: HeroLines.factsText(kind: heroKind, date: details?.releaseDate, year: content.year,
                                                              durationSeconds: content.durationSeconds),
                                   badges: content.heroBadges)
-                // R392 (item 5 b; audit M3): the time left ("29 min left", #15 D3), plain text under the block. Apple's product
-                // pages show no progress line at all (B1, A4), so there is no Apple place to move it to.
-                if let timeLeft = content.timeLeft {
-                    Text(timeLeft)
-                        .font(.callout)
-                        .foregroundStyle(ReadableSecondary.style)
-                        .accessibilityIdentifier("product.timeLeft")
-                }
+                // R471 item 3: the time left is inside the Play button now ("18m" beside a mini progress bar).
                 actions
             }
             // R470: the whole text column, from the series line of an episode down, reports its top for the cover behind it.
@@ -202,50 +197,69 @@ struct ItemDetailContentView: View {
     private var actions: some View {
         // #25 B5: every button in the row uses the system `Label` (`ActionLabel`), one height for the row (`ActionRow`), and
         // each button as wide as its content.
+        // R471 item 3 (PROVISIONAL; frames: episode t00s, movie t00s): the capsule Play, then round buttons: a movie's "+"
+        // (the watchlist, when the movie is matched), and ONE details button that holds every other action (Start Over,
+        // Versions, Extras, Watched, Favorite, Edit, Fix Match, ...). No eye or heart on the hero (owner, R471 episode page).
         ActionRow {
-            Button { onPlay(false) } label: { ActionLabel(content.playTitle, systemImage: "play.fill") }
-                .buttonStyle(.borderedProminent)
-                .focused($playFocused)
-                .accessibilityIdentifier(ControlID.play)
-            // R396 (audit SF2, M4): one prominent Play or Resume, then round icon buttons (Apple's pictures B1, A4).
-            // Every action is still here: Start Over, Versions, Extras and More, each named for VoiceOver.
-            if content.canStartOver {
-                Button { onPlay(true) } label: { ActionLabel("Start Over", systemImage: "arrow.counterclockwise", iconOnly: true) }
-                    .roundAction()
-                    .accessibilityLabel("Start Over")
-                    .accessibilityIdentifier(ControlID.startOver)
+            PlayCapsuleButton(capsule: PlayCapsule.make(progress: content.progress, durationSeconds: content.durationSeconds)) {
+                onPlay(false)
             }
-            if content.versions.count > 1 {
-                VersionsMenu(versions: content.versions, model: model)
+            .focused($playFocused)
+            .accessibilityIdentifier(ControlID.play)
+            if content.kind == .movie, let tmdbID = content.tmdbID {
+                Button { toggleWatchlist(tmdbID) } label: {
+                    ActionLabel(WatchlistButton.label(onList: onWatchlist), systemImage: WatchlistButton.symbol(onList: onWatchlist), iconOnly: true)
+                }
+                .roundAction()
+                .accessibilityLabel(WatchlistButton.label(onList: onWatchlist))
+                .accessibilityIdentifier("product.watchlist")
             }
-            if !content.extras.isEmpty {
-                ExtrasMenu(extras: content.extras)
-            }
-            // R453 (PROVISIONAL): round icon-only buttons of one size, in the owner's order: Watched (the check when watched,
-            // the eye when not), Favourite, More. No Watchlist or Add to List: the library has neither (docs in R453).
-            Button { Task { await model.run { await $0.setWatched(!content.isWatched) } } } label: {
-                ActionLabel("Watched", systemImage: PageButtonSymbols.watched(content.isWatched), iconOnly: true)
-            }
-            .roundAction()
-            // The More menu keeps the "Mark as Watched" items (the existing pictures 44 to 46), so this one is named by its state.
-            .accessibilityLabel("Watched")
-            .accessibilityValue(content.isWatched ? "On" : "Off")
-            .accessibilityHint(content.isWatched ? "Marks it as unwatched" : "Marks it as watched")
-            .accessibilityIdentifier(ControlID.watched)
-            Button { Task { await model.run { await $0.toggleFavorite() } } } label: {
-                ActionLabel("Favorite", systemImage: PageButtonSymbols.favourite(content.isFavorite), iconOnly: true)
-            }
-            .roundAction()
-            .accessibilityLabel("Favorite")
-            .accessibilityValue(content.isFavorite ? "On" : "Off")
-            .accessibilityHint(content.isFavorite ? "Removes it from your favorites" : "Adds it to your favorites")
-            .accessibilityIdentifier(ControlID.favorite)
             moreMenu
         }
+        .task(id: content.tmdbID) { refreshWatchlist() }
+    }
+
+    /// R471 item 3: whether the movie is on the watchlist (the user layer, R456 sync).
+    private func refreshWatchlist() {
+        guard let id = content.tmdbID else { onWatchlist = false; return }
+        onWatchlist = services.ledger.watchlist().contains { $0.kind == "movie" && $0.tmdbID == id }
+    }
+
+    private func toggleWatchlist(_ tmdbID: Int) {
+        if onWatchlist {
+            services.ledger.removeFromWatchlist(kind: "movie", tmdbID: tmdbID)
+        } else {
+            services.ledger.addToWatchlist(UDWatchlistEntry(kind: "movie", tmdbID: tmdbID, title: content.title, year: content.year, addedAt: Date()))
+        }
+        refreshWatchlist()
     }
 
     private var moreMenu: some View {
         Menu {
+            // R471 item 3: what were round buttons on the hero, now the first entries of the details button.
+            if content.canStartOver {
+                Button("Start Over", systemImage: "arrow.counterclockwise") { onPlay(true) }
+                    .accessibilityIdentifier(ControlID.startOver)
+            }
+            if content.versions.count > 1 {
+                Picker(selection: versionSelection) {
+                    ForEach(content.versions) { Text($0.label).tag($0.id) }
+                } label: {
+                    Label("Versions", systemImage: "square.stack")
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier(ControlID.versions)
+            }
+            if !content.extras.isEmpty {
+                Menu {
+                    ForEach(content.extras) { extra in
+                        Text([extra.name, extra.kindText, extra.sizeText].compactMap { $0 }.joined(separator: ", "))
+                    }
+                } label: {
+                    Label("Extras", systemImage: "doc.on.doc")
+                }
+                .accessibilityIdentifier(ControlID.extras)
+            }
             Button(content.isWatched ? "Mark as Unwatched" : "Mark as Watched", systemImage: content.isWatched ? "eye.slash" : "eye") {
                 Task { await model.run { await $0.setWatched(!content.isWatched) } }
             }
@@ -265,12 +279,20 @@ struct ItemDetailContentView: View {
                 Button("Go to Show", systemImage: "tv") { services.openRequest = Route.series(seriesID) }
             }
         } label: {
-            ActionLabel("More", systemImage: "ellipsis", iconOnly: true)
+            // R471 item 3: the frames' round details button (a page glyph), still named "More" for VoiceOver and the UI tests.
+            ActionLabel("More", systemImage: "doc.text", iconOnly: true)
         }
         .roundAction()
         // #25 A2: the Menu is a Button with no label of its own (57-movie-detail-HIERARCHY.txt); name it once, here.
         .accessibilityLabel("More")
         .accessibilityIdentifier(ControlID.more)
+    }
+
+    /// The preferred version, chosen from the details button (was VersionsMenu's round button).
+    private var versionSelection: Binding<Int64> {
+        Binding(
+            get: { content.versions.first(where: \.isPreferred)?.id ?? content.versions.first?.id ?? 0 },
+            set: { id in Task { await model.run { await $0.choosePreferredVersion(id) } } })
     }
 }
 
