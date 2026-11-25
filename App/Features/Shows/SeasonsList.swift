@@ -48,6 +48,8 @@ struct SeasonsList: View {
     /// R471 item 6: the next-up episode's source and tracks (How to Watch, Languages, Accessibility).
     @State private var nextSource: (kind: SourceKind?, name: String?)?
     @State private var nextTracks: FileTrackDetails?
+    /// R471 Part 3: Mark All as Watched or Unwatched waiting for its confirmation.
+    @State private var pendingMarkAll: ProductAction?
 
     /// R471 item 6: the description of the hero: the next-up episode's synopsis after its code and title, else the show's.
     private var heroDescription: (prefix: String?, text: String)? {
@@ -282,16 +284,16 @@ struct SeasonsList: View {
                 .accessibilityHint(everythingWatched ? "Marks the whole show as unwatched" : "Marks the whole show as watched")
                 .accessibilityIdentifier(ControlID.watched)
             }
-            if content.canMarkWatched || content.canMarkUnwatched {
+            if !showMenuActions.isEmpty {
                 Menu {
-                    if content.canMarkWatched {
-                        Button("Mark Show as Watched", systemImage: "eye") {
-                            Task { await model.run { await $0.markSeries(watched: true) } }
-                        }
-                    }
-                    if content.canMarkUnwatched {
-                        Button("Mark Show as Unwatched", systemImage: "eye.slash") {
-                            Task { await model.run { await $0.markSeries(watched: false) } }
+                    // R471 Part 3 (PROVISIONAL): the show's actions list (`ProductActions`); only actions the app has are
+                    // listed (R471 (8)). Mark All asks first (system confirmation dialog).
+                    ForEach(showMenuActions, id: \.self) { action in
+                        switch action {
+                        case .markAllWatched, .markAllUnwatched:
+                            Button(action.title, systemImage: action.symbol) { pendingMarkAll = action }
+                        default:
+                            EmptyView()
                         }
                     }
                 } label: {
@@ -302,7 +304,34 @@ struct SeasonsList: View {
                 .roundAction()
                 .accessibilityLabel("More")
                 .accessibilityIdentifier(ControlID.more)
+                .confirmationDialog(pendingMarkAll?.title ?? "", isPresented: Binding(get: { pendingMarkAll != nil },
+                                                                                       set: { if !$0 { pendingMarkAll = nil } })) {
+                    if let action = pendingMarkAll {
+                        Button(action.title) {
+                            Task { await model.run { await $0.markSeries(watched: action == .markAllWatched) } }
+                        }
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text(pendingMarkAll == .markAllWatched ? "Every episode of this show will be marked as watched."
+                                                           : "Every episode of this show will be marked as unwatched.")
+                }
             }
         }
+    }
+
+    /// R471 Part 3: the facts the show's actions list depends on. The page is the show (a season page is this page on that
+    /// season, so the show's list applies).
+    private var showActions: ProductActionContext {
+        var c = ProductActionContext(kind: .show)
+        c.someUnwatched = content.canMarkWatched
+        c.someWatched = content.canMarkUnwatched
+        c.fixMatchAllowed = false // Fix Match is not offered for a whole show yet
+        return c
+    }
+
+    /// The entries of the show's list this page can act on today (Mark All); the rest of the list is not built for a show.
+    private var showMenuActions: [ProductAction] {
+        ProductActions.list(showActions).filter { $0 == .markAllWatched || $0 == .markAllUnwatched }
     }
 }
