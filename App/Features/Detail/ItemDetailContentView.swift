@@ -51,6 +51,9 @@ struct ItemDetailContentView: View {
     /// R471 (16): the keys the rating lives under and the rating now (the user layer).
     @State private var ratingKeys: [UDEditKey] = []
     @State private var stars: Int?
+    /// R471 (17): the title's key for the user's lists, and the name page of a new list.
+    @State private var listRef: UDTitleRef?
+    @State private var naming: ListNameRequest?
 
     /// R471 item 2: the page's kind for the hero lines.
     private var heroKind: HeroLines.Kind { content.kind == .episode ? .episode : .movie }
@@ -146,6 +149,7 @@ struct ItemDetailContentView: View {
                 ratingKeys = keys
                 stars = services.ledger.rating(for: keys)
             }
+            listRef = await services.titleRef(itemID: content.itemID, kind: content.kind)
             // R456: Hide Spoilers replaces the description of an unwatched episode (the user's own edit is hidden too: it is a description).
             if content.kind == .episode, var hidden = own, hideSpoilers {
                 hidden.overview = SpoilerRules.synopsis(hidden.overview, watched: content.isWatched, hideSpoilers: hideSpoilers)
@@ -171,6 +175,7 @@ struct ItemDetailContentView: View {
                                          excluding: content.itemID, genres: details?.genres ?? [])
             related = ids.compactMap { byID[$0] }.map { CardBuilder.card($0) }
         }
+        .listNameCover($naming)
         // R471 item 4: the file's technical table, moved from the page into File Info (the details button).
         .taskCover(isPresented: $showsFileInfo) {
             FileInfoCover(title: content.episodeTitle ?? content.title,
@@ -328,6 +333,12 @@ struct ItemDetailContentView: View {
         .accessibilityIdentifier(ControlID.more)
     }
 
+    /// R471 (17): the name a list keeps for the title (an episode's with its show).
+    private var listTitle: String {
+        guard content.kind == .episode, let episode = content.episodeTitle else { return content.title }
+        return "(content.title): (episode)"
+    }
+
     /// R471 Part 3: the facts the actions list depends on.
     private var actionContext: ProductActionContext {
         var c = ProductActionContext(kind: content.kind == .episode ? .episode : .movie)
@@ -385,6 +396,15 @@ struct ItemDetailContentView: View {
             RateMenu(current: stars) { chosen in
                 stars = chosen
                 Task { await services.rate(keys: ratingKeys, itemIDs: [content.itemID], stars: chosen) }
+            }
+        case .addToList, .addToPlaylistOrCollection:
+            // R471 (17): the user's lists of the action's kinds, checked where the title is in one.
+            if let ref = listRef {
+                AddToListMenu(action: action, ref: ref) { list in
+                    services.toggleList(list, ref: ref, title: listTitle)
+                } onNew: { kind in
+                    naming = ListNameRequest(kind: kind, title: listTitle, ref: { ref })
+                }
             }
         case .delete:
             Button(action.title, systemImage: action.symbol, role: .destructive, action: onDelete)

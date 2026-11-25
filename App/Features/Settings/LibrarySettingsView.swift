@@ -1,6 +1,7 @@
 import SwiftUI
 import AppLogic
 import LibraryIndex
+import UserData
 
 /// Settings > Library. #15 3.2: bounded column (`SettingsPane`); the counts stay `LabeledContent` in that column.
 struct LibrarySettingsView: View {
@@ -57,6 +58,12 @@ struct LibrarySettingsView: View {
                         RemovedFromLibraryView().screenIdentifier("screen.removedFromLibrary")
                     } label: {
                         ValueRow("Removed from Library", value: String(services.ledger.libraryRemovals().count))
+                    }
+                    // R471 (17): the user's own lists, playlists and collections (titles by name, so off while Restrictions are on).
+                    NavigationLink {
+                        UserListsView().screenIdentifier("screen.userLists")
+                    } label: {
+                        ValueRow(UserListText.settingsTitle, value: String(services.userLists(kinds: Set(UDUserList.Kind.allCases)).count))
                     }
                 }
             }

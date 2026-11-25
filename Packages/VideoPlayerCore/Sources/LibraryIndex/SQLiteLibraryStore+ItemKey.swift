@@ -8,3 +8,15 @@ extension SQLiteLibraryStore {
         try itemKey(id)
     }
 }
+
+extension SQLiteLibraryStore {
+    /// R471 (17): a show's stable key ("s|name", derived from the file names like an item's key), for the user's lists.
+    public func seriesKey(forSeries id: Int64) throws -> String? {
+        try db.first("SELECT key FROM series WHERE id = ?", [.int(id)]) { $0.text(0) }
+    }
+
+    /// The show a stable key belongs to on this device; nil when no show has it (yet).
+    public func seriesID(forKey key: String) throws -> Int64? {
+        try db.first("SELECT id FROM series WHERE key = ?", [.text(key)]) { $0.int64(0) }
+    }
+}

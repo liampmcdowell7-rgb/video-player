@@ -17,6 +17,8 @@ struct CardContextMenu: ViewModifier {
     @State private var askUnmatch = false
     /// R471 (15): Delete from Library is asked about first.
     @State private var askDelete = false
+    /// R471 (17): the name page of a new list made from the long press.
+    @State private var naming: ListNameRequest?
 
     func body(content: Content) -> some View {
         content
@@ -35,6 +37,13 @@ struct CardContextMenu: ViewModifier {
                         // R471 (16): the same Rate menu as the page. A card does not read the current rating (it would cost a
                         // library read per card on screen), so no choice is checked here; the page shows it.
                         RateMenu(current: nil) { chosen in Task { await rate(chosen) } }
+                    } else if action == .addToList || action == .addToPlaylistOrCollection {
+                        // R471 (17): the page's list menus; a card reads the title's key only when a list is chosen, so it adds.
+                        AddToListMenu(action: action, ref: nil) { list in
+                            Task { if let ref = await listRef() { services.addToList(list, ref: ref, title: card.title) } }
+                        } onNew: { kind in
+                            naming = ListNameRequest(kind: kind, title: card.title, ref: { await listRef() })
+                        }
                     } else {
                         Button(action.title, systemImage: action.symbol, role: action == .unmatch || action == .delete ? .destructive : nil) { run(action) }
                     }
@@ -66,6 +75,7 @@ struct CardContextMenu: ViewModifier {
             } message: {
                 Text(deleteText.message)
             }
+            .listNameCover($naming)
             .taskCover(item: $move) { target in SortMoveSheet(target: target) }
             .taskCover(isPresented: $showEdit) { if !editKeys.isEmpty { MetadataEditView(title: card.title, keys: editKeys, artworkKey: "item-\(card.id)", level: card.kind == .movie ? .movie : .episode, startGroup: editStart) } }
     }
@@ -107,6 +117,8 @@ struct CardContextMenu: ViewModifier {
         let files = (try? await services.store.versions(of: card.id)) ?? []
         await services.rate(keys: EditTarget.keys(for: item, files: files), itemIDs: [card.id], stars: stars)
     }
+
+    private func listRef() async -> UDTitleRef? { await services.titleRef(itemID: card.id, kind: card.kind) }
 
     private func openEdit(start: UDEditField.Group? = nil) async {
         editStart = start

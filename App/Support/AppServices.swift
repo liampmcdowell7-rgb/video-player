@@ -59,6 +59,8 @@ final class AppServices {
     var libraryRevision = 0
     /// R459: Restrictions are on (read from this device's settings; Discover and online suggestions are off meanwhile).
     private(set) var restrictionsOn = ParentalKeys.read().enabled
+    /// R471 (17): raised on every change to the user's lists, so the menus and My Lists read the ledger again.
+    private(set) var listsRevision = 0
     /// R460: the rating pass is running (the page shows it and the Read Ratings button waits).
     private(set) var isReadingRatings = false
     /// R459: the passcode and its lockout, in this device's Keychain.
@@ -684,6 +686,58 @@ extension AppServices {
         libraryRevision += 1
         await scanAll()
     }
+
+    // MARK: R471 (17): the user's own lists
+
+    func userLists(kinds: Set<UDUserList.Kind>) -> [UDUserList] {
+        _ = listsRevision
+        return ledger.userLists(kinds: kinds)
+    }
+
+    func userList(id: String) -> UDUserList? {
+        _ = listsRevision
+        return ledger.userList(id: id)
+    }
+
+    func listEntries(_ listID: String) -> [UDUserListEntry] {
+        _ = listsRevision
+        return ledger.listEntries(listID)
+    }
+
+    @discardableResult
+    func createList(name: String, kind: UDUserList.Kind) -> UDUserList? {
+        defer { listsRevision += 1 }
+        return ledger.createList(name: name, kind: kind)
+    }
+
+    func renameList(_ list: UDUserList, to name: String) {
+        ledger.renameList(id: list.id, to: name)
+        listsRevision += 1
+    }
+
+    func deleteList(_ list: UDUserList) {
+        ledger.deleteList(id: list.id)
+        listsRevision += 1
+    }
+
+    func addToList(_ list: UDUserList, ref: UDTitleRef, title: String) {
+        ledger.addToList(list.id, ref: ref, title: title)
+        listsRevision += 1
+    }
+
+    func removeFromList(_ list: UDUserList, ref: UDTitleRef) {
+        ledger.removeFromList(list.id, ref: ref)
+        listsRevision += 1
+    }
+
+    /// A page's menu: adds the title, or removes it when the list holds it already.
+    func toggleList(_ list: UDUserList, ref: UDTitleRef, title: String) {
+        if ledger.listIDs(containing: ref).contains(list.id) { removeFromList(list, ref: ref) } else { addToList(list, ref: ref, title: title) }
+    }
+
+    func titleRef(itemID: Int64, kind: ItemKind) async -> UDTitleRef? { await sqlite.titleRef(itemID: itemID, kind: kind) }
+    func titleRef(seriesID: Int64) async -> UDTitleRef? { await sqlite.titleRef(seriesID: seriesID) }
+    func listTarget(_ ref: UDTitleRef) async -> UserListTarget? { await sqlite.target(of: ref) }
 
     func hideFromContinue(_ itemID: Int64) async {
         try? await store.hideFromContinue(itemID: itemID, hidden: true)

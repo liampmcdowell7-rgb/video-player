@@ -57,6 +57,9 @@ struct SeasonsList: View {
     @State private var pendingDelete: LibraryRemover.Target?
     /// R471 (16): the show's own rating (the user layer).
     @State private var showStars: Int?
+    /// R471 (17): the show's key for the user's lists, and the name page of a new list.
+    @State private var showRef: UDTitleRef?
+    @State private var naming: ListNameRequest?
     @Environment(\.dismiss) private var dismiss
     /// R471 (11): the show's online id (from one of its episodes), the open edit screen, and a count bumped when it closes so
     /// the page reads the edits again.
@@ -199,6 +202,7 @@ struct SeasonsList: View {
         // #25 B10: as on the movie page, Play takes the focus once the page is on screen (a page pushed at launch kept the
         // tab bar's focus).
         .task(id: seriesID) { playFocused = true }
+        .listNameCover($naming)
         // #15 5.2: the show's fan art (or its matched online backdrop) behind the page, as on the movie page.
         .artTextTop($textTop)
         .background { BackdropView(artworkKey: "series-\(seriesID)", style: .hero, textTop: textTop, belowHero: belowHero) }
@@ -213,6 +217,7 @@ struct SeasonsList: View {
                                        to: layered.details)
             ratingLayer = layered.ratingLayer
             showStars = services.ledger.rating(for: EditTarget.showKeys(tmdbID: showTMDB, title: content.seriesTitle))
+            showRef = await services.titleRef(seriesID: seriesID)
         }
         .taskCover(item: Binding(get: { editRequest }, set: { new in
             if new == nil, editRequest != nil { editRevision += 1 }
@@ -364,6 +369,15 @@ struct SeasonsList: View {
                                     Task { await services.rate(keys: keys, itemIDs: [], stars: chosen); editRevision += 1 }
                                 }
                             }
+                        case .addToList, .addToPlaylistOrCollection:
+                            // R471 (17): the user's lists of the action's kinds, checked where the show is in one.
+                            if let ref = showRef {
+                                AddToListMenu(action: action, ref: ref) { list in
+                                    services.toggleList(list, ref: ref, title: content.seriesTitle)
+                                } onNew: { kind in
+                                    naming = ListNameRequest(kind: kind, title: content.seriesTitle, ref: { ref })
+                                }
+                            }
                         case .markAllWatched, .markAllUnwatched:
                             Button(action.title, systemImage: action.symbol) { pendingMarkAll = action }
                         case .manage:
@@ -479,7 +493,7 @@ struct SeasonsList: View {
     /// The entries of the show's list this page can act on today (Mark All, and Manage with Edit Details, R471 (11)); the
     /// rest of the list is not built for a show.
     private var showMenuActions: [ProductAction] {
-        ProductActions.list(showActions).filter { [.rate, .markAllWatched, .markAllUnwatched, .manage].contains($0) }
+        ProductActions.list(showActions).filter { [.addToList, .addToPlaylistOrCollection, .rate, .markAllWatched, .markAllUnwatched, .manage].contains($0) }
     }
 }
 

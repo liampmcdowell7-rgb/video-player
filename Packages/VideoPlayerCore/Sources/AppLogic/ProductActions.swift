@@ -88,7 +88,8 @@ public enum ProductAction: String, CaseIterable, Sendable {
         // R471 (14): Unmatch is built (movie and show; asks first).
         // R471 (15): Delete from Library is built (the library only; the file stays on the source; asks first).
         // R471 (16): Rate is built (1 to 5 stars in the user layer; sent to Plex where its sync is on).
-        case .audio, .subtitles, .addToList, .addToPlaylistOrCollection, .refreshMetadata, .analyze,
+        // R471 (17): Add to List and Add to Playlist or Collection are built (the user's own lists in the user layer).
+        case .audio, .subtitles, .refreshMetadata, .analyze,
              .playHistory:
             return false
         default:
@@ -145,7 +146,8 @@ public enum ProductActions {
             out += [.goToShow, .goToSeason]
         case .show, .season:
             if c.kind == .show, c.matched { out.append(c.onWatchlist ? .removeFromWatchlist : .addToWatchlist) }
-            out += [.addToList, .addToPlaylistOrCollection, .rate]
+            // R471 (17): a list holds movies, shows and episodes; a season is not a title of its own there (OPEN_QUESTIONS R471 (17)).
+            out += c.kind == .season ? [.rate] : [.addToList, .addToPlaylistOrCollection, .rate]
             if c.someUnwatched { out.append(.markAllWatched) }
             if c.someWatched { out.append(.markAllUnwatched) }
             if c.kind == .season { out.append(.goToShow) }
@@ -181,7 +183,7 @@ public enum ProductActions {
     public static func manageList(_ c: ProductActionContext) -> [ProductAction] { manage(c).filter(\.isBuilt) }
 
     /// The actions a long press on a poster or card can run without opening the page (R471 (10)).
-    public static let cardSupported: Set<ProductAction> = [.rate, .markWatched, .markUnwatched, .changeArtwork, .editMetadata, .unmatch, .delete]
+    public static let cardSupported: Set<ProductAction> = [.addToList, .addToPlaylistOrCollection, .rate, .markWatched, .markUnwatched, .changeArtwork, .editMetadata, .unmatch, .delete]
 
     /// A long press on a card: the page's own list (Manage opened out), kept to what the card can run, in the page's order.
     /// So a card never offers an action the page does not, and both use the same words.
