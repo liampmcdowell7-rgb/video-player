@@ -36,8 +36,11 @@ final class PlexConvertedPathR471Tests: XCTestCase {
         let mode: Mode
         private let lock = NSLock()
         private var armed = false
+        private var _cancelledReads = 0
         init(_ data: Data, mode: Mode) { inner = DataReader(data); self.mode = mode }
         var size: Int64 { inner.size }
+        /// Slow reads cancelled while they waited.
+        var cancelledReads: Int { lock.withLock { _cancelledReads } }
         func arm() { lock.withLock { armed = true } }
 
         func read(_ range: ByteRange) async throws -> Data {
@@ -50,7 +53,10 @@ final class PlexConvertedPathR471Tests: XCTestCase {
                 guard data.count > 64 else { return data }
                 return data.prefix(Int(Double(data.count) * fraction))
             case .slow(let seconds, let onCancel):
-                do { try await Task.sleep(nanoseconds: UInt64(seconds * 1e9)) } catch { throw onCancel }
+                do { try await Task.sleep(nanoseconds: UInt64(seconds * 1e9)) } catch {
+                    lock.withLock { _cancelledReads += 1 }
+                    throw onCancel
+                }
                 return try await inner.read(range)
             }
         }
@@ -148,7 +154,8 @@ final class PlexConvertedPathR471Tests: XCTestCase {
     /// An audio request BEHIND the video playhead counts as a seek for the read-ahead planner, which cancels the windows in
     /// flight that are far from it, including the window the video request is waiting for. The video request then fails
     /// although the player never closed it. With a small read-ahead budget (capacity 1) a lag of two segments is enough.
-    /// RECORDED here as found (see the bug fix in the next commit, R471 (55)).
+    /// Found by R471 (54) (the video request answered 500 with "transport(... Code=-999 ...)"); since R471 (55) a window a
+    /// player request waits for is never cancelled, and both requests answer 200.
     func testAnAudioRequestBehindTheVideoCancelsTheWindowTheVideoRequestWaitsFor() async throws {
         let data = Self.shape(seconds: 24).build().data
         // What PlexClient.read throws when its read is cancelled mid-request: URLSession's URLError .cancelled, made
@@ -187,7 +194,28 @@ final class PlexConvertedPathR471Tests: XCTestCase {
         await session.cancel()
         print("R471 (54) read-ahead cancel | seg_video_4.m4s | \(videoAnswer.status)" + (videoAnswer.error.map { " | \($0)" } ?? ""))
         print("R471 (54) read-ahead cancel | Last Event: Loopback \(log.firstFailure() ?? "nil")")
-        XCTAssertEqual(videoAnswer.status, 500, "today: the video request fails")
-        XCTAssertEqual(log.firstFailure(), LoopbackServeLog.redact("seg_video_4.m4s: transport(\(String(reflecting: cancelledText)))"))
+        XCTAssertEqual(videoAnswer.status, 200, "R471 (55): the window the video request waits for is not cancelled")
+        XCTAssertNil(log.firstFailure())
+    }
+
+    /// R471 (55): read-ahead nobody waits for is still cancelled on a seek (the planner's back-pressure is unchanged).
+    func testReadAheadNobodyWaitsForIsStillCancelledOnASeek() async throws {
+        let data = Self.shape(seconds: 24).build().data
+        let reader = AfterOpenReader(data, mode: .slow(seconds: 0.3, onCancel: CancellationError()))
+        let session = MatroskaRemuxSession(reader: reader, options: Self.options())
+        _ = try await session.prepare()
+        reader.arm()
+        _ = try await session.resource(path: "seg_video_0.m4s")
+        // Segment 1 is asked for; its window and the read-ahead of segment 2 are both in flight (slow reads).
+        let near = Task { try await session.resource(path: "seg_video_1.m4s").status }
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertEqual(reader.cancelledReads, 0)
+        // A seek far ahead: the planner cancels both; only the read-ahead (nobody waits for it) is cancelled.
+        let far = try await session.resource(path: "seg_video_10.m4s")
+        XCTAssertEqual(far.status, 200)
+        let nearStatus = try await near.value
+        XCTAssertEqual(nearStatus, 200, "the request that waits for segment 1 still answers")
+        XCTAssertGreaterThanOrEqual(reader.cancelledReads, 1, "the read-ahead of segment 2 was cancelled")
+        await session.cancel()
     }
 }

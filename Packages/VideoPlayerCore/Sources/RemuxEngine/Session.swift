@@ -113,6 +113,9 @@ public actor MatroskaRemuxSession: RemuxSession {
     private var seekMap = SeekMap([])
     private var planner: ReadAheadPlanner?
     private var windows: [Int: Task<DemuxedWindow, Error>] = [:]
+    /// R471 (55): how many player requests wait for each window right now. Read-ahead never cancels a window a request
+    /// waits for (an audio request behind the video playhead counts as a seek, and cancelled the video request's window).
+    private var waiting: [Int: Int] = [:]
     private var info: RemuxMediaInfo?
     private var videoTrack: MKVTrack?
     private var videoConfig: VideoTrackConfig?
@@ -404,7 +407,15 @@ public actor MatroskaRemuxSession: RemuxSession {
         return s
     }
 
-    private func loadWindow(_ k: Int, tracks: Set<Int>? = nil, forSubtitles: Bool = false) async throws -> DemuxedWindow {
+    /// `request` is false for read-ahead: only a player request's wait keeps a window from being cancelled (R471 (55)).
+    private func loadWindow(_ k: Int, tracks: Set<Int>? = nil, forSubtitles: Bool = false, request: Bool = true) async throws -> DemuxedWindow {
+        if request { waiting[k, default: 0] += 1 }
+        defer {
+            if request {
+                let left = (waiting[k] ?? 1) - 1
+                waiting[k] = left > 0 ? left : nil
+            }
+        }
         if let existing = windows[k] { return try await existing.value }
         guard let demuxer, k >= 0, k < seekMap.segments.count else { throw RemuxError.notFound("segment \(k)") }
         let spec = seekMap.segments[k]
@@ -435,12 +446,13 @@ public actor MatroskaRemuxSession: RemuxSession {
     private func noteRequest(_ k: Int) {
         guard var p = planner else { return }
         let plan = p.requested(k, now: options.clock.now)
-        for c in plan.cancel { windows[c]?.cancel(); windows[c] = nil }
+        // R471 (55): a window a player request waits for is left to finish (its request would fail with the cancel).
+        for c in plan.cancel where (waiting[c] ?? 0) == 0 { windows[c]?.cancel(); windows[c] = nil }
         let keep = Set(p.held).union(p.inFlight)
         for key in windows.keys where !keep.contains(key) && key != k { windows[key] = nil }
         planner = p
         for idx in plan.fetch where windows[idx] == nil {
-            Task { [weak self] in _ = try? await self?.loadWindow(idx) }
+            Task { [weak self] in _ = try? await self?.loadWindow(idx, request: false) }
         }
     }
 
