@@ -54,6 +54,8 @@ struct ItemDetailContentView: View {
     /// R471 (17): the title's key for the user's lists, and the name page of a new list.
     @State private var listRef: UDTitleRef?
     @State private var naming: ListNameRequest?
+    /// R471 (18): the result of Refresh Details, shown when the refetch is done.
+    @State private var refreshOutcome: TitleRefresh.Outcome?
 
     /// R471 item 2: the page's kind for the hero lines.
     private var heroKind: HeroLines.Kind { content.kind == .episode ? .episode : .movie }
@@ -176,6 +178,11 @@ struct ItemDetailContentView: View {
             related = ids.compactMap { byID[$0] }.map { CardBuilder.card($0) }
         }
         .listNameCover($naming)
+        .alert(refreshOutcome.map { TitleRefresh.result($0).title } ?? "", isPresented: Binding(get: { refreshOutcome != nil }, set: { if !$0 { refreshOutcome = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            if let refreshOutcome { Text(TitleRefresh.result(refreshOutcome).message) }
+        }
         // R471 item 4: the file's technical table, moved from the page into File Info (the details button).
         .taskCover(isPresented: $showsFileInfo) {
             FileInfoCover(title: content.episodeTitle ?? content.title,
@@ -389,6 +396,13 @@ struct ItemDetailContentView: View {
                 .accessibilityIdentifier(ControlID.editMetadata)
         case .fixMatch:
             Button(action.title, systemImage: action.symbol, action: onFixMatch)
+        case .refreshMetadata:
+            // R471 (18): a real refetch of this title through the providers; the result says what came back.
+            Button(action.title, systemImage: action.symbol) {
+                let target: TitleRefresh.Target = content.kind == .episode ? .episode(itemID: content.itemID) : .movie(itemID: content.itemID)
+                Task { refreshOutcome = await services.online.refreshTitle(target) }
+            }
+            .accessibilityIdentifier("product.refreshDetails")
         case .unmatch:
             Button(action.title, systemImage: action.symbol, role: .destructive, action: onUnmatch)
                 .accessibilityIdentifier("product.unmatch")

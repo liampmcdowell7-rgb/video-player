@@ -60,6 +60,8 @@ struct SeasonsList: View {
     /// R471 (17): the show's key for the user's lists, and the name page of a new list.
     @State private var showRef: UDTitleRef?
     @State private var naming: ListNameRequest?
+    /// R471 (18): the result of Refresh Details for the show.
+    @State private var refreshOutcome: TitleRefresh.Outcome?
     @Environment(\.dismiss) private var dismiss
     /// R471 (11): the show's online id (from one of its episodes), the open edit screen, and a count bumped when it closes so
     /// the page reads the edits again.
@@ -203,6 +205,11 @@ struct SeasonsList: View {
         // tab bar's focus).
         .task(id: seriesID) { playFocused = true }
         .listNameCover($naming)
+        .alert(refreshOutcome.map { TitleRefresh.result($0).title } ?? "", isPresented: Binding(get: { refreshOutcome != nil }, set: { if !$0 { refreshOutcome = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            if let refreshOutcome { Text(TitleRefresh.result(refreshOutcome).message) }
+        }
         // #15 5.2: the show's fan art (or its matched online backdrop) behind the page, as on the movie page.
         .artTextTop($textTop)
         .background { BackdropView(artworkKey: "series-\(seriesID)", style: .hero, textTop: textTop, belowHero: belowHero) }
@@ -402,6 +409,13 @@ struct SeasonsList: View {
                                                                       keys: EditTarget.seasonKeys(tmdbID: showTMDB, title: content.seriesTitle,
                                                                                                   season: season.season),
                                                                       artworkKey: nil, level: .season)
+                                    }
+                                }
+                                // R471 (18): Refresh Details for the show (its seasons and episodes with it): a real refetch.
+                                if ProductActions.manageList(showActions).contains(.refreshMetadata) {
+                                    let refresh = ProductAction.refreshMetadata
+                                    Button(refresh.title, systemImage: refresh.symbol) {
+                                        Task { refreshOutcome = await services.online.refreshTitle(.show(seriesID: seriesID)); editRevision += 1 }
                                     }
                                 }
                                 // R471 (12): Fix Match for the whole show, on the existing screen opened at The Whole Show

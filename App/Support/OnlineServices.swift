@@ -203,6 +203,25 @@ final class OnlineServices {
         rebuild()
     }
 
+    /// R471 (18): Refresh Details for one title: its kept online answers are dropped (`TitleRefresher`), the lookups are built
+    /// again (no remembered "found nothing"), and the page's details and picture are fetched now through the same layers. The
+    /// user layer is not in this cache, so edits, chosen pictures and Fix Match stay on top. The pages reload on the revision.
+    func refreshTitle(_ target: TitleRefresh.Target) async -> TitleRefresh.Outcome {
+        let refresher = TitleRefresher(store: store, cache: JSONFileMetadataCache(directory: ArtworkFolders.metadata)) { [weak self] key in
+            guard let self else { return false }
+            return await self.fetchAgain(key: key)
+        }
+        return await refresher.run(target).outcome
+    }
+
+    private func fetchAgain(key: String) async -> Bool {
+        rebuild()
+        let found = await layeredDetails(key: key).details != nil
+        _ = await resolveArtwork(key: key)
+        keyRevision += 1
+        return found
+    }
+
     /// R459: reads the rating of every title that has none kept yet (the server's answer, else the title's information file; each
     /// answer is kept in the library), so the rating rule has them. Walks by id, so a title nothing can answer now does not hold
     /// the rest back. Returns how many titles got a rating.

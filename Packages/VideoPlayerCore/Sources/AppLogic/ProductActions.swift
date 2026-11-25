@@ -89,7 +89,8 @@ public enum ProductAction: String, CaseIterable, Sendable {
         // R471 (15): Delete from Library is built (the library only; the file stays on the source; asks first).
         // R471 (16): Rate is built (1 to 5 stars in the user layer; sent to Plex where its sync is on).
         // R471 (17): Add to List and Add to Playlist or Collection are built (the user's own lists in the user layer).
-        case .audio, .subtitles, .refreshMetadata, .analyze,
+        // R471 (18): Refresh Details is built (one title's kept online answers dropped and fetched again).
+        case .audio, .subtitles, .analyze,
              .playHistory:
             return false
         default:
