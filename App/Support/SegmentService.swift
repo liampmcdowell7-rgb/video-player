@@ -1,6 +1,7 @@
 import Foundation
 import VideoPlayerCore
 import PlaybackLogic
+import LibraryIndex
 import UserData
 import AppLogic
 
@@ -55,6 +56,19 @@ struct SegmentService: Sendable {
         await EpisodeAudioReader.analyse(target, access: access) { record in await provider.store(record, for: target) }
     }
 
+    /// R471 (19): Analyze File for one item: the streams through the header reader, then (an episode) the audio comparison run
+    /// again for this file even when it was analysed before. The same readers as Media Info and `learn(forItem:)`.
+    func fileAnalyzer(store: any LibraryStore) -> FileAnalyzer {
+        let provider = provider, openSource = openSource
+        return FileAnalyzer(store: store, provider: provider, readTracks: { file in
+            guard let source = await openSource(file.sourceID) else { return nil }
+            return await MediaTrackProbe.read(file, from: source)
+        }, analyseAudio: { target in
+            guard let source = await openSource(target.sourceID), let access = try? await source.playbackAccess(for: target.file.path) else { return false }
+            return await EpisodeAudioReader.analyse(target, access: access) { record in await provider.store(record, for: target) }
+        })
+    }
+
     /// The merged segments of the file the player will open (the item's preferred version). Empty when there are none.
     func segments(forItem itemID: Int64) async -> [Segment] {
         await provider.segments(forItem: itemID)
@@ -69,4 +83,7 @@ struct SegmentService: Sendable {
 extension AppServices {
     /// A service over the current library, ledger and sources. Cheap to build; nothing is stored on `AppServices`.
     var segmentService: SegmentService { SegmentService(services: self) }
+
+    /// R471 (19): Analyze File over the current library and sources.
+    var fileAnalyzer: FileAnalyzer { segmentService.fileAnalyzer(store: store) }
 }

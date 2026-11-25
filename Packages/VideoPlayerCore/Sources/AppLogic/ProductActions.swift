@@ -90,7 +90,8 @@ public enum ProductAction: String, CaseIterable, Sendable {
         // R471 (16): Rate is built (1 to 5 stars in the user layer; sent to Plex where its sync is on).
         // R471 (17): Add to List and Add to Playlist or Collection are built (the user's own lists in the user layer).
         // R471 (18): Refresh Details is built (one title's kept online answers dropped and fetched again).
-        case .audio, .subtitles, .analyze,
+        // R471 (19): Analyze File is built (streams read again; an episode's intro and credits found again).
+        case .audio, .subtitles,
              .playHistory:
             return false
         default:

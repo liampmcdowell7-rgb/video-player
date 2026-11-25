@@ -79,12 +79,13 @@ public struct SegmentProvider: Sendable {
 
     /// The episode to analyse, nil when detection is off, the item is not an episode of a numbered season, its length is
     /// unknown, or it was analysed already.
-    public func analysisTarget(forItem itemID: Int64, limits: DetectionLimits = DetectionLimits()) async -> AnalysisTarget? {
+    /// `force` (R471 (19), Analyze File): also when this exact file was analysed before; the new record replaces the old one.
+    public func analysisTarget(forItem itemID: Int64, limits: DetectionLimits = DetectionLimits(), force: Bool = false) async -> AnalysisTarget? {
         guard let detection, let item = try? await store.item(id: itemID), let season = Self.detectionSeason(of: item),
               let file = await playbackFile(of: item) else { return nil }
         guard let duration = file.technical?.duration ?? item.runtime ?? item.watch.duration, duration > 0, duration.isFinite else { return nil }
         let identity = PlaybackLogic.FileIdentity(path: file.path, size: file.size ?? 0, duration: duration)
-        guard await detection.needsAnalysis(identity, in: season) else { return nil }
+        if !force { guard await detection.needsAnalysis(identity, in: season) else { return nil } }
         return AnalysisTarget(file: identity, season: season, sourceID: file.sourceID,
                               introWindow: limits.window(for: .intro, duration: duration),
                               creditsWindow: limits.window(for: .credits, duration: duration))
