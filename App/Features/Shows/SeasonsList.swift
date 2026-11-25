@@ -210,7 +210,8 @@ struct SeasonsList: View {
             if new == nil, editRequest != nil { editRevision += 1 }
             editRequest = new
         })) { request in
-            MetadataEditView(title: request.title, keys: request.keys, artworkKey: request.artworkKey, level: request.level)
+            MetadataEditView(title: request.title, keys: request.keys, artworkKey: request.artworkKey, level: request.level,
+                             startGroup: request.startGroup)
         }
         .taskCover(item: Binding(get: { fixMatchEpisode }, set: { new in
             if new == nil, fixMatchEpisode != nil { showTMDB = nil; editRevision += 1 }
@@ -321,6 +322,13 @@ struct SeasonsList: View {
                         case .manage:
                             // R471 (11): Edit Details for the show, and for the season on screen (the season's own edits).
                             Menu(action.title, systemImage: action.symbol) {
+                                // R471 (13): Change Artwork for the show (the edit screen opened on Artwork).
+                                let artwork = ProductAction.changeArtwork
+                                Button(artwork.title, systemImage: artwork.symbol) {
+                                    editRequest = ShowEditRequest(id: "show-artwork", title: content.seriesTitle,
+                                                                  keys: EditTarget.showKeys(tmdbID: showTMDB, title: content.seriesTitle),
+                                                                  artworkKey: "series-\(seriesID)", level: .show, startGroup: .artwork)
+                                }
                                 let edit = ProductAction.editMetadata
                                 Button(edit.title, systemImage: edit.symbol) {
                                     editRequest = ShowEditRequest(id: "show", title: content.seriesTitle,
@@ -399,6 +407,8 @@ struct ShowEditRequest: Identifiable {
     /// The artwork galleries' key; nil for a season (no season artwork key yet, R471 (11)).
     let artworkKey: String?
     let level: ArtworkGalleryKind.Level
+    /// R471 (13): the group the screen opens on (Artwork for Change Artwork); nil: the list of groups.
+    var startGroup: UDEditField.Group? = nil
 }
 
 /// R471 (12): the episode Fix Match for the whole show is opened through.

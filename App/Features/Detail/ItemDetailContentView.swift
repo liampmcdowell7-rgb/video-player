@@ -22,6 +22,8 @@ struct ItemDetailContentView: View {
     var onSortInfo: () -> Void = {}
     /// R449: the edit screens (title, artwork, cast and crew, tags).
     var onEdit: () -> Void = {}
+    /// R471 (13): Manage > Change Artwork (the edit screen opened on Artwork).
+    var onChangeArtwork: () -> Void = {}
     @Environment(AppServices.self) private var services
     @State private var details: TitleDetails?
     /// R457: Hide Spoilers covers the episode page's own picture and description.
@@ -356,6 +358,9 @@ struct ItemDetailContentView: View {
             if let seriesID = content.seriesID {
                 Button(action.title, systemImage: action.symbol) { services.openRequest = Route.series(seriesID) }
             }
+        case .changeArtwork:
+            Button(action.title, systemImage: action.symbol, action: onChangeArtwork)
+                .accessibilityIdentifier("product.changeArtwork")
         case .editMetadata:
             Button(action.title, systemImage: action.symbol, action: onEdit)
                 .accessibilityIdentifier(ControlID.editMetadata)

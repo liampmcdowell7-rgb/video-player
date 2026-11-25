@@ -14,6 +14,8 @@ struct MetadataEditView: View {
     /// R455: the artwork key ("item-42") and level of the title, for the artwork galleries of Edit > Artwork; nil: no gallery.
     var artworkKey: String? = nil
     var level: ArtworkGalleryKind.Level = .movie
+    /// R471 (13): open straight on one group (Manage > Change Artwork opens Artwork); nil: the list of groups.
+    var startGroup: UDEditField.Group? = nil
     @Environment(AppServices.self) private var services
     @Environment(\.dismiss) private var dismiss
     @State private var confirmReset = false
@@ -21,6 +23,15 @@ struct MetadataEditView: View {
 
     var body: some View {
         NavigationStack {
+            if let startGroup {
+                EditGroupScreen(group: startGroup, keys: keys, artworkKey: artworkKey, level: level, onSaved: { revision += 1 })
+            } else {
+                groups
+            }
+        }
+    }
+
+    private var groups: some View {
             List {
                 Section {
                     ForEach(UDEditField.Group.allCases, id: \.self) { group in
@@ -50,7 +61,6 @@ struct MetadataEditView: View {
             } message: {
                 Text("The title shows what the files and the online data say again.")
             }
-        }
     }
 
     private var hasEdits: Bool {

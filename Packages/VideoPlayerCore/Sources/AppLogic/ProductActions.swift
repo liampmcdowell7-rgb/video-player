@@ -84,7 +84,8 @@ public enum ProductAction: String, CaseIterable, Sendable {
     /// Whether the app has this action today. The others are left out of every list (R471 (8)).
     public var isBuilt: Bool {
         switch self {
-        case .audio, .subtitles, .addToList, .addToPlaylistOrCollection, .rate, .changeArtwork, .refreshMetadata, .analyze,
+        // R471 (13): Change Artwork is built (the edit screen's Artwork group, R455).
+        case .audio, .subtitles, .addToList, .addToPlaylistOrCollection, .rate, .refreshMetadata, .analyze,
              .unmatch, .playHistory, .delete:
             return false
         default:
@@ -174,7 +175,7 @@ public enum ProductActions {
     public static func manageList(_ c: ProductActionContext) -> [ProductAction] { manage(c).filter(\.isBuilt) }
 
     /// The actions a long press on a poster or card can run without opening the page (R471 (10)).
-    public static let cardSupported: Set<ProductAction> = [.markWatched, .markUnwatched, .editMetadata]
+    public static let cardSupported: Set<ProductAction> = [.markWatched, .markUnwatched, .changeArtwork, .editMetadata]
 
     /// A long press on a card: the page's own list (Manage opened out), kept to what the card can run, in the page's order.
     /// So a card never offers an action the page does not, and both use the same words.

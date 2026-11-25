@@ -33,9 +33,9 @@ final class FixMatchScopeTests: XCTestCase {
 
     func testTheShowsManageOffersFixMatchUnlessRestricted() {
         var c = ProductActionContext(kind: .show)
-        XCTAssertEqual(ProductActions.manageList(c), [.editMetadata, .fixMatch])
+        XCTAssertEqual(ProductActions.manageList(c), [.changeArtwork, .editMetadata, .fixMatch])
         c.fixMatchAllowed = false
-        XCTAssertEqual(ProductActions.manageList(c), [.editMetadata])
+        XCTAssertEqual(ProductActions.manageList(c), [.changeArtwork, .editMetadata])
     }
 
     func testAMovieCannotBeGivenASeasonScope() throws {

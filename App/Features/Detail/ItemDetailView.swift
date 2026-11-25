@@ -11,6 +11,7 @@ struct ItemDetailView: View {
     @State private var showSortInfo = false
     @State private var showEdit = false
     @State private var editKeys: [UDEditKey] = []
+    @State private var editStart: UDEditField.Group?
     @State private var askVersion = false
     @State private var pendingFromStart = false
     @AppStorage(PlayVersion.key) private var playVersionRaw = PlayVersion.default.rawValue
@@ -21,7 +22,8 @@ struct ItemDetailView: View {
             if let model {
                 ScreenStateView(state: model.screen.state, onRetry: { Task { await reload() } }) { content in
                     ItemDetailContentView(content: content, model: model, onPlay: play, onFixMatch: { showFixMatch = true },
-                                          onSortInfo: { showSortInfo = true }, onEdit: { Task { await openEdit() } })
+                                          onSortInfo: { showSortInfo = true }, onEdit: { Task { await openEdit() } },
+                                          onChangeArtwork: { Task { await openEdit(start: .artwork) } })
                 }
             } else {
                 LoadingView()
@@ -46,7 +48,8 @@ struct ItemDetailView: View {
         }
         .taskCover(isPresented: $showEdit) {
             if let content = model?.screen.state.content, !editKeys.isEmpty {
-                MetadataEditView(title: content.episodeTitle ?? content.title, keys: editKeys, artworkKey: "item-\(itemID)", level: content.kind == .movie ? .movie : .episode)
+                MetadataEditView(title: content.episodeTitle ?? content.title, keys: editKeys, artworkKey: "item-\(itemID)", level: content.kind == .movie ? .movie : .episode,
+                                 startGroup: editStart)
             }
         }
         .taskCover(isPresented: $showSortInfo) {
@@ -57,7 +60,9 @@ struct ItemDetailView: View {
     }
 
     /// R449: the keys this item's edits live under (online id and file), then the edit screens.
-    private func openEdit() async {
+    /// `start`: the group to open on (R471 (13): Change Artwork opens Artwork); nil: the list of groups.
+    private func openEdit(start: UDEditField.Group? = nil) async {
+        editStart = start
         guard let item = try? await services.store.item(id: itemID) else { return }
         let files = (try? await services.store.versions(of: itemID)) ?? []
         editKeys = EditTarget.keys(for: item, files: files)

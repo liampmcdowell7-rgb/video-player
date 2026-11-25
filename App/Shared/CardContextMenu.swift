@@ -12,6 +12,7 @@ struct CardContextMenu: ViewModifier {
     @State private var move: SortMoveTarget?
     @State private var showEdit = false
     @State private var editKeys: [UDEditKey] = []
+    @State private var editStart: UDEditField.Group?
 
     func body(content: Content) -> some View {
         content
@@ -44,7 +45,7 @@ struct CardContextMenu: ViewModifier {
                 }
             }
             .taskCover(item: $move) { target in SortMoveSheet(target: target) }
-            .taskCover(isPresented: $showEdit) { if !editKeys.isEmpty { MetadataEditView(title: card.title, keys: editKeys, artworkKey: "item-\(card.id)", level: card.kind == .movie ? .movie : .episode) } }
+            .taskCover(isPresented: $showEdit) { if !editKeys.isEmpty { MetadataEditView(title: card.title, keys: editKeys, artworkKey: "item-\(card.id)", level: card.kind == .movie ? .movie : .episode, startGroup: editStart) } }
     }
 
     /// Runs one entry of `ProductActions.cardList`; the list holds nothing else (`ProductActions.cardSupported`).
@@ -54,11 +55,14 @@ struct CardContextMenu: ViewModifier {
         case .markUnwatched: Task { await services.setWatched(card.id, false) }
         // R449: the same edit screens as the page's More menu.
         case .editMetadata: Task { await openEdit() }
+        // R471 (13): the same screen opened on Artwork.
+        case .changeArtwork: Task { await openEdit(start: .artwork) }
         default: break
         }
     }
 
-    private func openEdit() async {
+    private func openEdit(start: UDEditField.Group? = nil) async {
+        editStart = start
         guard let item = try? await services.store.item(id: card.id) else { return }
         let files = (try? await services.store.versions(of: card.id)) ?? []
         editKeys = EditTarget.keys(for: item, files: files)
