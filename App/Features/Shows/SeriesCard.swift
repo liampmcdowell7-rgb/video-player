@@ -23,6 +23,8 @@ struct SeriesCard: View {
             }
             .accessibilityLabel(series.title)
             .accessibilityValue(detail.full)
+            // R471 (23): the show's actions on a long press, as a movie's poster has them.
+            .seriesCardMenu(series)
         } else {
             lockup
         }
@@ -50,6 +52,8 @@ struct SeriesCard: View {
         .buttonStyle(.borderless)
         .accessibilityLabel(series.title)
         .accessibilityValue(detail.full)
+        // R471 (23): the show's actions on a long press, as a movie's poster has them.
+        .seriesCardMenu(series)
         .wholeRowOnly() // R443: in a library grid a row is drawn only when whole
     }
 

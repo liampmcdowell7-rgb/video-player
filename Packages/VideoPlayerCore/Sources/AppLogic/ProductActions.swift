@@ -186,8 +186,10 @@ public enum ProductActions {
 
     public static func manageList(_ c: ProductActionContext) -> [ProductAction] { manage(c).filter(\.isBuilt) }
 
-    /// The actions a long press on a poster or card can run without opening the page (R471 (10)).
-    public static let cardSupported: Set<ProductAction> = [.addToList, .addToPlaylistOrCollection, .rate, .markWatched, .markUnwatched, .changeArtwork, .editMetadata, .unmatch, .delete]
+    /// The actions a long press on a poster or card can run without opening the page (R471 (10)). R471 (23): Mark All as
+    /// Watched or Unwatched for a show's poster and a season (they appear only in a show's or a season's list).
+    public static let cardSupported: Set<ProductAction> = [.addToList, .addToPlaylistOrCollection, .rate, .markWatched, .markUnwatched,
+                                                           .markAllWatched, .markAllUnwatched, .changeArtwork, .editMetadata, .unmatch, .delete]
 
     /// A long press on a card: the page's own list (Manage opened out), kept to what the card can run, in the page's order.
     /// So a card never offers an action the page does not, and both use the same words.
@@ -204,6 +206,27 @@ public extension ItemCard {
         c.watched = isWatched
         c.matched = isMatched
         c.hasFile = true
+        return c
+    }
+}
+
+public extension SeriesSummary {
+    /// R471 (23): the facts a show's poster knows. Whether the show is matched is not known without a library read, so a
+    /// poster's list has no Unmatch (the page has it).
+    var actionContext: ProductActionContext {
+        var c = ProductActionContext(kind: .show)
+        c.someUnwatched = unwatchedCount > 0
+        c.someWatched = episodeCount > unwatchedCount
+        return c
+    }
+}
+
+public extension SeasonSection {
+    /// R471 (23): the facts of one season for a long press on it (its own episodes' watch state).
+    var actionContext: ProductActionContext {
+        var c = ProductActionContext(kind: .season)
+        c.someUnwatched = watchedCount < episodes.count
+        c.someWatched = watchedCount > 0
         return c
     }
 }

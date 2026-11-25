@@ -654,6 +654,20 @@ extension AppServices {
         libraryRevision += 1
     }
 
+    /// R471 (23): Mark All as Watched or Unwatched from a long press, for a whole show (`season` nil) or one season; the
+    /// same store call the show page makes.
+    func setSeriesWatched(_ seriesID: Int64, season: Int?, watched: Bool) async {
+        try? await store.markSeries(seriesID: seriesID, season: season, watched: watched, at: Date())
+        libraryRevision += 1
+    }
+
+    /// R471 (23): the online id most of a show's episodes carry (nil before a match), for the show's edit keys from a long
+    /// press. The show page reads one episode's id, which is the same whenever the episodes agree.
+    func showOnlineID(seriesID: Int64) async -> Int? {
+        let ids: [Int] = ((try? await store.episodes(ofSeries: seriesID)) ?? []).compactMap(\.tmdbID)
+        return Dictionary(grouping: ids, by: { $0 }).max(by: { $0.value.count != $1.value.count ? $0.value.count < $1.value.count : $0.key > $1.key })?.key
+    }
+
     func setFavorite(_ itemID: Int64, _ favorite: Bool) async {
         try? await store.setFavorite(itemID: itemID, favorite: favorite)
         libraryRevision += 1

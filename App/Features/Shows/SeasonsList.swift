@@ -54,6 +54,8 @@ struct SeasonsList: View {
     @State private var nextTracks: FileTrackDetails?
     /// R471 Part 3: Mark All as Watched or Unwatched waiting for its confirmation.
     @State private var pendingMarkAll: ProductAction?
+    /// R471 (23): a season's Mark as Watched or Unwatched from its long press, waiting for its confirmation.
+    @State private var pendingMarkSeason: (season: SeasonSection, watched: Bool)?
     /// R471 (14): Unmatch for the whole show is asked about (system confirmation dialog).
     @State private var askUnmatch = false
     /// R471 (15): the show or season asked about for Delete from Library; the page closes after the whole show is removed.
@@ -161,6 +163,8 @@ struct SeasonsList: View {
                    seasonHeader.isWorthShowing(libraryTitle: season.title, hasPoster: seasonHasPoster) {
                     SeasonHeaderRow(header: seasonHeader, artworkKey: ArtworkKey.seasonKey(seriesID: seriesID, number: season.season),
                                     showsPoster: seasonHasPoster)
+                        // R471 (23): the season's actions on a long press of its card.
+                        .contextMenu { seasonMenu(season) }
                 }
                 if let season = shownSeason {
                     // R453: no "N of M watched" line under the strip (PROVISIONAL: the watched checks are on the stills).
@@ -261,6 +265,19 @@ struct SeasonsList: View {
         } message: {
             Text(deleteText.message)
         }
+        // R471 (23): a season's Mark as Watched or Unwatched from its long press asks first, as Mark All does.
+        .confirmationDialog(pendingMarkSeason.map { $0.watched ? "Mark \($0.season.title) as Watched" : "Mark \($0.season.title) as Unwatched" } ?? "",
+                            isPresented: Binding(get: { pendingMarkSeason != nil }, set: { if !$0 { pendingMarkSeason = nil } }),
+                            titleVisibility: .visible) {
+            if let pending = pendingMarkSeason {
+                Button(pending.watched ? "Mark as Watched" : "Mark as Unwatched") {
+                    Task { await model.run { await $0.markSeason(pending.season.season, watched: pending.watched) } }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(pendingMarkSeason.map { "Every episode of " + $0.season.title + " will be marked as " + ($0.watched ? "watched." : "unwatched.") } ?? "")
+        }
         .taskCover(item: Binding(get: { fixMatchEpisode }, set: { new in
             if new == nil, fixMatchEpisode != nil { showTMDB = nil; editRevision += 1 }
             fixMatchEpisode = new
@@ -307,6 +324,46 @@ struct SeasonsList: View {
         .pushedScreen(content.seriesTitle)
     }
 
+    /// R471 (23): the long-press menu of one season: the season's own actions list kept to what a long press can run
+    /// (`ProductActions.cardList`), each acting on THIS season (not necessarily the one on screen).
+    @ViewBuilder private func seasonMenu(_ season: SeasonSection) -> some View {
+        let keys: [UDEditKey] = EditTarget.seasonKeys(tmdbID: showTMDB, title: content.seriesTitle, season: season.season)
+        ForEach(ProductActions.cardList(seasonContext(season)), id: \.self) { action in
+            switch action {
+            case .rate:
+                RateMenu(current: services.ledger.rating(for: keys), title: "Rate \(season.title)") { chosen in
+                    Task { await services.rate(keys: keys, itemIDs: [], stars: chosen); editRevision += 1 }
+                }
+            case .markAllWatched, .markAllUnwatched:
+                let watched: Bool = action == .markAllWatched
+                Button(watched ? "Mark \(season.title) as Watched" : "Mark \(season.title) as Unwatched", systemImage: action.symbol) {
+                    pendingMarkSeason = (season, watched)
+                }
+            case .changeArtwork, .editMetadata:
+                Button(action == .changeArtwork ? "Change \(season.title) Artwork" : "Edit \(season.title) Details", systemImage: action.symbol) {
+                    editRequest = ShowEditRequest(id: "season-\(season.season)" + (action == .changeArtwork ? "-artwork" : ""),
+                                                  title: "\(content.seriesTitle), \(season.title)", keys: keys,
+                                                  artworkKey: ArtworkKey.seasonKey(seriesID: seriesID, number: season.season),
+                                                  level: .season, startGroup: action == .changeArtwork ? .artwork : nil)
+                }
+            case .delete:
+                Button("Delete \(season.title) from Library", systemImage: action.symbol, role: .destructive) {
+                    pendingDelete = .season(seriesID: seriesID, season: season.season)
+                }
+            default:
+                EmptyView()
+            }
+        }
+    }
+
+    /// R471 (23): one season's facts for its long press. Delete is for one season of several (the whole show is the page's
+    /// own Delete) and is off while Restrictions are on.
+    private func seasonContext(_ season: SeasonSection) -> ProductActionContext {
+        var c = season.actionContext
+        c.deleteAllowed = !services.restrictionsOn && content.seasons.count > 1
+        return c
+    }
+
     /// R339: the system picker for the seasons (segmented or menu, `SeasonTabs.style`), or the one season's name.
     @ViewBuilder private var seasonTabs: some View {
         let choice = Binding<Int>(get: { shownSeason?.season ?? 0 }, set: { chosenSeason = $0 })
@@ -325,9 +382,12 @@ struct SeasonsList: View {
                             .buttonStyle(.borderedProminent)
                             .buttonBorderShape(.capsule)
                             .accessibilityAddTraits(.isSelected)
+                            // R471 (23): a long press on a season's button: that season's actions.
+                            .contextMenu { seasonMenu(season) }
                     } else {
                         Button { choice.wrappedValue = season.season } label: { FittingText(season.title).padding(.horizontal) }
                             .buttonStyle(.plain)
+                            .contextMenu { seasonMenu(season) }
                     }
                 }
             }
