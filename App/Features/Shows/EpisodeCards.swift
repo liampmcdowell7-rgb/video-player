@@ -10,13 +10,15 @@ struct EpisodeShelfRow: View {
     let model: ScreenModel<SeasonsViewModel>
     /// R453: the episode that has the focus (nil when none), for the show page's info block.
     var focusedID: Binding<Int64?>? = nil
+    /// R471 item 6: each card's text under the still (number, title, description, date, rating), by episode id.
+    var texts: [Int64: EpisodeCardText] = [:]
 
     var body: some View {
         ScrollView(.horizontal) {
             // design-lint:allow HIG Layout, 40 pt horizontal spacing between cards (docs/DESIGN_SYSTEM.md section 4)
             LazyHStack(alignment: .top, spacing: 40) {
                 ForEach(episodes) { episode in
-                    EpisodeCard(episode: episode, model: model, focusedID: focusedID)
+                    EpisodeCard(episode: episode, model: model, focusedID: focusedID, text: texts[episode.id])
                         // design-lint:allow HIG Layout, four columns of the grid width for 16:9 episode cards (R189)
                         .containerRelativeFrame(.horizontal, count: 4, spacing: 40)
                 }
@@ -39,6 +41,7 @@ struct EpisodeCard: View {
     let episode: EpisodeRow
     let model: ScreenModel<SeasonsViewModel>
     var focusedID: Binding<Int64?>? = nil
+    var text: EpisodeCardText? = nil
     @FocusState private var isFocused: Bool
     @AppStorage(AppPreference.hideSpoilers.rawValue) private var hideSpoilers = false
 
@@ -112,10 +115,46 @@ struct EpisodeCard: View {
 
     /// R453: ONE line, "4. Title", fitted to its text (`FittingText`, rule S1); no tag chips (the resolution, HDR and sound of
     /// the focused episode are in the page's info block). The watched check and the progress are on the still.
-    private var captions: some View {
-        FittingText(episode.cardCaption, style: .caption)
-            .padding(.horizontal)
-            // R393 (item 6 c): the row's equal height is reserved under the caption.
+    @ViewBuilder private var captions: some View {
+        if let text {
+            // R471 item 6 (PROVISIONAL; frames show t12s and t14s): "Episode 4", the title in bold, three lines of
+            // description, then the air date and the rating box. The focused card's text sits on the system's regular
+            // material (t14s: a raised panel behind the focused card's text).
+            VStack(alignment: .leading) {
+                if let overline = text.overline {
+                    FittingText(overline, style: .caption2)
+                        .foregroundStyle(ReadableSecondary.style)
+                }
+                FittingText(text.title, style: .caption)
+                    .fontWeight(.bold)
+                if let description = text.description {
+                    Text(description)
+                        .font(.caption2)
+                        .lineLimit(3, reservesSpace: true)
+                        .multilineTextAlignment(.leading)
+                }
+                if text.date != nil || text.rating != nil {
+                    HStack(spacing: CGFloat(BadgeSpacing.afterText)) {
+                        if let date = text.date {
+                            FittingText(date, style: .caption2)
+                                .foregroundStyle(ReadableSecondary.style)
+                        }
+                        if let rating = text.rating {
+                            RatingBadge(rating: rating)
+                        }
+                    }
+                }
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // design-lint:allow R471: the system regular material behind the focused episode card's text only (frame show t14s); no custom glass
+            .background(isFocused ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(.clear))
             .equalCaptionBlock()
+        } else {
+            FittingText(episode.cardCaption, style: .caption)
+                .padding(.horizontal)
+                // R393 (item 6 c): the row's equal height is reserved under the caption.
+                .equalCaptionBlock()
+        }
     }
 }

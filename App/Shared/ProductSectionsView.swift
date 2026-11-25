@@ -33,6 +33,71 @@ struct HowToWatchCard: View {
     }
 }
 
+/// R471 item 6 (PROVISIONAL; frames: show t16s, movie t06s): "About": a card with the synopsis (four lines; selecting it
+/// opens the whole text, rule L5) and, when we hold a rating, the age guidance card (the rating in its box, where it came
+/// from, and the rating's own descriptors). Both are system card buttons (`.card`); the guidance card opens the same
+/// facts in full. A card without data is left out; no section without either.
+struct AboutSection: View {
+    let title: String
+    let summary: String?
+    let artworkKey: String?
+    let guidance: AgeGuidance?
+    @State private var showsSummary = false
+    @State private var showsGuidance = false
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            ShelfHeader("About")
+            HStack(alignment: .top) {
+                if let summary {
+                    Button { showsSummary = true } label: {
+                        VStack(alignment: .leading) {
+                            FittingText(title, style: .headline)
+                            Text(summary)
+                                .font(.callout)
+                                .lineLimit(4, reservesSpace: true)
+                                .multilineTextAlignment(.leading)
+                        }
+                        .padding()
+                        .frame(maxWidth: CGFloat(RowSpacing.textColumn), alignment: .leading)
+                    }
+                    .buttonStyle(.card)
+                    .accessibilityHint("Shows the whole synopsis")
+                    .accessibilityIdentifier("product.about")
+                    .taskCover(isPresented: $showsSummary) {
+                        SynopsisCover(title: title, text: summary, artworkKey: artworkKey, prefersEpisodeStill: false)
+                    }
+                }
+                if let guidance {
+                    Button { showsGuidance = true } label: {
+                        VStack(alignment: .leading) {
+                            FittingText(AgeGuidance.heading, style: .headline)
+                            RatingBadge(rating: guidance.rating)
+                            if let source = guidance.source {
+                                FittingText(source, style: .caption)
+                                    .foregroundStyle(ReadableSecondary.style)
+                            }
+                            if !guidance.descriptors.isEmpty {
+                                Text(guidance.descriptors.joined(separator: ", "))
+                                    .font(.caption)
+                                    .lineLimit(2, reservesSpace: false)
+                            }
+                        }
+                        .padding()
+                    }
+                    .buttonStyle(.card)
+                    .accessibilityIdentifier("product.ageGuidance")
+                    .taskCover(isPresented: $showsGuidance) {
+                        InfoListCover(title: AgeGuidance.heading,
+                                      values: ["Rated \(guidance.rating)"] + [guidance.source].compactMap { $0 } + guidance.descriptors)
+                    }
+                }
+            }
+        }
+        .productPageRow()
+    }
+}
+
 /// R471 item 4: the three columns under How to Watch: Information, Languages, Accessibility. Each column is a system
 /// `VStack` of label (secondary) over value; columns of equal width (rule: elements side by side have equal size); a
 /// column with no rows is left out. A shortened list ends with a "More" button that opens the whole list in a cover.
@@ -108,7 +173,7 @@ private struct BlockFocus: ViewModifier {
 }
 
 /// The whole list behind "More" (every audio or subtitle language), a system List in a full-screen cover (R228).
-private struct InfoListCover: View {
+struct InfoListCover: View {
     let title: String
     let values: [String]
 

@@ -1,5 +1,7 @@
 import SwiftUI
 import AppLogic
+import VideoPlayerCore
+import LibraryIndex
 
 /// The show page (#15 5.1, 5.2; R350, item D: the TV app's product page, the hero area on the first screen over the clear
 /// artwork, then the season tabs and episodes, then Cast & Crew): backdrop, the title (or its title logo, #15 Part 9), the synopsis, Play and More as buttons,
@@ -38,30 +40,44 @@ struct SeasonsList: View {
     @State private var chosenSeason: Int?
     /// R350: the height of the page's scroll view, so the hero area fills the first screen (`ProductPageLayout`).
     @State private var pageHeight: CGFloat = 0
-    /// R453: the episode card that has the focus, the one it rested on (`InfoBlockLayout.focusRestSeconds`), and the details
-    /// asked for so far; the info block shows the resting episode, else the show.
+    /// R471 item 6: the episodes' own details asked for so far (the shown season's cards and the next-up episode).
     @AppStorage(AppPreference.hideSpoilers.rawValue) private var hideSpoilers = false
-    @State private var focusedEpisodeID: Int64?
-    @State private var restingEpisodeID: Int64?
     @State private var episodeDetails: [Int64: TitleDetails] = [:]
+    /// R471 item 6: the layer the show's rating came from (the age guidance card says where it came from).
+    @State private var ratingLayer: DetailsLayer?
+    /// R471 item 6: the next-up episode's source and tracks (How to Watch, Languages, Accessibility).
+    @State private var nextSource: (kind: SourceKind?, name: String?)?
+    @State private var nextTracks: FileTrackDetails?
 
-    private var showFacts: InfoFacts {
-        InfoFacts(date: details?.releaseDate, contentRating: details?.contentRating, genres: details?.genres ?? [],
-                  synopsis: details?.overview)
+    /// R471 item 6: the description of the hero: the next-up episode's synopsis after its code and title, else the show's.
+    private var heroDescription: (prefix: String?, text: String)? {
+        let next: EpisodeRow? = content.resumeEpisode
+        let nextOverview: String? = next.flatMap { e in
+            SpoilerRules.synopsis(episodeDetails[e.id]?.overview, watched: e.isWatched, hideSpoilers: hideSpoilers)
+        }
+        return ShowHeroText.description(showOverview: details?.overview, nextCode: next?.code, nextTitle: next?.title,
+                                        nextOverview: nextOverview)
     }
 
-    /// R453: what the block says: the resting episode of the shown season, else the show's own data.
-    private var infoBlock: InfoBlock {
-        guard let id = restingEpisodeID, let season = shownSeason, let episode = season.episodes.first(where: { $0.id == id }) else {
-            return InfoBlock.show(showFacts)
+    /// R471 item 6: each card's text of the shown season.
+    private var cardTexts: [Int64: EpisodeCardText] {
+        var out: [Int64: EpisodeCardText] = [:]
+        for e in shownSeason?.episodes ?? [] {
+            out[e.id] = EpisodeCardText.make(number: e.number, title: e.title, details: episodeDetails[e.id], watched: e.isWatched,
+                                             hideSpoilers: hideSpoilers)
         }
-        let d: TitleDetails? = episodeDetails[id]
-        let facts = InfoFacts(runtime: episode.runtimeText, date: d?.releaseDate, contentRating: d?.contentRating,
-                              resolution: episode.badges.first { $0.group == .resolution }?.text,
-                              audio: episode.badges.first { $0.group == .audio }?.text,
-                              genres: d?.genres ?? [],
-                              synopsis: SpoilerRules.synopsis(d?.overview, watched: episode.isWatched, hideSpoilers: hideSpoilers))
-        return InfoBlock.episode(season: season.season, number: episode.number, title: episode.title, facts: facts, show: showFacts)
+        return out
+    }
+
+    private var howToWatch: HowToWatch? {
+        HowToWatch.make(sourceKind: nextSource?.kind, sourceName: nextSource?.name, progress: content.resumeEpisode?.progress,
+                        durationSeconds: content.resumeEpisode?.durationSeconds,
+                        seasonsLine: HowToWatch.seasonsLine(content.seasons.map(\.season)))
+    }
+
+    private var information: [InfoEntry] {
+        ProductInfo.information(released: details?.releaseDate, year: nil, durationSeconds: nil, rating: details?.contentRating,
+                                advisories: details?.contentDescriptors ?? [], regions: ProductInfo.regionNames(details?.regions ?? []))
     }
 
     private var shownSeason: SeasonSection? {
@@ -74,15 +90,22 @@ struct SeasonsList: View {
                 // R350 (item D): the hero area fills the first screen, its content at the bottom over the clear artwork.
                 VStack(alignment: .leading) {
                     TitleHeader(title: content.seriesTitle, artworkKey: "series-\(seriesID)")
-                    // R404: nothing in the stack without content advice, as on the movie page.
+                    // R471 item 6 (frames show t08s, home photo): "TV Show · genres [rating]".
+                    HeroKindLineView(segments: HeroLines.kindLine(kind: .show, source: nextSource?.kind, genres: details?.genres ?? [],
+                                                                  rating: details?.contentRating))
+                    // R404: nothing in the stack without content advice, as on the movie page. (Also in Information below.)
                     if let advice = details?.contentDescriptors, !advice.isEmpty {
                         ContentAdviceLine(descriptors: advice)
                     }
-                    // R453 (PROVISIONAL): the info block of the focused episode (the show's own data when focus is elsewhere), of
-                    // one fixed height. The show's whole synopsis is still one press away (rule L5).
-                    InfoBlockView(block: infoBlock,
-                                  fullText: (title: content.seriesTitle, artworkKey: "series-\(seriesID)", prefersEpisodeStill: false),
-                                  fixedHeight: true)
+                    // R471 item 6: replaces R453's focus-driven info block: the next-up episode's synopsis after "S4, E4 · Title:",
+                    // else the show's; the whole text one press away (rule L5).
+                    if let description = heroDescription {
+                        HeroDescription(prefix: description.prefix, text: description.text, title: content.seriesTitle,
+                                        artworkKey: "series-\(seriesID)")
+                    }
+                    // R471 item 6: the first air year, then the next-up episode's glyph badges.
+                    HeroFactsLineView(texts: HeroLines.factsText(kind: .show, date: details?.releaseDate, year: nil, durationSeconds: nil),
+                                      badges: HeroBadges.make(format: content.resumeEpisode?.badges ?? [], access: AccessFeature.detect(nextTracks)))
                     if details?.overview == nil, !services.online.hasCatalogueKey {
                         // #26 item 4: one short line saying the synopsis needs the key and where to add it.
                         StatusText(OnlineLookupText.detailsNeedKey)
@@ -94,6 +117,15 @@ struct SeasonsList: View {
                 // R470: the whole text column reports its top for the cover behind it (not the title alone).
                 .reportsArtTextTop()
                 .productHero(pageHeight: pageHeight, fraction: CGFloat(InfoBlockLayout.showHeroFraction))
+                // R471 item 6 (owner's Part 1 correction): "Starring" and "Director" at the lower right, as on the movie page.
+                .overlay(alignment: .bottomTrailing) {
+                    let starring: String? = ProductPage.starring((details?.cast ?? []).map(\.name))
+                    let director = ProductInfo.directorLine(details?.directors ?? [])
+                    if starring != nil || director != nil {
+                        StarringBlock(names: starring, director: director)
+                            .padding(.bottom, DetailPageLayout.belowActions)
+                    }
+                }
                 // R424 (run #28, 56-show-page-SCROLL-UP): as on the movie page, Up from any card below climbs back into
                 // the hero, and Play takes the focus there (reasons: ItemDetailContentView's hero).
                 .focusSection()
@@ -108,7 +140,8 @@ struct SeasonsList: View {
                 if let season = shownSeason {
                     // R453: no "N of M watched" line under the strip (PROVISIONAL: the watched checks are on the stills).
                     // R387: the shelf is shared with the episode page (EpisodeCards.swift).
-                    EpisodeShelfRow(episodes: season.episodes, model: model, focusedID: $focusedEpisodeID)
+                    // R471 item 6: each card with its number, title, description, date and rating.
+                    EpisodeShelfRow(episodes: season.episodes, model: model, texts: cardTexts)
                     // R339: another season starts at its first episode.
                     .id(season.season)
                     // R424: Up from any cast entry reaches the episodes.
@@ -116,6 +149,20 @@ struct SeasonsList: View {
                 }
                 if let cast = details?.cast, !cast.isEmpty {
                     CastShelf(cast: cast)
+                }
+                // R471 item 6 (frames show t16s to t20s): How to Watch, About, then the columns; each only with data.
+                if let howToWatch, let resume = content.resumeEpisodeID {
+                    HowToWatchCard(card: howToWatch) { onPlay(resume) }
+                }
+                let guidance: AgeGuidance? = AgeGuidance.make(rating: details?.contentRating, layer: ratingLayer,
+                                                              descriptors: details?.contentDescriptors ?? [])
+                if details?.overview != nil || guidance != nil {
+                    AboutSection(title: content.seriesTitle, summary: details?.overview, artworkKey: "series-\(seriesID)", guidance: guidance)
+                }
+                let languages: [InfoEntry] = ProductInfo.languages(tracks: nextTracks, originalLanguage: details?.originalLanguage)
+                let access: [InfoEntry] = ProductInfo.accessibility(AccessFeature.detect(nextTracks))
+                if !information.isEmpty || !languages.isEmpty || !access.isEmpty {
+                    ProductInfoColumns(information: information, languages: languages, accessibility: access)
                 }
             }
             // R470: the space the hero column reports its top in (ArtTextTop).
@@ -139,23 +186,34 @@ struct SeasonsList: View {
         .artTextTop($textTop)
         .background { BackdropView(artworkKey: "series-\(seriesID)", style: .hero, textTop: textTop, belowHero: belowHero) }
         .task(id: "series-\(seriesID)|\(services.online.keyRevision)") {
-            details = await services.online.details(key: "series-\(seriesID)")
+            let layered = await services.online.layeredDetails(key: "series-\(seriesID)")
+            details = layered.details
+            ratingLayer = layered.ratingLayer
         }
-        // R453: the block changes only when the focus has rested on a card (or left the cards) for a moment.
-        .task(id: focusedEpisodeID) {
-            try? await Task.sleep(for: .seconds(InfoBlockLayout.focusRestSeconds))
-            guard !Task.isCancelled else { return }
-            restingEpisodeID = focusedEpisodeID
-        }
-        // R453: the resting episode's own details (synopsis, date, genres, rating), the source's layer and the user's edits.
-        .task(id: restingEpisodeID) {
-            guard let id = restingEpisodeID, episodeDetails[id] == nil, let episode = shownSeason?.episodes.first(where: { $0.id == id }) else { return }
-            var own = await services.online.details(key: episode.artworkKey)
-            if let item = try? await services.store.item(id: id) {
-                let files = (try? await services.store.versions(of: id)) ?? []
-                own = EditTarget.apply(services.ledger.edits(for: EditTarget.keys(for: item, files: files)), to: own)
+        // R471 item 6: the episodes' own details (synopsis, date, rating) for the shown season's cards and the next-up
+        // episode, the source's layer and the user's edits (as R453 did for the focused card).
+        .task(id: "\(shownSeason?.season ?? -1)|\(content.resumeEpisodeID ?? 0)|\(services.online.keyRevision)") {
+            var ids: [(Int64, String)] = (shownSeason?.episodes ?? []).map { ($0.id, $0.artworkKey) }
+            if let next = content.resumeEpisode { ids.insert((next.id, next.artworkKey), at: 0) }
+            for (id, key) in ids where episodeDetails[id] == nil {
+                if Task.isCancelled { return }
+                var own = await services.online.details(key: key)
+                if let item = try? await services.store.item(id: id) {
+                    let files = (try? await services.store.versions(of: id)) ?? []
+                    own = EditTarget.apply(services.ledger.edits(for: EditTarget.keys(for: item, files: files)), to: own)
+                }
+                if let own { episodeDetails[id] = own }
             }
-            if let own { episodeDetails[id] = own }
+        }
+        // R471 item 6: the next-up episode's source (How to Watch) and its file's cached tracks (Languages, Accessibility);
+        // only what the index already holds, nothing read from the file here.
+        .task(id: content.resumeEpisodeID) {
+            guard let id = content.resumeEpisodeID, let item = try? await services.store.item(id: id) else { nextSource = nil; nextTracks = nil; return }
+            let files = (try? await services.store.versions(of: id)) ?? []
+            let file = PlayVersion.pick(files, explicit: item.preferredFileID, mode: .auto) ?? files.first
+            let source = (try? await services.store.sources())?.first { $0.id == file?.sourceID }
+            nextSource = (source?.kind, source?.name)
+            if let file { nextTracks = (try? await services.store.trackDetails(fileID: file.id)) ?? nil } else { nextTracks = nil }
         }
         .pushedScreen(content.seriesTitle)
     }

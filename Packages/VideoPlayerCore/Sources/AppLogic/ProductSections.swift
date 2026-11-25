@@ -56,6 +56,62 @@ public struct HowToWatch: Equatable, Sendable {
     }
 }
 
+/// R471 item 6 (owner's Part 1 correction): the age guidance card of About: the rating we hold (R371), where it came
+/// from, and the rating's descriptors only when that source gives them. No sentence of our own about the content.
+public struct AgeGuidance: Equatable, Sendable {
+    public var rating: String
+    public var source: String?
+    public var descriptors: [String]
+
+    public static let heading = "Age Guidance"
+
+    public static func make(rating: String?, layer: DetailsLayer?, descriptors: [String]) -> AgeGuidance? {
+        guard let r = rating?.trimmingCharacters(in: .whitespaces), !r.isEmpty else { return nil }
+        return AgeGuidance(rating: r, source: layer.map(sourceText), descriptors: ProductInfo.unique(descriptors))
+    }
+
+    /// Where the rating came from, in our words.
+    static func sourceText(_ layer: DetailsLayer) -> String {
+        switch layer {
+        case .source: return "Rating from your media server"
+        case .tmdb: return "Rating from TMDB"
+        case .wikidata: return "Rating from Wikidata"
+        }
+    }
+}
+
+/// R471 item 6 (frames: show t12s and t14s): the text of a show page's episode card under the still: "Episode 4" (the
+/// frames set it in capitals; ours stays in title case, rule L4), the title, three lines of description (hidden by Hide
+/// Spoilers for an unwatched episode), and the air date with the rating.
+public struct EpisodeCardText: Equatable, Sendable {
+    public var overline: String?
+    public var title: String
+    public var description: String?
+    public var date: String?
+    public var rating: String?
+
+    public static func make(number: Int, title: String, details: TitleDetails?, watched: Bool, hideSpoilers: Bool,
+                            locale: Locale = .current) -> EpisodeCardText {
+        EpisodeCardText(overline: number > 0 ? "Episode \(number)" : nil, title: title,
+                        description: SpoilerRules.synopsis(details?.overview, watched: watched, hideSpoilers: hideSpoilers),
+                        date: details?.releaseDate.map { InfoDateText.text($0, locale: locale) },
+                        rating: details?.contentRating)
+    }
+}
+
+/// R471 item 6: the show hero's description: the next-up episode's own synopsis after "S4, E4 · Title:" when we hold one
+/// (frames show t08s), else the show's synopsis with no prefix.
+public enum ShowHeroText {
+    public static func description(showOverview: String?, nextCode: String?, nextTitle: String?, nextOverview: String?)
+        -> (prefix: String?, text: String)? {
+        if let text = nextOverview?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+            return (HeroLines.nextUpPrefix(code: nextCode, title: nextTitle), text)
+        }
+        if let text = showOverview?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty { return (nil, text) }
+        return nil
+    }
+}
+
 /// One line of a column under the hero: a label, the value as shown, and the whole list when the value is shortened
 /// ("More" opens it). Never cut mid-word: a long list shows its first `visibleLimit` entries, then More.
 public struct InfoEntry: Equatable, Sendable, Identifiable {
