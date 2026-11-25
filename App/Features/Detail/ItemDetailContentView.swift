@@ -378,7 +378,8 @@ struct ItemDetailContentView: View {
     @ViewBuilder private func actionButton(_ action: ProductAction) -> some View {
         switch action {
         case .resume:
-            Button(action.title, systemImage: action.symbol) { onPlay(false) }
+            // R471 (34): with the time left, as the reference menu.
+            Button(ProductAction.resumeTitle(timeLeft: content.timeLeft), systemImage: action.symbol) { onPlay(false) }
         case .restart:
             Button(action.title, systemImage: action.symbol) { onPlay(true) }
                 .accessibilityIdentifier(ControlID.startOver)

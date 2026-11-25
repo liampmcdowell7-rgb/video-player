@@ -115,6 +115,13 @@ extension ProductAction {
         guard let season, season >= 0 else { return ProductAction.goToSeason.title }
         return season == 0 ? "Go to Specials" : "Go to Season \(season)"
     }
+
+    /// R471 (34), PROVISIONAL (Plex movie menu with a resume point): the menu's Resume says how much is left, "Resume ·
+    /// 41 min left" (`DisplayText.remaining`); the plain title when the time left is unknown.
+    public static func resumeTitle(timeLeft: String?) -> String {
+        guard let left = timeLeft?.trimmingCharacters(in: .whitespaces), !left.isEmpty else { return ProductAction.resume.title }
+        return ProductAction.resume.title + " · " + left
+    }
 }
 
 /// The facts the list depends on.
