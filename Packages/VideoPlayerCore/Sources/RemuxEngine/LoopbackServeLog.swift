@@ -87,6 +87,14 @@ public final class LoopbackServeLog: @unchecked Sendable {
 
     public var all: [Entry] { lock.withLock { entries } }
 
+    /// R472: the first resource the server answered with an error status (the handler threw), as "seg_video_1.m4s: <text>",
+    /// the text redacted by `redact`; nil when every logged answer was a success or no answer came. For the Last Event row
+    /// of Last Playback Problem, so one photo shows which resource failed and why.
+    public func firstFailure() -> String? {
+        guard let e = all.first(where: { ($0.status ?? 0) >= 500 && $0.error != nil }), let error = e.error else { return nil }
+        return Self.redact("\(e.name): \(error)")
+    }
+
     /// One plain line per entry: "seg_video_0.m4s: asked at 3.1 s, answered 200 after 0.4 s" or "..., no answer yet".
     /// `serverStartedAt` moves the times onto the caller's clock (the seconds since the start was asked for).
     public func lines(serverStartedAt offset: Double = 0) -> [String] {

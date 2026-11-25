@@ -110,9 +110,13 @@ public struct PlaybackProblem: Codable, Equatable, Sendable {
     /// R390: the checkpoints of the start (file opened, item ready, first frame, ...) and the path; nil for a problem stored
     /// by an earlier version.
     public var checkpoints: PlaybackCheckpoints?
+    /// R472: converted playback only: the first resource the loopback answered with 500 and the error the session threw
+    /// ("seg_video_1.m4s: <text>"), already redacted; nil when there was none (and for a problem stored by an earlier version).
+    public var loopbackFailure: String?
 
     public init(step: PlaybackStep, sourceKind: String?, container: String?, codecs: String?, error: String, at: Date,
-                player: PlayerErrorReport? = nil, events: [PlaybackEvent]? = nil, checkpoints: PlaybackCheckpoints? = nil) {
+                player: PlayerErrorReport? = nil, events: [PlaybackEvent]? = nil, checkpoints: PlaybackCheckpoints? = nil,
+                loopbackFailure: String? = nil) {
         self.step = step
         self.sourceKind = sourceKind
         self.container = container
@@ -122,10 +126,21 @@ public struct PlaybackProblem: Codable, Equatable, Sendable {
         self.player = player
         self.events = events
         self.checkpoints = checkpoints
+        self.loopbackFailure = loopbackFailure
     }
 
     /// R386: the last event the player reported, with its time.
     public var lastEvent: PlaybackEvent? { events?.last }
+
+    /// R472: the Last Event row: the player's last event, then (converted playback) the loopback's first failure with the
+    /// resource it came from. The owner's photo of build 202611250008 showed "HTTP 500" there but not WHAT failed: that
+    /// text was only in the notes further down the screen.
+    public var lastEventText: String {
+        let event = lastEvent?.line()
+        guard let loopbackFailure, !loopbackFailure.isEmpty else { return event ?? Self.notKnown }
+        let failure = Self.loopbackLabel + loopbackFailure
+        return event.map { $0 + " · " + failure } ?? failure
+    }
 
     /// The rows of the diagnostic section, label and value; unknown values say "Not known". The error text is last.
     /// R390: the path, the start result and each checkpoint (reached with its time, or not reached) come before it.
@@ -136,7 +151,7 @@ public struct PlaybackProblem: Codable, Equatable, Sendable {
          ("Codecs", codecs ?? Self.notKnown),
          ("Error Code", player?.codeLine ?? Self.notKnown),
          ("Underlying Error", player?.underlyingText ?? Self.notKnown),
-         ("Last Event", lastEvent?.line() ?? Self.notKnown)]
+         ("Last Event", lastEventText)]
             + (checkpoints?.rows ?? [])
             + [("Error", error)]
     }
@@ -188,6 +203,8 @@ public struct PlaybackProblem: Codable, Equatable, Sendable {
     }
 
     public static let notKnown = "Not known"
+    /// R472: what comes before the loopback's failure in the Last Event row.
+    public static let loopbackLabel = "Loopback "
     public static let fullReportTitle = "Full Problem Report"
     public static let sectionTitle = "Last Playback Problem"
     public static let noneText = "No playback problem recorded on this Apple TV."
@@ -237,6 +254,8 @@ public final class PlaybackStartTracker: @unchecked Sendable {
     private var codecs: String?
     private var secrets: [String] = []
     private var line: String?
+    /// R472: the loopback's first failure (converted playback), for the Last Event row.
+    private var loopbackFailure: String?
     /// R390: the checkpoints of this start, timed from when the start was asked for (`startedAt`).
     private var marks = PlaybackCheckpoints()
     private let startedAt: Double
@@ -263,6 +282,12 @@ public final class PlaybackStartTracker: @unchecked Sendable {
     /// R390: a plain sentence for the report (a video track that cannot be shown, what the loopback served).
     public func note(_ text: String) {
         lock.withLock { marks.note(text) }
+    }
+
+    /// R472: the first resource the loopback answered with 500 and the session's error ("seg_video_1.m4s: <text>"). The
+    /// first call counts; the text is redacted again when the problem is built.
+    public func noteLoopbackFailure(_ text: String) {
+        lock.withLock { if loopbackFailure == nil, !text.isEmpty { loopbackFailure = text } }
     }
 
     /// R390: which way the file reaches the player.
@@ -320,7 +345,8 @@ public final class PlaybackStartTracker: @unchecked Sendable {
             for i in kept.indices { kept[i].name = clean(kept[i].name) }
             return PlaybackProblem(step: current, sourceKind: sourceKind, container: container, codecs: codecs,
                                    error: clean(text), at: date, player: player?.mapped(clean),
-                                   events: kept.isEmpty ? nil : kept, checkpoints: marks.mapped(clean))
+                                   events: kept.isEmpty ? nil : kept, checkpoints: marks.mapped(clean),
+                                   loopbackFailure: loopbackFailure.map(clean))
         }
     }
 

@@ -333,6 +333,8 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
         if let remux = resolved.remux {
             let started = tracker.checkpoints.entry(.loopbackReady)?.seconds ?? 0
             for line in remux.serveLines(serverStartedAt: started) { tracker.note(line) }
+            // R472: the resource that failed and the session's error, on the first screen (the Last Event row).
+            if let failure = remux.firstLoopbackFailure { tracker.noteLoopbackFailure(failure) }
         }
     }
 

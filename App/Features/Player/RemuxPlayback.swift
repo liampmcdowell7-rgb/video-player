@@ -62,6 +62,10 @@ final class RemuxPlayback {
         return lines
     }
 
+    /// R472: the first resource the loopback answered with 500 and the error the session threw ("seg_video_1.m4s: <text>",
+    /// redacted); nil when there was none.
+    var firstLoopbackFailure: String? { host.serveLog?.firstFailure() }
+
     func stop() {
         guard !stopped else { return }
         stopped = true

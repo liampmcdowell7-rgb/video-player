@@ -96,6 +96,17 @@ func makeAC3Frame(size: Int = 64, tag: UInt8 = 0) -> [UInt8] {
     return f
 }
 
+/// R472: an independent E-AC-3 syncframe (5.1 with LFE, 48 kHz, six blocks = 1536 samples, bsid 16) of `bytes` bytes, the
+/// rest filled with `tag`. The same header as CodecTests' `eac3Frame`.
+func makeEAC3Frame(bytes: Int = 256, tag: UInt8 = 0) -> [UInt8] {
+    var w = BitWriter()
+    w.put(0, 2); w.put(0, 3); w.put(bytes / 2 - 1, 11); w.put(0, 2); w.put(3, 2)
+    w.put(7, 3); w.put(1, 1); w.put(16, 5)
+    var f: [UInt8] = [0x0B, 0x77] + w.bytes
+    while f.count < bytes { f.append(tag) }
+    return f
+}
+
 // MARK: Synthetic Matroska file
 
 /// A subtitle track for the synthetic file. FIXTURE: shaped like the subtitle tracks mkvmerge writes (BlockGroups with BlockDuration).
@@ -140,6 +151,11 @@ struct SynthMKV {
     var hvcC: [UInt8] = makeHvcC()
     /// Extra filler bytes in every video frame (to build high-bitrate files).
     var videoFrameExtra = 0
+    /// R472: one E-AC-3 track (number 2, 5.1, 48 kHz, 32 ms access units) instead of the AC-3, AAC and DTS tracks.
+    var eac3Only = false
+    /// R472: the picture size written to the track (the owner's file is 1920 x 1080).
+    var width = 1280
+    var height = 720
 
     struct Result {
         var data: Data
@@ -176,7 +192,7 @@ struct SynthMKV {
         var videoEntry = EW.uint(EBMLID.trackNumber, 1) + EW.uint(EBMLID.trackUID, 11) + EW.uint(EBMLID.trackType, 1)
             + EW.str(EBMLID.codecID, "V_MPEGH/ISO/HEVC") + EW.el(EBMLID.codecPrivate, hvcC)
             + EW.uint(EBMLID.defaultDuration, UInt64(1_000_000_000 / fps))
-            + EW.el(EBMLID.video, EW.uint(EBMLID.pixelWidth, 1280) + EW.uint(EBMLID.pixelHeight, 720) + colourEl)
+            + EW.el(EBMLID.video, EW.uint(EBMLID.pixelWidth, UInt64(width)) + EW.uint(EBMLID.pixelHeight, UInt64(height)) + colourEl)
         if let p = dolbyVisionProfile {
             var rec = ByteWriter()
             rec.u8(1); rec.u8(0)
@@ -188,7 +204,11 @@ struct SynthMKV {
                                 EW.uint(EBMLID.blockAddIDType, UInt64(p <= 7 ? 0x64766343 : 0x64767643)) + EW.el(EBMLID.blockAddIDExtraData, rec.bytes))
         }
         var tracks = EW.el(EBMLID.trackEntry, videoEntry)
-        if audio {
+        if audio && eac3Only {
+            tracks += EW.el(EBMLID.trackEntry, EW.uint(EBMLID.trackNumber, 2) + EW.uint(EBMLID.trackUID, 12) + EW.uint(EBMLID.trackType, 2)
+                + EW.str(EBMLID.codecID, "A_EAC3") + EW.str(EBMLID.language, "eng") + EW.str(EBMLID.trackName, "English E-AC-3 5.1")
+                + EW.el(EBMLID.audio, EW.float64(EBMLID.samplingFrequency, 48000) + EW.uint(EBMLID.channels, 6)))
+        } else if audio {
             tracks += EW.el(EBMLID.trackEntry, EW.uint(EBMLID.trackNumber, 2) + EW.uint(EBMLID.trackUID, 12) + EW.uint(EBMLID.trackType, 2)
                 + EW.str(EBMLID.codecID, "A_AC3") + EW.str(EBMLID.language, "eng") + EW.str(EBMLID.trackName, "English 5.1")
                 + EW.el(EBMLID.audio, EW.float64(EBMLID.samplingFrequency, 48000) + EW.uint(EBMLID.channels, 6)))
@@ -249,7 +269,14 @@ struct SynthMKV {
             videoFrames.append((ms(f), key, data))
         }
         var audioFrames: [(ms: Int, payload: [UInt8])] = []
-        if audio {
+        if audio && eac3Only {
+            for k in 0..<(seconds * 1000 / 32) {
+                let t = k * 32
+                let data = makeEAC3Frame(tag: UInt8(k & 0xFF))
+                gops[min(gops.count - 1, t * fps / 1000 / gopFrames)].append(Block(track: 2, ms: t, key: true, data: data, order: Double(t)))
+                audioFrames.append((t, data))
+            }
+        } else if audio {
             let ac3Count = seconds * 1000 / 32
             for k in 0..<ac3Count {
                 let t = k * 32
