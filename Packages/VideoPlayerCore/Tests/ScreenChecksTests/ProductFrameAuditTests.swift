@@ -9,4 +9,11 @@ extension ScreenChecksTests {
         guard let sections = try appSource("App/Shared/ProductSectionsView.swift") else { return }
         XCTAssertTrue(sections.contains("Text(heading)\n                .font(.title2.weight(.bold))"), "the column heading style")
     }
+
+    /// R471 (29): an episode's list entry is named "Show: Episode", interpolated, not the literal text.
+    func testAnEpisodesListNameIsInterpolated() throws {
+        guard let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift") else { return }
+        XCTAssertTrue(detail.contains(#"return "\(content.title): \(episode)""#))
+        XCTAssertFalse(detail.contains(#"return "(content.title): (episode)""#))
+    }
 }

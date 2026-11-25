@@ -352,7 +352,9 @@ struct ItemDetailContentView: View {
     /// R471 (17): the name a list keeps for the title (an episode's with its show).
     private var listTitle: String {
         guard content.kind == .episode, let episode = content.episodeTitle else { return content.title }
-        return "(content.title): (episode)"
+        // R471 (29): the show's name and the episode's, interpolated (the line had lost its backslashes, so every episode
+        // was kept in a list under the literal text "(content.title): (episode)").
+        return "\(content.title): \(episode)"
     }
 
     /// R471 Part 3: the facts the actions list depends on.
