@@ -14,6 +14,8 @@ struct HomeFeaturedView: View {
     @State private var rating: String?
     /// R396 (audit H5): the featured title's synopsis, from the same details.
     @State private var overview: String?
+    /// R471 (46): the featured title's genres, for its kind line.
+    @State private var genres: [String] = []
     /// R388 (item B): Play takes the focus once, at launch, as the TV app opens on its featured title (`HomeLaunchFocus`).
     @FocusState private var playFocused: Bool
 
@@ -21,37 +23,32 @@ struct HomeFeaturedView: View {
         VStack(alignment: .leading) {
             // The title logo when there is one (Settings > Accessibility "Title Logos"), the name otherwise (TitleHeader).
             TitleHeader(title: featured.card.title, artworkKey: featured.titleArtworkKey)
-            // R391 (shared fault 1): the rating badge sits right after the metadata (`BadgeSpacing`). Before, the line
-            // took the whole width (`FittingLine` fills it to measure itself) and pushed the badge to the far edge.
-            // The system picks the first that fits: the line at its own width with the badge after it, else the line
-            // filling the width and shrinking or dropping parts (rule S1).
-            ViewThatFits(in: .horizontal) {
-                metadataLine(ownWidth: true)
-                metadataLine(ownWidth: false)
-            }
-            // R396 (audit H5): one line of the title's synopsis, as under the featured title of the TV app's Home (A1),
-            // in the shared text column. A long synopsis ends with the system's "…" here; the whole text is on the
-            // title's page (More). Nothing when the details have none.
+            // R471 (46), PROVISIONAL (Home hero photo): the kind line of the title's page ("Movie · Drama", then the
+            // rating's box), the shared view, in place of the card's own line and format badges (those stay on the page).
+            HeroKindLineView(segments: featured.kindLine(genres: genres, rating: rating))
+            // R471 (46): three lines of the synopsis, as the photo (R396 had one), in the shared text column. A long
+            // synopsis ends with the system's "…" here; the whole text is on the title's page (More). Nothing without one.
             if let overview {
                 Text(overview)
                     .font(.callout)
                     .foregroundStyle(ReadableSecondary.style)
-                    .lineLimit(1) // design-lint:allow R396: a one-line teaser of a long synopsis, as on the TV app's Home; the whole text is on the title's page (not a short text under rule S1)
+                    .lineLimit(HomeFeatured.synopsisLines) // design-lint:allow R396: a teaser of a long synopsis, as on the TV app's Home; the whole text is on the title's page (not a short text under rule S1)
+                    .multilineTextAlignment(.leading)
                     .frame(maxWidth: CGFloat(RowSpacing.textColumn), alignment: .leading)
             }
             // #25 B5: one height for the row's buttons (ActionRow), the system Label in each (ActionLabel).
             ActionRow {
-                Button {
+                // R471 (46): the product pages' Play capsule (R471 item 3: the system bordered capsule, light when
+                // focused), with the mini bar for a started title.
+                PlayCapsuleButton(capsule: PlayCapsule.make(progress: featured.card.progress, durationSeconds: nil)) {
                     services.playRequest = PlayRequest(itemID: featured.card.id, fromStart: false)
-                } label: {
-                    ActionLabel(featured.playTitle, systemImage: "play.fill")
                 }
-                .buttonStyle(.borderedProminent)
                 .focused($playFocused)
                 .accessibilityIdentifier(ControlID.featuredPlay)
                 // R396 (audit SF2, H3): a round icon button, as the TV app's Home draws its secondary actions (A1).
+                // R471 (46): the photo's info glyph; it opens the title's page.
                 NavigationLink(value: pageRoute) {
-                    ActionLabel("More", systemImage: "ellipsis", iconOnly: true)
+                    ActionLabel("More", systemImage: "info", iconOnly: true)
                 }
                 .roundAction()
                 .accessibilityLabel("More")
@@ -76,26 +73,12 @@ struct HomeFeaturedView: View {
             let details = await services.online.details(key: detailsKey)
             rating = details?.contentRating
             overview = details?.overview
+            genres = details?.genres ?? []
         }
         // R388: Home's first frame has nothing focusable (the library is still loading), so tvOS put the focus in the
         // sidebar, which expands, and nothing moved it to the page. The first featured title right after launch asks for it.
         .task {
             if HomeLaunchFocus.state.claim(at: ProcessInfo.processInfo.systemUptime) { playFocused = true }
-        }
-    }
-
-    private func metadataLine(ownWidth: Bool) -> some View {
-        HStack(spacing: CGFloat(BadgeSpacing.afterText)) {
-            // R396 (audit H5): the card's second line as text, then the rating and the formats as DRAWN badges (the
-            // same badges as on the title's page); before, the formats were words in the text line.
-            FittingLine(line: featured.card.subtitleLine, style: .callout)
-                .foregroundStyle(ReadableSecondary.style)
-                .fixedSize(horizontal: ownWidth, vertical: false)
-            // R371: the content rating after the metadata, as on the title's page.
-            if let rating {
-                RatingBadge(rating: rating)
-            }
-            BadgeRow(badges: featured.card.formatBadges)
         }
     }
 

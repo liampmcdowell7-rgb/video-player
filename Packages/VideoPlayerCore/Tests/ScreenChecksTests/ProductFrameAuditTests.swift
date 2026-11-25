@@ -107,6 +107,17 @@ extension ScreenChecksTests {
         XCTAssertEqual(rest.components(separatedBy: "maxHeight: .infinity").count - 1, 2, "each card fills it")
     }
 
+    /// R471 (46): Home's featured area: the page's kind line, three lines of synopsis, the Play capsule, the info button.
+    func testHomeFeaturedFollowsTheHomePhoto() throws {
+        guard let home = try appSource("App/Features/Home/HomeFeaturedView.swift") else { return }
+        XCTAssertTrue(home.contains("HeroKindLineView(segments: featured.kindLine(genres: genres, rating: rating))"))
+        XCTAssertTrue(home.contains(".lineLimit(HomeFeatured.synopsisLines)"))
+        XCTAssertTrue(home.contains("PlayCapsuleButton(capsule: PlayCapsule.make(progress: featured.card.progress"))
+        XCTAssertFalse(home.contains(".buttonStyle(.borderedProminent)"), "no prominent button left on Home")
+        XCTAssertTrue(home.contains(#"ActionLabel("More", systemImage: "info", iconOnly: true)"#))
+        XCTAssertFalse(home.contains("BadgeRow("), "the format badges stay on the page")
+    }
+
     /// R471 (45): a cast name is headline size (as the About title), its role caption and secondary (as the genre line).
     func testCastNamesMatchTheAboutTitle() throws {
         guard let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift") else { return }

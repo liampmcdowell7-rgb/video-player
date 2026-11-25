@@ -31,6 +31,15 @@ public struct HomeFeatured: Equatable, Sendable {
         return ShortLine(card.subtitleLine.segments + badges)
     }
 
+    /// R471 (46), PROVISIONAL (Home hero photo): the featured title's kind line, as on its page: "Movie" or "TV Show" (an
+    /// episode is shown as its show), its genres, then the rating's box.
+    public func kindLine(genres: [String], rating: String?) -> [HeroLines.Segment] {
+        HeroLines.kindLine(kind: card.kind == .movie ? .movie : .show, source: nil, genres: genres, rating: rating)
+    }
+
+    /// R471 (46): how many lines of the synopsis Home shows under the featured title (the photo shows three).
+    public static let synopsisLines = 3
+
     /// Which shelf gives the featured title, first one with a card wins: Continue Watching (what the person is in the
     /// middle of, as the TV app's Home leads with it), then Recently Added, then Next Up.
     public static let order: [HomeRowID] = [.continueWatching, .recentlyAdded, .nextUp]

@@ -35,6 +35,16 @@ final class HomeLayoutTests: XCTestCase {
         XCTAssertEqual(HomeFeatured(card: card(1, "A"), shelf: .recentlyAdded).playTitle, "Play")
     }
 
+    /// R471 (46): the featured title's kind line is its page's: the kind word (a show for an episode), genres, rating box.
+    func testTheFeaturedKindLineIsThePagesLine() {
+        let movie = HomeFeatured(card: card(1, "A"), shelf: .recentlyAdded)
+        XCTAssertEqual(movie.kindLine(genres: ["Drama", "Mystery"], rating: "PG"),
+                       [.text("Movie"), .text("Drama"), .text("Mystery"), .ratingBox("PG")])
+        let episode = HomeFeatured(card: card(2, "B", kind: .episode, series: 4), shelf: .nextUp)
+        XCTAssertEqual(episode.kindLine(genres: [], rating: nil), [.text("TV Show")], "an episode is shown as its show")
+        XCTAssertEqual(HomeFeatured.synopsisLines, 3)
+    }
+
     func testAnEpisodeShowsItsShowsArtworkAndLogo() {
         XCTAssertEqual(HomeFeatured(card: card(7, "Show", kind: .episode, series: 4), shelf: .nextUp).titleArtworkKey, "series-4")
         XCTAssertEqual(HomeFeatured(card: card(7, "Movie"), shelf: .recentlyAdded).titleArtworkKey, "item-7")
