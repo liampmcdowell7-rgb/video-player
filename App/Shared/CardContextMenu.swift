@@ -24,8 +24,9 @@ struct CardContextMenu: ViewModifier {
                     // version, so the tests fall back to the label "Go to Movie".
                     .accessibilityIdentifier(ControlID.goToTitle)
                 }
-                Button(card.isWatched ? "Mark as Unwatched" : "Mark as Watched", systemImage: card.isWatched ? "eye.slash" : "eye") {
-                    Task { await services.setWatched(card.id, !card.isWatched) }
+                // R471 (10): the page's own actions list, kept to what a card can run, in the page's order and words.
+                ForEach(ProductActions.cardList(card.actionContext), id: \.self) { action in
+                    Button(action.title, systemImage: action.symbol) { run(action) }
                 }
                 Button(card.isFavorite ? "Remove from Favorites" : "Add to Favorites", systemImage: card.isFavorite ? "heart.slash" : "heart") {
                     Task { await services.setFavorite(card.id, !card.isFavorite) }
@@ -36,10 +37,6 @@ struct CardContextMenu: ViewModifier {
                         Task { await services.hideFromContinue(card.id) }
                     }
                 }
-                if card.kind == .movie || card.kind == .episode {
-                    // R449: the same edit screens as the page's More menu.
-                    Button("Edit", systemImage: "pencil") { Task { await openEdit() } }
-                }
                 if card.kind == .movie {
                     Button("Move to Shows", systemImage: "tv") { move = .item(card.id, .episode) }
                 } else if card.kind == .episode {
@@ -48,6 +45,17 @@ struct CardContextMenu: ViewModifier {
             }
             .taskCover(item: $move) { target in SortMoveSheet(target: target) }
             .taskCover(isPresented: $showEdit) { if !editKeys.isEmpty { MetadataEditView(title: card.title, keys: editKeys, artworkKey: "item-\(card.id)", level: card.kind == .movie ? .movie : .episode) } }
+    }
+
+    /// Runs one entry of `ProductActions.cardList`; the list holds nothing else (`ProductActions.cardSupported`).
+    private func run(_ action: ProductAction) {
+        switch action {
+        case .markWatched: Task { await services.setWatched(card.id, true) }
+        case .markUnwatched: Task { await services.setWatched(card.id, false) }
+        // R449: the same edit screens as the page's More menu.
+        case .editMetadata: Task { await openEdit() }
+        default: break
+        }
     }
 
     private func openEdit() async {

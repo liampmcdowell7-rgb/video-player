@@ -98,7 +98,9 @@ struct EpisodeCard: View {
         // badges are still spoken in the value above.
         .accessibilityIdentifier("card.episode.\(episode.id)")
         .contextMenu {
-            Button(episode.isWatched ? "Mark as Unwatched" : "Mark as Watched", systemImage: episode.isWatched ? "eye.slash" : "eye") {
+            // R471 (10): the same words and symbol as the page's actions list.
+            let mark: ProductAction = episode.isWatched ? .markUnwatched : .markWatched
+            Button(mark.title, systemImage: mark.symbol) {
                 Task { await model.run { await $0.setWatched(!episode.isWatched, episodeID: episode.id) } }
             }
         }

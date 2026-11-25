@@ -1,4 +1,5 @@
 import Foundation
+import LibraryIndex
 
 /// R471 Part 3 (PROVISIONAL): the actions list behind a product page's details button, per kind of page, in the owner's
 /// order (functionality after the media-server apps the owner named, wording our own). One list feeds the details button,
@@ -171,4 +172,24 @@ public enum ProductActions {
     }
 
     public static func manageList(_ c: ProductActionContext) -> [ProductAction] { manage(c).filter(\.isBuilt) }
+
+    /// The actions a long press on a poster or card can run without opening the page (R471 (10)).
+    public static let cardSupported: Set<ProductAction> = [.markWatched, .markUnwatched, .editMetadata]
+
+    /// A long press on a card: the page's own list (Manage opened out), kept to what the card can run, in the page's order.
+    /// So a card never offers an action the page does not, and both use the same words.
+    public static func cardList(_ c: ProductActionContext) -> [ProductAction] {
+        (list(c).filter { $0 != .manage } + manageList(c)).filter { cardSupported.contains($0) }
+    }
+}
+
+public extension ItemCard {
+    /// The facts the actions list needs, as far as a card knows them.
+    var actionContext: ProductActionContext {
+        var c = ProductActionContext(kind: kind == .movie ? .movie : .episode)
+        c.started = progress != nil
+        c.watched = isWatched
+        c.hasFile = true
+        return c
+    }
 }

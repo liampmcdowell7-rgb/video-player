@@ -61,6 +61,32 @@ final class ProductActionsTests: XCTestCase {
         XCTAssertFalse(ProductActions.list(ProductActionContext(kind: .movie)).contains(.rate), "Rate is not built yet")
     }
 
+    func testALongPressOffersThePagesOwnActionsInThePagesOrder() {
+        var movie = ProductActionContext(kind: .movie)
+        movie.started = true; movie.hasFile = true; movie.matched = true
+        XCTAssertEqual(ProductActions.cardList(movie), [.markWatched, .editMetadata])
+        movie.watched = true
+        XCTAssertEqual(ProductActions.cardList(movie), [.markUnwatched, .editMetadata])
+        for kind in [ProductActionContext.Kind.movie, .episode, .show, .season] {
+            var c = ProductActionContext(kind: kind)
+            c.started = true; c.matched = true; c.hasFile = true; c.someWatched = true; c.someUnwatched = true
+            let page = ProductActions.list(c) + ProductActions.manageList(c)
+            let card = ProductActions.cardList(c)
+            XCTAssertTrue(card.allSatisfy(page.contains), "a card never offers what the page does not (\(kind))")
+            XCTAssertEqual(card, page.filter(card.contains), "same order as the page (\(kind))")
+        }
+    }
+
+    func testACardsContextFollowsTheCard() {
+        let card = ItemCard(id: 7, kind: .episode, title: "Pilot", subtitle: nil, progress: 0.4, isWatched: false, isFavorite: false,
+                            badges: [], artworkKey: "item-7")
+        let c = card.actionContext
+        XCTAssertEqual(c.kind, .episode)
+        XCTAssertTrue(c.started)
+        XCTAssertFalse(c.watched)
+        XCTAssertEqual(ProductActions.cardList(c), [.markWatched, .editMetadata])
+    }
+
     func testTheDestructiveActionsAsk() {
         XCTAssertTrue(ProductAction.delete.needsConfirmation)
         XCTAssertTrue(ProductAction.unmatch.needsConfirmation)
