@@ -48,6 +48,8 @@ struct ItemDetailContentView: View {
     @State private var showsFileInfo = false
     /// R471 item 7: the library's movies sharing a genre with this one.
     @State private var related: [ItemCard] = []
+    /// R471 (40): the genre each Related movie shares with this one, for its focus caption.
+    @State private var relatedGenres: [Int64: String] = [:]
     /// R471 (16): the keys the rating lives under and the rating now (the user layer).
     @State private var ratingKeys: [UDEditKey] = []
     @State private var stars: Int?
@@ -102,7 +104,7 @@ struct ItemDetailContentView: View {
                 // R471 item 7: the library's movies that share a genre. R471 (26), PROVISIONAL (frames movie t02s, t04s): in
                 // the place of the reference page's collection shelf, after the trailers and before the cast.
                 if content.kind == .movie, !related.isEmpty {
-                    RelatedShelf(cards: related)
+                    RelatedShelf(cards: related, genres: relatedGenres)
                 }
                 if content.kind == .movie, let cast = details?.cast, !cast.isEmpty {
                     CastShelf(cast: cast)
@@ -180,6 +182,7 @@ struct ItemDetailContentView: View {
             let ids = RelatedTitles.rank(found.map { RelatedTitles.Candidate(id: $0.id, title: $0.title, rating: $0.rating) },
                                          excluding: content.itemID, genres: details?.genres ?? [])
             related = ids.compactMap { byID[$0] }.map { CardBuilder.card($0) }
+            relatedGenres = (try? await RelatedCaption.sharedGenres(kind: .movie, genres: details?.genres ?? [], store: services.store)) ?? [:]
         }
         .listNameCover($naming)
         .alert(refreshOutcome.map { TitleRefresh.result($0).title } ?? "", isPresented: Binding(get: { refreshOutcome != nil }, set: { if !$0 { refreshOutcome = nil } })) {

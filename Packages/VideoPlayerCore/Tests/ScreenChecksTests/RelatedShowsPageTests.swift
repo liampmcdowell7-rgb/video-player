@@ -7,7 +7,7 @@ extension ScreenChecksTests {
     /// R471 (26), PROVISIONAL (frame show t16s): Related comes before the cast.
     func testTheShowPageHasRelatedBetweenTheEpisodesAndTheCast() throws {
         guard let page = try appSource("App/Features/Shows/SeasonsList.swift") else { return }
-        let names = ["EpisodeShelfRow(episodes:", "RelatedShowsShelf(shows: relatedShows)", "CastShelf(cast: cast)",
+        let names = ["EpisodeShelfRow(episodes:", "RelatedShowsShelf(shows: relatedShows", "CastShelf(cast: cast)",
                      "AboutSection(title: content.seriesTitle", "ProductInfoColumns("]
         let offsets: [Int] = try names.map { (name: String) -> Int in
             let range: Range<String.Index> = try XCTUnwrap(page.range(of: name), "no \(name)")
@@ -22,7 +22,7 @@ extension ScreenChecksTests {
         guard let movie = try appSource("App/Features/Detail/ItemDetailContentView.swift"),
               let shelf = try appSource("App/Features/Shows/RelatedShowsShelf.swift") else { return }
         XCTAssertTrue(movie.contains("services.genreRecorder.record(details?.genres ?? [], itemIDs: [content.itemID]"))
-        XCTAssertTrue(shelf.contains("SeriesCard(series: show)"), "portrait posters with the show's long-press menu")
+        XCTAssertTrue(shelf.contains("SeriesCard(series: show,"), "portrait posters with the show's long-press menu")
         XCTAssertTrue(shelf.contains("ShelfHeader(RelatedTitles.heading)"), "the same heading as the movie page")
         XCTAssertFalse(shelf.contains("online"), "no online lookup")
     }

@@ -64,6 +64,8 @@ struct ExtrasShelf: View {
 /// as on every shelf (`PosterCard`, six columns), each opening its page.
 struct RelatedShelf: View {
     let cards: [ItemCard]
+    /// R471 (40): the genre each movie shares with the page (`RelatedCaption.sharedGenres`), for its focus caption.
+    var genres: [Int64: String] = [:]
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -73,7 +75,7 @@ struct RelatedShelf: View {
                 // design-lint:allow HIG Layout, 40 pt horizontal spacing between posters (docs/DESIGN_SYSTEM.md section 4)
                 LazyHStack(alignment: .top, spacing: 40) {
                     ForEach(cards) { card in
-                        PosterCard(card: card)
+                        PosterCard(card: card, focusCaption: RelatedCaption.text(kind: .movie, genre: genres[card.id]))
                             // design-lint:allow HIG Layout, six columns of the grid so shelf posters line up with grid posters
                             .containerRelativeFrame(.horizontal, count: 6, spacing: 40)
                     }

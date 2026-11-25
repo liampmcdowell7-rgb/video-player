@@ -66,7 +66,7 @@ extension ScreenChecksTests {
               let shelf = try appSource("App/Shared/ProductSectionsView.swift"),
               let resolve = try appSource("App/Support/ExtraPlayback.swift") else { return }
         let names = ["EpisodeShelfRow(episodes:", "ExtrasShelf(heading: ExtraShelves.trailersHeading", "ExtrasShelf(heading: ExtraShelves.bonusHeading",
-                     "RelatedShowsShelf(shows: relatedShows)", "CastShelf(cast: cast)"]
+                     "RelatedShowsShelf(shows: relatedShows", "CastShelf(cast: cast)"]
         let offsets: [Int] = try names.map { (name: String) -> Int in
             let range: Range<String.Index> = try XCTUnwrap(page.range(of: name), "no \(name)")
             return page.distance(from: page.startIndex, to: range.lowerBound)
@@ -76,5 +76,21 @@ extension ScreenChecksTests {
         XCTAssertTrue(page.contains(#".task(id: "extras-\(seriesID)|\(services.libraryRevision)")"#), "found again when the library changes")
         XCTAssertTrue(shelf.contains("ExtraPlayRequest(itemID: itemID, extraID: extra.id, seriesID: seriesID)"))
         XCTAssertTrue(resolve.contains("ShowExtras.find(seriesID: seriesID, extraID: extraID, store: store)"))
+    }
+    /// R471 (40): a Related card shows one line, the kind and the shared genre, only while it has focus; other shelves keep
+    /// their titles.
+    func testRelatedCardsCaptionOnlyOnFocus() throws {
+        guard let caption = try appSource("App/Shared/FocusOnlyCaption.swift"),
+              let poster = try appSource("App/Shared/PosterCard.swift"),
+              let series = try appSource("App/Features/Shows/SeriesCard.swift"),
+              let movieShelf = try appSource("App/Shared/ProductSectionsView.swift"),
+              let showShelf = try appSource("App/Features/Shows/RelatedShowsShelf.swift"),
+              let grid = try appSource("App/Shared/PosterGrid.swift") else { return }
+        XCTAssertTrue(caption.contains(#"@Environment(\.isFocused)"#))
+        XCTAssertTrue(caption.contains(".opacity(isFocused ? 1 : 0)"), "hidden by opacity, so the row keeps its height")
+        XCTAssertTrue(poster.contains("if let focusCaption {") && series.contains("if let focusCaption {"))
+        XCTAssertTrue(movieShelf.contains("PosterCard(card: card, focusCaption: RelatedCaption.text(kind: .movie"))
+        XCTAssertTrue(showShelf.contains("SeriesCard(series: show, focusCaption: RelatedCaption.text(kind: .show"))
+        XCTAssertFalse(grid.contains("focusCaption"), "a library grid keeps its titles")
     }
 }

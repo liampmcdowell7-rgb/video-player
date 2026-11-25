@@ -35,6 +35,8 @@ struct PosterCard: View {
     @Environment(\.listRows) private var listRows
     /// #15 4.1: a 16:9 card for Continue Watching (OPEN_QUESTIONS R185); portrait everywhere else.
     var wide = false
+    /// R471 (40): a Related card's one line, shown only while the card has focus, in place of the title and second lines.
+    var focusCaption: String? = nil
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -97,7 +99,10 @@ struct PosterCard: View {
                     // #17 C: the text keeps a side padding, so it never touches the card's edge (Larger Text screenshot
                     // 80: titles ended 2-3 px from it). The system's default padding; FittingLine measures the width
                     // inside it.
-                    if showTitles || showFilenames {
+                    if let focusCaption {
+                        FocusOnlyCaption(text: focusCaption)
+                            .padding(.horizontal)
+                    } else if showTitles || showFilenames {
                         VStack(alignment: .leading) {
                             FittingText(PosterCaption.text(title: card.title, fileName: fileName, showFilenames: showFilenames), style: .caption)
                             secondLines

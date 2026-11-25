@@ -28,7 +28,7 @@ extension ScreenChecksTests {
     func testMovieAndEpisodePageOrderWithoutHowToWatch() throws {
         guard let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift") else { return }
         let order: [Int] = try offsets(of: ["ExtrasShelf(heading: ExtraShelves.trailersHeading", "ExtrasShelf(heading: ExtraShelves.bonusHeading",
-                                            "RelatedShelf(cards: related)", "CastShelf(cast: cast)", "AboutSection(title: content.title",
+                                            "RelatedShelf(cards: related", "CastShelf(cast: cast)", "AboutSection(title: content.title",
                                             "ProductInfoColumns(information:"], in: detail)
         XCTAssertEqual(order, order.sorted(), "the movie and episode page sections are out of order")
     }

@@ -36,6 +36,8 @@ struct SeasonsList: View {
     @State private var details: TitleDetails?
     /// R471 (25): the library's other shows that share a genre with this one (`RelatedShows`).
     @State private var relatedShows: [SeriesSummary] = []
+    /// R471 (40): the genre each Related show shares with this one, for its focus caption.
+    @State private var relatedGenres: [Int64: String] = [:]
     /// R471 (39): the show's own extras (its folder and its season folders), found again when the library changes.
     @State private var showExtras: [ShowExtras.Found] = []
     /// R452: where the title begins, for the cover behind it.
@@ -194,7 +196,7 @@ struct SeasonsList: View {
                 // R471 (25): Related, from the library's own shows. R471 (26), PROVISIONAL (frame show t16s): before the
                 // cast, as on the reference page.
                 if !relatedShows.isEmpty {
-                    RelatedShowsShelf(shows: relatedShows)
+                    RelatedShowsShelf(shows: relatedShows, genres: relatedGenres)
                 }
                 if let cast = details?.cast, !cast.isEmpty {
                     CastShelf(cast: cast)
@@ -258,6 +260,7 @@ struct SeasonsList: View {
             let genres = details?.genres ?? []
             await services.genreRecorder.record(genres, itemIDs: content.seasons.flatMap { $0.episodes.map(\.id) }, store: services.store)
             relatedShows = (try? await RelatedShows.find(seriesID: seriesID, genres: genres, store: services.store)) ?? []
+            relatedGenres = (try? await RelatedCaption.sharedGenres(kind: .show, genres: genres, store: services.store)) ?? [:]
         }
         .task(id: "extras-\(seriesID)|\(services.libraryRevision)") {
             showExtras = (try? await ShowExtras.load(seriesID: seriesID, store: services.store)) ?? []
