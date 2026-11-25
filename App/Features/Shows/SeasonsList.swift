@@ -178,12 +178,13 @@ struct SeasonsList: View {
                     // R424: Up from any cast entry reaches the episodes.
                     .productPageRow()
                 }
-                if let cast = details?.cast, !cast.isEmpty {
-                    CastShelf(cast: cast)
-                }
-                // R471 (25): Related, from the library's own shows, between the cast and About as on the movie page.
+                // R471 (25): Related, from the library's own shows. R471 (26), PROVISIONAL (frame show t16s): before the
+                // cast, as on the reference page.
                 if !relatedShows.isEmpty {
                     RelatedShowsShelf(shows: relatedShows)
+                }
+                if let cast = details?.cast, !cast.isEmpty {
+                    CastShelf(cast: cast)
                 }
                 // R471 item 6 (frames show t16s to t20s): About, then the columns; each only with data. How to Watch and its
                 // "Seasons" line were removed by the owner (R471 (21)).

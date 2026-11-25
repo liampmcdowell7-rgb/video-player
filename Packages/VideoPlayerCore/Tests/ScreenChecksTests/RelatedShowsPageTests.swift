@@ -4,15 +4,16 @@ import XCTest
 /// R471 (25), PROVISIONAL: the show page has Related between the cast and About, from the library only; both product
 /// pages keep their genres in the library. Structure only, from the source: nothing is compiled or run on tvOS here.
 extension ScreenChecksTests {
-    func testTheShowPageHasRelatedBetweenTheCastAndAbout() throws {
+    /// R471 (26), PROVISIONAL (frame show t16s): Related comes before the cast.
+    func testTheShowPageHasRelatedBetweenTheEpisodesAndTheCast() throws {
         guard let page = try appSource("App/Features/Shows/SeasonsList.swift") else { return }
-        let names = ["EpisodeShelfRow(episodes:", "CastShelf(cast: cast)", "RelatedShowsShelf(shows: relatedShows)",
+        let names = ["EpisodeShelfRow(episodes:", "RelatedShowsShelf(shows: relatedShows)", "CastShelf(cast: cast)",
                      "AboutSection(title: content.seriesTitle", "ProductInfoColumns("]
         let offsets: [Int] = try names.map { (name: String) -> Int in
             let range: Range<String.Index> = try XCTUnwrap(page.range(of: name), "no \(name)")
             return page.distance(from: page.startIndex, to: range.lowerBound)
         }
-        XCTAssertEqual(offsets, offsets.sorted(), "episodes, cast, Related, About, then the columns")
+        XCTAssertEqual(offsets, offsets.sorted(), "episodes, Related, cast, About, then the columns")
         XCTAssertTrue(page.contains("RelatedShows.find(seriesID: seriesID, genres: genres, store: services.store)"), "from the library only")
         XCTAssertTrue(page.contains("services.genreRecorder.record(genres"), "the show's genres are kept for other pages")
     }

@@ -99,13 +99,15 @@ struct ItemDetailContentView: View {
                 if !shelves.bonus.isEmpty {
                     ExtrasShelf(heading: ExtraShelves.bonusHeading, extras: shelves.bonus, itemID: content.itemID)
                 }
-                if content.kind == .movie, let cast = details?.cast, !cast.isEmpty {
-                    CastShelf(cast: cast)
-                }
-                // R471 item 7: the library's movies that share a genre; then About (the synopsis card only, frame t06s).
+                // R471 item 7: the library's movies that share a genre. R471 (26), PROVISIONAL (frames movie t02s, t04s): in
+                // the place of the reference page's collection shelf, after the trailers and before the cast.
                 if content.kind == .movie, !related.isEmpty {
                     RelatedShelf(cards: related)
                 }
+                if content.kind == .movie, let cast = details?.cast, !cast.isEmpty {
+                    CastShelf(cast: cast)
+                }
+                // Then About (the synopsis card only, frame t06s).
                 if content.kind == .movie, let summary = details?.overview {
                     AboutSection(title: content.title, summary: summary, artworkKey: content.artworkKey, guidance: nil)
                 }

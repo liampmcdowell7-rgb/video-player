@@ -24,11 +24,11 @@ extension ScreenChecksTests {
         }
     }
 
-    /// The movie and episode page: trailers, bonus content, cast, related, About, then the columns.
+    /// The movie and episode page: trailers, bonus content, related, cast, About, then the columns (R471 (26)).
     func testMovieAndEpisodePageOrderWithoutHowToWatch() throws {
         guard let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift") else { return }
         let order: [Int] = try offsets(of: ["ExtrasShelf(heading: ExtraShelves.trailersHeading", "ExtrasShelf(heading: ExtraShelves.bonusHeading",
-                                            "CastShelf(cast: cast)", "RelatedShelf(cards: related)", "AboutSection(title: content.title",
+                                            "RelatedShelf(cards: related)", "CastShelf(cast: cast)", "AboutSection(title: content.title",
                                             "ProductInfoColumns(information:"], in: detail)
         XCTAssertEqual(order, order.sorted(), "the movie and episode page sections are out of order")
     }
