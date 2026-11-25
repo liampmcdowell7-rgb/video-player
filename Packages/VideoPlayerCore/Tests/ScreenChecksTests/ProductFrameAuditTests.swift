@@ -204,6 +204,34 @@ extension ScreenChecksTests {
                        "the page's last row is now in Scrolling Speed (empty or not)")
     }
 
+    /// R471 (52): on the other pages that stack rows, no Down press can pass over a row: the product pages are a plain
+    /// (built) stack whose every row is its own focus section, Home's shelves are lazy but none is screen tall and none is
+    /// hidden, and no page scrolls by itself (no paging, scroll position or visibility hiding).
+    func testNoOtherPageCanPassOverARow() throws {
+        guard let movie = try appSource("App/Features/Detail/ItemDetailContentView.swift"),
+              let show = try appSource("App/Features/Shows/SeasonsList.swift"),
+              let sections = try appSource("App/Shared/ProductSectionsView.swift"),
+              let related = try appSource("App/Features/Shows/RelatedShowsShelf.swift"),
+              let season = try appSource("App/Features/Shows/SeasonHeaderRow.swift"),
+              let home = try appSource("App/Features/Home/HomeRows.swift"),
+              let shelf = try appSource("App/Shared/CardRow.swift"),
+              let search = try appSource("App/Features/Search/SearchView.swift") else { return }
+        XCTAssertTrue(movie.contains("ScrollView {\n            VStack(alignment: .leading) {\n                hero"), "movie and episode pages: every row built")
+        XCTAssertTrue(show.contains("ScrollView {\n            VStack(alignment: .leading) {"), "show page: every row built")
+        XCTAssertEqual(sections.components(separatedBy: ".productPageRow()").count - 1, 4, "Extras, Related, About, the columns")
+        XCTAssertTrue(related.contains(".productPageRow()") && season.contains(".productPageRow()"))
+        XCTAssertTrue(movie.contains("struct CastShelf") && movie.contains(".productPageRow()"))
+        XCTAssertEqual(show.components(separatedBy: ".productPageRow()").count - 1, 2, "season tabs and the episodes")
+        XCTAssertTrue(home.contains("LazyVStack(alignment: .leading)"))
+        XCTAssertFalse(shelf.contains("containerRelativeFrame(.vertical"), "no shelf is sized to the screen's height")
+        XCTAssertTrue(search.contains(#"PosterGrid(cards: cards, screen: "Search")"#), "Search is a library grid (R471 (49))")
+        for (name, text) in [("movie", movie), ("show", show), ("home", home), ("shelf", shelf), ("search", search)] {
+            XCTAssertFalse(text.contains("scrollTargetBehavior"), name)
+            XCTAssertFalse(text.contains("scrollPosition("), name)
+            XCTAssertFalse(text.contains("onScrollVisibilityChange(threshold:"), name)
+        }
+    }
+
     /// R471 (45): a cast name is headline size (as the About title), its role caption and secondary (as the genre line).
     func testCastNamesMatchTheAboutTitle() throws {
         guard let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift") else { return }
