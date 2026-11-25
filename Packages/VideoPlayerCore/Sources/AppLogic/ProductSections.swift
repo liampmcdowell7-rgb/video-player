@@ -112,6 +112,82 @@ public enum ShowHeroText {
     }
 }
 
+/// R471 item 7 (owner's Part 1 correction: "from the extras we hold. Move them to shelves and keep the menu items
+/// reachable"): the video files next to a title split into Trailers and Bonus Content by their names (the common naming of
+/// media servers: "-trailer", "teaser", and the rest of the extras). Information files (NFO and the like) stay in the menu only.
+public enum ExtraShelves {
+    public static let trailersHeading = "Trailers"
+    public static let bonusHeading = "Bonus Content"
+
+    public static func split(_ extras: [ExtraRow]) -> (trailers: [ExtraRow], bonus: [ExtraRow]) {
+        let videos = extras.filter(\.isVideo)
+        let trailers = videos.filter { isTrailer($0.name) }
+        return (trailers, videos.filter { !isTrailer($0.name) })
+    }
+
+    static func isTrailer(_ name: String) -> Bool {
+        let base = ((name as NSString).deletingPathExtension).lowercased()
+        return base.contains("trailer") || base.contains("teaser")
+    }
+
+    /// The card's title: the file name without its extension and without the trailing "-trailer" style tag.
+    public static func displayName(_ name: String) -> String {
+        var base = (name as NSString).deletingPathExtension
+        for tag in ["-trailer", "-teaser", "-behindthescenes", "-featurette", "-deleted", "-interview", "-scene", "-short", "-other"]
+        where base.lowercased().hasSuffix(tag) {
+            base = String(base.dropLast(tag.count))
+        }
+        let clean = base.replacingOccurrences(of: ".", with: " ").replacingOccurrences(of: "_", with: " ").trimmingCharacters(in: .whitespaces)
+        return clean.isEmpty ? name : clean
+    }
+}
+
+/// R471 item 7 (owner's Part 1 correction: "from our own library. Titles sharing genres ... excluding itself; portrait
+/// posters"): the library's titles of the same kind that share a genre with this one, most shared genres first, then the
+/// higher rating, then the title. No online lookup.
+public enum RelatedTitles {
+    public static let heading = "Related"
+    public static let limit = 18
+    /// How many candidates the page asks the library for before ranking.
+    public static let candidateLimit = 60
+
+    /// The library query: same kind, any of the genres; nil with no genres (no shelf).
+    public static func query(kind: ItemKind, genres: [String]) -> ItemQuery? {
+        let set = Set(genres.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
+        guard !set.isEmpty else { return nil }
+        var filter = ItemFilter()
+        filter.kinds = [kind]
+        filter.genres = set
+        return ItemQuery(filter: filter, sort: ItemSort(key: .rating, ascending: false))
+    }
+
+    public struct Candidate: Equatable, Sendable {
+        public var id: Int64
+        public var title: String
+        public var rating: Double?
+        public init(id: Int64, title: String, rating: Double?) { self.id = id; self.title = title; self.rating = rating }
+    }
+
+    /// Ranks the candidates and returns their ids; `genresOf` gives a candidate's genres when known (else each counts as
+    /// sharing one, since the library query already matched a genre).
+    public static func rank(_ items: [Candidate], excluding id: Int64, genres: [String],
+                            genresOf: (Int64) -> [String]? = { _ in nil }) -> [Int64] {
+        let wanted = Set(genres.map { $0.lowercased() })
+        func shared(_ item: Candidate) -> Int {
+            guard let theirs = genresOf(item.id) else { return 1 }
+            return Set(theirs.map { $0.lowercased() }).intersection(wanted).count
+        }
+        var seen = Set<Int64>()
+        let ranked = items.filter { $0.id != id && seen.insert($0.id).inserted }.sorted { a, b in
+            let sa = shared(a), sb = shared(b)
+            if sa != sb { return sa > sb }
+            if (a.rating ?? 0) != (b.rating ?? 0) { return (a.rating ?? 0) > (b.rating ?? 0) }
+            return a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+        }
+        return ranked.prefix(limit).map(\.id)
+    }
+}
+
 /// One line of a column under the hero: a label, the value as shown, and the whole list when the value is shortened
 /// ("More" opens it). Never cut mid-word: a long list shows its first `visibleLimit` entries, then More.
 public struct InfoEntry: Equatable, Sendable, Identifiable {

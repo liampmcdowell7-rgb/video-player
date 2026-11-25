@@ -40,6 +40,8 @@ struct ItemDetailContentView: View {
     @State private var seriesRating: String?
     /// R471 item 4: File Info (the technical table) is open.
     @State private var showsFileInfo = false
+    /// R471 item 7: the library's movies sharing a genre with this one.
+    @State private var related: [ItemCard] = []
 
     /// R471 item 2: the page's kind for the hero lines.
     private var heroKind: HeroLines.Kind { content.kind == .episode ? .episode : .movie }
@@ -68,17 +70,33 @@ struct ItemDetailContentView: View {
                 hero
                 let hasColumns: Bool = !information.isEmpty || !languages.isEmpty || !accessibilityRows.isEmpty
                 // R471 item 1: the part below the hero starts with the title, centred.
-                if howToWatch != nil || hasColumns || (content.kind == .movie && !(details?.cast ?? []).isEmpty) {
+                if howToWatch != nil || hasColumns || content.extras.contains(where: \.isVideo)
+                    || (content.kind == .movie && !(details?.cast ?? []).isEmpty) {
                     BelowHeroHeader(title: content.episodeTitle ?? content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil)
                 }
                 // R471 item 4 (frames episode t02s, movie t04s): How to Watch first, then a movie's cast, then the columns.
                 // The episode page no longer repeats the season's other episodes (the show page has them; Go to Season is in
                 // the details button) and no longer shows the cast (the frames show none; Starring stays on the hero).
+                // R471 item 7 (frames movie t02s, t04s): the title's own trailers and bonus videos first.
+                let shelves = ExtraShelves.split(content.extras)
+                if !shelves.trailers.isEmpty {
+                    ExtrasShelf(heading: ExtraShelves.trailersHeading, extras: shelves.trailers)
+                }
+                if !shelves.bonus.isEmpty {
+                    ExtrasShelf(heading: ExtraShelves.bonusHeading, extras: shelves.bonus)
+                }
                 if let howToWatch {
                     HowToWatchCard(card: howToWatch) { onPlay(false) }
                 }
                 if content.kind == .movie, let cast = details?.cast, !cast.isEmpty {
                     CastShelf(cast: cast)
+                }
+                // R471 item 7: the library's movies that share a genre; then About (the synopsis card only, frame t06s).
+                if content.kind == .movie, !related.isEmpty {
+                    RelatedShelf(cards: related)
+                }
+                if content.kind == .movie, let summary = details?.overview {
+                    AboutSection(title: content.title, summary: summary, artworkKey: content.artworkKey, guidance: nil)
                 }
                 if hasColumns {
                     ProductInfoColumns(information: information, languages: languages, accessibility: accessibilityRows)
@@ -128,6 +146,18 @@ struct ItemDetailContentView: View {
             } else {
                 seriesRating = nil
             }
+        }
+        // R471 item 7: Related, from the library only (no online lookup), again when the genres or the library change.
+        .task(id: "\((details?.genres ?? []).joined(separator: "|"))|\(services.libraryRevision)") {
+            guard content.kind == .movie, let query = RelatedTitles.query(kind: .movie, genres: details?.genres ?? []),
+                  let found = try? await services.store.page(query, limit: RelatedTitles.candidateLimit, offset: 0) else {
+                related = []
+                return
+            }
+            let byID = Dictionary(found.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            let ids = RelatedTitles.rank(found.map { RelatedTitles.Candidate(id: $0.id, title: $0.title, rating: $0.rating) },
+                                         excluding: content.itemID, genres: details?.genres ?? [])
+            related = ids.compactMap { byID[$0] }.map { CardBuilder.card($0) }
         }
         // R471 item 4: the file's technical table, moved from the page into File Info (the details button).
         .taskCover(isPresented: $showsFileInfo) {

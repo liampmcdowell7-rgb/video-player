@@ -33,6 +33,81 @@ struct HowToWatchCard: View {
     }
 }
 
+/// R471 item 7 (PROVISIONAL): a shelf of the title's own extra videos (Trailers, or Bonus Content), 16:9 system card
+/// buttons with the file's name. Selecting one opens its facts (name, kind, size) in a full-screen cover: the player plays
+/// library items only, so an extra file cannot be played yet (OPEN_QUESTIONS R471 (7)). The same files stay listed in the
+/// details button's Extras menu.
+struct ExtrasShelf: View {
+    let heading: String
+    let extras: [ExtraRow]
+    @State private var shown: ExtraRow?
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            ShelfHeader(heading)
+            ScrollView(.horizontal) {
+                // design-lint:allow HIG Layout, 40 pt horizontal spacing between cards (docs/DESIGN_SYSTEM.md section 4)
+                LazyHStack(alignment: .top, spacing: 40) {
+                    ForEach(extras) { extra in
+                        Button { shown = extra } label: {
+                            VStack(alignment: .leading) {
+                                Image(systemName: "film")
+                                    .font(.title2)
+                                    .accessibilityHidden(true)
+                                FittingText(ExtraShelves.displayName(extra.name), style: .callout)
+                                if let size = extra.sizeText {
+                                    FittingText(size, style: .caption)
+                                        .foregroundStyle(ReadableSecondary.style)
+                                }
+                            }
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.card)
+                        // design-lint:allow HIG Layout, four columns of the grid width for 16:9 cards, as the episode cards (R189)
+                        .containerRelativeFrame(.horizontal, count: 4, spacing: 40)
+                        .accessibilityIdentifier("product.extra.\(extra.id)")
+                    }
+                }
+            }
+            .scrollClipDisabled()
+        }
+        .productPageRow()
+        .taskCover(item: $shown) { extra in
+            InfoListCover(title: ExtraShelves.displayName(extra.name),
+                          values: [extra.name, extra.kindText, extra.sizeText].compactMap { $0 })
+        }
+    }
+}
+
+/// R471 item 7 (PROVISIONAL): "Related": the library's own titles that share a genre (`RelatedTitles`), portrait posters
+/// as on every shelf (`PosterCard`, six columns), each opening its page.
+struct RelatedShelf: View {
+    let cards: [ItemCard]
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            ShelfHeader(RelatedTitles.heading)
+                .padding(.bottom, CGFloat(RowSpacing.shelfFocusRoom))
+            ScrollView(.horizontal) {
+                // design-lint:allow HIG Layout, 40 pt horizontal spacing between posters (docs/DESIGN_SYSTEM.md section 4)
+                LazyHStack(alignment: .top, spacing: 40) {
+                    ForEach(cards) { card in
+                        PosterCard(card: card)
+                            // design-lint:allow HIG Layout, six columns of the grid so shelf posters line up with grid posters
+                            .containerRelativeFrame(.horizontal, count: 6, spacing: 40)
+                    }
+                }
+                .equalCaptionRow()
+            }
+            .scrollClipDisabled()
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.bottom, CGFloat(RowSpacing.shelfFocusRoom))
+        }
+        .productPageRow()
+    }
+}
+
 /// R471 item 6 (PROVISIONAL; frames: show t16s, movie t06s): "About": a card with the synopsis (four lines; selecting it
 /// opens the whole text, rule L5) and, when we hold a rating, the age guidance card (the rating in its box, where it came
 /// from, and the rating's own descriptors). Both are system card buttons (`.card`); the guidance card opens the same
