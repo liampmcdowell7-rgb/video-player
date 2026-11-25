@@ -750,5 +750,11 @@ extension AppServices {
 extension AppServices {
     func saveProgress(itemID: Int64, position: Double, duration: Double?) async {
         try? await store.updateProgress(itemID: itemID, position: position, duration: duration, at: Date())
+        // R471 (20): the same save is one step of the title's Play History (the player's saves only; marking watched by hand
+        // is not a playback). Finished: at or past the point where the library counts the title as watched.
+        if let key = try? await sqlite.userDataKey(forItem: itemID) {
+            let finished = duration.map { $0 > 0 && position >= $0 * SQLiteLibraryStore.watchedFraction } ?? false
+            ledger.recordPlay(itemKey: key, position: position, duration: duration, finished: finished)
+        }
     }
 }

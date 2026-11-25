@@ -91,8 +91,8 @@ public enum ProductAction: String, CaseIterable, Sendable {
         // R471 (17): Add to List and Add to Playlist or Collection are built (the user's own lists in the user layer).
         // R471 (18): Refresh Details is built (one title's kept online answers dropped and fetched again).
         // R471 (19): Analyze File is built (streams read again; an episode's intro and credits found again).
-        case .audio, .subtitles,
-             .playHistory:
+        // R471 (20): Play History is built (one entry per playback in the user layer; Clear asks first).
+        case .audio, .subtitles:
             return false
         default:
             return true
@@ -169,6 +169,8 @@ public enum ProductActions {
         case .episode, .season:
             out = [.changeArtwork, .editMetadata, .analyze, .playHistory, .fileInfo, .delete]
         }
+        // R471 (20): Play History lists the playbacks of a file; a show or a season has none of its own (its episodes do).
+        if c.kind == .show || c.kind == .season { out.removeAll { $0 == .playHistory } }
         if !c.fixMatchAllowed { out.removeAll { $0 == .fixMatch } }
         if !c.deleteAllowed { out.removeAll { $0 == .delete } }
         if !c.matched { out.removeAll { $0 == .unmatch } }

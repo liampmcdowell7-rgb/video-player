@@ -58,6 +58,8 @@ struct ItemDetailContentView: View {
     @State private var refreshOutcome: TitleRefresh.Outcome?
     /// R471 (19): Analyze File in a cover.
     @State private var showsAnalyze = false
+    /// R471 (20): Play History in a cover.
+    @State private var showsHistory = false
 
     /// R471 item 2: the page's kind for the hero lines.
     private var heroKind: HeroLines.Kind { content.kind == .episode ? .episode : .movie }
@@ -186,6 +188,9 @@ struct ItemDetailContentView: View {
             if let refreshOutcome { Text(TitleRefresh.result(refreshOutcome).message) }
         }
         // R471 item 4: the file's technical table, moved from the page into File Info (the details button).
+        .taskCover(isPresented: $showsHistory) {
+            PlayHistoryView(itemID: content.itemID, title: content.episodeTitle ?? content.title)
+        }
         .taskCover(isPresented: $showsAnalyze) {
             AnalyzeFileView(itemID: content.itemID, title: content.episodeTitle ?? content.title)
         }
@@ -401,6 +406,10 @@ struct ItemDetailContentView: View {
                 .accessibilityIdentifier(ControlID.editMetadata)
         case .fixMatch:
             Button(action.title, systemImage: action.symbol, action: onFixMatch)
+        case .playHistory:
+            // R471 (20): each playback of this title (read-only), with Clear behind a confirmation.
+            Button(action.title, systemImage: action.symbol) { showsHistory = true }
+                .accessibilityIdentifier("product.playHistory")
         case .analyze:
             // R471 (19): the streams read again and, for an episode, its intro and credits found again (progress in the cover).
             Button(action.title, systemImage: action.symbol) { showsAnalyze = true }
