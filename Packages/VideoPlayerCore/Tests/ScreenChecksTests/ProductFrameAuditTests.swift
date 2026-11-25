@@ -238,4 +238,11 @@ extension ScreenChecksTests {
         XCTAssertTrue(detail.contains("CastCaption(text: person.name, style: .headline)"))
         XCTAssertTrue(detail.contains("CastCaption(text: role, style: .caption)\n                                    .foregroundStyle(.secondary)"))
     }
+
+    /// R471 (56): the platter behind a focused episode card's text has round corners (frame show t06s), scaled with the text.
+    func testTheFocusedEpisodeCardsPlatterIsRounded() throws {
+        guard let cards = try appSource("App/Features/Shows/EpisodeCards.swift") else { return }
+        XCTAssertTrue(cards.contains("in: RoundedRectangle(cornerRadius: platterCorner, style: .continuous))"))
+        XCTAssertTrue(cards.contains("@ScaledMetric(relativeTo: .caption) private var platterCorner: CGFloat = 12"))
+    }
 }

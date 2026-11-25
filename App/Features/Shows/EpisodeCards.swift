@@ -46,6 +46,8 @@ struct EpisodeCard: View {
     @AppStorage(AppPreference.hideSpoilers.rawValue) private var hideSpoilers = false
     /// R471 (28): the mini bar on the still, the Play button's width (`PlayCapsuleButton`), scaled with the text.
     @ScaledMetric(relativeTo: .caption) private var barWidth: CGFloat = 44
+    /// R471 (56), PROVISIONAL: the corner of the focused card's text platter (frame show t06s: rounded like the still).
+    @ScaledMetric(relativeTo: .caption) private var platterCorner: CGFloat = 12
 
     var body: some View {
         NavigationLink(value: Route.item(episode.id)) {
@@ -163,8 +165,10 @@ struct EpisodeCard: View {
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
+            // R471 (56): the platter has round corners like the card's still (frame show t06s), not square ones.
             // design-lint:allow R471: the system regular material behind the focused episode card's text only (frame show t14s); no custom glass
-            .background(isFocused ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(.clear))
+            .background(isFocused ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(.clear),
+                        in: RoundedRectangle(cornerRadius: platterCorner, style: .continuous))
             .equalCaptionBlock()
         } else {
             FittingText(episode.cardCaption, style: .caption)
