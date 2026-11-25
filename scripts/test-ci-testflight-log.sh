@@ -70,8 +70,8 @@ printf '%s\n' "$code" | grep -qE 'CODE_SIGN_STYLE=Automatic|-allowProvisioningUp
 for s in "gh-testflight.sh install-cert" "cm-testflight.sh signing" "cm-testflight.sh check-profiles" "cm-testflight.sh prepare" "cm-testflight.sh archive" "gh-testflight.sh check-entitlements" "cm-testflight.sh export" "gh-testflight.sh upload" "gh-testflight.sh cleanup"; do
   printf '%s\n' "$code" | grep -qE "^[[:space:]]+(run: )?bash scripts/$s\$" && ok "testflight.yml runs scripts/$s" || bad "testflight.yml misses scripts/$s"
 done
-printf '%s\n' "$code" | awk '/gh-testflight.sh install-cert/{a=NR} /cm-testflight.sh signing/{b=NR} /cm-testflight.sh archive/{c=NR} /gh-testflight.sh check-entitlements/{k=NR} /cm-testflight.sh export/{d=NR} /gh-testflight.sh upload/{e=NR} END{exit !(a<b && b<c && c<k && k<d && d<e)}' \
-  && ok "testflight.yml: certificate, signing, archive, entitlement check, export, upload in that order (R466)" || bad "step order"
+printf '%s\n' "$code" | awk '/gh-testflight.sh install-cert/{a=NR} /cm-testflight.sh signing/{b=NR} /cm-testflight.sh archive/{c=NR} /gh-testflight.sh check-entitlements/{k=NR} /cm-testflight.sh export/{d=NR} /gh-testflight.sh upload/{e=NR} END{exit !(a<b && b<c && c<d && d<k && k<e)}' \
+  && ok "testflight.yml: certificate, signing, archive, export, entitlement check of the .ipa, upload in that order (R468)" || bad "step order"
 grep -qiE 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY' "$W" && bad "a key header is written out in the workflow" || ok "testflight.yml: no key header text (built at run time, R251)"
 grep -q 'kind="PRIVATE"' "$W" && grep -q 'fold -w 64' "$W" && ok "testflight.yml: the API key file is rebuilt from the secret's body (R251)" || bad "key rebuild"
 [ "$(grep -cE '^[[:space:]]*runs-on: xcode-27$' "$W")" -eq 1 ] && ok "testflight.yml: one job on the standard xcode-27 runner" || bad "runner"
@@ -250,6 +250,49 @@ out="$(runb second "$B/d/VideoPlayer.app" "$B/d/TopShelf.appex")"; rc=$?
 mkb "$B/f/TopShelf.appex" - - -
 out="$(runb good "$B/d/VideoPlayer.app" "$B/f/TopShelf.appex")"; rc=$?
 [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q '^WARNING:' && ok "entitlement check: an unreadable Top Shelf extension alone: no warning, exit 0" || bad "unreadable Top Shelf rc=$rc"
+
+# R468: `gh-testflight.sh check-entitlements` reads the EXPORTED .ipa (unzipped into $RUNNER_TEMP, deleted afterwards). The .ipa is
+# a zip of Payload/VideoPlayer.app with PlugIns/TopShelf.appex, built here from stand-in bundles; codesign and security are the
+# stand-ins above. VP_IPA_DIR points the script at the test folder instead of build/ios/ipa.
+mkipa() { # DIR APPFOLDER TOPFOLDER   (DIR/x.ipa)
+  mkdir -p "$1"
+  python3 -I - "$1/x.ipa" "$2" "$3" <<'PYZ'
+import os, sys, zipfile
+out, app, top = sys.argv[1:4]
+z = zipfile.ZipFile(out, "w")
+for root, base in ((app, "Payload/VideoPlayer.app"), (top, "Payload/VideoPlayer.app/PlugIns/TopShelf.appex")):
+    for d, _, fs in os.walk(root):
+        for f in fs:
+            z.write(os.path.join(d, f), base + "/" + os.path.relpath(os.path.join(d, f), root))
+z.close()
+PYZ
+}
+runi() { # MODE IPADIR   -> output; exit code of the script
+  RUNNER_TEMP="$t/rt" VP_IPA_DIR="$2" PATH="$B/bin:$PATH" CS_MODE="$1" bash scripts/gh-testflight.sh check-entitlements 2>&1
+}
+mkdir -p "$t/rt"
+out="$(runi good "$t/ipa-none")"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'ENTITLEMENT ERROR: no .ipa in' && ok "ipa check: no .ipa: exit 1 before the upload (R468)" || bad "missing ipa rc=$rc: $out"
+mkb "$B/g/VideoPlayer.app" - "$E/app-good.plist" "$E/app-good-prof.plist"; mkb "$B/g/TopShelf.appex" - "$E/top.plist" "$E/top-prof.plist"
+mkipa "$t/ipa-good" "$B/g/VideoPlayer.app" "$B/g/TopShelf.appex"
+out="$(runi good "$t/ipa-good")"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'the app is signed with the iCloud container' && ok "ipa check: a complete signed app in the .ipa: exit 0" || bad "ipa complete rc=$rc: $out"
+[ ! -e "$t/rt/vp-gh/ipa-check" ] && ok "ipa check: the unzipped copy is deleted" || bad "the unzipped copy is still there"
+mkb "$B/h/VideoPlayer.app" - "$E/app-nocontainer.plist" -; mkb "$B/h/TopShelf.appex" - "$E/top.plist" -
+mkipa "$t/ipa-nocont" "$B/h/VideoPlayer.app" "$B/h/TopShelf.appex"
+out="$(runi good "$t/ipa-nocont")"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'the signed entitlements of the app lack the iCloud container' && [ ! -e "$t/rt/vp-gh/ipa-check" ]   && ok "ipa check: read and lacking the container: exit 1, copy deleted" || bad "ipa nocontainer rc=$rc: $out"
+mkb "$B/i/VideoPlayer.app" - - -; mkb "$B/i/TopShelf.appex" - - -
+mkipa "$t/ipa-none-read" "$B/i/VideoPlayer.app" "$B/i/TopShelf.appex"
+out="$(runi fail "$t/ipa-none-read")"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '^WARNING:' && printf '%s' "$out" | grep -q 'NOT a pass' && [ ! -e "$t/rt/vp-gh/ipa-check" ]   && ok "ipa check: nothing readable: one WARNING, exit 0, copy deleted" || bad "ipa unreadable rc=$rc: $out"
+mkb "$B/j/VideoPlayer.app" "$E/app-sentinel.plist" "$E/app-sentinel.plist" "$E/app-good-prof.plist"; mkb "$B/j/TopShelf.appex" - "$E/top.plist" -
+mkipa "$t/ipa-sent" "$B/j/VideoPlayer.app" "$B/j/TopShelf.appex"
+out="$(runi good "$t/ipa-sent")"; rc=$?
+! printf '%s' "$out" | grep -q 'SENTINEL' && ok "ipa check: no sentinel value reaches the log" || bad "a sentinel value was printed from the .ipa check"
+printf 'not a zip' > "$t/ipa-bad.ipa"; mkdir -p "$t/ipa-bad"; mv "$t/ipa-bad.ipa" "$t/ipa-bad/x.ipa"
+out="$(runi good "$t/ipa-bad")"; rc=$?
+[ "$rc" -eq 1 ] && ok "ipa check: a file that is not a zip: exit 1" || bad "bad zip rc=$rc"
 
 # R248: the pre-push exception is narrow. The real scripts/pre-push-check.sh runs in a throwaway repository holding only
 # itself and one workflow variant; only its workflow messages are read.

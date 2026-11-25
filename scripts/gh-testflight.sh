@@ -7,13 +7,13 @@
 #                                  must match), and a throw-away .p12 made from the two is imported. It makes NO key and NO
 #                                  certificate and revokes or deletes nothing (the pre-push check refuses the commands that
 #                                  would, scripts/test-ci-testflight-log.sh proves it).
-#   gh-testflight.sh check-entitlements  READ-ONLY (R466): after the archive, before the export and the upload, prints yes or
-#                                  no (never a value) for the iCloud container, the iCloud services, the App Group and
-#                                  aps-environment, in the archived app and the Top Shelf extension, signed and in the
-#                                  embedded profile (scripts/gh-entitlement-check.py); fails ONLY when the app's signed
-#                                  entitlements were read and lack the iCloud container or the CloudKit service. When they
-#                                  cannot be read (codesign, then the archive's .xcent file) it prints n/a, one WARNING and
-#                                  safe facts, and exits 0 (R467): the export and the upload go on.
+#   gh-testflight.sh check-entitlements  READ-ONLY (R466, moved to the exported .ipa in R468): after the export, before the
+#                                  upload. Unzips build/ios/ipa/*.ipa into $RUNNER_TEMP, prints yes or no (never a value)
+#                                  for the iCloud container, the iCloud services, the App Group and aps-environment in the
+#                                  app and the Top Shelf extension, signed and in the embedded profile
+#                                  (scripts/gh-entitlement-check.py), and deletes the copy. Fails when no .ipa is there, and
+#                                  when the app's signed entitlements were read and lack the iCloud container or the CloudKit
+#                                  service. When nothing can be read it prints n/a, one WARNING and safe facts, exit 0.
 #   gh-testflight.sh upload        uploads the archive with `xcodebuild -exportArchive` (the export options that
 #                                  `xcode-project use-profiles` wrote, plus destination upload) and the API key flags.
 #                                  The profiles and the certificate are the same as in the export, so nothing new is signed.
@@ -29,6 +29,7 @@ step="${1:?step: install-cert | check-entitlements | upload | cleanup}"
 W="${RUNNER_TEMP:?RUNNER_TEMP is not set}/vp-gh"
 KC="$W/build.keychain-db"
 ARCHIVE=build/ios/xcarchive/VideoPlayer.xcarchive
+IPA_DIR="${VP_IPA_DIR:-build/ios/ipa}"   # VP_IPA_DIR only for scripts/test-ci-testflight-log.sh
 EXPORT_OPTIONS="$HOME/export_options.plist"
 umask 077
 mkdir -p "$W/logs" && chmod 700 "$W"
@@ -83,13 +84,25 @@ case "$step" in
     exit 0 ;;
 
   check-entitlements)
-    # The same lookup as cm-testflight.sh check-build: the one app in the archive and its one extension.
-    app="$(ls -d "$ARCHIVE"/Products/Applications/*.app 2>/dev/null | head -n 1)"
-    [ -d "$app" ] || { echo "ENTITLEMENT ERROR: no app in the archive ($ARCHIVE)"; exit 1; }
+    # R468: reads the EXPORTED .ipa, because this workflow signs during the export (the archive is unsigned: run #6 could read
+    # nothing from it). The .ipa is unzipped into the runner's temporary folder, never the workspace, and the copy is deleted.
+    ipa="$(ls "$IPA_DIR"/*.ipa 2>/dev/null | head -n 1)"
+    [ -f "$ipa" ] || { echo "ENTITLEMENT ERROR: no .ipa in $IPA_DIR (the export step writes it)"; exit 1; }
+    X="$W/ipa-check"
+    rm -rf "$X"; mkdir -p "$X"
+    if ! unzip -q -o "$ipa" -d "$X" >/dev/null 2>&1; then
+      rm -rf "$X"; echo "ENTITLEMENT ERROR: the .ipa could not be unzipped"; exit 1
+    fi
+    app="$(ls -d "$X"/Payload/*.app 2>/dev/null | head -n 1)"
+    if [ ! -d "$app" ]; then
+      rm -rf "$X"; echo "ENTITLEMENT ERROR: no Payload/*.app inside the .ipa"; exit 1
+    fi
     ext="$(ls -d "$app"/PlugIns/*.appex 2>/dev/null | head -n 1)"
     # The script prints fixed words only (key names, yes, no); codesign's and security's own output is never shown.
     python3 scripts/gh-entitlement-check.py bundles "$app" "${ext:-}"
-    exit $? ;;
+    rc=$?
+    rm -rf "$X"
+    exit "$rc" ;;
 
   upload)
     : "${ASC_KEY_PATH:?}" "${ASC_KEY_ID:?}" "${ASC_ISSUER_ID:?}"

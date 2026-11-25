@@ -31,12 +31,13 @@
 #   3. scripts/cm-testflight.sh check-profiles iCloud container, App Group and aps-environment in the two profiles
 #   4. scripts/cm-testflight.sh prepare        scripts/ci-prepare.sh, the same preparation as the compile check
 #   5. scripts/cm-testflight.sh archive        use-profiles, build number, Release archive, build-number check
-#      scripts/gh-testflight.sh check-entitlements  (R466) read-only: yes or no, never a value, for the iCloud container, the
-#                                              iCloud services, the App Group and aps-environment in the archived app and the
-#                                              Top Shelf extension; fails before the export ONLY when the app's signed
-#                                              entitlements were read and lack the container or the CloudKit service; when
-#                                              they cannot be read it warns and goes on (R467)
 #   6. scripts/cm-testflight.sh export         the .ipa (method app-store)
+#      scripts/gh-testflight.sh check-entitlements  (R466, on the .ipa since R468; the archive is unsigned, this workflow signs
+#                                              in the export) read-only: yes or no, never a value, for the iCloud container,
+#                                              the iCloud services, the App Group and aps-environment in the app and the Top
+#                                              Shelf extension of the exported .ipa; fails before the upload when the .ipa is
+#                                              missing or the signed app was read and lacks the container or the CloudKit
+#                                              service; when nothing can be read it warns and goes on (R467)
 #   7. scripts/gh-testflight.sh upload         xcodebuild -exportArchive with destination upload and the API key
 # The Codemagic command line tools (open source, pip package codemagic-cli-tools) are installed into a virtual environment
 # on the runner for the steps `app-store-connect` and `xcode-project`. Unpinned until the first run shows a version (R463).
@@ -190,17 +191,17 @@ jobs:
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Archive (Release, tvOS devices, manual signing)"
           bash scripts/cm-testflight.sh archive
 
-      - name: Check the signed entitlements of the archive (read-only; yes or no only, never a value; stops only if they were read and lack iCloud)
-        timeout-minutes: 5
-        run: |
-          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Entitlement check"
-          bash scripts/gh-testflight.sh check-entitlements
-
       - name: Export the .ipa (method app-store)
         timeout-minutes: 10
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Export"
           bash scripts/cm-testflight.sh export
+
+      - name: Check the signed entitlements of the exported .ipa (read-only; yes or no only, never a value; stops if the .ipa is missing or the signed app lacks iCloud)
+        timeout-minutes: 5
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Entitlement check (.ipa)"
+          bash scripts/gh-testflight.sh check-entitlements
 
       - name: Upload to App Store Connect (TestFlight; no submission for review)
         timeout-minutes: 15
