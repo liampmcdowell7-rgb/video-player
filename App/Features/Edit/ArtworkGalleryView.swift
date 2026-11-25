@@ -36,6 +36,10 @@ struct ArtworkGalleryView: View {
         ScrollView {
             VStack(alignment: .leading) {
                 controls
+                // R471 (36): what this kind of picture is used for, in one line of our own.
+                Text(kind.purpose)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("artwork.purpose")
                 if let gallery {
                     if gallery.onlineSwitchOff { onlineOffNote }
                     if gallery.isEmpty { Text(gallery.emptyText).foregroundStyle(.secondary) }

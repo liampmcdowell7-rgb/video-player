@@ -32,6 +32,18 @@ public enum ArtworkGalleryKind: String, CaseIterable, Sendable {
         }
     }
 
+    /// R471 (36), PROVISIONAL (Plex Change Artwork photos: each kind says what it is used for): one sentence of our own,
+    /// under the gallery's controls, saying where this app shows the picture.
+    public var purpose: String {
+        switch self {
+        case .poster: return "Posters are shown in the library's grids and on shelves."
+        case .background: return "The background is shown behind the title's page."
+        case .logo: return "The logo is shown in place of the title's name on its page. One with a clear background works best."
+        case .seasonPoster: return "The season poster is shown beside the season on the show's page."
+        case .episodeStill: return "The still is shown on the episode's card and behind the episode's page."
+        }
+    }
+
     /// Width over height of a candidate's tile: posters 2:3, backgrounds and stills 16:9 (the owner's spec). A logo tile is
     /// drawn wide (16:9) so its lettering has room; the logo itself keeps its own shape inside.
     public var aspectRatio: Double {
