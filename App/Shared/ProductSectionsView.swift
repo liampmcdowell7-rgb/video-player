@@ -195,9 +195,10 @@ private struct InfoColumn: View {
     var body: some View {
         VStack(alignment: .leading, spacing: CGFloat(ProductPageSpacing.informationRows)) {
             // R471 (27), PROVISIONAL (frames show t20s, movie t06s): the column headings are large and bold, a step above
-            // the section headers; a system text style, so Larger Text still applies.
+            // the section headers; a system text style, so Larger Text still applies. Title 3 (48 pt on tvOS, about one and a
+            // half times the values' size in the frames); title 2 (57 pt) was a step too large.
             Text(heading)
-                .font(.title2.weight(.bold))
+                .font(.title3.weight(.bold))
                 .accessibilityAddTraits(.isHeader)
             ForEach(entries) { entry in
                 VStack(alignment: .leading) {

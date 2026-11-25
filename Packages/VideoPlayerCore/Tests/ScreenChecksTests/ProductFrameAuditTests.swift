@@ -7,7 +7,7 @@ extension ScreenChecksTests {
     /// R471 (27): the Information, Languages and Accessibility headings are a large bold system style.
     func testTheInfoColumnHeadingsAreLargeAndBold() throws {
         guard let sections = try appSource("App/Shared/ProductSectionsView.swift") else { return }
-        XCTAssertTrue(sections.contains("Text(heading)\n                .font(.title2.weight(.bold))"), "the column heading style")
+        XCTAssertTrue(sections.contains("Text(heading)\n                .font(.title3.weight(.bold))"), "the column heading style")
     }
 
     /// R471 (29): an episode's list entry is named "Show: Episode", interpolated, not the literal text.
