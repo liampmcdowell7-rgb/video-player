@@ -10,7 +10,7 @@
 #                                    certificate and never revokes or deletes anything (the self-test checks this).
 #   cm-testflight.sh check-profiles  scripts/cm-profile-check.py dir (iCloud container and App Group of the chosen two)
 #   cm-testflight.sh archive         `xcode-project use-profiles` (the chosen profiles only), a check that both targets now
-#                                    sign manually with a profile, the build number, `xcodebuild archive` (Release, tvOS), then
+#                                    sign manually with a profile and a non-empty identity (R469), the build number, `xcodebuild archive` (Release, tvOS), then
 #                                    check-build on the archive
 #   cm-testflight.sh export          `xcodebuild -exportArchive` with the generated export options (method app-store)
 #   cm-testflight.sh redact          stdin to stdout with the extra redaction below (used by the self-test)
@@ -158,8 +158,13 @@ case "$step" in
         > "$W/logs/settings-$t.txt" 2>&1
       style="$(sed -nE 's/^[[:space:]]*CODE_SIGN_STYLE = (.*)$/\1/p' "$W/logs/settings-$t.txt" | head -n 1)"
       prof="$(sed -nE 's/^[[:space:]]*PROVISIONING_PROFILE_SPECIFIER = (.+)$/\1/p' "$W/logs/settings-$t.txt" | head -n 1)"
-      if [ "$style" = Manual ] && [ -n "$prof" ]; then
-        echo "SIGNING: target $t signs manually with its own App Store profile"
+      # R469: use-profiles writes an EMPTY identity when the certificate is not in the default keychain; the archive is then
+      # unsigned and the exported app has no entitlements. The name is never printed, only set or empty.
+      ident="$(sed -nE 's/^[[:space:]]*CODE_SIGN_IDENTITY = (.+)$/\1/p' "$W/logs/settings-$t.txt" | head -n 1 | tr -d '[:space:]')"
+      if [ "$style" = Manual ] && [ -n "$prof" ] && [ -z "$ident" ]; then
+        echo "SIGNING ERROR: target $t: no signing identity after use-profiles (the certificate is not in the default keychain); the archive would be unsigned"; bad=1
+      elif [ "$style" = Manual ] && [ -n "$prof" ]; then
+        echo "SIGNING: target $t signs manually with its own App Store profile and a signing identity"
       else
         echo "SIGNING ERROR: target $t: CODE_SIGN_STYLE '${style:-unset}', profile ${prof:+set}${prof:-not set} after use-profiles"; bad=1
       fi

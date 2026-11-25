@@ -46,6 +46,15 @@ button. It costs nothing: the repository is public and the runner is one of GitH
   (the source is public anyway) and hold no key, profile or Team ID. Anyone signed in to GitHub can download them while
   they are kept, so tick the box only for the build you need to read a crash of. Send the crash report (`.ips`) of THAT same
   build, then tell me.
+- **The archive check** (R469): a step right AFTER the archive and BEFORE the export prints, for the app and the Top Shelf
+  extension, `signed yes` or `no` (the archived app has a signature folder) and whether the Release build settings name an
+  entitlements file (`yes` with `VideoPlayer.entitlements` or `TopShelf.entitlements`, never a path or a value). If either
+  is `no`, the run stops before the export: an unsigned archive always gives an app with no entitlements, which is why
+  builds 202611242205 and 202611250008 crashed in CloudKit (runs #6 and #7). The cause was the keychain: the signing tool
+  `xcode-project use-profiles` looks for the certificate only in the runner's DEFAULT keychain, and the workflow had put it
+  in a temporary keychain that was not the default. The certificate step now makes that keychain the default one (and the
+  clean-up step gives the old one back), and the archive step stops early with `no signing identity after use-profiles` if
+  the identity is still empty.
 - **The entitlement check** (R466, on the .ipa since R468): a step AFTER the export and BEFORE the upload unzips the exported
   .ipa into the runner's temporary folder, prints `yes` or `no` for the iCloud container, the iCloud services, the App Group
   and the push environment, in the app and the Top Shelf extension, and deletes the copy. It never prints a value. It is on
@@ -66,12 +75,14 @@ Open the red step and copy its last lines into a message to me. The lines are al
 | Check that the four secrets are set | `The repository secret ... is missing` | Add that secret (table above) and run again |
 | Check that the four secrets are set | `... must be the text of the .p8 file` or `... PEM text` | You pasted the wrong thing; replace the secret |
 | Install the command line tools | `pip` error | A download failed; run again |
+| Write the keys ... install the certificate | `the temporary keychain is not the default keychain` | The runner refused the default-keychain change (R469); tell me |
 | Write the keys ... install the certificate | `is not a readable private key` | `DIST_CERT_PRIVATE_KEY` is not the whole key text; replace it |
 | Write the keys ... install the certificate | `0 App Store Connect certificate(s) match the private key` | The key is not the one of your Apple Distribution certificate. Do not make a new certificate; tell me |
 | Signing files | `MISSING CAPABILITY: ... on the App ID ...` | On developer.apple.com > **Identifiers**, open that App ID, tick the capability, **Configure**, **Save**; run again |
 | Signing files | an App Store Connect error (401, forbidden) | The API key is not a **Team** key with **Admin** access, or the Key ID or Issuer ID is wrong |
 | Prepare | `missing ...` or `binary target ... missing` | A committed file is missing from the repository; tell me |
-| Archive | `SIGNING ERROR` lines | The profiles or the certificate do not fit; the line names the target |
+| Archive | `SIGNING ERROR` lines | The profiles or the certificate do not fit; the line names the target. `no signing identity after use-profiles`: the certificate was not found in the default keychain (R469); tell me |
+| Check the archive is signed and has an entitlements file | `ARCHIVE CHECK ERROR` | A target in the archive is unsigned or has no entitlements file for Release (R469). Copy the yes/no lines and tell me; nothing was exported or uploaded |
 | Archive | `BUILD NUMBER ERROR` | The build number did not reach a bundle; tell me |
 | Check the signed entitlements of the exported .ipa | `ENTITLEMENT ERROR: ... lack the iCloud container` or `... the CloudKit service`, or `no .ipa` | The exported app was signed without iCloud (its entitlements were read), or the export wrote no .ipa. Copy the yes/no lines and tell me; do not upload anything from this run. A `WARNING ... could not be read` is not red: the run went on; copy the `facts` lines and tell me |
 | Export | `no .ipa` | The export wrote nothing; tell me |

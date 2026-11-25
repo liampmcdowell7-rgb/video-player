@@ -7,6 +7,12 @@
 #                                  must match), and a throw-away .p12 made from the two is imported. It makes NO key and NO
 #                                  certificate and revokes or deletes nothing (the pre-push check refuses the commands that
 #                                  would, scripts/test-ci-testflight-log.sh proves it).
+#                                  R469: it also makes that keychain the DEFAULT keychain (use-profiles reads only that one;
+#                                  cleanup restores the old default).
+#   gh-testflight.sh check-archive READ-ONLY (R469): after the archive, before the export. Per target (app, Top Shelf): is the
+#                                  archived product signed (a _CodeSignature folder), and does `xcodebuild -showBuildSettings`
+#                                  resolve a non-empty CODE_SIGN_ENTITLEMENTS for Release (yes or no, plus the base name only
+#                                  when it is one of the two committed or generated names). Fails when either is no.
 #   gh-testflight.sh check-entitlements  READ-ONLY (R466, moved to the exported .ipa in R468): after the export, before the
 #                                  upload. Unzips build/ios/ipa/*.ipa into $RUNNER_TEMP, prints yes or no (never a value)
 #                                  for the iCloud container, the iCloud services, the App Group and aps-environment in the
@@ -25,10 +31,10 @@
 # UNVERIFIED (no Mac here, never run): every command named here on a GitHub runner.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-step="${1:?step: install-cert | check-entitlements | upload | cleanup}"
+step="${1:?step: install-cert | check-archive | check-entitlements | upload | cleanup}"
 W="${RUNNER_TEMP:?RUNNER_TEMP is not set}/vp-gh"
 KC="$W/build.keychain-db"
-ARCHIVE=build/ios/xcarchive/VideoPlayer.xcarchive
+ARCHIVE="${VP_ARCHIVE:-build/ios/xcarchive/VideoPlayer.xcarchive}"   # VP_ARCHIVE only for the self-test
 IPA_DIR="${VP_IPA_DIR:-build/ios/ipa}"   # VP_IPA_DIR only for scripts/test-ci-testflight-log.sh
 EXPORT_OPTIONS="$HOME/export_options.plist"
 umask 077
@@ -78,9 +84,47 @@ case "$step" in
     old="$(security list-keychains -d user | tr -d '"' | tr '\n' ' ')"
     # shellcheck disable=SC2086
     security list-keychains -d user -s "$KC" $old
+    # R469: `xcode-project use-profiles` looks for the certificate ONLY in the DEFAULT keychain (`security default-keychain`;
+    # it has no keychain option). Found nowhere, it still writes CODE_SIGN_STYLE Manual and the profile but an EMPTY
+    # CODE_SIGN_IDENTITY, Xcode then archives UNSIGNED, and the export signs the app with no entitlements (runs #6 and #7).
+    # Codemagic's own keychain is the default one, which is why that route worked. The old default is restored by cleanup.
+    security default-keychain -d user > "$W/default-keychain.before" 2>/dev/null || : > "$W/default-keychain.before"
+    security default-keychain -d user -s "$KC" > "$W/logs/default-keychain.log" 2>&1 \
+      || { show "$W/logs/default-keychain.log" "Default keychain" 1; exit 1; }
+    now="$(security default-keychain -d user 2>/dev/null | tr -d '" ')"
+    [ "$now" = "$KC" ] || { echo "SIGNING ERROR: the temporary keychain is not the default keychain (use-profiles reads only that one)"; exit 1; }
+    echo "SIGNING: the temporary keychain is the default keychain (xcode-project use-profiles reads the certificate there)"
     cnt="$(security find-identity -v -p codesigning "$KC" 2>/dev/null | grep -cE '^[[:space:]]+[0-9]+\)')"
     [ "${cnt:-0}" -ge 1 ] || { echo "SIGNING ERROR: the temporary keychain holds no code signing identity after the import"; exit 1; }
     echo "SIGNING: the Apple Distribution certificate for the supplied private key is in a temporary keychain ($cnt identity)"
+    exit 0 ;;
+
+  check-archive)
+    # R469, read-only: yes or no only. The base name of the entitlements file is printed only when it is one of the two
+    # names the repository uses; any other value prints "other". No path, Team ID, identity or profile is printed.
+    app="$(ls -d "$ARCHIVE"/Products/Applications/*.app 2>/dev/null | head -n 1)"
+    [ -d "$app" ] || { echo "ARCHIVE CHECK ERROR: no app in the archive"; exit 1; }
+    ext="$(ls -d "$app"/PlugIns/*.appex 2>/dev/null | head -n 1)"
+    bad=0
+    for t in VideoPlayer TopShelf; do
+      if [ "$t" = VideoPlayer ]; then b="$app"; label=app; else b="$ext"; label=topshelf; fi
+      if [ -n "$b" ] && [ -d "$b/_CodeSignature" ]; then signed=yes; else signed=no; bad=1; fi
+      xcodebuild -showBuildSettings -project VideoPlayer.xcodeproj -target "$t" -configuration Release \
+        > "$W/logs/archive-settings-$t.txt" 2>&1
+      ent="$(sed -nE 's/^[[:space:]]*CODE_SIGN_ENTITLEMENTS = (.+)$/\1/p' "$W/logs/archive-settings-$t.txt" | head -n 1)"
+      if [ -n "$ent" ]; then
+        e=yes
+        case "$(basename "$ent")" in VideoPlayer.entitlements|TopShelf.entitlements) name="$(basename "$ent")" ;; *) name=other ;; esac
+      else
+        e=no; name=-; bad=1
+      fi
+      printf '  %-9s signed %-3s   CODE_SIGN_ENTITLEMENTS (Release) %-3s %s\n' "$label" "$signed" "$e" "$name"
+    done
+    if [ "$bad" -ne 0 ]; then
+      echo "ARCHIVE CHECK ERROR: a target in the archive is unsigned or has no entitlements file for Release; the export would make an app without entitlements (R469). Nothing is exported or uploaded."
+      exit 1
+    fi
+    echo "Archive check: app and Top Shelf are signed in the archive and both have an entitlements file for Release"
     exit 0 ;;
 
   check-entitlements)
@@ -128,6 +172,11 @@ case "$step" in
     exit "$rc" ;;
 
   cleanup)
+    # R469: give the runner back its old default keychain before the temporary one is deleted.
+    if [ -s "$W/default-keychain.before" ]; then
+      prev="$(tr -d '"' < "$W/default-keychain.before" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g' | head -n 1)"
+      [ -n "$prev" ] && security default-keychain -d user -s "$prev" >/dev/null 2>&1
+    fi
     [ -f "$KC" ] && security delete-keychain "$KC" >/dev/null 2>&1
     rm -rf "$W" "$RUNNER_TEMP/asc" "$HOME/export_options.plist" "${TMPDIR:-/tmp}/vp-testflight"
     if [ -e "$W" ] || [ -e "$RUNNER_TEMP/asc" ]; then echo "::error::The key or keychain folder is still there."; exit 1; fi

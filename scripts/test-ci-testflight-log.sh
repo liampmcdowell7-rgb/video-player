@@ -67,11 +67,11 @@ else
   echo "SKIP  testflight.yml YAML parse (PyYAML not installed)"
 fi
 printf '%s\n' "$code" | grep -qE 'CODE_SIGN_STYLE=Automatic|-allowProvisioningUpdates|-authenticationKeyPath .*archive' && bad "testflight.yml: automatic signing is back (R463: it needs a registered device)" || ok "testflight.yml: no automatic signing"
-for s in "gh-testflight.sh install-cert" "cm-testflight.sh signing" "cm-testflight.sh check-profiles" "cm-testflight.sh prepare" "cm-testflight.sh archive" "gh-testflight.sh check-entitlements" "cm-testflight.sh export" "gh-testflight.sh upload" "gh-testflight.sh cleanup"; do
+for s in "gh-testflight.sh install-cert" "cm-testflight.sh signing" "cm-testflight.sh check-profiles" "cm-testflight.sh prepare" "cm-testflight.sh archive" "gh-testflight.sh check-archive" "gh-testflight.sh check-entitlements" "cm-testflight.sh export" "gh-testflight.sh upload" "gh-testflight.sh cleanup"; do
   printf '%s\n' "$code" | grep -qE "^[[:space:]]+(run: )?bash scripts/$s\$" && ok "testflight.yml runs scripts/$s" || bad "testflight.yml misses scripts/$s"
 done
-printf '%s\n' "$code" | awk '/gh-testflight.sh install-cert/{a=NR} /cm-testflight.sh signing/{b=NR} /cm-testflight.sh archive/{c=NR} /gh-testflight.sh check-entitlements/{k=NR} /cm-testflight.sh export/{d=NR} /gh-testflight.sh upload/{e=NR} END{exit !(a<b && b<c && c<d && d<k && k<e)}' \
-  && ok "testflight.yml: certificate, signing, archive, export, entitlement check of the .ipa, upload in that order (R468)" || bad "step order"
+printf '%s\n' "$code" | awk '/gh-testflight.sh install-cert/{a=NR} /cm-testflight.sh signing/{b=NR} /cm-testflight.sh archive/{c=NR} /gh-testflight.sh check-archive/{g=NR} /gh-testflight.sh check-entitlements/{k=NR} /cm-testflight.sh export/{d=NR} /gh-testflight.sh upload/{e=NR} END{exit !(a<b && b<c && c<g && g<d && d<k && k<e)}' \
+  && ok "testflight.yml: certificate, signing, archive, archive check, export, entitlement check of the .ipa, upload in that order (R469)" || bad "step order"
 grep -qiE 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY' "$W" && bad "a key header is written out in the workflow" || ok "testflight.yml: no key header text (built at run time, R251)"
 grep -q 'kind="PRIVATE"' "$W" && grep -q 'fold -w 64' "$W" && ok "testflight.yml: the API key file is rebuilt from the secret's body (R251)" || bad "key rebuild"
 [ "$(grep -cE '^[[:space:]]*runs-on: xcode-27$' "$W")" -eq 1 ] && ok "testflight.yml: one job on the standard xcode-27 runner" || bad "runner"
@@ -293,6 +293,70 @@ out="$(runi good "$t/ipa-sent")"; rc=$?
 printf 'not a zip' > "$t/ipa-bad.ipa"; mkdir -p "$t/ipa-bad"; mv "$t/ipa-bad.ipa" "$t/ipa-bad/x.ipa"
 out="$(runi good "$t/ipa-bad")"; rc=$?
 [ "$rc" -eq 1 ] && ok "ipa check: a file that is not a zip: exit 1" || bad "bad zip rc=$rc"
+
+# R469: the root cause of runs #6 and #7. `xcode-project use-profiles` reads certificates only from the DEFAULT keychain; the
+# temporary keychain was only on the search list, so use-profiles wrote an empty CODE_SIGN_IDENTITY and the archive was unsigned.
+G=scripts/gh-testflight.sh
+gic="$(sed -n '/^  install-cert)/,/^  check-archive)/p' "$G" | grep -vE '^[[:space:]]*#')"
+printf '%s\n' "$gic" | grep -qE 'security default-keychain -d user -s "\$KC"' && ok "install-cert makes the temporary keychain the default keychain (R469)" || bad "install-cert does not set the default keychain"
+printf '%s\n' "$gic" | grep -qE 'default-keychain -d user > "\$W/default-keychain.before"' && ok "install-cert saves the old default keychain first" || bad "old default keychain not saved"
+gcl="$(sed -n '/^  cleanup)/,/exit 0 ;;/p' "$G" | grep -vE '^[[:space:]]*#')"
+printf '%s\n' "$gcl" | awk '/default-keychain -d user -s "\$prev"/{a=NR} /delete-keychain "\$KC"/{b=NR} END{exit !(a && b && a<b)}' && ok "cleanup restores the old default keychain before deleting the temporary one" || bad "cleanup does not restore the default keychain first"
+# The archive step stops before xcodebuild archive when use-profiles left an empty identity (stand-ins for xcode-project and xcodebuild).
+XB="$t/xb"; mkdir -p "$XB/bin" "$t/tmpd"
+cat > "$XB/bin/xcode-project" <<'EOF4'
+#!/bin/sh
+exit 0
+EOF4
+cat > "$XB/bin/xcodebuild" <<'EOF4'
+#!/bin/sh
+case " $* " in *" -showBuildSettings "*) ;; *) echo "ARCHIVE CALLED" >> "$XB_TRACE"; exit 0 ;; esac
+t=""; prev=""; for a; do [ "$prev" = -target ] && t="$a"; prev="$a"; done
+echo "Build settings for action build and target $t:"
+echo "    CODE_SIGN_STYLE = Manual"
+echo "    PROVISIONING_PROFILE_SPECIFIER = SENTINEL profile name"
+case "$XB_MODE" in
+  noident) : ;;
+  *) echo "    CODE_SIGN_IDENTITY = SENTINEL identity" ;;
+esac
+case "$XB_MODE" in
+  noent) : ;;
+  other) echo "    CODE_SIGN_ENTITLEMENTS = /SENTINEL/path/odd.plist" ;;
+  *) [ "$t" = TopShelf ] && echo "    CODE_SIGN_ENTITLEMENTS = TopShelf/TopShelf.entitlements" || echo "    CODE_SIGN_ENTITLEMENTS = App/VideoPlayer.entitlements" ;;
+esac
+EOF4
+chmod +x "$XB/bin/xcode-project" "$XB/bin/xcodebuild"
+: > "$t/xb-trace"
+out="$(TMPDIR="$t/tmpd" XB_TRACE="$t/xb-trace" XB_MODE=noident PATH="$XB/bin:$PATH" bash scripts/cm-testflight.sh archive 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'SIGNING ERROR: target VideoPlayer: no signing identity after use-profiles' && printf '%s' "$out" | grep -q 'SIGNING ERROR: target TopShelf: no signing identity' \
+  && [ ! -s "$t/xb-trace" ] && ok "archive step: an empty signing identity after use-profiles stops before xcodebuild archive (R469)" || bad "empty identity rc=$rc: $out"
+! printf '%s' "$out" | grep -q SENTINEL && ok "archive step: the identity and the profile name are never printed" || bad "a signing value was printed"
+# check-archive: _CodeSignature and a Release CODE_SIGN_ENTITLEMENTS per target, yes or no only.
+mkar() { # DIR APPSIGNED TOPSIGNED (yes|no)
+  local a="$1/Products/Applications/VideoPlayer.app"; mkdir -p "$a/PlugIns/TopShelf.appex"
+  [ "$2" = yes ] && mkdir -p "$a/_CodeSignature"; [ "$3" = yes ] && mkdir -p "$a/PlugIns/TopShelf.appex/_CodeSignature"; return 0
+}
+runa() { RUNNER_TEMP="$t/rt" VP_ARCHIVE="$2" XB_MODE="$1" PATH="$XB/bin:$PATH" bash "$G" check-archive 2>&1; }
+mkar "$t/ar-good" yes yes
+out="$(runa good "$t/ar-good")"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qE '^  app +signed yes +CODE_SIGN_ENTITLEMENTS \(Release\) yes VideoPlayer\.entitlements$' \
+  && printf '%s' "$out" | grep -qE '^  topshelf +signed yes +CODE_SIGN_ENTITLEMENTS \(Release\) yes TopShelf\.entitlements$' \
+  && ok "archive check: both signed, both with an entitlements file: yes lines, exit 0" || bad "archive check good rc=$rc: $out"
+mkar "$t/ar-unsigned" no no
+out="$(runa good "$t/ar-unsigned")"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -qE '^  app +signed no ' && printf '%s' "$out" | grep -q 'ARCHIVE CHECK ERROR' && ok "archive check: an unsigned archive (runs #6 and #7) stops before the export" || bad "unsigned rc=$rc: $out"
+mkar "$t/ar-topunsigned" yes no
+out="$(runa good "$t/ar-topunsigned")"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -qE '^  topshelf +signed no ' && ok "archive check: an unsigned Top Shelf extension alone also stops" || bad "top unsigned rc=$rc"
+out="$(runa noent "$t/ar-good")"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -qE '^  app +signed yes +CODE_SIGN_ENTITLEMENTS \(Release\) no +-$' && ok "archive check: no CODE_SIGN_ENTITLEMENTS for Release: no, exit 1" || bad "noent rc=$rc: $out"
+out="$(runa other "$t/ar-good")"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qE 'CODE_SIGN_ENTITLEMENTS \(Release\) yes other$' && ! printf '%s' "$out" | grep -q SENTINEL \
+  && ok "archive check: an unexpected entitlements path prints only 'other', no path or value" || bad "other rc=$rc: $out"
+out="$(runa good "$t/ar-none")"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'ARCHIVE CHECK ERROR: no app in the archive' && ok "archive check: no archive: exit 1" || bad "no archive rc=$rc"
+acode="$(sed -n '/^  check-archive)/,/exit 0 ;;/p' "$G" | grep -vE '^[[:space:]]*#')"
+printf '%s\n' "$acode" | grep -qE 'codesign|security[[:space:]]|xcodebuild[[:space:]]+(archive|-exportArchive)|PlistBuddy -c .(Set|Add|Delete)' && bad "check-archive can sign, change a keychain or build" || ok "check-archive is read-only (no codesign, security, archive or export)"
 
 # R248: the pre-push exception is narrow. The real scripts/pre-push-check.sh runs in a throwaway repository holding only
 # itself and one workflow variant; only its workflow messages are read.

@@ -26,11 +26,15 @@
 # it again for distribution, and the developer signature needs a Development profile, which needs a registered Apple TV
 # (R266: "Your team has no devices from which to generate a provisioning profile"). The alternative is R464.
 #   1. scripts/gh-testflight.sh install-cert   the certificate that belongs to DIST_CERT_PRIVATE_KEY, into a temporary keychain
+#                                              that is made the DEFAULT keychain (R469: use-profiles reads only that one)
 #   2. scripts/cm-testflight.sh signing        checks it against App Store Connect; per bundle ID takes an existing active
 #                                              TVOS_APP_STORE profile or makes a profile (never a certificate or a key)
 #   3. scripts/cm-testflight.sh check-profiles iCloud container, App Group and aps-environment in the two profiles
 #   4. scripts/cm-testflight.sh prepare        scripts/ci-prepare.sh, the same preparation as the compile check
-#   5. scripts/cm-testflight.sh archive        use-profiles, build number, Release archive, build-number check
+#   5. scripts/cm-testflight.sh archive        use-profiles, build number, Release archive, build-number check; stops before the
+#                                              archive when use-profiles left a target without a signing identity (R469)
+#      scripts/gh-testflight.sh check-archive  (R469) read-only: per target, signed in the archive (yes/no) and a Release
+#                                              CODE_SIGN_ENTITLEMENTS (yes/no, base name); stops before the export if not
 #   6. scripts/cm-testflight.sh export         the .ipa (method app-store)
 #      scripts/gh-testflight.sh check-entitlements  (R466, on the .ipa since R468; the archive is unsigned, this workflow signs
 #                                              in the export) read-only: yes or no, never a value, for the iCloud container,
@@ -190,6 +194,12 @@ jobs:
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Archive (Release, tvOS devices, manual signing)"
           bash scripts/cm-testflight.sh archive
+
+      - name: Check the archive is signed and has an entitlements file (read-only; yes or no only, never a value)
+        timeout-minutes: 5
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci-stage.sh" "Archive check (signed, entitlements file)"
+          bash scripts/gh-testflight.sh check-archive
 
       - name: Export the .ipa (method app-store)
         timeout-minutes: 10
