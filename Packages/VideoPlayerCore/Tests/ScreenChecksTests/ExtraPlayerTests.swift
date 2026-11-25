@@ -6,7 +6,7 @@ import XCTest
 extension ScreenChecksTests {
     func testAnExtraCardPlaysAndKeepsItsFactsInTheLongPressMenu() throws {
         guard let shelf = try appSource("App/Shared/ProductSectionsView.swift") else { return }
-        XCTAssertTrue(shelf.contains("Button { playing = ExtraPlayRequest(itemID: itemID, extraID: extra.id) } label:"), "Select plays")
+        XCTAssertTrue(shelf.contains("Button { playing = ExtraPlayRequest(itemID: itemID, extraID: extra.id, seriesID: seriesID) } label:"), "Select plays")
         XCTAssertTrue(shelf.contains("Button(\"File Details\", systemImage: \"info.circle\") { shown = extra }"), "the facts stay reachable")
         XCTAssertTrue(shelf.contains("ExtraPlayerScreen(request: request)"))
         guard let page = try appSource("App/Features/Detail/ItemDetailContentView.swift") else { return }
