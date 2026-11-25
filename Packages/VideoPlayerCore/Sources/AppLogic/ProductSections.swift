@@ -216,9 +216,15 @@ public enum ProductInfo {
         let speech = tracks.audio.filter { !$0.isCommentary }
         let original = originalLanguage.flatMap(name) ?? (speech.first(where: \.isDefault) ?? speech.first)?.language.flatMap(name)
         if let original { out.append(InfoEntry(label: "Original Audio", value: original)) }
-        let audio = unique(speech.compactMap { $0.language.flatMap(name) })
+        // R471 (41), PROVISIONAL (frame show t20s): each language once, with what its tracks are in brackets: the audio
+        // formats ("English (Dolby Digital Plus 5.1, AAC 2.0)"), and SDH or Forced for subtitles ("English (SDH)").
+        let audio = described(speech.compactMap { track in
+            track.language.flatMap(name).map { ($0, FormatNames.audio(codec: track.codec, channels: track.channels, atmos: false)) }
+        })
         if !audio.isEmpty { out.append(listed("Audio", audio)) }
-        let subtitles = unique(tracks.subtitles.compactMap { $0.language.flatMap(name) })
+        let subtitles = described(tracks.subtitles.compactMap { track in
+            track.language.flatMap(name).map { ($0, track.isHearingImpaired ? "SDH" : track.isForced ? "Forced" : nil) }
+        })
         if !subtitles.isEmpty { out.append(listed("Subtitles", subtitles)) }
         return out
     }
@@ -251,6 +257,20 @@ public enum ProductInfo {
     static func listed(_ label: String, _ values: [String]) -> InfoEntry {
         if values.count <= visibleLimit { return InfoEntry(label: label, value: values.joined(separator: ", ")) }
         return InfoEntry(label: label, value: values.prefix(visibleLimit).joined(separator: ", "), full: values)
+    }
+
+    /// R471 (41): one entry per language, in the order of the file, with its tracks' kinds once each in brackets.
+    static func described(_ pairs: [(language: String, detail: String?)]) -> [String] {
+        var order: [String] = []
+        var details: [String: [String]] = [:]
+        for (language, detail) in pairs {
+            if details[language] == nil { order.append(language); details[language] = [] }
+            if let detail, !detail.isEmpty, !(details[language] ?? []).contains(detail) { details[language, default: []].append(detail) }
+        }
+        return order.map { language in
+            let kinds = details[language] ?? []
+            return kinds.isEmpty ? language : "\(language) (\(kinds.joined(separator: ", ")))"
+        }
     }
 
     static func unique(_ values: [String]) -> [String] {

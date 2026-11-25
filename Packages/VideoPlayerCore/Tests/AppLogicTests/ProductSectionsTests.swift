@@ -34,9 +34,12 @@ final class ProductSectionsTests: XCTestCase {
         let rows = ProductInfo.languages(tracks: tracks)
         XCTAssertEqual(rows.map(\.label), ["Original Audio", "Audio", "Subtitles"])
         XCTAssertEqual(rows[0].value, "French", "no catalogue language: the default audio track")
-        XCTAssertEqual(rows[1].value, "English, French")
-        XCTAssertEqual(rows[2].value, "English, Spanish, German")
-        XCTAssertEqual(rows[2].full, ["English", "Spanish", "German", "Japanese"], "More opens the whole list")
+        // R471 (41): each language once, with its tracks' formats or kinds in brackets.
+        let eac3 = try? XCTUnwrap(FormatNames.audio(codec: "eac3", channels: 6, atmos: false))
+        let aac = try? XCTUnwrap(FormatNames.audio(codec: "aac", channels: 2, atmos: false))
+        XCTAssertEqual(rows[1].value, "English (\(eac3 ?? "")), French (\(aac ?? ""))")
+        XCTAssertEqual(rows[2].value, "English (SDH), Spanish, German", "a plain track adds nothing; the SDH one says so")
+        XCTAssertEqual(rows[2].full, ["English (SDH)", "Spanish", "German", "Japanese"], "More opens the whole list")
         XCTAssertEqual(ProductInfo.languages(tracks: tracks, originalLanguage: "ja").first?.value, "Japanese")
         XCTAssertEqual(ProductInfo.languages(tracks: nil), [])
     }
