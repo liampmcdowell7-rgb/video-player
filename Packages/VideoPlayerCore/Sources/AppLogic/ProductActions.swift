@@ -108,6 +108,15 @@ public enum ProductAction: String, CaseIterable, Sendable {
     }
 }
 
+extension ProductAction {
+    /// R471 (31), PROVISIONAL (Plex episode menu): Go to Season names the season it opens, "Go to Season 4", or
+    /// "Go to Specials" for season 0; the plain title when the file gives no season.
+    public static func goToSeasonTitle(_ season: Int?) -> String {
+        guard let season, season >= 0 else { return ProductAction.goToSeason.title }
+        return season == 0 ? "Go to Specials" : "Go to Season \(season)"
+    }
+}
+
 /// The facts the list depends on.
 public struct ProductActionContext: Equatable, Sendable {
     public enum Kind: Sendable { case movie, episode, show, season }

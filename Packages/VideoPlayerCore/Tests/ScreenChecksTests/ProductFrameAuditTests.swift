@@ -29,4 +29,17 @@ extension ScreenChecksTests {
         let summary = try XCTUnwrap(sections.range(of: "Text(summary)"))
         XCTAssertTrue(title.lowerBound < genre.lowerBound && genre.lowerBound < summary.lowerBound, "title, genres, synopsis")
     }
+
+    /// R471 (31): Go to Season opens the show page on the episode's season (its own route), not the Go to Show route.
+    func testGoToSeasonOpensTheEpisodesSeason() throws {
+        guard let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift"),
+              let routes = try appSource("App/Shell/RouteDestinations.swift"),
+              let series = try appSource("App/Features/Shows/SeriesView.swift"),
+              let seasons = try appSource("App/Features/Shows/SeasonsList.swift") else { return }
+        XCTAssertTrue(detail.contains("Route.seriesSeason(seriesID, season: $0)"))
+        XCTAssertTrue(detail.contains("ProductAction.goToSeasonTitle(content.season)"))
+        XCTAssertTrue(routes.contains("SeriesView(seriesID: id, startSeason: season)"))
+        XCTAssertTrue(series.contains("startSeason: startSeason)"))
+        XCTAssertTrue(seasons.contains("chosen: chosenSeason ?? startSeason"), "the person's own tab choice still wins")
+    }
 }

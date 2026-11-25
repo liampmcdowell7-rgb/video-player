@@ -396,9 +396,12 @@ struct ItemDetailContentView: View {
                 Button(action.title, systemImage: action.symbol) { services.openRequest = Route.series(seriesID) }
             }
         case .goToSeason:
-            // The season page is the show page on that season (R471); it opens on the episode's season by itself.
+            // The season page is the show page on that season (R471). R471 (31): it names the season and opens on it (before,
+            // it sent the same route as Go to Show, so the page opened on the next-up episode's season instead).
             if let seriesID = content.seriesID {
-                Button(action.title, systemImage: action.symbol) { services.openRequest = Route.series(seriesID) }
+                Button(ProductAction.goToSeasonTitle(content.season), systemImage: action.symbol) {
+                    services.openRequest = content.season.map { Route.seriesSeason(seriesID, season: $0) } ?? Route.series(seriesID)
+                }
             }
         case .changeArtwork:
             Button(action.title, systemImage: action.symbol, action: onChangeArtwork)

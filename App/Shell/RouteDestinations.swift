@@ -24,6 +24,8 @@ struct RouteDestinations: ViewModifier {
             ItemDetailView(itemID: id).screenIdentifier("screen.item")
         case .series(let id):
             SeriesView(seriesID: id).screenIdentifier("screen.series")
+        case .seriesSeason(let id, let season):
+            SeriesView(seriesID: id, startSeason: season).screenIdentifier("screen.series")
         case .folder(let sourceID, let sourceName, let path):
             FilesFolderView(sourceID: sourceID, sourceName: sourceName, path: path).screenIdentifier("screen.folder")
         case .needsReview:

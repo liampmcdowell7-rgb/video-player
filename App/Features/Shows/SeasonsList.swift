@@ -28,6 +28,8 @@ struct SeasonsList: View {
     let seriesID: Int64
     let model: ScreenModel<SeasonsViewModel>
     var onPlay: (Int64) -> Void
+    /// R471 (31): the season the page opens on (an episode's Go to Season) until the person picks another tab.
+    var startSeason: Int? = nil
     @Environment(AppServices.self) private var services
     /// #22 B (OPEN_QUESTIONS R193): the show's synopsis and cast, from the same details lookup as the movie page. Nil (no
     /// key, no match, or both empty) draws nothing: no empty band (rule L6).
@@ -104,7 +106,7 @@ struct SeasonsList: View {
     }
 
     private var shownSeason: SeasonSection? {
-        SeasonTabs.shown(content.seasons, chosen: chosenSeason, resumeEpisodeID: content.resumeEpisodeID)
+        SeasonTabs.shown(content.seasons, chosen: chosenSeason ?? startSeason, resumeEpisodeID: content.resumeEpisodeID)
     }
 
     var body: some View {
