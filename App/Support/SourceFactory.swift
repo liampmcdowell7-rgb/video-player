@@ -33,6 +33,8 @@ final class SourceFactory {
     private let trust: TrustCenter
     private let builder: SourceBuilder
     private var proxy: SourceRangeProxy?
+    /// R471 (65): the live Plex clients, one per saved source.
+    private let live = LiveSourceCache<any MediaSource>()
 
     init(secrets: MirroredSecrets, ledger: UserDataLedger, trust: TrustCenter, deviceID: String) {
         self.secrets = secrets
@@ -56,9 +58,15 @@ final class SourceFactory {
         if let sample = UITestMode.fixtureSource(for: definition) { return sample }
         #endif
         let secret = secrets.secret(for: definition.id)
-        let pin = Self.pin(for: definition, trust: trust)
-        return try builder.build(definition, secret: secret, pin: pin)
+        // R471 (65): a Plex client is kept while its definition and secret stay the same, so its library listing (R305)
+        // serves the server check and the reader of one start, and the next start, instead of two walks per start.
+        return try live.source(for: definition, secret: secret) {
+            try builder.build(definition, secret: secret, pin: Self.pin(for: definition, trust: trust))
+        }
     }
+
+    /// R471 (65): the next `source(for:)` of this source builds a new client (a scan wants a fresh listing).
+    func forgetLiveSource(id: String) { live.forget(id: id) }
 
     func unavailableReason(for definition: UDSourceDefinition) -> String? {
         do { _ = try source(for: definition); return nil }

@@ -258,6 +258,9 @@ final class AppServices {
         let overrides = LedgerSortOverrides(ledger: ledger)
         let log = Self.sortLogger
         for definition in definitions {
+            // R471 (65): a scan reads the server's listing afresh (a kept Plex client would reuse one up to 300 s old); the
+            // new client is kept for the playback starts and browsing after it.
+            sourceFactory.forgetLiveSource(id: definition.id)
             guard let source = makeSource(definition) else { continue }
             let syncer = LibrarySyncer(store: sqlite, source: source, sourceID: definition.id, overrides: overrides,
                                        preferFilename: SortSourceOption.preferFilename(definition),
