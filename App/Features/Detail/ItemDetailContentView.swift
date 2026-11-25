@@ -267,21 +267,31 @@ struct ItemDetailContentView: View {
 
     private var moreMenu: some View {
         Menu {
-            // R471 item 3: what were round buttons on the hero, now the first entries of the details button.
-            if content.canStartOver {
-                Button("Start Over", systemImage: "arrow.counterclockwise") { onPlay(true) }
-                    .accessibilityIdentifier(ControlID.startOver)
-            }
-            if content.versions.count > 1 {
-                Picker(selection: versionSelection) {
-                    ForEach(content.versions) { Text($0.label).tag($0.id) }
-                } label: {
-                    Label("Versions", systemImage: "square.stack")
+            // R471 Part 3 (PROVISIONAL): the actions list of the page's kind (`ProductActions.list`), the same list as a card's
+            // long press; only actions the app has are listed (R471 (8)). Manage is a submenu (a system `Menu` in the menu).
+            ForEach(ProductActions.list(actionContext), id: \.self) { action in
+                if action == .manage {
+                    Menu {
+                        ForEach(ProductActions.manageList(actionContext), id: \.self) { inner in
+                            actionButton(inner)
+                        }
+                    } label: {
+                        Label(ProductAction.manage.title, systemImage: ProductAction.manage.symbol)
+                    }
+                } else if action == .moreWaysToWatch {
+                    Picker(selection: versionSelection) {
+                        ForEach(content.versions) { Text($0.label).tag($0.id) }
+                    } label: {
+                        Label(action.title, systemImage: action.symbol)
+                    }
+                    .pickerStyle(.menu)
+                    .accessibilityIdentifier(ControlID.versions)
+                } else {
+                    actionButton(action)
                 }
-                .pickerStyle(.menu)
-                .accessibilityIdentifier(ControlID.versions)
             }
             if !content.extras.isEmpty {
+                // Every extra stays listed here (the page shows the video ones as shelves, R471 (7)).
                 Menu {
                     ForEach(content.extras) { extra in
                         Text([extra.name, extra.kindText, extra.sizeText].compactMap { $0 }.joined(separator: ", "))
@@ -291,29 +301,11 @@ struct ItemDetailContentView: View {
                 }
                 .accessibilityIdentifier(ControlID.extras)
             }
-            Button(content.isWatched ? "Mark as Unwatched" : "Mark as Watched", systemImage: content.isWatched ? "eye.slash" : "eye") {
-                Task { await model.run { await $0.setWatched(!content.isWatched) } }
-            }
             Button(content.isFavorite ? "Remove from Favorites" : "Add to Favorites", systemImage: content.isFavorite ? "heart.slash" : "heart") {
                 Task { await model.run { await $0.toggleFavorite() } }
             }
-            Button("Edit", systemImage: "pencil", action: onEdit)
-                .accessibilityIdentifier(ControlID.editMetadata)
-            // R460: Fix Match lists catalogue titles that are not in the library, so it is off while Restrictions are on.
-            if OnlineTitleSurface.fixMatchCandidates.isAvailable(restricted: services.restrictionsOn) {
-                Button("Fix Match", systemImage: "magnifyingglass", action: onFixMatch)
-            }
             // docs/SORTING.md: which rule put this title in Movies or Shows, with Move and Sort Automatically.
             Button("How This Was Sorted", systemImage: "arrow.up.arrow.down", action: onSortInfo)
-            // R396 (audit E2): the show's page, reached from here now that the show's name above the title is text.
-            if let seriesID = content.seriesID {
-                Button("Go to Show", systemImage: "tv") { services.openRequest = Route.series(seriesID) }
-            }
-            // R471 item 4: the file's technical table (was "Information" at the bottom of the page).
-            if !content.mediaInfo.isEmpty {
-                Button("File Info", systemImage: "info.circle") { showsFileInfo = true }
-                    .accessibilityIdentifier("product.fileInfo")
-            }
         } label: {
             // R471 item 3: the frames' round details button (a page glyph), still named "More" for VoiceOver and the UI tests.
             ActionLabel("More", systemImage: "doc.text", iconOnly: true)
@@ -322,6 +314,59 @@ struct ItemDetailContentView: View {
         // #25 A2: the Menu is a Button with no label of its own (57-movie-detail-HIERARCHY.txt); name it once, here.
         .accessibilityLabel("More")
         .accessibilityIdentifier(ControlID.more)
+    }
+
+    /// R471 Part 3: the facts the actions list depends on.
+    private var actionContext: ProductActionContext {
+        var c = ProductActionContext(kind: content.kind == .episode ? .episode : .movie)
+        c.started = content.canStartOver
+        c.watched = content.isWatched
+        c.onWatchlist = onWatchlist
+        c.matched = content.tmdbID != nil
+        c.hasFile = !content.mediaInfo.isEmpty
+        c.versionCount = content.versions.count
+        // R460: Fix Match lists catalogue titles that are not in the library, so it is off while Restrictions are on.
+        c.fixMatchAllowed = OnlineTitleSurface.fixMatchCandidates.isAvailable(restricted: services.restrictionsOn)
+        return c
+    }
+
+    /// One action of the list as a menu button. The identifiers are the ones the UI tests look for.
+    @ViewBuilder private func actionButton(_ action: ProductAction) -> some View {
+        switch action {
+        case .resume:
+            Button(action.title, systemImage: action.symbol) { onPlay(false) }
+        case .restart:
+            Button(action.title, systemImage: action.symbol) { onPlay(true) }
+                .accessibilityIdentifier(ControlID.startOver)
+        case .addToWatchlist, .removeFromWatchlist:
+            if let id = content.tmdbID {
+                Button(action.title, systemImage: action.symbol) { toggleWatchlist(id) }
+            }
+        case .markWatched, .markUnwatched:
+            Button(action.title, systemImage: action.symbol) {
+                Task { await model.run { await $0.setWatched(action == .markWatched) } }
+            }
+        case .goToShow:
+            if let seriesID = content.seriesID {
+                // R396 (audit E2): the show's page, reached from here now that the show's name above the title is text.
+                Button(action.title, systemImage: action.symbol) { services.openRequest = Route.series(seriesID) }
+            }
+        case .goToSeason:
+            // The season page is the show page on that season (R471); it opens on the episode's season by itself.
+            if let seriesID = content.seriesID {
+                Button(action.title, systemImage: action.symbol) { services.openRequest = Route.series(seriesID) }
+            }
+        case .editMetadata:
+            Button(action.title, systemImage: action.symbol, action: onEdit)
+                .accessibilityIdentifier(ControlID.editMetadata)
+        case .fixMatch:
+            Button(action.title, systemImage: action.symbol, action: onFixMatch)
+        case .fileInfo:
+            Button(action.title, systemImage: action.symbol) { showsFileInfo = true }
+                .accessibilityIdentifier("product.fileInfo")
+        default:
+            EmptyView()
+        }
     }
 
     /// The preferred version, chosen from the details button (was VersionsMenu's round button).

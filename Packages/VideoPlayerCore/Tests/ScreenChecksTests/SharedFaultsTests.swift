@@ -132,8 +132,12 @@ extension ScreenChecksTests {
         XCTAssertEqual(detail.components(separatedBy: ".buttonStyle(.borderedProminent)").count - 1, 0, "the movie page still has a prominent button")
         XCTAssertFalse(detail.contains("ActionLabel(\"More\", systemImage: \"ellipsis\")"), "More is still a text button on the movie page")
         XCTAssertFalse(home.contains("ActionLabel(\"More\", systemImage: \"ellipsis\")"), "More is still a text button on Home")
-        for name in ["Start Over", "Go to Show", "Fix Match", "How This Was Sorted"] {
-            XCTAssertTrue(detail.contains("\"\(name)\""), "the action “\(name)” is no longer on the movie page")
+        // R471 Part 3: the details button is built from the page kind's actions list (Start Over, Go to Show, Fix Match and
+        // the rest come from `ProductActions`, ProductActionsTests); How This Was Sorted stays the app's own entry.
+        XCTAssertTrue(detail.contains("ProductActions.list(actionContext)"), "the movie page's details button is not the actions list")
+        XCTAssertTrue(detail.contains("\"How This Was Sorted\""), "the action “How This Was Sorted” is no longer on the movie page")
+        for name in ["case .restart:", "case .goToShow:", "case .fixMatch:"] {
+            XCTAssertTrue(detail.contains(name), "the movie page does not act on \(name)")
         }
     }
 
