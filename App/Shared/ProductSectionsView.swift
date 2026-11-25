@@ -132,8 +132,10 @@ struct AboutSection: View {
                 if let guidance {
                     Button { showsGuidance = true } label: {
                         VStack(alignment: .leading) {
-                            FittingText(AgeGuidance.heading, style: .headline)
-                            RatingBadge(rating: guidance.rating)
+                            // R471 (32), PROVISIONAL (frames show t18s, t20s): the rating itself leads the card as a large
+                            // bold figure ("14+"), with no heading over it; the heading stays the card's spoken name.
+                            FittingText(guidance.rating, style: .title1)
+                                .fontWeight(.bold)
                             if let source = guidance.source {
                                 FittingText(source, style: .caption)
                                     .foregroundStyle(ReadableSecondary.style)
@@ -147,6 +149,7 @@ struct AboutSection: View {
                         .padding()
                     }
                     .buttonStyle(.card)
+                    .accessibilityLabel("\(AgeGuidance.heading), rated \(guidance.rating)")
                     .accessibilityIdentifier("product.ageGuidance")
                     .taskCover(isPresented: $showsGuidance) {
                         InfoListCover(title: AgeGuidance.heading,
