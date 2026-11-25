@@ -63,7 +63,7 @@ struct EpisodeCard: View {
                                                        isWatched: episode.isWatched)
                     let partWatched = !episode.isWatched && (episode.progress ?? 0) > 0
                     if label != nil || partWatched || episode.isWatched {
-                        HStack {
+                        HStack(spacing: CGFloat(BadgeSpacing.afterText)) {
                             Image(systemName: episode.isWatched ? "checkmark.circle.fill" : "play.fill")
                                 .accessibilityHidden(true) // the card's value says "Watched" and the duration
                             if partWatched, let progress = episode.progress {
