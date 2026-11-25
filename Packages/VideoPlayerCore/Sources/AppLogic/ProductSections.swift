@@ -218,13 +218,25 @@ public enum ProductInfo {
         if let original { out.append(InfoEntry(label: "Original Audio", value: original)) }
         // R471 (41), PROVISIONAL (frame show t20s): each language once, with what its tracks are in brackets: the audio
         // formats ("English (Dolby Digital Plus 5.1, AAC 2.0)"), and SDH or Forced for subtitles ("English (SDH)").
-        let audio = described(speech.compactMap { track in
+        // R471 (43), PROVISIONAL (frame show t20s): a described-picture track adds "AD" after the formats, and a
+        // closed-caption track "CC" before "SDH", the same short names as the Accessibility badges.
+        let plain = speech.filter { !AccessFeature.isDescription($0.name) }
+        let describedTracks = speech.filter { AccessFeature.isDescription($0.name) }
+        let audio = described(plain.compactMap { track in
             track.language.flatMap(name).map { ($0, FormatNames.audio(codec: track.codec, channels: track.channels, atmos: false)) }
+        } + describedTracks.compactMap { track in
+            track.language.flatMap(name).map { ($0, AccessFeature.ad.badgeText) }
         })
         if !audio.isEmpty { out.append(listed("Audio", audio)) }
-        let subtitles = described(tracks.subtitles.compactMap { track in
-            track.language.flatMap(name).map { ($0, track.isHearingImpaired ? "SDH" : track.isForced ? "Forced" : nil) }
-        })
+        let subtitles = described(tracks.subtitles.flatMap { track -> [(language: String, detail: String?)] in
+            guard let language = track.language.flatMap(name) else { return [] }
+            let codec = track.codec.lowercased()
+            var kinds: [String] = []
+            if codec.contains("608") || codec.contains("708") { kinds.append(AccessFeature.cc.badgeText) }
+            if track.isHearingImpaired { kinds.append(AccessFeature.sdh.badgeText) }
+            if track.isForced { kinds.append("Forced") }
+            return kinds.isEmpty ? [(language, nil)] : kinds.map { (language, $0) }
+        }, ranked: [AccessFeature.cc.badgeText, AccessFeature.sdh.badgeText, "Forced"])
         if !subtitles.isEmpty { out.append(listed("Subtitles", subtitles)) }
         return out
     }
@@ -260,15 +272,18 @@ public enum ProductInfo {
     }
 
     /// R471 (41): one entry per language, in the order of the file, with its tracks' kinds once each in brackets.
-    static func described(_ pairs: [(language: String, detail: String?)]) -> [String] {
+    /// `ranked` details come first, in that order (R471 (43): "CC" before "SDH"); the rest keep the order they were seen.
+    static func described(_ pairs: [(language: String, detail: String?)], ranked: [String] = []) -> [String] {
         var order: [String] = []
         var details: [String: [String]] = [:]
         for (language, detail) in pairs {
             if details[language] == nil { order.append(language); details[language] = [] }
             if let detail, !detail.isEmpty, !(details[language] ?? []).contains(detail) { details[language, default: []].append(detail) }
         }
+        func rank(_ detail: String) -> Int { ranked.firstIndex(of: detail) ?? ranked.count }
         return order.map { language in
-            let kinds = details[language] ?? []
+            let seen = details[language] ?? []
+            let kinds = seen.enumerated().sorted { (rank($0.element), $0.offset) < (rank($1.element), $1.offset) }.map(\.element)
             return kinds.isEmpty ? language : "\(language) (\(kinds.joined(separator: ", ")))"
         }
     }

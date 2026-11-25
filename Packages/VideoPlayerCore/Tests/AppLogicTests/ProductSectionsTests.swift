@@ -44,6 +44,21 @@ final class ProductSectionsTests: XCTestCase {
         XCTAssertEqual(ProductInfo.languages(tracks: nil), [])
     }
 
+    /// R471 (43): a described-picture track adds AD after the formats; a closed-caption track adds CC before SDH.
+    func testLanguagesNameDescriptionAndCaptionTracks() {
+        let tracks = FileTrackDetails(
+            frameRate: nil,
+            audio: [.init(codec: "eac3", channels: 6, language: "eng", name: "English AD", isDefault: false),
+                    .init(codec: "aac", channels: 2, language: "eng", name: nil, isDefault: true)],
+            subtitles: [.init(codec: "subrip", language: "eng", name: "SDH", isForced: false, isHearingImpaired: true),
+                        .init(codec: "eia_608", language: "eng", name: nil, isForced: false, isHearingImpaired: false),
+                        .init(codec: "subrip", language: "fre", name: nil, isForced: true, isHearingImpaired: false)])
+        let rows = ProductInfo.languages(tracks: tracks)
+        let aac = FormatNames.audio(codec: "aac", channels: 2, atmos: false) ?? ""
+        XCTAssertEqual(rows.first { $0.label == "Audio" }?.value, "English (\(aac), AD)", "AD last, after the formats")
+        XCTAssertEqual(rows.first { $0.label == "Subtitles" }?.value, "English (CC, SDH), French (Forced)")
+    }
+
     func testRegionNamesAndTheDirectorLine() {
         XCTAssertEqual(ProductInfo.regionNames(["US", "GB"], locale: en), ["United States", "United Kingdom"])
         XCTAssertEqual(ProductInfo.regionNames(["ZZ"], locale: en).count, 1)
