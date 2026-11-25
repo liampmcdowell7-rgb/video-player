@@ -32,6 +32,8 @@ struct ItemDetailContentView: View {
     @State private var pageHeight: CGFloat = 0
     /// R452: where the title (the first line of text) begins, for the cover behind it.
     @State private var textTop: CGFloat?
+    /// R471 item 1: the page is scrolled below its hero (the backdrop is the blurred copy).
+    @State private var belowHero = false
     /// R387: the show's age rating, asked for only when an episode has none of its own (`EpisodePage.needsSeriesRating`).
     @State private var seriesRating: String?
     /// R387: the episode's show, for the row of the season's other episodes (the show page's model, so a card's context
@@ -51,6 +53,10 @@ struct ItemDetailContentView: View {
         ScrollView {
             VStack(alignment: .leading) {
                 hero
+                // R471 item 1: the part below the hero starts with the title, centred.
+                if otherEpisodes != nil || !(details?.cast ?? []).isEmpty || !content.mediaInfo.isEmpty {
+                    BelowHeroHeader(title: content.episodeTitle ?? content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil)
+                }
                 // R387: as on the show page, the episodes right after the hero, then the cast.
                 if let other = otherEpisodes, let seasonModel {
                     VStack(alignment: .leading) {
@@ -77,6 +83,8 @@ struct ItemDetailContentView: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { (height: CGFloat) in
             if abs(height - pageHeight) >= 0.5 { pageHeight = height }
         }
+        // R471 item 1: below the hero, the backdrop turns into the blurred, dimmed copy.
+        .reportsBelowHero($belowHero, heroHeight: pageHeight * ProductPageLayout.heroFraction)
         // R345: the focused buttons and rows grow past the page's scroll view; it must not clip them.
         .scrollClipDisabled()
         // R346 (item A): the scrolling page is one focus region, so Up scrolls back to its first row before it
@@ -89,7 +97,8 @@ struct ItemDetailContentView: View {
         .task(id: content.itemID) { playFocused = true }
         .artTextTop($textTop)
         .background {
-            BackdropView(artworkKey: content.artworkKey, style: .hero, prefersEpisodeStill: content.kind == .episode, textTop: textTop)
+            BackdropView(artworkKey: content.artworkKey, style: .hero, prefersEpisodeStill: content.kind == .episode, textTop: textTop,
+                         belowHero: belowHero)
                 .blur(radius: content.kind == .episode && SpoilerRules.hidesStill(watched: content.isWatched, hideSpoilers: hideSpoilers) ? 30 : 0) // design-lint:allow R457: the spoiler blur of an unwatched episode's still, only while Hide Spoilers is on; not a glass or scrim
         }
         .task(id: "\(content.artworkKey)|\(services.online.keyRevision)|\(hideSpoilers)|\(content.isWatched)") {

@@ -31,6 +31,8 @@ struct SeasonsList: View {
     @State private var details: TitleDetails?
     /// R452: where the title begins, for the cover behind it.
     @State private var textTop: CGFloat?
+    /// R471 item 1: the page is scrolled below its hero (the backdrop is the blurred copy).
+    @State private var belowHero = false
     @FocusState private var playFocused: Bool
     /// R339: the season the person chose with the tabs; nil until they choose (then `SeasonTabs.shown` picks).
     @State private var chosenSeason: Int?
@@ -96,6 +98,8 @@ struct SeasonsList: View {
                 // the hero, and Play takes the focus there (reasons: ItemDetailContentView's hero).
                 .focusSection()
                 .defaultFocus($playFocused, true, priority: .userInitiated)
+                // R471 item 1: the part below the hero starts with the show's logo (or title), centred (frames t06s, t12s).
+                BelowHeroHeader(title: content.seriesTitle, artworkKey: "series-\(seriesID)")
                 // #25 B7 (OPEN_QUESTIONS R193, the alternative now taken, still PROVISIONAL): the episodes right after Play,
                 // the cast after them. R339: the season tabs, then the chosen season's episodes.
                 seasonTabs
@@ -120,6 +124,8 @@ struct SeasonsList: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { (height: CGFloat) in
             if abs(height - pageHeight) >= 0.5 { pageHeight = height }
         }
+        // R471 item 1: below the hero, the backdrop turns into the blurred, dimmed copy.
+        .reportsBelowHero($belowHero, heroHeight: pageHeight * CGFloat(InfoBlockLayout.showHeroFraction))
         // R345: the focused buttons and cards grow past the page's scroll view; it must not clip them.
         .scrollClipDisabled()
         // R346 (item A): the scrolling page is one focus region, so Up scrolls back to its first row before it
@@ -131,7 +137,7 @@ struct SeasonsList: View {
         .task(id: seriesID) { playFocused = true }
         // #15 5.2: the show's fan art (or its matched online backdrop) behind the page, as on the movie page.
         .artTextTop($textTop)
-        .background { BackdropView(artworkKey: "series-\(seriesID)", style: .hero, textTop: textTop) }
+        .background { BackdropView(artworkKey: "series-\(seriesID)", style: .hero, textTop: textTop, belowHero: belowHero) }
         .task(id: "series-\(seriesID)|\(services.online.keyRevision)") {
             details = await services.online.details(key: "series-\(seriesID)")
         }

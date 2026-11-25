@@ -26,6 +26,10 @@ struct BackdropView: View {
     /// R452: where the page's first line of text begins (global y, from `ArtTextTop`); the cover starts one ramp above it
     /// (`ArtReadability.coverStart`), not at a fixed share of the picture. Nil until the page has measured it.
     var textTop: CGFloat? = nil
+    /// R471 item 1: the page is scrolled below its hero, so the picture becomes a blurred, dimmed copy (`ProductScroll`):
+    /// the system material and one uniform cover over the whole picture. Only for `.hero`.
+    var belowHero: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var height: CGFloat = 0
     /// R470: this view's own top in global coordinates (the text's top is global too).
     @State private var top: CGFloat = 0
@@ -85,7 +89,16 @@ struct BackdropView: View {
                         }
                     // design-lint:allow R452: our own cover where the system material alone does not prove 4.5:1 (ArtReadability)
                     LinearGradient(stops: stops.map { Gradient.Stop(color: .black.opacity($0.alpha), location: $0.location) }, startPoint: .top, endPoint: .bottom)
+                    // R471 item 1: below the hero, the whole picture under the material and the cover's full strength.
+                    ZStack {
+                        // design-lint:allow R471: the system regular material over the whole picture once the page is scrolled below its hero (the blurred copy of Apple's product page)
+                        Rectangle().fill(.regularMaterial)
+                        // design-lint:allow R471: one uniform cover at the strength the hero cover is proved at (ProductScroll.belowHeroCoverOpacity)
+                        Rectangle().fill(.black.opacity(ProductScroll.belowHeroCoverOpacity))
+                    }
+                    .opacity(belowHero ? 1 : 0)
                 }
+                .animation(reduceMotion ? nil : .easeInOut(duration: ProductScroll.crossFadeSeconds), value: belowHero)
             }
     }
 
