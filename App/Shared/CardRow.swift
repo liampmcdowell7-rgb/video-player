@@ -30,7 +30,8 @@ struct CardRow: View {
             ScrollView(.horizontal) {
                 // design-lint:allow HIG Layout, 40 pt horizontal spacing between posters (docs/DESIGN_SYSTEM.md section 4)
                 LazyHStack(alignment: .top, spacing: 40) {
-                    ForEach(row.cards) { card in
+                    ForEach(Array(row.cards.enumerated()), id: \.element.id) { (index: Int, card: ItemCard) in
+                        Group {
                         if row.id.usesLandscapeCards {
                             // #15 4.1 (R185, PROVISIONAL): Continue Watching uses 16:9 cards, three to a screen width.
                             // R349 (item C): Next Up too, as the TV app's "Up Next" (AppLogic `usesLandscapeCards`).
@@ -44,6 +45,9 @@ struct CardRow: View {
                                 // design-lint:allow HIG Layout, six columns of the grid so shelf posters line up with grid posters
                                 .containerRelativeFrame(.horizontal, count: 6, spacing: 40)
                         }
+                        }
+                        // R471 (51): the card's place in its shelf, for the diagnostics page.
+                        .focusCell(index: index)
                     }
                 }
                 // #36 group 4 (R264): every card of the row the same caption height (the lockup captions of Continue

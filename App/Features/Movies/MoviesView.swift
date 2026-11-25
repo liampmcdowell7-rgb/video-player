@@ -20,7 +20,7 @@ struct MoviesView: View {
                     NeedsReviewButton(count: reviewCount)
                 }
                 ScreenStateView(state: model.screen.state, onEmptyAction: { emptyAction(model) }, onRetry: { Task { await reload() } }) { grid in
-                    PosterGrid(cards: grid.cards, onCardAppear: { id in
+                    PosterGrid(cards: grid.cards, screen: "Movies", onCardAppear: { id in
                         Task { await model.run { await $0.loadMoreIfNeeded(visible: id) } }
                     })
                 }

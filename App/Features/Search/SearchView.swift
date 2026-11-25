@@ -110,7 +110,7 @@ struct SearchView: View {
             case .empty(let empty):
                 EmptyStateView(empty: empty, action: {})
             case .loaded(let cards):
-                PosterGrid(cards: cards)
+                PosterGrid(cards: cards, screen: "Search")
             case .failed(let error):
                 ErrorStateView(error: error, retry: { Task { await search() } })
             case .idle, .loading:

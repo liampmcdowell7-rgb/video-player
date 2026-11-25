@@ -41,6 +41,9 @@ extension EnvironmentValues {
 
 /// The standard poster grid frame: five columns with the layout guidance spacing. Content is whatever tiles the caller makes.
 struct PosterGridLayout<Content: View>: View {
+    /// R471 (51): our own name of the screen for the diagnostics page ("Movies", "Shows", "Search", "Titles"); "" records
+    /// nothing.
+    var screen: String = ""
     @ViewBuilder var content: Content
     @Environment(\.libraryGridHeader) private var header
     @AppStorage(AppPreference.listView.rawValue) private var listView = false
@@ -63,6 +66,8 @@ struct PosterGridLayout<Content: View>: View {
             }
         }
         .scrollClipDisabled()
+        // R471 (51): each focus move (row and column) and slow frames while it scrolls, for Settings > Playback.
+        .scrollDiagnostics(screen: screen, columns: listView ? 1 : 5)
         // R361 (compile run of 21 Nov 2026, item 8): the whole grid is one focus section. Picture 54: two show cards on the
         // left, "Jump to Letter" right of them; Down searched straight below the button, found no card and stayed. Apple,
         // `focusSection()`: "Indicates that the view's frame and cohort of focusable descendants should be used to guide

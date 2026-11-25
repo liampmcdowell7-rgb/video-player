@@ -24,12 +24,15 @@ struct PersonView: View {
                         // R396 (audit P1, SF6): room for the focused card of the first row, which touched this line.
                         // The same value as under the count line of Movies and Shows (R392).
                         .padding(.bottom, CGFloat(ProductPageSpacing.aboveFirstGridRow))
-                    PosterGridLayout {
-                        ForEach(content.movies) { card in
+                    PosterGridLayout(screen: "Titles") {
+                        // R471 (51): each card's place in the grid, movies first, then shows.
+                        ForEach(Array(content.movies.enumerated()), id: \.element.id) { (index: Int, card: ItemCard) in
                             PosterCard(card: card)
+                                .focusCell(index: index)
                         }
-                        ForEach(content.shows) { show in
+                        ForEach(Array(content.shows.enumerated()), id: \.element.id) { (index: Int, show: SeriesSummary) in
                             SeriesCard(series: show)
+                                .focusCell(index: content.movies.count + index)
                         }
                     }
                 }

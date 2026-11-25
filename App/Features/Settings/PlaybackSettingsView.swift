@@ -87,12 +87,43 @@ struct PlaybackSettingsView: View {
                         }
                     }
                     LearnMoreLink(title: PlaybackProblem.fullReportTitle, text: problem.fullText())
-                        .accessibilityIdentifier(SettingsRowID.last)
                 } else {
                     StatusText(PlaybackProblem.noneText)
                         .readableRow()
-                        .accessibilityIdentifier(SettingsRowID.last)
                 }
+            }
+            // R471 (51): what a photo of this page tells about a Down press that passed over rows (the row and column of each
+            // focus move with the page's scroll offset) and about slow scrolling (slow frames per screen). In memory only,
+            // no titles. Each row takes the focus (R389), so the page scrolls down to them.
+            let diagnostics = ScrollDiagnosticsStore.shared
+            Section {
+                if diagnostics.trail.steps.isEmpty {
+                    StatusText(ScrollDiagnosticsText.focusNone).readableRow()
+                } else {
+                    ForEach(Array(diagnostics.trail.rows.enumerated()), id: \.offset) { _, row in
+                        ValueRow(row.label, value: row.value).readableRow()
+                    }
+                }
+            } header: {
+                Text(ScrollDiagnosticsText.focusSectionTitle)
+            } footer: {
+                Text(ScrollDiagnosticsText.focusFooter)
+            }
+            Section {
+                if diagnostics.frames.screens.isEmpty {
+                    StatusText(ScrollDiagnosticsText.framesNone)
+                        .readableRow()
+                        .accessibilityIdentifier(SettingsRowID.last)
+                } else {
+                    ForEach(Array(diagnostics.frames.rows.enumerated()), id: \.offset) { index, row in
+                        ValueRow(row.label, value: row.value).readableRow()
+                            .accessibilityIdentifier(index == diagnostics.frames.rows.count - 1 ? SettingsRowID.last : "")
+                    }
+                }
+            } header: {
+                Text(ScrollDiagnosticsText.framesSectionTitle)
+            } footer: {
+                Text(ScrollDiagnosticsText.framesFooter)
             }
         }
     }

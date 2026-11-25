@@ -176,6 +176,34 @@ extension ScreenChecksTests {
         XCTAssertFalse(fitting.contains("action: { available = $0 }"))
     }
 
+    /// R471 (51): the grids and Home's shelves record each focus move and slow frames, in memory, with no titles; Settings >
+    /// Playback shows them.
+    func testScrollDiagnosticsAreWiredAndShown() throws {
+        guard let recorder = try appSource("App/Shared/ScrollDiagnosticsRecorder.swift"),
+              let layout = try appSource("App/Shared/PosterGridLayout.swift"),
+              let grid = try appSource("App/Shared/PosterGrid.swift"),
+              let shows = try appSource("App/Features/Shows/ShowsView.swift"),
+              let person = try appSource("App/Features/Detail/PersonView.swift"),
+              let home = try appSource("App/Features/Home/HomeRows.swift"),
+              let shelf = try appSource("App/Shared/CardRow.swift"),
+              let settings = try appSource("App/Features/Settings/PlaybackSettingsView.swift") else { return }
+        XCTAssertTrue(layout.contains(".scrollDiagnostics(screen: screen, columns: listView ? 1 : 5)"))
+        XCTAssertTrue(home.contains(#".scrollDiagnostics(screen: "Home", columns: nil)"#))
+        XCTAssertTrue(home.contains(".environment(\\.focusShelf, index + 1)"))
+        for (name, text) in [("PosterGrid", grid), ("ShowsView", shows), ("PersonView", person), ("CardRow", shelf)] {
+            XCTAssertTrue(text.contains(".focusCell(index:"), name)
+        }
+        XCTAssertTrue(recorder.contains("if now.isScrolling, !screen.isEmpty { timer.start(screen: screen) } else { timer.stop() }"),
+                      "the display link runs only while a page scrolls")
+        XCTAssertTrue(recorder.contains("ScrollDiagnosticsStore.shared.add(scroll)"), "frames reach the store once a scroll ends")
+        XCTAssertFalse(recorder.contains("UserDefaults"), "memory only")
+        XCTAssertFalse(recorder.contains("AppStorage"), "memory only")
+        XCTAssertFalse(recorder.contains(".title"), "no titles in the log")
+        XCTAssertTrue(settings.contains("diagnostics.trail.rows") && settings.contains("diagnostics.frames.rows"))
+        XCTAssertEqual(settings.components(separatedBy: "SettingsRowID.last").count - 1, 2,
+                       "the page's last row is now in Scrolling Speed (empty or not)")
+    }
+
     /// R471 (45): a cast name is headline size (as the About title), its role caption and secondary (as the genre line).
     func testCastNamesMatchTheAboutTitle() throws {
         guard let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift") else { return }

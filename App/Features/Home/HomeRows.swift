@@ -28,8 +28,10 @@ struct HomeRows: View {
                             withAnimation(reduceMotion ? nil : .default) { belowFold = !visible }
                         }
                 }
-                ForEach(rows) { row in
+                ForEach(Array(rows.enumerated()), id: \.element.id) { (index: Int, row: HomeRow) in
                     CardRow(row: row)
+                        // R471 (51): the shelf's number (from 1) for the diagnostics page's focus moves.
+                        .environment(\.focusShelf, index + 1)
                 }
             }
             // R470: the space the featured column reports its top in (ArtTextTop).
@@ -38,6 +40,8 @@ struct HomeRows: View {
         .artTextTop($textTop)
         // R345: the focused cards grow past the page's scroll view; it must not clip them.
         .scrollClipDisabled()
+        // R471 (51): each focus move on the shelves (shelf and place) and slow frames while the page scrolls.
+        .scrollDiagnostics(screen: "Home", columns: nil)
         // R346 (item A): one focus region, so Up from a lower shelf scrolls back to the featured area before the tab bar.
         .focusSection()
         .background {

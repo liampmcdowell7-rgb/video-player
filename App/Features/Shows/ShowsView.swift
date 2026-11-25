@@ -97,9 +97,10 @@ private struct ShowsGrid: View {
 
     var body: some View {
         ScrollViewReader { proxy in
-            PosterGridLayout {
-                ForEach(series) { show in
+            PosterGridLayout(screen: "Shows") {
+                ForEach(Array(series.enumerated()), id: \.element.id) { (index: Int, show: SeriesSummary) in
                     SeriesCard(series: show)
+                        .focusCell(index: index) // R471 (51)
                         .id(show.id)
                 }
             }
