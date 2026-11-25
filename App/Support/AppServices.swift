@@ -53,6 +53,8 @@ final class AppServices {
     let backup: BackupHost
     /// Two-way watch state with Plex servers whose source has the switch on (R306 b, R309).
     let watchSync: ServerWatchSync
+    /// R471 (16): a rating also goes to Plex while the source's two-way sync switch is on (path UNVERIFIED).
+    let ratingSender: ServerRatingSender
 
     var libraryRevision = 0
     /// R459: Restrictions are on (read from this device's settings; Discover and online suggestions are off meanwhile).
@@ -135,6 +137,10 @@ final class AppServices {
             return await factory.makeSource(definition)
         }
         let reader = SourceSidecarReader(sourceFor: sourceFor)
+        self.ratingSender = ServerRatingSender(
+            store: sqliteStore,
+            isOn: { @Sendable [ledger] sourceID in ledger.sourceDefinitions().first { $0.id == sourceID }.map(PlexWatchSyncOption.isOn) ?? false },
+            source: { @Sendable sourceID in await sourceFor(sourceID) as? any ServerWatchSource })
         // R309: watch state goes to a Plex server only while its source's "Sync Watched Status with Plex" switch is on.
         let watchSync = ServerWatchSync(
             store: sqliteStore,
@@ -655,6 +661,14 @@ extension AppServices {
     func unmatch(_ target: Unmatcher.Target) async {
         _ = try? await Unmatcher(store: store, ledger: ledger, forgetter: online.forgetter).run(target)
         libraryRevision += 1
+    }
+
+    /// R471 (16): Rate. The stars go into the user layer under the title's first key; a movie's or an episode's files also
+    /// send it to Plex where the source's sync switch is on (`itemIDs` empty for a show or a season: the app only).
+    func rate(keys: [UDEditKey], itemIDs: [Int64], stars: Int?) async {
+        guard let key = keys.first else { return }
+        ledger.setRating(key, stars: stars)
+        if !itemIDs.isEmpty { await ratingSender.send(itemIDs: itemIDs, stars: stars) }
     }
 
     /// R471 (15): Delete from Library (after the confirmation); the files stay on the source. Off while Restrictions are on.

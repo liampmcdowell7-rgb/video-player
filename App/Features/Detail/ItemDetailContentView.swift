@@ -48,6 +48,9 @@ struct ItemDetailContentView: View {
     @State private var showsFileInfo = false
     /// R471 item 7: the library's movies sharing a genre with this one.
     @State private var related: [ItemCard] = []
+    /// R471 (16): the keys the rating lives under and the rating now (the user layer).
+    @State private var ratingKeys: [UDEditKey] = []
+    @State private var stars: Int?
 
     /// R471 item 2: the page's kind for the hero lines.
     private var heroKind: HeroLines.Kind { content.kind == .episode ? .episode : .movie }
@@ -138,7 +141,10 @@ struct ItemDetailContentView: View {
             // R449: the user's edits (description, cast, content rating) on top of every layer, read each time the page loads.
             if let item = try? await services.store.item(id: content.itemID) {
                 let files = (try? await services.store.versions(of: content.itemID)) ?? []
-                own = EditTarget.apply(services.ledger.edits(for: EditTarget.keys(for: item, files: files)), to: own)
+                let keys = EditTarget.keys(for: item, files: files)
+                own = EditTarget.apply(services.ledger.edits(for: keys), to: own)
+                ratingKeys = keys
+                stars = services.ledger.rating(for: keys)
             }
             // R456: Hide Spoilers replaces the description of an unwatched episode (the user's own edit is hidden too: it is a description).
             if content.kind == .episode, var hidden = own, hideSpoilers {
@@ -375,6 +381,11 @@ struct ItemDetailContentView: View {
         case .unmatch:
             Button(action.title, systemImage: action.symbol, role: .destructive, action: onUnmatch)
                 .accessibilityIdentifier("product.unmatch")
+        case .rate:
+            RateMenu(current: stars) { chosen in
+                stars = chosen
+                Task { await services.rate(keys: ratingKeys, itemIDs: [content.itemID], stars: chosen) }
+            }
         case .delete:
             Button(action.title, systemImage: action.symbol, role: .destructive, action: onDelete)
                 .accessibilityIdentifier("product.delete")

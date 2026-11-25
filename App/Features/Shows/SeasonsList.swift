@@ -55,6 +55,8 @@ struct SeasonsList: View {
     @State private var askUnmatch = false
     /// R471 (15): the show or season asked about for Delete from Library; the page closes after the whole show is removed.
     @State private var pendingDelete: LibraryRemover.Target?
+    /// R471 (16): the show's own rating (the user layer).
+    @State private var showStars: Int?
     @Environment(\.dismiss) private var dismiss
     /// R471 (11): the show's online id (from one of its episodes), the open edit screen, and a count bumped when it closes so
     /// the page reads the edits again.
@@ -210,6 +212,7 @@ struct SeasonsList: View {
             details = EditTarget.apply(services.ledger.edits(for: EditTarget.showKeys(tmdbID: showTMDB, title: content.seriesTitle)),
                                        to: layered.details)
             ratingLayer = layered.ratingLayer
+            showStars = services.ledger.rating(for: EditTarget.showKeys(tmdbID: showTMDB, title: content.seriesTitle))
         }
         .taskCover(item: Binding(get: { editRequest }, set: { new in
             if new == nil, editRequest != nil { editRevision += 1 }
@@ -349,6 +352,18 @@ struct SeasonsList: View {
                     // listed (R471 (8)). Mark All asks first (system confirmation dialog).
                     ForEach(showMenuActions, id: \.self) { action in
                         switch action {
+                        case .rate:
+                            // R471 (16): the show's rating, and the season on screen's (the app only: not sent to a server).
+                            RateMenu(current: showStars) { chosen in
+                                showStars = chosen
+                                Task { await services.rate(keys: EditTarget.showKeys(tmdbID: showTMDB, title: content.seriesTitle), itemIDs: [], stars: chosen) }
+                            }
+                            if let season = shownSeason {
+                                let keys = EditTarget.seasonKeys(tmdbID: showTMDB, title: content.seriesTitle, season: season.season)
+                                RateMenu(current: services.ledger.rating(for: keys), title: "Rate \(season.title)") { chosen in
+                                    Task { await services.rate(keys: keys, itemIDs: [], stars: chosen); editRevision += 1 }
+                                }
+                            }
                         case .markAllWatched, .markAllUnwatched:
                             Button(action.title, systemImage: action.symbol) { pendingMarkAll = action }
                         case .manage:
@@ -464,7 +479,7 @@ struct SeasonsList: View {
     /// The entries of the show's list this page can act on today (Mark All, and Manage with Edit Details, R471 (11)); the
     /// rest of the list is not built for a show.
     private var showMenuActions: [ProductAction] {
-        ProductActions.list(showActions).filter { [.markAllWatched, .markAllUnwatched, .manage].contains($0) }
+        ProductActions.list(showActions).filter { [.rate, .markAllWatched, .markAllUnwatched, .manage].contains($0) }
     }
 }
 

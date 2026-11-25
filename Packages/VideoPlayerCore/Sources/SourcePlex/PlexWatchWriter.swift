@@ -18,7 +18,7 @@ import VideoPlayerCore
 /// whether `key` must be the item's details key (`/library/metadata/<ratingKey>` is sent, the form the library lists use).
 ///
 /// The token travels in the `X-Plex-Token` header only, never in an address (R300).
-public actor PlexWatchWriter: ServerWatchWriting {
+public actor PlexWatchWriter: ServerWatchWriting, ServerRatingWriting {
     public static let libraryIdentifier = "com.plexapp.plugins.library"
 
     private let baseURL: URL
@@ -61,6 +61,21 @@ public actor PlexWatchWriter: ServerWatchWriting {
     public func markUnplayed(itemKey: String) async throws {
         let paths = try await endpoints()
         try await write("PUT", paths.unscrobble, query: [("identifier", Self.libraryIdentifier), ("key", itemKey)])
+    }
+
+    // MARK: Rating (R471 (16), PROVISIONAL)
+
+    /// The path of the rating request. UNVERIFIED: not read on Plex's reference this session (only Apple's pages may be read
+    /// here); `PUT /:/rate` with `identifier`, `key` (the ratingKey) and `rating` on a 0 to 10 scale (-1 clears) is recalled,
+    /// not checked. A refused request throws and the rating stays in the app only.
+    public static let ratePath = "/:/rate"
+
+    /// Plex's 0 to 10 scale: one star is 2; nil (cleared) is -1.
+    public static func plexRating(stars: Int?) -> Int { stars.map { min(max($0, 1), 5) * 2 } ?? -1 }
+
+    public func rate(itemKey: String, stars: Int?) async throws {
+        try await write("PUT", Self.ratePath, query: [("identifier", Self.libraryIdentifier), ("key", itemKey),
+                                                      ("rating", String(Self.plexRating(stars: stars)))])
     }
 
     // MARK: Paths

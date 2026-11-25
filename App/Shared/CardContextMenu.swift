@@ -31,7 +31,13 @@ struct CardContextMenu: ViewModifier {
                 }
                 // R471 (10): the page's own actions list, kept to what a card can run, in the page's order and words.
                 ForEach(ProductActions.cardList(context), id: \.self) { action in
-                    Button(action.title, systemImage: action.symbol, role: action == .unmatch || action == .delete ? .destructive : nil) { run(action) }
+                    if action == .rate {
+                        // R471 (16): the same Rate menu as the page. A card does not read the current rating (it would cost a
+                        // library read per card on screen), so no choice is checked here; the page shows it.
+                        RateMenu(current: nil) { chosen in Task { await rate(chosen) } }
+                    } else {
+                        Button(action.title, systemImage: action.symbol, role: action == .unmatch || action == .delete ? .destructive : nil) { run(action) }
+                    }
                 }
                 Button(card.isFavorite ? "Remove from Favorites" : "Add to Favorites", systemImage: card.isFavorite ? "heart.slash" : "heart") {
                     Task { await services.setFavorite(card.id, !card.isFavorite) }
@@ -93,6 +99,13 @@ struct CardContextMenu: ViewModifier {
         case .delete: askDelete = true
         default: break
         }
+    }
+
+    /// R471 (16): the item's keys are read when the rating is chosen; the rating is stored and sent like the page's.
+    private func rate(_ stars: Int?) async {
+        guard let item = try? await services.store.item(id: card.id) else { return }
+        let files = (try? await services.store.versions(of: card.id)) ?? []
+        await services.rate(keys: EditTarget.keys(for: item, files: files), itemIDs: [card.id], stars: stars)
     }
 
     private func openEdit(start: UDEditField.Group? = nil) async {

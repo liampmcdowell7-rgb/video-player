@@ -7,15 +7,15 @@ final class PlexWatchWriterTests: XCTestCase {
     let identity = PlexClientIdentity(clientIdentifier: "install-1234", version: "0.1.0")
     let base = URL(string: "https://192-168-1-20.machine0001.plex.direct:32400")!
 
-    private func writer(_ fake: FakePlexServer) -> PlexWatchWriter {
+    func writer(_ fake: FakePlexServer) -> PlexWatchWriter {
         PlexWatchWriter(baseURL: base, token: "server-token-placeholder", identity: identity, transport: fake)
     }
 
-    private func query(_ request: HTTPRequest) -> [String] {
+    func query(_ request: HTTPRequest) -> [String] {
         (URLComponents(url: request.url, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { "\($0.name)=\($0.value ?? "")" }
     }
 
-    private func assertHeaders(_ request: HTTPRequest, file: StaticString = #filePath, line: UInt = #line) {
+    func assertHeaders(_ request: HTTPRequest, file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertEqual(request.headers["X-Plex-Token"], "server-token-placeholder", file: file, line: line)
         XCTAssertEqual(request.headers["X-Plex-Client-Identifier"], "install-1234", file: file, line: line)
         XCTAssertEqual(request.headers["Accept"], "application/json", file: file, line: line)
@@ -138,5 +138,22 @@ final class ServerTimelineRhythmTests: XCTestCase {
         XCTAssertTrue(rhythm.isDue(.buffering, at: t0.addingTimeInterval(16)))
         XCTAssertTrue(rhythm.isDue(.stopped, at: t0.addingTimeInterval(17)))
         XCTAssertFalse(rhythm.isDue(.stopped, at: t0.addingTimeInterval(18)), "stopped is not sent twice")
+    }
+}
+
+extension PlexWatchWriterTests {
+    /// R471 (16): a rating is one PUT with the library identifier, the ratingKey and Plex's 0 to 10 value (-1 clears). The
+    /// path is UNVERIFIED against Plex's reference (see `PlexWatchWriter.ratePath`); this checks the request we send.
+    func testARatingIsOnePUTOnTheTenPointScaleAndAClearSendsMinusOne() async throws {
+        let fake = try FakePlexServer()
+        fake.writePaths.insert(PlexWatchWriter.ratePath)
+        let plex = writer(fake)
+        try await plex.rate(itemKey: "1001", stars: 4)
+        try await plex.rate(itemKey: "1001", stars: nil)
+        XCTAssertEqual(fake.serverWrites.map { "\($0.method) \($0.url.path)" }, ["PUT /:/rate", "PUT /:/rate"])
+        XCTAssertEqual(fake.serverWrites.map(query), [["identifier=com.plexapp.plugins.library", "key=1001", "rating=8"],
+                                                     ["identifier=com.plexapp.plugins.library", "key=1001", "rating=-1"]])
+        fake.serverWrites.forEach { assertHeaders($0) }
+        XCTAssertEqual(PlexWatchWriter.plexRating(stars: 9), 10, "kept to five stars")
     }
 }

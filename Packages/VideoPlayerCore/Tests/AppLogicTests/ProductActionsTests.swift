@@ -16,7 +16,7 @@ final class ProductActionsTests: XCTestCase {
     func testAnEpisodesFullListStartsWithAudioAndSubtitlesAndGoesToItsShow() {
         var c = ProductActionContext(kind: .episode)
         c.hasFile = true
-        XCTAssertEqual(ProductActions.all(c), [.audio, .subtitles, .addToList, .addToPlaylistOrCollection, .markWatched,
+        XCTAssertEqual(ProductActions.all(c), [.audio, .subtitles, .addToList, .addToPlaylistOrCollection, .rate, .markWatched,
                                               .goToShow, .goToSeason, .manage, .fileInfo])
     }
 
@@ -28,7 +28,7 @@ final class ProductActionsTests: XCTestCase {
         XCTAssertTrue(list.contains(.markAllWatched) && list.contains(.markAllUnwatched))
         var season = ProductActionContext(kind: .season)
         season.someUnwatched = true
-        XCTAssertEqual(ProductActions.all(season), [.addToList, .addToPlaylistOrCollection, .markAllWatched, .goToShow, .manage])
+        XCTAssertEqual(ProductActions.all(season), [.addToList, .addToPlaylistOrCollection, .rate, .markAllWatched, .goToShow, .manage])
     }
 
     func testManageIsShorterForEpisodesAndSeasons() {
@@ -58,15 +58,15 @@ final class ProductActionsTests: XCTestCase {
             XCTAssertEqual(ProductActions.list(c).contains(.manage), !ProductActions.manageList(c).isEmpty,
                            "Manage is listed exactly when something inside it works (\(kind))")
         }
-        XCTAssertFalse(ProductActions.list(ProductActionContext(kind: .movie)).contains(.rate), "Rate is not built yet")
+        XCTAssertTrue(ProductActions.list(ProductActionContext(kind: .movie)).contains(.rate), "Rate is built (R471 (16))")
     }
 
     func testALongPressOffersThePagesOwnActionsInThePagesOrder() {
         var movie = ProductActionContext(kind: .movie)
         movie.started = true; movie.hasFile = true; movie.matched = true
-        XCTAssertEqual(ProductActions.cardList(movie), [.markWatched, .changeArtwork, .editMetadata, .unmatch, .delete])
+        XCTAssertEqual(ProductActions.cardList(movie), [.rate, .markWatched, .changeArtwork, .editMetadata, .unmatch, .delete])
         movie.watched = true
-        XCTAssertEqual(ProductActions.cardList(movie), [.markUnwatched, .changeArtwork, .editMetadata, .unmatch, .delete])
+        XCTAssertEqual(ProductActions.cardList(movie), [.rate, .markUnwatched, .changeArtwork, .editMetadata, .unmatch, .delete])
         for kind in [ProductActionContext.Kind.movie, .episode, .show, .season] {
             var c = ProductActionContext(kind: kind)
             c.started = true; c.matched = true; c.hasFile = true; c.someWatched = true; c.someUnwatched = true
@@ -84,7 +84,7 @@ final class ProductActionsTests: XCTestCase {
         XCTAssertEqual(c.kind, .episode)
         XCTAssertTrue(c.started)
         XCTAssertFalse(c.watched)
-        XCTAssertEqual(ProductActions.cardList(c), [.markWatched, .changeArtwork, .editMetadata, .delete])
+        XCTAssertEqual(ProductActions.cardList(c), [.rate, .markWatched, .changeArtwork, .editMetadata, .delete])
     }
 
     func testTheDestructiveActionsAsk() {

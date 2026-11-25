@@ -109,3 +109,9 @@ public struct ServerWatchState: Equatable, Sendable {
         self.duration = duration
     }
 }
+
+/// R471 (16), PROVISIONAL: writes the user's star rating of one item to a media server that keeps ratings (only Plex
+/// implements it: `PlexWatchWriter`). `stars` 1 to 5, nil clears it. A thrown error means it did not arrive.
+public protocol ServerRatingWriting: Sendable {
+    func rate(itemKey: String, stars: Int?) async throws
+}
