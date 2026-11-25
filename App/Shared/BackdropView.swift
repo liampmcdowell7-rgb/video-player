@@ -44,8 +44,9 @@ struct BackdropView: View {
             .ignoresSafeArea()
             .accessibilityHidden(true)
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { (frame: CGRect) in
-                height = frame.height
-                top = frame.minY
+                // R471 (50): written only on a change of half a point or more, so the cover's stops are not rebuilt for less.
+                if abs(frame.height - height) >= 0.5 { height = frame.height }
+                if abs(frame.minY - top) >= 0.5 { top = frame.minY }
             }
             .task(id: "\(artworkKey)|\(services.online.keyRevision)") {
                 result = await load()
@@ -90,13 +91,17 @@ struct BackdropView: View {
                     // design-lint:allow R452: our own cover where the system material alone does not prove 4.5:1 (ArtReadability)
                     LinearGradient(stops: stops.map { Gradient.Stop(color: .black.opacity($0.alpha), location: $0.location) }, startPoint: .top, endPoint: .bottom)
                     // R471 item 1: below the hero, the whole picture under the material and the cover's full strength.
-                    ZStack {
-                        // design-lint:allow R471: the system regular material over the whole picture once the page is scrolled below its hero (the blurred copy of Apple's product page)
-                        Rectangle().fill(.regularMaterial)
-                        // design-lint:allow R471: one uniform cover at the strength the hero cover is proved at (ProductScroll.belowHeroCoverOpacity)
-                        Rectangle().fill(.black.opacity(ProductScroll.belowHeroCoverOpacity))
+                    // R471 (50): in the tree only while it shows (it fades in and out as before); kept at opacity 0 it was a
+                    // second full-screen material composited on every frame of the hero.
+                    if belowHero {
+                        ZStack {
+                            // design-lint:allow R471: the system regular material over the whole picture once the page is scrolled below its hero (the blurred copy of Apple's product page)
+                            Rectangle().fill(.regularMaterial)
+                            // design-lint:allow R471: one uniform cover at the strength the hero cover is proved at (ProductScroll.belowHeroCoverOpacity)
+                            Rectangle().fill(.black.opacity(ProductScroll.belowHeroCoverOpacity))
+                        }
+                        .transition(.opacity)
                     }
-                    .opacity(belowHero ? 1 : 0)
                 }
                 .animation(reduceMotion ? nil : .easeInOut(duration: ProductScroll.crossFadeSeconds), value: belowHero)
             }

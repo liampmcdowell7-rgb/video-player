@@ -161,6 +161,21 @@ extension ScreenChecksTests {
         XCTAssertTrue(layout.contains("if let header { header }"), "R443 item 1: the controls stay the grid's header")
     }
 
+    /// R471 (50): the below-hero material is in the tree only while it shows, and measures are written only on a change of
+    /// half a point or more.
+    func testScrollingWritesAndLayersAreKeptDown() throws {
+        guard let backdrop = try appSource("App/Shared/BackdropView.swift"),
+              let fitting = try appSource("App/Shared/FittingLine.swift") else { return }
+        XCTAssertTrue(backdrop.contains("if belowHero {"), "the second material only while it shows")
+        XCTAssertFalse(backdrop.contains(".opacity(belowHero ? 1 : 0)"), "no invisible material kept in the tree")
+        XCTAssertTrue(backdrop.contains("if abs(frame.height - height) >= 0.5"))
+        XCTAssertTrue(backdrop.contains("if abs(frame.minY - top) >= 0.5"))
+        XCTAssertTrue(fitting.contains("if abs(width - available) >= 0.5 { available = width }"))
+        XCTAssertTrue(fitting.contains("if abs(width - natural) >= 0.5 { natural = width }"))
+        XCTAssertTrue(fitting.contains("if abs(width - (widths[candidate] ?? -1)) >= 0.5 { widths[candidate] = width }"))
+        XCTAssertFalse(fitting.contains("action: { available = $0 }"))
+    }
+
     /// R471 (45): a cast name is headline size (as the About title), its role caption and secondary (as the genre line).
     func testCastNamesMatchTheAboutTitle() throws {
         guard let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift") else { return }

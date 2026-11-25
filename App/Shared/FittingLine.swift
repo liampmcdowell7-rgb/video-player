@@ -23,7 +23,10 @@ struct FittingLine: View {
             // design-lint:allow rule S1 (OPEN_QUESTIONS R165): the system text style shrinks to fit, never below Apple's 23 pt minimum (HIG Typography)
             .minimumScaleFactor(scale)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { available = $0 }
+            // R471 (50): measures are written only on a change of half a point or more (as `FittingText`).
+            .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { (width: Double) in
+                if abs(width - available) >= 0.5 { available = width }
+            }
             .background(alignment: .leading) {
                 // Natural one-line width of every candidate, measured off screen (hidden: not drawn, not spoken).
                 ZStack(alignment: .leading) {
@@ -32,7 +35,9 @@ struct FittingLine: View {
                             .font(style.font)
                             .lineLimit(1) // design-lint:allow hidden measurement of the natural width, never drawn or spoken (rule S1 is applied to the visible line above)
                             .fixedSize()
-                            .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { widths[candidate] = $0 }
+                            .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { (width: Double) in
+                                if abs(width - (widths[candidate] ?? -1)) >= 0.5 { widths[candidate] = width }
+                            }
                     }
                 }
                 .hidden()
@@ -139,7 +144,9 @@ struct FittingText: View {
                     .font(style.font)
                     .lineLimit(1) // design-lint:allow hidden measurement of the natural width, never drawn or spoken (rule S1 is applied to the visible text)
                     .fixedSize()
-                    .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { natural = $0 }
+                    .onGeometryChange(for: Double.self) { Double($0.size.width) } action: { (width: Double) in
+                        if abs(width - natural) >= 0.5 { natural = width }
+                    }
                     .hidden()
             }
     }
