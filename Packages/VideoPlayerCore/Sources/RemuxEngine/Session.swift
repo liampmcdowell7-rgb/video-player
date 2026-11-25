@@ -764,8 +764,11 @@ public final class RemuxHost: @unchecked Sendable {
             } catch {
                 // R441: a thrown error becomes the loopback's 500; the entry keeps the (redacted) text next to it. A cancelled
                 // request (the player closed the connection) is no answer.
+                // R471 (60): only when the player closed the request (the loopback then cancels this handler's task) is there
+                // no answer. A cancellation from the source while the player still waits is answered 500 like any error, so
+                // the log keeps the status and the Last Event row names the resource and the cause.
                 let cancelled = error is CancellationError || (error as? RemuxError) == .cancelled
-                if cancelled { log.failed(token, error: String(describing: error)) }
+                if cancelled && Task.isCancelled { log.failed(token, error: String(describing: error)) }
                 else { log.failed(token, status: 500, error: String(describing: error)) }
                 throw error
             }
