@@ -50,6 +50,8 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     private let proposalPresenter = ProposalPresenter()
     /// Created when the length of the file is known; nil before that (and when there is nothing to show).
     private var overlay: PlayerOverlayController?
+    /// R471 (66): the number of the newest overlay reload; an older one that finishes later is not installed.
+    private var overlayGeneration = 0
     private var markController: PlayerMarkController?
     private var pictureModel: PictureSubtitleMenuModel?
     private var pictureOverlay: PictureSubtitleOverlay?
@@ -634,6 +636,10 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
     /// Builds (or builds again) the skip and Up Next logic from the segments of this item and the length of the file.
     private func reloadOverlay() {
         guard !stopped else { return }
+        // R471 (66): each reload runs in its own task; only the newest one is installed (an older one finishing later would
+        // replace the overlay that knows a mark just made).
+        overlayGeneration += 1
+        let generation = overlayGeneration
         let length = item.duration.seconds.isFinite && item.duration.seconds > 0 ? item.duration.seconds : resolved.duration
         let segments = resolved.segments
         let itemID = self.itemID
@@ -648,7 +654,7 @@ final class PlayerCoordinator: NSObject, @preconcurrency AVPlayerViewControllerD
             let made = await SegmentsWiring.makeOverlay(
                 itemID: itemID, segments: current.isEmpty ? segments : current, duration: length, services: services,
                 upNextPresenter: proposals, skipPresenter: skip, sink: sink)
-            guard let self, !self.stopped else { return }
+            guard let self, !self.stopped, generation == self.overlayGeneration else { return }
             self.overlay = made
             self.proposalPresenter.handler = made
         }
