@@ -125,7 +125,7 @@ struct AboutSection: View {
                                 .multilineTextAlignment(.leading)
                         }
                         .padding()
-                        .frame(maxWidth: CGFloat(RowSpacing.textColumn), alignment: .leading)
+                        .frame(maxWidth: CGFloat(RowSpacing.textColumn), maxHeight: .infinity, alignment: .topLeading)
                     }
                     .buttonStyle(.card)
                     .accessibilityHint("Shows the whole synopsis")
@@ -141,17 +141,21 @@ struct AboutSection: View {
                             // bold figure ("14+"), with no heading over it; the heading stays the card's spoken name.
                             FittingText(guidance.rating, style: .title1)
                                 .fontWeight(.bold)
+                            // R471 (42), PROVISIONAL (frame show t20s): the source is a primary semibold line, and the
+                            // descriptors run to four lines at the synopsis's size; the whole list is one press away.
                             if let source = guidance.source {
-                                FittingText(source, style: .caption)
-                                    .foregroundStyle(ReadableSecondary.style)
+                                FittingText(source, style: .callout)
+                                    .fontWeight(.semibold)
                             }
                             if !guidance.descriptors.isEmpty {
                                 Text(guidance.descriptors.joined(separator: ", "))
-                                    .font(.caption)
-                                    .lineLimit(2, reservesSpace: false)
+                                    .font(.callout)
+                                    .lineLimit(4, reservesSpace: false)
+                                    .multilineTextAlignment(.leading)
                             }
                         }
                         .padding()
+                        .frame(maxHeight: .infinity, alignment: .topLeading)
                     }
                     .buttonStyle(.card)
                     .accessibilityLabel("\(AgeGuidance.heading), rated \(guidance.rating)")
@@ -162,6 +166,8 @@ struct AboutSection: View {
                     }
                 }
             }
+            // R471 (42): the two cards side by side are one height (rule: side-by-side elements are equal), the taller's.
+            .fixedSize(horizontal: false, vertical: true)
         }
         .productPageRow()
     }

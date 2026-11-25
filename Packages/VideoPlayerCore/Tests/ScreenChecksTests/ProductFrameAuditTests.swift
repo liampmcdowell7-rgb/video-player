@@ -93,4 +93,17 @@ extension ScreenChecksTests {
         XCTAssertTrue(showShelf.contains("SeriesCard(series: show, focusCaption: RelatedCaption.text(kind: .show"))
         XCTAssertFalse(grid.contains("focusCaption"), "a library grid keeps its titles")
     }
+
+    /// R471 (42): the age card's source line is primary semibold, its descriptors run to four lines, and the About row's
+    /// two cards are one height.
+    func testTheAgeCardTextAndTheCardsHeight() throws {
+        guard let sections = try appSource("App/Shared/ProductSectionsView.swift") else { return }
+        XCTAssertTrue(sections.contains("FittingText(source, style: .callout)\n                                    .fontWeight(.semibold)"))
+        XCTAssertFalse(sections.contains("FittingText(source, style: .caption)"), "no longer a secondary caption")
+        XCTAssertTrue(sections.contains(".font(.callout)\n                                    .lineLimit(4, reservesSpace: false)"))
+        let about = try XCTUnwrap(sections.range(of: "struct AboutSection"))
+        let rest = String(sections[about.lowerBound...])
+        XCTAssertTrue(rest.contains(".fixedSize(horizontal: false, vertical: true)"), "the row takes its natural height")
+        XCTAssertEqual(rest.components(separatedBy: "maxHeight: .infinity").count - 1, 2, "each card fills it")
+    }
 }
