@@ -49,6 +49,19 @@ public struct EpisodeCardText: Equatable, Sendable {
     }
 }
 
+/// R471 (28), PROVISIONAL (frames show t06s, t12s): the short line at the foot of an episode's still: the running time
+/// ("47m"), or the time left ("18m") while the episode is part watched. Nil when the duration is unknown, and nil for a
+/// watched episode (its check mark stands there).
+public enum EpisodeStillLabel {
+    public static func text(durationSeconds: Double?, progress: Double?, isWatched: Bool) -> String? {
+        guard !isWatched, let duration = durationSeconds, duration.isFinite, duration > 0 else { return nil }
+        if let progress, progress > 0, progress < 1 {
+            return ShortDuration.left(duration * (1 - progress))
+        }
+        return ShortDuration.text(duration)
+    }
+}
+
 /// R471 item 6: the show hero's description: the next-up episode's own synopsis after "S4, E4 · Title:" when we hold one
 /// (frames show t08s), else the show's synopsis with no prefix.
 public enum ShowHeroText {

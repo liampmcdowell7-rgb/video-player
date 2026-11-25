@@ -44,6 +44,8 @@ struct EpisodeCard: View {
     var text: EpisodeCardText? = nil
     @FocusState private var isFocused: Bool
     @AppStorage(AppPreference.hideSpoilers.rawValue) private var hideSpoilers = false
+    /// R471 (28): the mini bar on the still, the Play button's width (`PlayCapsuleButton`), scaled with the text.
+    @ScaledMetric(relativeTo: .caption) private var barWidth: CGFloat = 44
 
     var body: some View {
         NavigationLink(value: Route.item(episode.id)) {
@@ -54,18 +56,30 @@ struct EpisodeCard: View {
                 .blur(radius: SpoilerRules.hidesStill(watched: episode.isWatched, hideSpoilers: hideSpoilers) ? 30 : 0) // design-lint:allow R456: the spoiler blur of an unwatched episode's still, only while Hide Spoilers is on; not a glass or scrim
                 .overlay(alignment: .bottom) {
                     // R453: the watched check and the progress stay on the still, over the same cover as every bar over art (R452).
-                    if episode.progress != nil || episode.isWatched {
-                        VStack(alignment: .trailing) {
-                            if episode.isWatched {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.caption)
-                                    .accessibilityHidden(true) // the card's value says "Watched"
-                            }
-                            if let progress = episode.progress {
+                    // R471 (28), PROVISIONAL (frames show t06s, t12s): at the foot of the still, the play glyph and the running
+                    // time ("47m"), or the play glyph, a mini bar and the time left ("18m") while part watched, as on the
+                    // Play button; a watched episode keeps its check. R470: the text sits on the shared cover.
+                    let label = EpisodeStillLabel.text(durationSeconds: episode.durationSeconds, progress: episode.progress,
+                                                       isWatched: episode.isWatched)
+                    let partWatched = !episode.isWatched && (episode.progress ?? 0) > 0
+                    if label != nil || partWatched || episode.isWatched {
+                        HStack {
+                            Image(systemName: episode.isWatched ? "checkmark.circle.fill" : "play.fill")
+                                .accessibilityHidden(true) // the card's value says "Watched" and the duration
+                            if partWatched, let progress = episode.progress {
                                 ProgressView(value: progress)
+                                    // design-lint:allow R471 (28): the mini progress bar on the still, the Play button's size (PlayCapsuleButton), scaled with the text
+                                    .frame(width: barWidth)
+                                    .accessibilityHidden(true)
+                            }
+                            if let label {
+                                Text(label)
+                                    .accessibilityHidden(true)
                             }
                         }
+                        .font(.caption)
                         .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .progressScrim() // R452
                     }
                 }
