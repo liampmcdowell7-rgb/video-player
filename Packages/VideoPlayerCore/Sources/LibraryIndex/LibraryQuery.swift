@@ -169,6 +169,8 @@ public protocol LibraryStore: Sendable {
     func episodes(ofSeries seriesID: Int64) async throws -> [LibraryItem]
     func children(sourceID: String, folder: String, sort: FileSort, limit: Int, offset: Int) async throws -> [FolderChild]
     func sidecars(for fileID: Int64) async throws -> [StoredFile]
+    /// R471 (39): the extra videos of a show's or a season's folder (tagged ones in it, and those in its extras subfolders).
+    func extraVideos(sourceID: String, folder: String) async throws -> [StoredFile]
 
     // Metadata and technical facts
     func setMetadata(itemID: Int64, _ metadata: ItemMetadata) async throws

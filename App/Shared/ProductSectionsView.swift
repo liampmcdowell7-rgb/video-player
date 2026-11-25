@@ -9,6 +9,8 @@ struct ExtrasShelf: View {
     let extras: [ExtraRow]
     /// The title whose extras these are (`ExtraFiles.find` looks each one up again before it plays).
     let itemID: Int64
+    /// R471 (39): a show's own extras (the show page); `itemID` is then 0.
+    var seriesID: Int64? = nil
     @State private var shown: ExtraRow?
     @State private var playing: ExtraPlayRequest?
 
@@ -19,7 +21,7 @@ struct ExtrasShelf: View {
                 // design-lint:allow HIG Layout, 40 pt horizontal spacing between cards (docs/DESIGN_SYSTEM.md section 4)
                 LazyHStack(alignment: .top, spacing: 40) {
                     ForEach(extras) { extra in
-                        Button { playing = ExtraPlayRequest(itemID: itemID, extraID: extra.id) } label: {
+                        Button { playing = ExtraPlayRequest(itemID: itemID, extraID: extra.id, seriesID: seriesID) } label: {
                             VStack(alignment: .leading) {
                                 Image(systemName: "film")
                                     .font(.title2)
@@ -38,7 +40,7 @@ struct ExtrasShelf: View {
                         .containerRelativeFrame(.horizontal, count: 4, spacing: 40)
                         .accessibilityIdentifier("product.extra.\(extra.id)")
                         .contextMenu {
-                            Button("Play", systemImage: "play.fill") { playing = ExtraPlayRequest(itemID: itemID, extraID: extra.id) }
+                            Button("Play", systemImage: "play.fill") { playing = ExtraPlayRequest(itemID: itemID, extraID: extra.id, seriesID: seriesID) }
                             Button("File Details", systemImage: "info.circle") { shown = extra }
                         }
                     }

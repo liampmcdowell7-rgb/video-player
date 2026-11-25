@@ -36,6 +36,8 @@ struct SeasonsList: View {
     @State private var details: TitleDetails?
     /// R471 (25): the library's other shows that share a genre with this one (`RelatedShows`).
     @State private var relatedShows: [SeriesSummary] = []
+    /// R471 (39): the show's own extras (its folder and its season folders), found again when the library changes.
+    @State private var showExtras: [ShowExtras.Found] = []
     /// R452: where the title begins, for the cover behind it.
     @State private var textTop: CGFloat?
     /// R471 item 1: the page is scrolled below its hero (the backdrop is the blurred copy).
@@ -180,6 +182,15 @@ struct SeasonsList: View {
                     // R424: Up from any cast entry reaches the episodes.
                     .productPageRow()
                 }
+                // R471 (39), PROVISIONAL (frames show t06s, t16s): the show's own Trailers, then Bonus Content, under the
+                // episodes: the whole show's extras and those of the season on screen.
+                let extraShelves = ExtraShelves.split(ShowExtras.rows(showExtras, season: shownSeason?.season))
+                if !extraShelves.trailers.isEmpty {
+                    ExtrasShelf(heading: ExtraShelves.trailersHeading, extras: extraShelves.trailers, itemID: 0, seriesID: seriesID)
+                }
+                if !extraShelves.bonus.isEmpty {
+                    ExtrasShelf(heading: ExtraShelves.bonusHeading, extras: extraShelves.bonus, itemID: 0, seriesID: seriesID)
+                }
                 // R471 (25): Related, from the library's own shows. R471 (26), PROVISIONAL (frame show t16s): before the
                 // cast, as on the reference page.
                 if !relatedShows.isEmpty {
@@ -247,6 +258,9 @@ struct SeasonsList: View {
             let genres = details?.genres ?? []
             await services.genreRecorder.record(genres, itemIDs: content.seasons.flatMap { $0.episodes.map(\.id) }, store: services.store)
             relatedShows = (try? await RelatedShows.find(seriesID: seriesID, genres: genres, store: services.store)) ?? []
+        }
+        .task(id: "extras-\(seriesID)|\(services.libraryRevision)") {
+            showExtras = (try? await ShowExtras.load(seriesID: seriesID, store: services.store)) ?? []
         }
         .taskCover(item: Binding(get: { editRequest }, set: { new in
             if new == nil, editRequest != nil { editRevision += 1 }

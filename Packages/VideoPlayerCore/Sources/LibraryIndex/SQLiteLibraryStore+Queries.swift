@@ -278,6 +278,22 @@ extension SQLiteLibraryStore {
         return files
     }
 
+    /// R471 (39): the extra videos (no item of their own, `ExtraVideo`) of one folder: those in it with an extra's name tag,
+    /// then every video in its extras subfolders ("Trailers", "Extras"…). Read for a show's folder and its season folders.
+    public func extraVideos(sourceID: String, folder: String) throws -> [StoredFile] {
+        let loose = "\(Self.fileColumns) FROM files f WHERE f.source_id = ? AND f.parent = ? AND f.removed_at IS NULL AND f.kind = 0 AND f.item_id IS NULL ORDER BY f.name_key"
+        var files = try db.rows(loose, [.text(sourceID), .text(folder)], Self.mapFile)
+            .filter { ExtraVideo.role(name: $0.name, parentPath: folder) != nil }
+        let extrasFolders = try db.rows(
+            "SELECT path FROM folders INDEXED BY idx_folders_parent WHERE source_id = ? AND parent = ? AND removed_at IS NULL",
+            [.text(sourceID), .text(folder)], cached: false
+        ) { $0.text(0) }.filter { ExtraVideo.folderRole($0) != nil }
+        for sub in extrasFolders.sorted() {
+            files += try db.rows(loose, [.text(sourceID), .text(sub)], Self.mapFile)
+        }
+        return files
+    }
+
     // MARK: Diagnostics
 
     /// The SQLite plan for a query string, for tests that check an index is used.

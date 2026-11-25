@@ -16,8 +16,15 @@ extension AppServices {
     /// The extra `extraID` of the title `itemID`, opened the way a title's file is (`resolvePlayback`): MKV and the other
     /// containers the converting player opens go through it, the rest plays from the source's own link. The file must be
     /// one of that title's extras now (`ExtraFiles.find`).
-    func resolveExtra(itemID: Int64, extraID: Int64) async throws -> ResolvedExtra {
-        guard let file = try await ExtraFiles.find(itemID: itemID, extraID: extraID, store: store) else { throw PlaybackError.noFile }
+    /// R471 (39): with `seriesID`, a show's own extra (its folder or a season folder, `ShowExtras.find`).
+    func resolveExtra(itemID: Int64, extraID: Int64, seriesID: Int64? = nil) async throws -> ResolvedExtra {
+        let found: StoredFile?
+        if let seriesID {
+            found = try await ShowExtras.find(seriesID: seriesID, extraID: extraID, store: store)
+        } else {
+            found = try await ExtraFiles.find(itemID: itemID, extraID: extraID, store: store)
+        }
+        guard let file = found else { throw PlaybackError.noFile }
         let title = ExtraShelves.displayName(file.name)
         let route = PlaybackRoute.route(fileName: file.name)
         if case .unsupported(let failure) = route { throw failure }

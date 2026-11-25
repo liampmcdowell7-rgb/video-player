@@ -123,6 +123,7 @@ final class FlakyStore: LibraryStore, @unchecked Sendable {
         return try await inner.children(sourceID: sourceID, folder: folder, sort: sort, limit: limit, offset: offset)
     }
     func sidecars(for fileID: Int64) async throws -> [StoredFile] { try await inner.sidecars(for: fileID) }
+    func extraVideos(sourceID: String, folder: String) async throws -> [StoredFile] { try await inner.extraVideos(sourceID: sourceID, folder: folder) }
     func setMetadata(itemID: Int64, _ metadata: ItemMetadata) async throws { try await inner.setMetadata(itemID: itemID, metadata) }
     func clearMatch(itemIDs: [Int64]) async throws { try await inner.clearMatch(itemIDs: itemIDs) }
     func removeFromLibrary(itemIDs: [Int64], at date: Date) async throws { try await inner.removeFromLibrary(itemIDs: itemIDs, at: date) }

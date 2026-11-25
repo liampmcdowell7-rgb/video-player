@@ -58,4 +58,23 @@ extension ScreenChecksTests {
         XCTAssertTrue(player.contains("StartTrackChoice.apply(to: item, seriesTitle: resolved.content.seriesTitle, itemID: itemID)"))
         XCTAssertTrue(player.contains("StartTrackChoice.remember(from: item, seriesTitle: resolved.content.seriesTitle, itemID: itemID)"))
     }
+
+    /// R471 (39): the show page has its own Trailers and Bonus Content between the episodes and Related, and a card plays
+    /// the show's extra (found again by the show, not by a title).
+    func testTheShowPageHasItsOwnExtrasUnderTheEpisodes() throws {
+        guard let page = try appSource("App/Features/Shows/SeasonsList.swift"),
+              let shelf = try appSource("App/Shared/ProductSectionsView.swift"),
+              let resolve = try appSource("App/Support/ExtraPlayback.swift") else { return }
+        let names = ["EpisodeShelfRow(episodes:", "ExtrasShelf(heading: ExtraShelves.trailersHeading", "ExtrasShelf(heading: ExtraShelves.bonusHeading",
+                     "RelatedShowsShelf(shows: relatedShows)", "CastShelf(cast: cast)"]
+        let offsets: [Int] = try names.map { (name: String) -> Int in
+            let range: Range<String.Index> = try XCTUnwrap(page.range(of: name), "no \(name)")
+            return page.distance(from: page.startIndex, to: range.lowerBound)
+        }
+        XCTAssertEqual(offsets, offsets.sorted(), "episodes, Trailers, Bonus Content, Related, cast")
+        XCTAssertTrue(page.contains("ShowExtras.rows(showExtras, season: shownSeason?.season)"), "the whole show's and the season on screen")
+        XCTAssertTrue(page.contains(#".task(id: "extras-\(seriesID)|\(services.libraryRevision)")"#), "found again when the library changes")
+        XCTAssertTrue(shelf.contains("ExtraPlayRequest(itemID: itemID, extraID: extra.id, seriesID: seriesID)"))
+        XCTAssertTrue(resolve.contains("ShowExtras.find(seriesID: seriesID, extraID: extraID, store: store)"))
+    }
 }

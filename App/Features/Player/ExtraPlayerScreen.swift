@@ -6,6 +6,8 @@ import AppLogic
 struct ExtraPlayRequest: Identifiable, Hashable {
     let itemID: Int64
     let extraID: Int64
+    /// R471 (39): set for a show's own extra (`ShowExtras.find`); `itemID` is then 0.
+    var seriesID: Int64? = nil
     var id: Int64 { extraID }
 }
 
@@ -67,7 +69,7 @@ struct ExtraPlayerScreen: View {
 
     private func resolve() async {
         do {
-            let resolved = try await services.resolveExtra(itemID: request.itemID, extraID: request.extraID)
+            let resolved = try await services.resolveExtra(itemID: request.itemID, extraID: request.extraID, seriesID: request.seriesID)
             if Task.isCancelled || closed {
                 resolved.remux?.stop()
                 return
