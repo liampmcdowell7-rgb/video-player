@@ -66,7 +66,8 @@ targets.append(.testTarget(name: "LibraryBackupTests", dependencies: [.target(na
 // a protocol). Depends on VideoPlayerCore only. FFmpeg itself is NOT a dependency here (see docs/ENGINE_DESIGN.md).
 products.append(.library(name: "RemuxEngine", targets: ["RemuxEngine"]))
 targets.append(.target(name: "RemuxEngine", dependencies: ["VideoPlayerCore"]))
-targets.append(.testTarget(name: "RemuxEngineTests", dependencies: [.target(name: "RemuxEngine"), "VideoPlayerCore"]))
+// R471 (63): SourcePlex too, for the end-to-end test of the converted path over a fake Plex server.
+targets.append(.testTarget(name: "RemuxEngineTests", dependencies: [.target(name: "RemuxEngine"), "VideoPlayerCore", "SourcePlex"]))
 
 // DOLBYVISION-BLOCK-BEGIN (owned by the Dolby Vision work, docs/DOLBY_VISION.md): profile 7 to 8.1 RPU conversion.
 // Apple: a prebuilt static library (Frameworks/DolbyVisionRPULib.xcframework, MIT, licence next to it); nothing is
