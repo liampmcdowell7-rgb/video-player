@@ -436,8 +436,14 @@ public actor MatroskaRemuxSession: RemuxSession {
             if !forSubtitles { planner?.finished(k, bytes: w.bytesRead, seconds: max(1e-6, clock.now - t0)) }
             return w
         } catch {
-            windows[k] = nil
-            if !forSubtitles { planner?.failed(k) }
+            // R471 (58): only this load's own entry is cleared. A load cancelled by a seek can end after the segment was
+            // asked for again and loaded anew; clearing then threw the newer window away and told the planner it failed.
+            // When the entry is already gone (cancelled or evicted) the planner is still told, as before.
+            let current = windows[k]
+            if current == nil || current == task {
+                windows[k] = nil
+                if !forSubtitles { planner?.failed(k) }
+            }
             throw error
         }
     }

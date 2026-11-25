@@ -29,8 +29,9 @@ final class PlexConvertedPathR471Tests: XCTestCase {
             case fails(Error)
             /// A 206 with only the first `fraction` of the bytes asked for (reads of more than 64 bytes).
             case short(Double)
-            /// Every read waits `seconds`; a read cancelled while it waits throws `onCancel`.
-            case slow(seconds: Double, onCancel: Error)
+            /// Every read waits `seconds`; a read cancelled while it waits throws `onCancel`, `cancelDelay` seconds later
+            /// (R471 (58): a remote read that takes a while to give up).
+            case slow(seconds: Double, onCancel: Error, cancelDelay: Double = 0)
         }
         let inner: DataReader
         let mode: Mode
@@ -52,9 +53,10 @@ final class PlexConvertedPathR471Tests: XCTestCase {
                 let data = try await inner.read(range)
                 guard data.count > 64 else { return data }
                 return data.prefix(Int(Double(data.count) * fraction))
-            case .slow(let seconds, let onCancel):
+            case .slow(let seconds, let onCancel, let cancelDelay):
                 do { try await Task.sleep(nanoseconds: UInt64(seconds * 1e9)) } catch {
                     lock.withLock { _cancelledReads += 1 }
+                    if cancelDelay > 0 { Thread.sleep(forTimeInterval: cancelDelay) }
                     throw onCancel
                 }
                 return try await inner.read(range)
