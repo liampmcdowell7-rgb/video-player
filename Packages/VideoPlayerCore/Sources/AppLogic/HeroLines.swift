@@ -28,6 +28,10 @@ public enum HeroLines {
     }
 
     /// The word for the kind, as the frames show it; nil for an episode (its show's name is above its title).
+    /// R471 (47), PROVISIONAL (movie page photo): the most lines of a product page's hero description (the photo shows a
+    /// whole synopsis over four lines; R396 had three). The whole text stays one press away.
+    public static let descriptionLines = 4
+
     public static func kindWord(_ kind: Kind) -> String? {
         switch kind {
         case .movie: return "Movie"

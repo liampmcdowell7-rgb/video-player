@@ -142,6 +142,8 @@ struct HeroDescription: View {
     var prefersEpisodeStill = false
 
     var body: some View {
-        SynopsisLink(title: title, text: text, artworkKey: artworkKey, prefersEpisodeStill: prefersEpisodeStill, prefix: prefix)
+        // R471 (47), PROVISIONAL (movie page photo): up to four lines, as the photo's synopsis.
+        SynopsisLink(title: title, text: text, artworkKey: artworkKey, prefersEpisodeStill: prefersEpisodeStill, prefix: prefix,
+                     lines: HeroLines.descriptionLines)
     }
 }

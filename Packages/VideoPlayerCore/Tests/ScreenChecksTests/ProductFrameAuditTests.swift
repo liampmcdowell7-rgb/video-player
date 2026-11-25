@@ -118,6 +118,17 @@ extension ScreenChecksTests {
         XCTAssertFalse(home.contains("BadgeRow("), "the format badges stay on the page")
     }
 
+    /// R471 (47): a product page's hero description shows up to four lines; other synopsis links keep three.
+    func testTheHeroDescriptionShowsFourLines() throws {
+        guard let hero = try appSource("App/Shared/HeroLinesView.swift"),
+              let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift"),
+              let lines = try appSource("Packages/VideoPlayerCore/Sources/AppLogic/HeroLines.swift") else { return }
+        XCTAssertTrue(hero.contains("lines: HeroLines.descriptionLines)"))
+        XCTAssertTrue(lines.contains("public static let descriptionLines = 4"))
+        XCTAssertTrue(detail.contains(".lineLimit(lines, reservesSpace: reservesSpace)"))
+        XCTAssertTrue(detail.contains("var lines: Int = 3"), "the show page's info block keeps three")
+    }
+
     /// R471 (45): a cast name is headline size (as the About title), its role caption and secondary (as the genre line).
     func testCastNamesMatchTheAboutTitle() throws {
         guard let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift") else { return }

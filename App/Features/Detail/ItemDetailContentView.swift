@@ -501,6 +501,8 @@ struct SynopsisLink: View {
     var reservesSpace: Bool = false
     /// R471 item 2: an episode's code ("S4, E4:") or the show's next-up line, in the semibold weight before the text.
     var prefix: String? = nil
+    /// R471 (47): the most lines shown; the hero passes `HeroLines.descriptionLines` (four, the movie photo).
+    var lines: Int = 3
     @State private var showsWholeText = false
 
     var body: some View {
@@ -515,7 +517,7 @@ struct SynopsisLink: View {
                 }
             }
                 .font(.callout)
-                .lineLimit(3, reservesSpace: reservesSpace)
+                .lineLimit(lines, reservesSpace: reservesSpace)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
