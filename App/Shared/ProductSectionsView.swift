@@ -86,7 +86,7 @@ struct RelatedShelf: View {
     }
 }
 
-/// R471 item 6 (PROVISIONAL; frames: show t16s, movie t06s): "About": a card with the synopsis (four lines; selecting it
+/// R471 item 6 (PROVISIONAL; frames: show t16s, movie t06s): "About": a card with the synopsis (five lines since R471 (35); selecting it
 /// opens the whole text, rule L5) and, when we hold a rating, the age guidance card (the rating in its box, where it came
 /// from, and the rating's own descriptors). Both are system card buttons (`.card`); the guidance card opens the same
 /// facts in full. A card without data is left out; no section without either.
@@ -116,7 +116,8 @@ struct AboutSection: View {
                             }
                             Text(summary)
                                 .font(.callout)
-                                .lineLimit(4, reservesSpace: true)
+                                // R471 (35), PROVISIONAL (frames show t18s, t20s, movie t06s): five lines, as the reference card.
+                                .lineLimit(5, reservesSpace: true)
                                 .multilineTextAlignment(.leading)
                         }
                         .padding()
