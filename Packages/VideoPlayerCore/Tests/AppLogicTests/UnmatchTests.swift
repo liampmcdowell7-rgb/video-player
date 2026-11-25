@@ -121,6 +121,6 @@ final class UnmatchTests: XCTestCase {
                             badges: [], artworkKey: "item-7")
         XCTAssertFalse(ProductActions.cardList(card.actionContext).contains(.unmatch))
         card.isMatched = true
-        XCTAssertEqual(ProductActions.cardList(card.actionContext).last, .unmatch)
+        XCTAssertTrue(ProductActions.cardList(card.actionContext).contains(.unmatch))
     }
 }

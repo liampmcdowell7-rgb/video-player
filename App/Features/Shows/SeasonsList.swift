@@ -53,6 +53,9 @@ struct SeasonsList: View {
     @State private var pendingMarkAll: ProductAction?
     /// R471 (14): Unmatch for the whole show is asked about (system confirmation dialog).
     @State private var askUnmatch = false
+    /// R471 (15): the show or season asked about for Delete from Library; the page closes after the whole show is removed.
+    @State private var pendingDelete: LibraryRemover.Target?
+    @Environment(\.dismiss) private var dismiss
     /// R471 (11): the show's online id (from one of its episodes), the open edit screen, and a count bumped when it closes so
     /// the page reads the edits again.
     @State private var showTMDB: Int?
@@ -228,6 +231,20 @@ struct SeasonsList: View {
         } message: {
             Text(unmatchText.message)
         }
+        .confirmationDialog(deleteText.title, isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
+                            titleVisibility: .visible) {
+            if let target = pendingDelete {
+                Button(deleteText.button, role: .destructive) {
+                    Task {
+                        await services.removeFromLibrary(target)
+                        if case .show = target { dismiss() }
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(deleteText.message)
+        }
         .taskCover(item: Binding(get: { fixMatchEpisode }, set: { new in
             if new == nil, fixMatchEpisode != nil { showTMDB = nil; editRevision += 1 }
             fixMatchEpisode = new
@@ -369,6 +386,19 @@ struct SeasonsList: View {
                                     let unmatch = ProductAction.unmatch
                                     Button(unmatch.title, systemImage: unmatch.symbol, role: .destructive) { askUnmatch = true }
                                 }
+                                // R471 (15): Delete from Library, the whole show or the season on screen (asks first; the
+                                // files stay on the source); off while Restrictions are on.
+                                if ProductActions.manageList(showActions).contains(.delete) {
+                                    let delete = ProductAction.delete
+                                    Button(delete.title, systemImage: delete.symbol, role: .destructive) {
+                                        pendingDelete = .show(seriesID: seriesID)
+                                    }
+                                    if let season = shownSeason, content.seasons.count > 1 {
+                                        Button("Delete \(season.title) from Library", systemImage: delete.symbol, role: .destructive) {
+                                            pendingDelete = .season(seriesID: seriesID, season: season.season)
+                                        }
+                                    }
+                                }
                             }
                         default:
                             EmptyView()
@@ -407,10 +437,22 @@ struct SeasonsList: View {
         c.matched = showTMDB != nil
         // R460: Fix Match lists catalogue titles that are not in the library, so it is off while Restrictions are on.
         c.fixMatchAllowed = OnlineTitleSurface.fixMatchCandidates.isAvailable(restricted: services.restrictionsOn)
+        // R471 (15): Delete from Library is off while Restrictions are on.
+        c.deleteAllowed = !services.restrictionsOn
         return c
     }
 
     /// R471 (14): the Unmatch confirmation for this show.
+    /// R471 (15): the Delete from Library confirmation for the show or the season asked about.
+    private var deleteText: (title: String, message: String, button: String) {
+        guard case .season(_, let number)? = pendingDelete, let season = content.seasons.first(where: { $0.season == number }) else {
+            return LibraryRemover.confirmation(.show(seriesID: seriesID), title: content.seriesTitle,
+                                               episodeCount: content.seasons.reduce(0) { $0 + $1.episodes.count })
+        }
+        return LibraryRemover.confirmation(.season(seriesID: seriesID, season: number), title: "\(content.seriesTitle), \(season.title)",
+                                           episodeCount: season.episodes.count)
+    }
+
     private var unmatchText: (title: String, message: String, button: String) {
         Unmatcher.confirmation(.show(seriesID: seriesID, title: content.seriesTitle), title: content.seriesTitle,
                                episodeCount: content.seasons.reduce(0) { $0 + $1.episodes.count })

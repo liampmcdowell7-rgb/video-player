@@ -10,6 +10,9 @@ struct ItemDetailView: View {
     @State private var showFixMatch = false
     /// R471 (14): Unmatch is asked about (system confirmation dialog).
     @State private var askUnmatch = false
+    /// R471 (15): Delete from Library is asked about first; the page closes once the title has left the library.
+    @State private var askDelete = false
+    @Environment(\.dismiss) private var dismiss
     @State private var showSortInfo = false
     @State private var showEdit = false
     @State private var editKeys: [UDEditKey] = []
@@ -26,7 +29,7 @@ struct ItemDetailView: View {
                     ItemDetailContentView(content: content, model: model, onPlay: play, onFixMatch: { showFixMatch = true },
                                           onSortInfo: { showSortInfo = true }, onEdit: { Task { await openEdit() } },
                                           onChangeArtwork: { Task { await openEdit(start: .artwork) } },
-                                          onUnmatch: { askUnmatch = true })
+                                          onUnmatch: { askUnmatch = true }, onDelete: { askDelete = true })
                 }
             } else {
                 LoadingView()
@@ -51,6 +54,14 @@ struct ItemDetailView: View {
         } message: {
             Text(unmatchText.message)
         }
+        .confirmationDialog(deleteText.title, isPresented: $askDelete, titleVisibility: .visible) {
+            Button(deleteText.button, role: .destructive) {
+                Task { await services.removeFromLibrary(.item(itemID: itemID)); dismiss() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(deleteText.message)
+        }
         .taskCover(isPresented: $showFixMatch) {
             if let content = model?.screen.state.content {
                 FixMatchView(itemID: itemID, kind: content.kind, currentTitle: content.title)
@@ -71,6 +82,11 @@ struct ItemDetailView: View {
 
     private var unmatchText: (title: String, message: String, button: String) {
         Unmatcher.confirmation(.movie(itemID: itemID), title: model?.screen.state.content?.title ?? "")
+    }
+
+    private var deleteText: (title: String, message: String, button: String) {
+        let content = model?.screen.state.content
+        return LibraryRemover.confirmation(.item(itemID: itemID), title: content?.episodeTitle ?? content?.title ?? "")
     }
 
     /// R449: the keys this item's edits live under (online id and file), then the edit screens.

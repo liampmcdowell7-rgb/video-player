@@ -657,6 +657,20 @@ extension AppServices {
         libraryRevision += 1
     }
 
+    /// R471 (15): Delete from Library (after the confirmation); the files stay on the source. Off while Restrictions are on.
+    func removeFromLibrary(_ target: LibraryRemover.Target) async {
+        guard !restrictionsOn else { return }
+        _ = try? await LibraryRemover(store: store, ledger: ledger).run(target)
+        libraryRevision += 1
+    }
+
+    /// R471 (15): Settings > Library > Removed from Library: the record goes, and the next scan adds the file again.
+    func restoreToLibrary(_ removal: UDLibraryRemoval) async {
+        ledger.restoreToLibrary(sourceID: removal.sourceID, path: removal.path)
+        libraryRevision += 1
+        await scanAll()
+    }
+
     func hideFromContinue(_ itemID: Int64) async {
         try? await store.hideFromContinue(itemID: itemID, hidden: true)
         libraryRevision += 1

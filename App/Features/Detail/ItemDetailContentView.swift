@@ -26,6 +26,8 @@ struct ItemDetailContentView: View {
     var onChangeArtwork: () -> Void = {}
     /// R471 (14): Manage > Unmatch (the page asks first).
     var onUnmatch: () -> Void = {}
+    /// R471 (15): Manage > Delete from Library (the page asks first).
+    var onDelete: () -> Void = {}
     @Environment(AppServices.self) private var services
     @State private var details: TitleDetails?
     /// R457: Hide Spoilers covers the episode page's own picture and description.
@@ -331,6 +333,8 @@ struct ItemDetailContentView: View {
         c.versionCount = content.versions.count
         // R460: Fix Match lists catalogue titles that are not in the library, so it is off while Restrictions are on.
         c.fixMatchAllowed = OnlineTitleSurface.fixMatchCandidates.isAvailable(restricted: services.restrictionsOn)
+        // R471 (15): Delete from Library is off while Restrictions are on.
+        c.deleteAllowed = !services.restrictionsOn
         return c
     }
 
@@ -371,6 +375,9 @@ struct ItemDetailContentView: View {
         case .unmatch:
             Button(action.title, systemImage: action.symbol, role: .destructive, action: onUnmatch)
                 .accessibilityIdentifier("product.unmatch")
+        case .delete:
+            Button(action.title, systemImage: action.symbol, role: .destructive, action: onDelete)
+                .accessibilityIdentifier("product.delete")
         case .fileInfo:
             Button(action.title, systemImage: action.symbol) { showsFileInfo = true }
                 .accessibilityIdentifier("product.fileInfo")

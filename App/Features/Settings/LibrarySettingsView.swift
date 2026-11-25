@@ -52,6 +52,12 @@ struct LibrarySettingsView: View {
                     } label: {
                         ValueRow("Needs Review", value: reviewCount.map(String.init) ?? "")
                     }
+                    // R471 (15): titles deleted from the library, to bring back (also names, so off while Restrictions are on).
+                    NavigationLink {
+                        RemovedFromLibraryView().screenIdentifier("screen.removedFromLibrary")
+                    } label: {
+                        ValueRow("Removed from Library", value: String(services.ledger.libraryRemovals().count))
+                    }
                 }
             }
             if let counts {

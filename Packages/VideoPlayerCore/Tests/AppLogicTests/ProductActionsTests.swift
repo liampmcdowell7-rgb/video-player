@@ -64,9 +64,9 @@ final class ProductActionsTests: XCTestCase {
     func testALongPressOffersThePagesOwnActionsInThePagesOrder() {
         var movie = ProductActionContext(kind: .movie)
         movie.started = true; movie.hasFile = true; movie.matched = true
-        XCTAssertEqual(ProductActions.cardList(movie), [.markWatched, .changeArtwork, .editMetadata, .unmatch])
+        XCTAssertEqual(ProductActions.cardList(movie), [.markWatched, .changeArtwork, .editMetadata, .unmatch, .delete])
         movie.watched = true
-        XCTAssertEqual(ProductActions.cardList(movie), [.markUnwatched, .changeArtwork, .editMetadata, .unmatch])
+        XCTAssertEqual(ProductActions.cardList(movie), [.markUnwatched, .changeArtwork, .editMetadata, .unmatch, .delete])
         for kind in [ProductActionContext.Kind.movie, .episode, .show, .season] {
             var c = ProductActionContext(kind: kind)
             c.started = true; c.matched = true; c.hasFile = true; c.someWatched = true; c.someUnwatched = true
@@ -84,7 +84,7 @@ final class ProductActionsTests: XCTestCase {
         XCTAssertEqual(c.kind, .episode)
         XCTAssertTrue(c.started)
         XCTAssertFalse(c.watched)
-        XCTAssertEqual(ProductActions.cardList(c), [.markWatched, .changeArtwork, .editMetadata])
+        XCTAssertEqual(ProductActions.cardList(c), [.markWatched, .changeArtwork, .editMetadata, .delete])
     }
 
     func testTheDestructiveActionsAsk() {

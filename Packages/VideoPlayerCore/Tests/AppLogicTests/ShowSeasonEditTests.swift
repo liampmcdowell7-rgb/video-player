@@ -46,6 +46,6 @@ final class ShowSeasonEditTests: XCTestCase {
         var c = ProductActionContext(kind: .show)
         c.fixMatchAllowed = false
         XCTAssertTrue(ProductActions.list(c).contains(.manage))
-        XCTAssertEqual(ProductActions.manageList(c), [.changeArtwork, .editMetadata])
+        XCTAssertEqual(ProductActions.manageList(c), [.changeArtwork, .editMetadata, .delete])
     }
 }

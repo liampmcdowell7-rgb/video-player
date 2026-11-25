@@ -15,6 +15,8 @@ struct CardContextMenu: ViewModifier {
     @State private var editStart: UDEditField.Group?
     /// R471 (14): Unmatch is asked about first (system confirmation dialog).
     @State private var askUnmatch = false
+    /// R471 (15): Delete from Library is asked about first.
+    @State private var askDelete = false
 
     func body(content: Content) -> some View {
         content
@@ -28,8 +30,8 @@ struct CardContextMenu: ViewModifier {
                     .accessibilityIdentifier(ControlID.goToTitle)
                 }
                 // R471 (10): the page's own actions list, kept to what a card can run, in the page's order and words.
-                ForEach(ProductActions.cardList(card.actionContext), id: \.self) { action in
-                    Button(action.title, systemImage: action.symbol, role: action == .unmatch ? .destructive : nil) { run(action) }
+                ForEach(ProductActions.cardList(context), id: \.self) { action in
+                    Button(action.title, systemImage: action.symbol, role: action == .unmatch || action == .delete ? .destructive : nil) { run(action) }
                 }
                 Button(card.isFavorite ? "Remove from Favorites" : "Add to Favorites", systemImage: card.isFavorite ? "heart.slash" : "heart") {
                     Task { await services.setFavorite(card.id, !card.isFavorite) }
@@ -52,8 +54,25 @@ struct CardContextMenu: ViewModifier {
             } message: {
                 Text(unmatchText.message)
             }
+            .confirmationDialog(deleteText.title, isPresented: $askDelete, titleVisibility: .visible) {
+                Button(deleteText.button, role: .destructive) { Task { await services.removeFromLibrary(.item(itemID: card.id)) } }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(deleteText.message)
+            }
             .taskCover(item: $move) { target in SortMoveSheet(target: target) }
             .taskCover(isPresented: $showEdit) { if !editKeys.isEmpty { MetadataEditView(title: card.title, keys: editKeys, artworkKey: "item-\(card.id)", level: card.kind == .movie ? .movie : .episode, startGroup: editStart) } }
+    }
+
+    /// The card's facts for the actions list; Delete from Library is off while Restrictions are on (R471 (15)).
+    private var context: ProductActionContext {
+        var c = card.actionContext
+        c.deleteAllowed = !services.restrictionsOn
+        return c
+    }
+
+    private var deleteText: (title: String, message: String, button: String) {
+        LibraryRemover.confirmation(.item(itemID: card.id), title: card.title)
     }
 
     private var unmatchText: (title: String, message: String, button: String) {
@@ -71,6 +90,7 @@ struct CardContextMenu: ViewModifier {
         case .changeArtwork: Task { await openEdit(start: .artwork) }
         // R471 (14): the same confirmation as the page.
         case .unmatch: askUnmatch = true
+        case .delete: askDelete = true
         default: break
         }
     }

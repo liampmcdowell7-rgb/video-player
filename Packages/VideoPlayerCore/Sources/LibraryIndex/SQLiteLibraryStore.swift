@@ -317,6 +317,18 @@ public actor SQLiteLibraryStore: LibraryStore, LibraryScanStore {
         }
     }
 
+    /// R471 (15): Delete from Library. The items' files are marked removed (as when they leave the source), so the items have
+    /// no version and leave every list; the item rows and their watch state stay, so a restored file finds them again.
+    /// Nothing on the source is touched. The scan keeps them out through `SortOverrideProviding.excludedPaths`.
+    public func removeFromLibrary(itemIDs: [Int64], at date: Date) throws {
+        try db.transaction {
+            for id in itemIDs {
+                try db.run("UPDATE files SET removed_at = ? WHERE item_id = ? AND removed_at IS NULL", [.double(date.timeIntervalSince1970), .int(id)])
+                try refreshItem(id)
+            }
+        }
+    }
+
     // MARK: Watch state
 
     public func updateProgress(itemID: Int64, position: Double, duration: Double?, at date: Date) throws {

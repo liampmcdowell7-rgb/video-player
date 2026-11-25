@@ -86,8 +86,9 @@ public enum ProductAction: String, CaseIterable, Sendable {
         switch self {
         // R471 (13): Change Artwork is built (the edit screen's Artwork group, R455).
         // R471 (14): Unmatch is built (movie and show; asks first).
+        // R471 (15): Delete from Library is built (the library only; the file stays on the source; asks first).
         case .audio, .subtitles, .addToList, .addToPlaylistOrCollection, .rate, .refreshMetadata, .analyze,
-             .playHistory, .delete:
+             .playHistory:
             return false
         default:
             return true
@@ -119,6 +120,8 @@ public struct ProductActionContext: Equatable, Sendable {
     public var versionCount: Int = 0
     /// Fix Match is off while Restrictions are on (R460).
     public var fixMatchAllowed: Bool = true
+    /// R471 (15): Delete from Library is off while Restrictions are on (as Fix Match).
+    public var deleteAllowed: Bool = true
 
     public init(kind: Kind) { self.kind = kind }
 }
@@ -162,6 +165,7 @@ public enum ProductActions {
             out = [.changeArtwork, .editMetadata, .analyze, .playHistory, .fileInfo, .delete]
         }
         if !c.fixMatchAllowed { out.removeAll { $0 == .fixMatch } }
+        if !c.deleteAllowed { out.removeAll { $0 == .delete } }
         if !c.matched { out.removeAll { $0 == .unmatch } }
         if !c.hasFile { out.removeAll { $0 == .fileInfo || $0 == .analyze } }
         return out
@@ -176,7 +180,7 @@ public enum ProductActions {
     public static func manageList(_ c: ProductActionContext) -> [ProductAction] { manage(c).filter(\.isBuilt) }
 
     /// The actions a long press on a poster or card can run without opening the page (R471 (10)).
-    public static let cardSupported: Set<ProductAction> = [.markWatched, .markUnwatched, .changeArtwork, .editMetadata, .unmatch]
+    public static let cardSupported: Set<ProductAction> = [.markWatched, .markUnwatched, .changeArtwork, .editMetadata, .unmatch, .delete]
 
     /// A long press on a card: the page's own list (Manage opened out), kept to what the card can run, in the page's order.
     /// So a card never offers an action the page does not, and both use the same words.

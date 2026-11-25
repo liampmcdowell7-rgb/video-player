@@ -15,6 +15,11 @@ public struct LedgerSortOverrides: SortOverrideProviding, @unchecked Sendable {
         }
         return out
     }
+
+    /// R471 (15): the files the user deleted from the library (the scan leaves them out).
+    public func excludedPaths(sourceID: String) -> Set<String> {
+        Set(ledger.libraryRemovals().filter { $0.sourceID == sourceID }.map(\.path))
+    }
 }
 
 public extension SortOverride {

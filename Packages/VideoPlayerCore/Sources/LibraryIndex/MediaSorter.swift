@@ -248,6 +248,12 @@ public struct SortOverride: Equatable, Sendable {
 public protocol SortOverrideProviding: Sendable {
     /// Overrides for one source, by path.
     func overrides(sourceID: String) -> [String: SortOverride]
+    /// R471 (15): paths the user deleted from the library; the scan skips them (the files stay on the source).
+    func excludedPaths(sourceID: String) -> Set<String>
+}
+
+public extension SortOverrideProviding {
+    func excludedPaths(sourceID: String) -> Set<String> { [] }
 }
 
 public struct NoSortOverrides: SortOverrideProviding {

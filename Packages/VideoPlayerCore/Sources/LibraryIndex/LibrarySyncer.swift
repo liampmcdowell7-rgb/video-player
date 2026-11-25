@@ -85,6 +85,7 @@ public struct LibrarySyncer: Sendable {
         var failures: [ScanFailure] = []
         var status = ScanStatus.completed
         let overrideMap = overrides.overrides(sourceID: sourceID)
+        let excluded = overrides.excludedPaths(sourceID: sourceID)
 
         do {
             while let pending = try await store.nextFolder(scanID: ticket.scanID) {
@@ -94,7 +95,7 @@ public struct LibrarySyncer: Sendable {
                 }
                 p.currentFolder = pending.path
                 do {
-                    let result = try await scanFolder(pending, scanID: ticket.scanID, overrides: overrideMap, progress: &p)
+                    let result = try await scanFolder(pending, scanID: ticket.scanID, overrides: overrideMap, excluded: excluded, progress: &p)
                     p.added += result.added
                     p.changed += result.changed
                     p.removed += result.removed
@@ -139,7 +140,8 @@ public struct LibrarySyncer: Sendable {
         }
     }
 
-    private func scanFolder(_ pending: PendingFolder, scanID: Int64, overrides: [String: SortOverride], progress p: inout ScanProgress) async throws -> FolderApplyResult {
+    private func scanFolder(_ pending: PendingFolder, scanID: Int64, overrides: [String: SortOverride], excluded: Set<String> = [],
+                            progress p: inout ScanProgress) async throws -> FolderApplyResult {
         let entries = try await source.list(pending.path)
         let stored = try await store.storedFiles(sourceID: sourceID, folder: pending.path)
         var byPath: [String: StoredFile] = [:]
@@ -171,6 +173,8 @@ public struct LibrarySyncer: Sendable {
             }
             let kind = FileClassifier.kind(forName: e.name, isDirectory: false)
             if kind == .other { continue }
+            // R471 (15): deleted from the library by the user: left out like a file that is not there.
+            if excluded.contains(e.path) { continue }
             filesSeen += 1
             seen.insert(e.path)
             let inputs = kind == .video ? sortInputs(override: overrides[e.path], serverType: e.serverItemType) : ""
