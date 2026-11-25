@@ -40,6 +40,9 @@ struct ItemDetailContentView: View {
     /// menu marks it watched as on the show page). Nil for a movie.
     @State private var seasonModel: ScreenModel<SeasonsViewModel>?
 
+    /// R471 item 2: the page's kind for the hero lines.
+    private var heroKind: HeroLines.Kind { content.kind == .episode ? .episode : .movie }
+
     /// R387: the rating on the metadata line: the title's own, else (an episode) its show's.
     private var rating: String? { EpisodePage.rating(episode: details?.contentRating, series: seriesRating) }
 
@@ -139,29 +142,35 @@ struct ItemDetailContentView: View {
     private var hero: some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading) {
-                if let overline = ProductPage.episodeOverline(show: content.seriesTitle, code: content.episodeCode) {
+                // R471 item 2: an episode's show name alone, small, above its title (the code starts the description).
+                if let overline = ProductPage.episodeOverline(show: content.seriesTitle, code: nil), content.kind == .episode {
                     FittingText(overline, style: .headline)
                         .foregroundStyle(ReadableSecondary.style)
                         .accessibilityIdentifier("product.episodeOverline")
                 }
                 // #15 Part 9: a movie's title logo when one is found and the setting is on; otherwise the text title.
                 TitleHeader(title: content.episodeTitle ?? content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil)
-                // R404 (owner's review of the run on f0a67d3, item 6 b): nothing at all in the stack when there is no
-                // content advice. Picture 106 showed a blank band of about 60 pt between the title and the synopsis;
-                // the advice line is the only part between them that can draw nothing (Sample Movie 1 has none). Whether
-                // an empty child took the stack's spacing is UNVERIFIED: the new -TITLE-GAP note of 57 and 55 measures it.
+                // R471 item 2: the kind line: source glyph, "Movie" (none for an episode), genres, the age rating's box.
+                HeroKindLineView(segments: HeroLines.kindLine(kind: heroKind, source: content.sourceKind, genres: details?.genres ?? [],
+                                                              rating: rating))
+                // R404: nothing in the stack when there is no content advice. R471: it moves to Information (item 4).
                 if let advice = details?.contentDescriptors, !advice.isEmpty {
                     ContentAdviceLine(descriptors: advice)
                 }
-                // R453 (PROVISIONAL): the typed info (runtime, release date, the rating box, resolution, audio; the genres; the
-                // synopsis) as on the show page, parts with no data left out. The synopsis stays the whole-text button (L5).
-                let block: InfoBlock = InfoBlock.show(InfoFacts(content: content, details: details, contentRating: rating))
-                InfoBlockView(block: block, fullText: (title: content.episodeTitle ?? content.title, artworkKey: content.artworkKey,
-                                                       prefersEpisodeStill: content.kind == .episode))
+                // R471 item 2: the description, an episode's starting with its code ("S4, E4:"); the whole text one press away.
+                if let synopsis = details?.overview {
+                    HeroDescription(prefix: content.kind == .episode ? HeroLines.episodePrefix(code: content.episodeCode) : nil,
+                                    text: synopsis, title: content.episodeTitle ?? content.title, artworkKey: content.artworkKey,
+                                    prefersEpisodeStill: content.kind == .episode)
+                }
                 if details?.overview == nil, content.kind == .movie, !services.online.hasCatalogueKey {
                     // #26 item 4: one short line saying the synopsis needs the key and where to add it.
                     StatusText(OnlineLookupText.detailsNeedKey)
                 }
+                // R471 item 2: the date and duration, then the glyph badges (4K or HD, HDR, audio, CC, SDH, AD).
+                HeroFactsLineView(texts: HeroLines.factsText(kind: heroKind, date: details?.releaseDate, year: content.year,
+                                                             durationSeconds: content.durationSeconds),
+                                  badges: content.heroBadges)
                 // R392 (item 5 b; audit M3): the time left ("29 min left", #15 D3), plain text under the block. Apple's product
                 // pages show no progress line at all (B1, A4), so there is no Apple place to move it to.
                 if let timeLeft = content.timeLeft {
@@ -290,13 +299,21 @@ struct SynopsisLink: View {
     var prefersEpisodeStill: Bool = false
     /// R453: the three lines are reserved even for a shorter text (the show page's info block keeps one height).
     var reservesSpace: Bool = false
+    /// R471 item 2: an episode's code ("S4, E4:") or the show's next-up line, in the semibold weight before the text.
+    var prefix: String? = nil
     @State private var showsWholeText = false
 
     var body: some View {
         Button {
             showsWholeText = true
         } label: {
-            Text(text)
+            Group {
+                if let prefix {
+                    Text("\(Text(prefix).fontWeight(.semibold)) \(text)")
+                } else {
+                    Text(text)
+                }
+            }
                 .font(.callout)
                 .lineLimit(3, reservesSpace: reservesSpace)
                 .multilineTextAlignment(.leading)

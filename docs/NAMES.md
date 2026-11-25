@@ -255,6 +255,8 @@ KB
 TB
 ms
 SDH
+CC
+AD
 US
 GET
 HEAD

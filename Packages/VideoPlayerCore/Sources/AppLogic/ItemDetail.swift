@@ -74,6 +74,15 @@ public struct ItemDetailContent: Equatable, Sendable {
     public var year: Int? = nil
     /// R458: the person picked a version on this page (Select Version); with Play Version set to Ask, the Play button asks otherwise.
     public var hasExplicitVersion: Bool = false
+    /// R471 item 2: CC, SDH and AD from the preferred file's tracks (`AccessFeature.detect`); empty until they are read.
+    public var access: [AccessFeature] = []
+    /// R471 item 2: the kind and name of the source the preferred file is on (the glyph of the kind line, How to Watch).
+    public var sourceKind: SourceKind? = nil
+    public var sourceName: String? = nil
+    /// R471 item 2: the duration in seconds (the facts line's "43m"); nil when unknown.
+    public var durationSeconds: Double? = nil
+    /// R471 item 2: the glyph badges of the facts line (`HeroBadges.make`).
+    public var heroBadges: [HeroBadge] { HeroBadges.make(format: badges, access: access) }
 }
 
 public struct ItemDetailViewModel: Sendable {
@@ -106,13 +115,15 @@ public struct ItemDetailViewModel: Sendable {
             if let preferred { sidecars = try await store.sidecars(for: preferred) }
             let sources = (try? await store.sources()) ?? []
             let sourceNames = Dictionary(sources.map { ($0.id, $0.name) }, uniquingKeysWith: { a, _ in a })
+            let sourceKinds = Dictionary(sources.map { ($0.id, $0.kind) }, uniquingKeysWith: { a, _ in a })
             preferredFile = files.first { $0.id == preferred }
             preferredSidecars = sidecars
             preferredSourceName = preferredFile.flatMap { sourceNames[$0.sourceID] }
             // What an earlier visit read from the header (dropped when the file's size changed).
             var cached: FileTrackDetails?
             if let preferred { cached = (try? await store.trackDetails(fileID: preferred)) ?? nil }
-            state = .loaded(Self.content(item, files: files, sidecars: sidecars, sourceNames: sourceNames, tracks: cached, playVersion: playVersion))
+            state = .loaded(Self.content(item, files: files, sidecars: sidecars, sourceNames: sourceNames, tracks: cached, playVersion: playVersion,
+                                         sourceKinds: sourceKinds))
         } catch {
             state = .failed(ErrorState.from(error, doing: "load this title"))
         }
@@ -128,6 +139,7 @@ public struct ItemDetailViewModel: Sendable {
         try? await store.setTrackDetails(fileID: file.id, details)
         var updated = content
         updated.mediaInfo = MediaInfo.rows(file: file, sidecars: preferredSidecars, sourceName: preferredSourceName, tracks: details)
+        updated.access = AccessFeature.detect(details)
         state = .loaded(updated)
     }
 
@@ -145,7 +157,8 @@ public struct ItemDetailViewModel: Sendable {
     }
 
     static func content(_ item: LibraryItem, files: [StoredFile], sidecars: [StoredFile], sourceNames: [String: String] = [:],
-                        tracks: FileTrackDetails? = nil, playVersion: PlayVersion = .auto) -> ItemDetailContent {
+                        tracks: FileTrackDetails? = nil, playVersion: PlayVersion = .auto,
+                        sourceKinds: [String: SourceKind] = [:]) -> ItemDetailContent {
         let card = CardBuilder.card(item)
         var facts: [String] = []
         // R387: an episode's code is no longer the first fact; the page draws it as its own line above the title.
@@ -190,7 +203,11 @@ public struct ItemDetailViewModel: Sendable {
                                  episodeTitle: Self.episodeTitle(item),
                                  runtimeText: (item.runtime ?? item.watch.duration).flatMap { $0 > 0 ? DisplayText.runtime($0) : nil },
                                  year: item.kind == .movie ? item.year.flatMap { $0 > 0 ? $0 : nil } : nil,
-                                 hasExplicitVersion: item.preferredFileID != nil)
+                                 hasExplicitVersion: item.preferredFileID != nil,
+                                 access: AccessFeature.detect(tracks),
+                                 sourceKind: files.first { $0.id == preferred }.flatMap { sourceKinds[$0.sourceID] },
+                                 sourceName: files.first { $0.id == preferred }.flatMap { sourceNames[$0.sourceID] },
+                                 durationSeconds: (item.runtime ?? item.watch.duration).flatMap { $0 > 0 ? $0 : nil })
     }
 
     /// R396 (audit E1): the episode's own name; "Episode 3" when its title is empty, only its code or its show's name;
