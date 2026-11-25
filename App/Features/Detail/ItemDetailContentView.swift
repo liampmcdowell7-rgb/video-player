@@ -71,6 +71,8 @@ struct ItemDetailContentView: View {
                                      headerMinHeight: firstBelowHero ? pageHeight * (1 - ProductPageLayout.heroFraction) : 0)
                 }
             }
+            // R470: the space the hero column reports its top in (ArtTextTop).
+            .artTextContent()
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { (height: CGFloat) in
             if abs(height - pageHeight) >= 0.5 { pageHeight = height }
@@ -161,6 +163,8 @@ struct ItemDetailContentView: View {
                 }
                 actions
             }
+            // R470: the whole text column, from the series line of an episode down, reports its top for the cover behind it.
+            .reportsArtTextTop()
             Spacer(minLength: 0)
             if let starring = ProductPage.starring((details?.cast ?? []).map(\.name)) {
                 StarringBlock(names: starring)

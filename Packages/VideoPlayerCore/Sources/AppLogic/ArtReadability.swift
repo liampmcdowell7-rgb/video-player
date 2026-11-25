@@ -13,17 +13,61 @@ public enum ArtReadability {
     public static let scrimMaxOpacity: Double = 0.80
     /// The cover fades in over this share of the container's height, ending at the first line of text. PROVISIONAL (the
     /// owner's recordings decide).
-    public static let rampFraction: Double = 0.12
+    /// R470 (owner's photo of build 202611250008, episode page): 0.12 (about 130 pt on a 1080 pt screen) with two linear stops
+    /// drew a visible step under the title. Now 0.25 (about 270 pt) with eased stops (`coverStops`), so the fade has no edge.
+    public static let rampFraction: Double = 0.25
+    /// R470: how many stops draw the eased fade. SwiftUI's gradients interpolate linearly between stops (ShapeStyle lists no
+    /// eased gradient), so the curve is sampled; nine stops leave no visible corner.
+    public static let rampStopCount: Int = 9
     /// Where the cover starts when no text position is known yet (the old fixed share, R349/R350).
     public static let fallbackStart: Double = 0.35
     /// A thin progress bar over a card's art: the same black, smaller, under the bar only.
     public static let progressScrimOpacity: Double = 0.60
 
     /// Where the cover starts, as a share of the container height: the ramp ends at the first line of text, so it starts one
-    /// ramp above it. Clamped to 0...1; without a position, `fallbackStart`.
+    /// ramp above it. Without a position, `fallbackStart`.
+    /// R470: NOT clamped at 0. A column near the top of the screen (the show page's hero is only `showHeroFraction` of the
+    /// page) gives a start above the picture; R452 clamped it to 0, which moved the END of the ramp below the first line, so
+    /// the title sat in the fading part. Now the start may be as low as `-rampFraction` (text at the very top: full strength
+    /// from the top edge); the part of the ramp above the picture is simply not drawn (`coverStops`).
     public static func coverStart(textTop: Double?, height: Double) -> Double {
         guard let textTop, height > 0 else { return fallbackStart }
-        return min(max(textTop / height - rampFraction, 0), 1)
+        return min(max(textTop / height - rampFraction, -rampFraction), 1)
+    }
+
+    /// R470: the eased curve of the fade, 0 at the start of the ramp, 1 at its end (smootherstep: no slope at either end, so
+    /// neither the start nor the end of the cover shows as a line).
+    public static func ease(_ t: Double) -> Double {
+        let x = min(max(t, 0), 1)
+        return x * x * x * (x * (x * 6 - 15) + 10)
+    }
+
+    /// R470: the cover's opacity at `y` (a share of the container's height) for a cover that starts at `start` and is at full
+    /// strength (`scrimMaxOpacity`) from `start + rampFraction` down to the bottom edge.
+    public static func coverAlpha(at y: Double, start: Double) -> Double {
+        guard rampFraction > 0 else { return y >= start ? scrimMaxOpacity : 0 }
+        return scrimMaxOpacity * ease((y - start) / rampFraction)
+    }
+
+    /// R470: the gradient's stops (location, opacity) for a cover starting at `start`: `rampStopCount` samples of the eased
+    /// ramp over the part of it that lies on the picture (0...1), then full strength to the bottom. Every location is in
+    /// 0...1, they strictly increase, and each opacity is the curve's own value there (a ramp that starts above the picture
+    /// begins part-way up the curve at the top edge, never at 0).
+    public static func coverStops(start: Double) -> [(location: Double, alpha: Double)] {
+        let n = max(rampStopCount, 2)
+        let lo = min(max(start, 0), 1), hi = min(max(start + rampFraction, 0), 1)
+        guard hi > lo else {
+            // The whole ramp lies above the picture (or below it): one opacity from top to bottom.
+            let alpha = coverAlpha(at: lo, start: start)
+            return [(location: 0, alpha: alpha), (location: 1, alpha: alpha)]
+        }
+        var stops: [(location: Double, alpha: Double)] = (0..<n).map { (i: Int) in
+            let y = lo + (hi - lo) * Double(i) / Double(n - 1)
+            return (location: y, alpha: coverAlpha(at: y, start: start))
+        }
+        if hi < 1 { stops.append((location: 1, alpha: scrimMaxOpacity)) }
+        if lo > 0 { stops.insert((location: 0, alpha: 0), at: 0) }
+        return stops
     }
 
     // MARK: WCAG 2.x contrast (https://www.w3.org/TR/WCAG21/#dfn-contrast-ratio)

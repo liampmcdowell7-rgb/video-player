@@ -32,7 +32,9 @@ final class ArtReadabilityTests: XCTestCase {
 
     func testTheCoverStartsOneRampAboveTheFirstLineAndClamps() {
         XCTAssertEqual(ArtReadability.coverStart(textTop: 540, height: 1080), 0.5 - ArtReadability.rampFraction, accuracy: 1e-9)
-        XCTAssertEqual(ArtReadability.coverStart(textTop: 50, height: 1080), 0)
+        // R470: no longer clamped at 0 (the ramp must end AT the first line), only at minus one ramp.
+        XCTAssertEqual(ArtReadability.coverStart(textTop: 50, height: 1080), 50.0 / 1080 - ArtReadability.rampFraction, accuracy: 1e-9)
+        XCTAssertEqual(ArtReadability.coverStart(textTop: -100, height: 1080), -ArtReadability.rampFraction, accuracy: 1e-9)
         XCTAssertEqual(ArtReadability.coverStart(textTop: nil, height: 1080), ArtReadability.fallbackStart)
         XCTAssertEqual(ArtReadability.coverStart(textTop: 400, height: 0), ArtReadability.fallbackStart)
     }

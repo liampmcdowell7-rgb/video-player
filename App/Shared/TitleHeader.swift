@@ -40,7 +40,6 @@ struct TitleHeader: View {
                 }
             }
         }
-        .reportsArtTextTop() // R452
         .accessibilityAddTraits(.isHeader)
         // R404: found by the -TITLE-GAP note of the UI tests.
         .accessibilityIdentifier("product.title")

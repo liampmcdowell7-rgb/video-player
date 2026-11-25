@@ -62,6 +62,8 @@ struct HomeFeaturedView: View {
             // about 20 pt there (the run on fd9731f), so the rest is added here. R393 had 40 pt.
             .padding(.bottom, CGFloat(RowSpacing.featuredToShelf - RowSpacing.stackGap))
         }
+        // R470: the whole text column (title, metadata line, overview, buttons) reports its top for the cover behind it.
+        .reportsArtTextTop()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         .containerRelativeFrame(.vertical) { (length: CGFloat, _: Axis) -> CGFloat in
             length * HomeFeaturedLayout.heightFraction

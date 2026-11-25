@@ -89,6 +89,8 @@ struct SeasonsList: View {
                         // #33 I (OPEN_QUESTIONS R239, PROVISIONAL): room between the button row and the first season heading.
                         .padding(.bottom, DetailPageLayout.belowActions)
                 }
+                // R470: the whole text column reports its top for the cover behind it (not the title alone).
+                .reportsArtTextTop()
                 .productHero(pageHeight: pageHeight, fraction: CGFloat(InfoBlockLayout.showHeroFraction))
                 // R424 (run #28, 56-show-page-SCROLL-UP): as on the movie page, Up from any card below climbs back into
                 // the hero, and Play takes the focus there (reasons: ItemDetailContentView's hero).
@@ -112,6 +114,8 @@ struct SeasonsList: View {
                     CastShelf(cast: cast)
                 }
             }
+            // R470: the space the hero column reports its top in (ArtTextTop).
+            .artTextContent()
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { (height: CGFloat) in
             if abs(height - pageHeight) >= 0.5 { pageHeight = height }

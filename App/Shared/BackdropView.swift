@@ -27,6 +27,8 @@ struct BackdropView: View {
     /// (`ArtReadability.coverStart`), not at a fixed share of the picture. Nil until the page has measured it.
     var textTop: CGFloat? = nil
     @State private var height: CGFloat = 0
+    /// R470: this view's own top in global coordinates (the text's top is global too).
+    @State private var top: CGFloat = 0
     @Environment(AppServices.self) private var services
     @State private var result: ArtworkResult = .none
 
@@ -37,7 +39,10 @@ struct BackdropView: View {
             // design-lint:allow a decorative full-bleed background picture holds no content, so it may reach the screen edges
             .ignoresSafeArea()
             .accessibilityHidden(true)
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { (frame: CGRect) in
+                height = frame.height
+                top = frame.minY
+            }
             .task(id: "\(artworkKey)|\(services.online.keyRevision)") {
                 result = await load()
             }
@@ -65,17 +70,21 @@ struct BackdropView: View {
                 // R452: the system material under a masked gradient (Apple's sample), plus our black cover under
                 // the text: Apple states no darkening for a material, so the contrast proof (ArtReadabilityTests)
                 // counts none and needs the cover. Both start where the text starts (`ArtReadability.coverStart`).
-                let start: Double = ArtReadability.coverStart(textTop: textTop.map { Double($0) }, height: Double(height))
-                let full: Double = min(start + ArtReadability.rampFraction, 1)
+                // R470: the text's top is in global coordinates; the picture's own top (it ignores the safe area) is taken off,
+                // so the share is of THIS view's height. The fade is eased (`ArtReadability.coverStops`), long, and at full
+                // strength at the first line of the text column (the series line on an episode page), not at the title.
+                let start: Double = ArtReadability.coverStart(textTop: textTop.map { Double($0 - top) }, height: Double(height))
+                let stops: [(location: Double, alpha: Double)] = ArtReadability.coverStops(start: start)
                 ZStack {
                     // design-lint:allow R349, R350: the system regular material over the lower part of the artwork only, the sample's material gradient
                     Rectangle().fill(.regularMaterial)
                         .mask {
-                            LinearGradient(stops: [.init(color: .clear, location: start), .init(color: .primary, location: full)],
+                            // design-lint:allow R470: the mask that fades the system material in on the same eased curve as the cover (black here is mask alpha, not a colour)
+                            LinearGradient(stops: stops.map { Gradient.Stop(color: .black.opacity($0.alpha / ArtReadability.scrimMaxOpacity), location: $0.location) },
                                            startPoint: .top, endPoint: .bottom)
                         }
                     // design-lint:allow R452: our own cover where the system material alone does not prove 4.5:1 (ArtReadability)
-                    LinearGradient(stops: [.init(color: .black.opacity(0), location: start), .init(color: .black.opacity(ArtReadability.scrimMaxOpacity), location: full)], startPoint: .top, endPoint: .bottom)
+                    LinearGradient(stops: stops.map { Gradient.Stop(color: .black.opacity($0.alpha), location: $0.location) }, startPoint: .top, endPoint: .bottom)
                 }
             }
     }

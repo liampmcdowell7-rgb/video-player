@@ -32,6 +32,8 @@ struct HomeRows: View {
                     CardRow(row: row)
                 }
             }
+            // R470: the space the featured column reports its top in (ArtTextTop).
+            .artTextContent()
         }
         .artTextTop($textTop)
         // R345: the focused cards grow past the page's scroll view; it must not clip them.
