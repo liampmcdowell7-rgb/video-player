@@ -69,8 +69,12 @@ extension ScreenChecksTests {
               let seasons = try appSource("App/Features/Shows/SeasonsList.swift") else { return }
         for (name, text) in [("movie page", detail), ("show page", seasons)] {
             XCTAssertFalse(text.contains("ContentAdviceLine(descriptors: details?.contentDescriptors ?? [])"), "the \(name) still puts an empty advice line into its stack")
-            XCTAssertTrue(text.contains("if let advice = details?.contentDescriptors, !advice.isEmpty {"), "the \(name) does not test for advice first")
         }
+        XCTAssertTrue(seasons.contains("if let advice = details?.contentDescriptors, !advice.isEmpty {"), "the show page does not test for advice first")
+        // R471 item 4: the movie and episode pages show the advice as the Information column's row ("Content Advisories"),
+        // which `ProductInfo.information` leaves out when there is none (ProductSectionsTests).
+        XCTAssertFalse(detail.contains("ContentAdviceLine("), "the movie page still has the advice line on the hero")
+        XCTAssertTrue(detail.contains("advisories: details?.contentDescriptors ?? []"), "the movie page's Information does not take the advice")
     }
 
     /// R407 (item 10, A11Y1): the UI-test text-size override is applied on every pushed page too, not only around each

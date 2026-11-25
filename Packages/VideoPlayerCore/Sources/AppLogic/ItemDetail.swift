@@ -83,6 +83,8 @@ public struct ItemDetailContent: Equatable, Sendable {
     public var durationSeconds: Double? = nil
     /// R471 item 3: the title's TMDB id (the watchlist's key); nil when not matched.
     public var tmdbID: Int? = nil
+    /// R471 item 4: the preferred file's tracks (the Languages column); nil until they are read.
+    public var tracks: FileTrackDetails? = nil
     /// R471 item 2: the glyph badges of the facts line (`HeroBadges.make`).
     public var heroBadges: [HeroBadge] { HeroBadges.make(format: badges, access: access) }
 }
@@ -142,6 +144,7 @@ public struct ItemDetailViewModel: Sendable {
         var updated = content
         updated.mediaInfo = MediaInfo.rows(file: file, sidecars: preferredSidecars, sourceName: preferredSourceName, tracks: details)
         updated.access = AccessFeature.detect(details)
+        updated.tracks = details
         state = .loaded(updated)
     }
 
@@ -210,7 +213,7 @@ public struct ItemDetailViewModel: Sendable {
                                  sourceKind: files.first { $0.id == preferred }.flatMap { sourceKinds[$0.sourceID] },
                                  sourceName: files.first { $0.id == preferred }.flatMap { sourceNames[$0.sourceID] },
                                  durationSeconds: (item.runtime ?? item.watch.duration).flatMap { $0 > 0 ? $0 : nil },
-                                 tmdbID: item.tmdbID)
+                                 tmdbID: item.tmdbID, tracks: tracks)
     }
 
     /// R396 (audit E1): the episode's own name; "Episode 3" when its title is empty, only its code or its show's name;

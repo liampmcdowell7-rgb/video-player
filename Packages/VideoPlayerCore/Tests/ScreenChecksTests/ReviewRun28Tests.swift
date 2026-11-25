@@ -27,11 +27,17 @@ extension ScreenChecksTests {
         }
         let cast: String = try run28Body(of: "struct CastShelf: View {", in: detail)
         XCTAssertTrue(cast.contains(".productPageRow()"), "the cast row is not a focus section")
-        XCTAssertTrue(detail.contains("EpisodeShelfRow(episodes: other.episodes, model: seasonModel)\n                    }\n                    // R424"), "the episode page's other episodes are not a focus section")
+        // R471 item 4: the episode page no longer has the season's other episodes; How to Watch and the columns are rows.
+        guard let sections = try appSource("App/Shared/ProductSectionsView.swift") else { return }
+        for name in ["struct HowToWatchCard: View {", "struct ProductInfoColumns: View {"] {
+            let part: String = try run28Body(of: name, in: sections)
+            XCTAssertTrue(part.contains(".productPageRow()"), "\(name) is not a focus section")
+        }
         XCTAssertTrue(seasons.contains("seasonTabs\n                    // R424: Up from an episode card at the right (x 980 in run #28) reaches the picker at the left.\n                    .productPageRow()"), "the season tabs are not a focus section")
         XCTAssertTrue(seasons.contains(".id(season.season)\n                    // R424: Up from any cast entry reaches the episodes.\n                    .productPageRow()"), "the show page's episodes are not a focus section")
         // The Information block is one accessibility container with its own name (the "PG-13" of 58's Down path).
-        let info: String = try run28Body(of: "private struct MediaInfoSection: View {", in: detail)
+        // R471 item 4: Information is the page's columns now (the technical table is File Info, in a cover).
+        let info: String = try run28Body(of: "struct ProductInfoColumns: View {", in: sections)
         XCTAssertTrue(info.contains(".accessibilityElement(children: .contain)"), "Information is not one accessibility container")
         XCTAssertTrue(info.contains(".accessibilityIdentifier(\"product.information\")"), "Information has no identifier of its own")
     }

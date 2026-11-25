@@ -38,9 +38,8 @@ struct ItemDetailContentView: View {
     @State private var onWatchlist = false
     /// R387: the show's age rating, asked for only when an episode has none of its own (`EpisodePage.needsSeriesRating`).
     @State private var seriesRating: String?
-    /// R387: the episode's show, for the row of the season's other episodes (the show page's model, so a card's context
-    /// menu marks it watched as on the show page). Nil for a movie.
-    @State private var seasonModel: ScreenModel<SeasonsViewModel>?
+    /// R471 item 4: File Info (the technical table) is open.
+    @State private var showsFileInfo = false
 
     /// R471 item 2: the page's kind for the hero lines.
     private var heroKind: HeroLines.Kind { content.kind == .episode ? .episode : .movie }
@@ -48,38 +47,40 @@ struct ItemDetailContentView: View {
     /// R387: the rating on the metadata line: the title's own, else (an episode) its show's.
     private var rating: String? { EpisodePage.rating(episode: details?.contentRating, series: seriesRating) }
 
-    /// R387: the season's other episodes; nil (no row) for a movie, before the show is loaded, or for a lone episode.
-    private var otherEpisodes: SeasonSection? {
-        guard content.kind == .episode, let seasons = seasonModel?.screen.state.content?.seasons else { return nil }
-        return EpisodePage.otherEpisodes(in: seasons, season: content.season, currentID: content.itemID)
+    /// R471 item 4: How to Watch, from the preferred file's source.
+    private var howToWatch: HowToWatch? {
+        HowToWatch.make(sourceKind: content.sourceKind, sourceName: content.sourceName, progress: content.progress,
+                        durationSeconds: content.durationSeconds)
     }
+
+    /// R471 item 4: the three columns (Information, Languages, Accessibility), each only with rows we hold.
+    private var information: [InfoEntry] {
+        ProductInfo.information(released: details?.releaseDate, year: content.year, durationSeconds: content.durationSeconds,
+                                rating: rating, advisories: details?.contentDescriptors ?? [], regions: [])
+    }
+    private var languages: [InfoEntry] { ProductInfo.languages(tracks: content.tracks) }
+    private var accessibilityRows: [InfoEntry] { ProductInfo.accessibility(content.access) }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading) {
                 hero
+                let hasColumns: Bool = !information.isEmpty || !languages.isEmpty || !accessibilityRows.isEmpty
                 // R471 item 1: the part below the hero starts with the title, centred.
-                if otherEpisodes != nil || !(details?.cast ?? []).isEmpty || !content.mediaInfo.isEmpty {
+                if howToWatch != nil || hasColumns || (content.kind == .movie && !(details?.cast ?? []).isEmpty) {
                     BelowHeroHeader(title: content.episodeTitle ?? content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil)
                 }
-                // R387: as on the show page, the episodes right after the hero, then the cast.
-                if let other = otherEpisodes, let seasonModel {
-                    VStack(alignment: .leading) {
-                        ShelfHeader(other.title)
-                        EpisodeShelfRow(episodes: other.episodes, model: seasonModel)
-                    }
-                    // R424: Up or Down from any card of the row next to it reaches this row.
-                    .productPageRow()
+                // R471 item 4 (frames episode t02s, movie t04s): How to Watch first, then a movie's cast, then the columns.
+                // The episode page no longer repeats the season's other episodes (the show page has them; Go to Season is in
+                // the details button) and no longer shows the cast (the frames show none; Starring stays on the hero).
+                if let howToWatch {
+                    HowToWatchCard(card: howToWatch) { onPlay(false) }
                 }
-                if let cast = details?.cast, !cast.isEmpty {
+                if content.kind == .movie, let cast = details?.cast, !cast.isEmpty {
                     CastShelf(cast: cast)
                 }
-                if !content.mediaInfo.isEmpty {
-                    // R392 (items 5 d and 7): when Information is the first section under the hero, its heading and
-                    // badge row fill the rest of the first screen, so the table of specs starts below the fold.
-                    let firstBelowHero: Bool = otherEpisodes == nil && (details?.cast ?? []).isEmpty
-                    MediaInfoSection(rows: MediaInfo.withRating(content.mediaInfo, details: details), badges: content.allBadges,
-                                     headerMinHeight: firstBelowHero ? pageHeight * (1 - ProductPageLayout.heroFraction) : 0)
+                if hasColumns {
+                    ProductInfoColumns(information: information, languages: languages, accessibility: accessibilityRows)
                 }
             }
             // R470: the space the hero column reports its top in (ArtTextTop).
@@ -127,11 +128,10 @@ struct ItemDetailContentView: View {
                 seriesRating = nil
             }
         }
-        // R387: the show's seasons for the row of other episodes, again when the library or this episode's mark changes.
-        .task(id: "\(content.seriesID ?? 0)|\(services.libraryRevision)|\(content.isWatched)") {
-            guard content.kind == .episode, let seriesID = content.seriesID else { seasonModel = nil; return }
-            if seasonModel == nil { seasonModel = ScreenModel(SeasonsViewModel(store: services.store, seriesID: seriesID)) }
-            await seasonModel?.run { await $0.load() }
+        // R471 item 4: the file's technical table, moved from the page into File Info (the details button).
+        .taskCover(isPresented: $showsFileInfo) {
+            FileInfoCover(title: content.episodeTitle ?? content.title,
+                          rows: MediaInfo.withRating(content.mediaInfo, details: details), badges: content.allBadges)
         }
         .pushedScreen(content.title)
     }
@@ -155,10 +155,7 @@ struct ItemDetailContentView: View {
                 // R471 item 2: the kind line: source glyph, "Movie" (none for an episode), genres, the age rating's box.
                 HeroKindLineView(segments: HeroLines.kindLine(kind: heroKind, source: content.sourceKind, genres: details?.genres ?? [],
                                                               rating: rating))
-                // R404: nothing in the stack when there is no content advice. R471: it moves to Information (item 4).
-                if let advice = details?.contentDescriptors, !advice.isEmpty {
-                    ContentAdviceLine(descriptors: advice)
-                }
+                // R471 item 4: the content advice is the Information column's "Content Advisories" row now.
                 // R471 item 2: the description, an episode's starting with its code ("S4, E4:"); the whole text one press away.
                 if let synopsis = details?.overview {
                     HeroDescription(prefix: content.kind == .episode ? HeroLines.episodePrefix(code: content.episodeCode) : nil,
@@ -277,6 +274,11 @@ struct ItemDetailContentView: View {
             // R396 (audit E2): the show's page, reached from here now that the show's name above the title is text.
             if let seriesID = content.seriesID {
                 Button("Go to Show", systemImage: "tv") { services.openRequest = Route.series(seriesID) }
+            }
+            // R471 item 4: the file's technical table (was "Information" at the bottom of the page).
+            if !content.mediaInfo.isEmpty {
+                Button("File Info", systemImage: "info.circle") { showsFileInfo = true }
+                    .accessibilityIdentifier("product.fileInfo")
             }
         } label: {
             // R471 item 3: the frames' round details button (a page glyph), still named "More" for VoiceOver and the UI tests.
@@ -541,13 +543,15 @@ private struct MediaInfoSection: View {
     /// R392 (items 5 d and 7): the least height of the heading and badge row. The page passes the part of the first
     /// screen under the hero when Information comes right after it, so the table starts below the fold; 0 otherwise.
     var headerMinHeight: CGFloat = 0
+    /// R471 item 4: "File Info" in its cover.
+    var heading: String = ProductPage.informationHeading
 
     var body: some View {
         // R392 (item 5 d): one given spacing between the heading, the badge row and the table (`informationRows`).
         // Before, the stack gave none and took the system's default, which is wide on tvOS.
         VStack(alignment: .leading, spacing: CGFloat(ProductPageSpacing.informationRows)) {
             VStack(alignment: .leading, spacing: CGFloat(ProductPageSpacing.informationRows)) {
-                Text(ProductPage.informationHeading)
+                Text(heading)
                     .font(.headline)
                     .accessibilityAddTraits(.isHeader)
                 if !badges.isEmpty {
@@ -581,7 +585,25 @@ private struct MediaInfoSection: View {
         // row), because the focusable block was no accessibility element of its own (UNVERIFIED how XCTest picked that
         // text; the rating badge on the metadata line is not focusable).
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(ProductPage.informationHeading)
-        .accessibilityIdentifier("product.information")
+        .accessibilityLabel(heading)
+        .accessibilityIdentifier("product.fileInfoTable")
+    }
+}
+
+/// R471 item 4 (PROVISIONAL): File Info, the file's technical table in a full-screen cover (R228), opened from the details
+/// button. It was the "Information" section at the bottom of the page; the page's Information column now holds what the
+/// frames show there (Released, Run Time, Rated, ...).
+private struct FileInfoCover: View {
+    let title: String
+    let rows: [MediaInfoRow]
+    let badges: [FormatBadgeItem]
+
+    var body: some View {
+        ScrollView {
+            MediaInfoSection(rows: rows, badges: badges, heading: "File Info")
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .scrollClipDisabled()
+        .pushedScreen(title)
     }
 }
