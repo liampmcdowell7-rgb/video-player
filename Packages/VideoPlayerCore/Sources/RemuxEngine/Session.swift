@@ -449,7 +449,9 @@ public actor MatroskaRemuxSession: RemuxSession {
         // R471 (55): a window a player request waits for is left to finish (its request would fail with the cancel).
         for c in plan.cancel where (waiting[c] ?? 0) == 0 { windows[c]?.cancel(); windows[c] = nil }
         let keep = Set(p.held).union(p.inFlight)
-        for key in windows.keys where !keep.contains(key) && key != k { windows[key] = nil }
+        // R471 (57): a window a request waits for stays in the cache too, so a second request for it joins the same load
+        // instead of reading the window again (the planner has already let go of a window R471 (55) did not cancel).
+        for key in windows.keys where !keep.contains(key) && key != k && (waiting[key] ?? 0) == 0 { windows[key] = nil }
         planner = p
         for idx in plan.fetch where windows[idx] == nil {
             Task { [weak self] in _ = try? await self?.loadWindow(idx, request: false) }
