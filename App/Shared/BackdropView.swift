@@ -133,9 +133,8 @@ struct BackdropView: View {
 /// R349: how the backdrop's picture is covered (see `BackdropView.style`).
 enum BackdropStyle {
     case page
+    /// R349, R350 (PROVISIONAL): the hero artwork is clear at the top; the material and the cover rise over its lower part.
+    /// R471 (62): where they start is `ArtReadability.coverStart` (one ramp above the page's first line of text, R452 and
+    /// R470), and `ArtReadability.fallbackStart` (0.35, R349's share) until the page has measured that line.
     case hero
-
-    /// R349, R350 (PROVISIONAL): the hero artwork is fully clear above this share of its height; the material rises from
-    /// there to the bottom edge. Our choice (Apple publishes none); the owner's photos of the TV app decide.
-    static let heroClearTop: CGFloat = 0.35
 }
