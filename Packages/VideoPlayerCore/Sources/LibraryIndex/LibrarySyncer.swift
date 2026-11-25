@@ -177,6 +177,20 @@ public struct LibrarySyncer: Sendable {
             if excluded.contains(e.path) { continue }
             filesSeen += 1
             seen.insert(e.path)
+            // R471 (24): a trailer or bonus video gets no item and is not sorted; its title's page lists it. A file
+            // stored as a title before (an item, a sort record) is written once more, which takes it off that item.
+            if kind == .video, overrides[e.path] == nil, ExtraVideo.role(name: e.name, parentPath: pending.path) != nil {
+                let old = byPath[e.path]
+                if let old, old.version.isSame(as: e.version) == true, old.itemID == nil, old.sort == nil {
+                    unchanged += 1
+                    continue
+                }
+                upserts.append(FileUpsert(
+                    path: e.path, name: e.name, kind: kind, size: e.size, modified: e.modified, etag: e.etag,
+                    serverToken: e.serverToken, technical: old?.technical, seed: nil, sort: nil
+                ))
+                continue
+            }
             let inputs = kind == .video ? sortInputs(override: overrides[e.path], serverType: e.serverItemType) : ""
             if let old = byPath[e.path], old.version.isSame(as: e.version) == true {
                 guard kind == .video, Self.mayNeedSorting(old.sort, inputs: inputs) else {

@@ -252,10 +252,30 @@ extension SQLiteLibraryStore {
             return []
         }
         let stem = LibraryPath.stem(video.2)
-        return try db.rows(
-            "\(Self.fileColumns) FROM files f WHERE f.source_id = ? AND f.parent = ? AND f.removed_at IS NULL AND f.kind IN (1, 2, 3) AND substr(f.name, 1, ?) = ? ORDER BY f.name_key",
+        // R471 (24): the extra videos (no item of their own, `ExtraVideo`) named after the title count as its sidecars too.
+        var files = try db.rows(
+            "\(Self.fileColumns) FROM files f WHERE f.source_id = ? AND f.parent = ? AND f.removed_at IS NULL AND (f.kind IN (1, 2, 3) OR (f.kind = 0 AND f.item_id IS NULL)) AND substr(f.name, 1, ?) = ? ORDER BY f.name_key",
             [.text(video.0), .text(video.1), .int(Int64(stem.count)), .text(stem)], Self.mapFile
         )
+        // And the videos in an extras folder next to the title's file ("Trailers", "Extras"…). When that folder holds more
+        // than one title, only the extras named after this one are its own.
+        let extrasFolders = try db.rows(
+            "SELECT path FROM folders INDEXED BY idx_folders_parent WHERE source_id = ? AND parent = ? AND removed_at IS NULL",
+            [.text(video.0), .text(video.1)], cached: false
+        ) { $0.text(0) }.filter { ExtraVideo.folderRole($0) != nil }
+        guard !extrasFolders.isEmpty else { return files }
+        let titles = try db.first(
+            "SELECT COUNT(DISTINCT item_id) FROM files WHERE source_id = ? AND parent = ? AND kind = 0 AND item_id IS NOT NULL AND removed_at IS NULL",
+            [.text(video.0), .text(video.1)]
+        ) { $0.int(0) } ?? 0
+        for folder in extrasFolders.sorted() {
+            let inside = try db.rows(
+                "\(Self.fileColumns) FROM files f WHERE f.source_id = ? AND f.parent = ? AND f.removed_at IS NULL AND f.kind = 0 AND f.item_id IS NULL ORDER BY f.name_key",
+                [.text(video.0), .text(folder)], Self.mapFile
+            )
+            files += titles > 1 ? inside.filter { $0.name.hasPrefix(stem) } : inside
+        }
+        return files
     }
 
     // MARK: Diagnostics

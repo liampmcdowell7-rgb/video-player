@@ -71,8 +71,8 @@ public enum ExtraShelves {
 
     public static func split(_ extras: [ExtraRow]) -> (trailers: [ExtraRow], bonus: [ExtraRow]) {
         let videos = extras.filter(\.isVideo)
-        let trailers = videos.filter { isTrailer($0.name) }
-        return (trailers, videos.filter { !isTrailer($0.name) })
+        let trailers = videos.filter { $0.isTrailer || isTrailer($0.name) }
+        return (trailers, videos.filter { !($0.isTrailer || isTrailer($0.name)) })
     }
 
     static func isTrailer(_ name: String) -> Bool {
@@ -83,7 +83,7 @@ public enum ExtraShelves {
     /// The card's title: the file name without its extension and without the trailing "-trailer" style tag.
     public static func displayName(_ name: String) -> String {
         var base = (name as NSString).deletingPathExtension
-        for tag in ["-trailer", "-teaser", "-behindthescenes", "-featurette", "-deleted", "-interview", "-scene", "-short", "-other"]
+        for tag in ["-trailer", "-teaser", "-behindthescenes", "-featurette", "-deletedscene", "-deleted", "-interview", "-scene", "-short", "-clip", "-extra", "-other"]
         where base.lowercased().hasSuffix(tag) {
             base = String(base.dropLast(tag.count))
         }

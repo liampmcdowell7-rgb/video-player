@@ -2,13 +2,15 @@ import SwiftUI
 import AppLogic
 
 /// R471 item 7 (PROVISIONAL): a shelf of the title's own extra videos (Trailers, or Bonus Content), 16:9 system card
-/// buttons with the file's name. Selecting one opens its facts (name, kind, size) in a full-screen cover: the player plays
-/// library items only, so an extra file cannot be played yet (OPEN_QUESTIONS R471 (7)). The same files stay listed in the
-/// details button's Extras menu.
+/// buttons with the file's name. R471 (24): selecting one plays it (`ExtraPlayerScreen`, from its start, nothing saved); its
+/// facts (name, kind, size) are in its long-press menu. The same files stay listed in the details button's Extras menu.
 struct ExtrasShelf: View {
     let heading: String
     let extras: [ExtraRow]
+    /// The title whose extras these are (`ExtraFiles.find` looks each one up again before it plays).
+    let itemID: Int64
     @State private var shown: ExtraRow?
+    @State private var playing: ExtraPlayRequest?
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -17,7 +19,7 @@ struct ExtrasShelf: View {
                 // design-lint:allow HIG Layout, 40 pt horizontal spacing between cards (docs/DESIGN_SYSTEM.md section 4)
                 LazyHStack(alignment: .top, spacing: 40) {
                     ForEach(extras) { extra in
-                        Button { shown = extra } label: {
+                        Button { playing = ExtraPlayRequest(itemID: itemID, extraID: extra.id) } label: {
                             VStack(alignment: .leading) {
                                 Image(systemName: "film")
                                     .font(.title2)
@@ -35,6 +37,10 @@ struct ExtrasShelf: View {
                         // design-lint:allow HIG Layout, four columns of the grid width for 16:9 cards, as the episode cards (R189)
                         .containerRelativeFrame(.horizontal, count: 4, spacing: 40)
                         .accessibilityIdentifier("product.extra.\(extra.id)")
+                        .contextMenu {
+                            Button("Play", systemImage: "play.fill") { playing = ExtraPlayRequest(itemID: itemID, extraID: extra.id) }
+                            Button("File Details", systemImage: "info.circle") { shown = extra }
+                        }
                     }
                 }
             }
@@ -44,6 +50,10 @@ struct ExtrasShelf: View {
         .taskCover(item: $shown) { extra in
             InfoListCover(title: ExtraShelves.displayName(extra.name),
                           values: [extra.name, extra.kindText, extra.sizeText].compactMap { $0 })
+        }
+        // R471 (24): the system player over the page, as a title plays (`RootView`).
+        .fullScreenCover(item: $playing) { request in
+            ExtraPlayerScreen(request: request)
         }
     }
 }

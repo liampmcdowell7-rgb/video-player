@@ -94,10 +94,10 @@ struct ItemDetailContentView: View {
                 // R471 item 7 (frames movie t02s, t04s): the title's own trailers and bonus videos first.
                 let shelves = ExtraShelves.split(content.extras)
                 if !shelves.trailers.isEmpty {
-                    ExtrasShelf(heading: ExtraShelves.trailersHeading, extras: shelves.trailers)
+                    ExtrasShelf(heading: ExtraShelves.trailersHeading, extras: shelves.trailers, itemID: content.itemID)
                 }
                 if !shelves.bonus.isEmpty {
-                    ExtrasShelf(heading: ExtraShelves.bonusHeading, extras: shelves.bonus)
+                    ExtrasShelf(heading: ExtraShelves.bonusHeading, extras: shelves.bonus, itemID: content.itemID)
                 }
                 if content.kind == .movie, let cast = details?.cast, !cast.isEmpty {
                     CastShelf(cast: cast)

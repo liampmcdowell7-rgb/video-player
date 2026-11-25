@@ -37,6 +37,8 @@ public struct ExtraRow: Equatable, Sendable, Identifiable {
     public var sizeText: String?
     /// R471 item 7: a video file (a trailer or bonus content), shown on the page's shelves; other extras stay in the menu.
     public var isVideo: Bool = false
+    /// R471 (24): a trailer by its name or its folder (`ExtraVideo`), for the Trailers shelf.
+    public var isTrailer: Bool = false
 }
 
 public struct ItemDetailContent: Equatable, Sendable {
@@ -192,7 +194,8 @@ public struct ItemDetailViewModel: Sendable {
         // #33 J: Extras lists the information files only. Subtitle files belong to the player's Subtitles menu and pictures are
         // the item's artwork; neither is an "extra".
         let extras = sidecars.filter { $0.kind != .subtitle && $0.kind != .image }.map { s in
-            ExtraRow(id: s.id, name: s.name, kindText: Self.kindText(s.kind), sizeText: s.size.map(DisplayText.fileSize), isVideo: s.kind == .video)
+            ExtraRow(id: s.id, name: s.name, kindText: Self.kindText(s.kind), sizeText: s.size.map(DisplayText.fileSize), isVideo: s.kind == .video,
+                     isTrailer: s.kind == .video && ExtraVideo.role(name: s.name, parentPath: s.parentPath) == .trailer)
         }
         var timeLeft: String?
         if let progress, let duration = item.watch.duration ?? item.runtime, duration > 0 {
