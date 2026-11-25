@@ -38,8 +38,8 @@ final class ProductSectionsTests: XCTestCase {
         let eac3 = try? XCTUnwrap(FormatNames.audio(codec: "eac3", channels: 6, atmos: false))
         let aac = try? XCTUnwrap(FormatNames.audio(codec: "aac", channels: 2, atmos: false))
         XCTAssertEqual(rows[1].value, "English (\(eac3 ?? "")), French (\(aac ?? ""))")
-        XCTAssertEqual(rows[2].value, "English (SDH), Spanish, German", "a plain track adds nothing; the SDH one says so")
-        XCTAssertEqual(rows[2].full, ["English (SDH)", "Spanish", "German", "Japanese"], "More opens the whole list")
+        XCTAssertEqual(rows[2].value, "English (SDH), Spanish, German, Japanese", "a plain track adds nothing; the SDH one says so")
+        XCTAssertNil(rows[2].full, "R471 (44): a short list shows whole, with no More")
         XCTAssertEqual(ProductInfo.languages(tracks: tracks, originalLanguage: "ja").first?.value, "Japanese")
         XCTAssertEqual(ProductInfo.languages(tracks: nil), [])
     }
@@ -57,6 +57,19 @@ final class ProductSectionsTests: XCTestCase {
         let aac = FormatNames.audio(codec: "aac", channels: 2, atmos: false) ?? ""
         XCTAssertEqual(rows.first { $0.label == "Audio" }?.value, "English (\(aac), AD)", "AD last, after the formats")
         XCTAssertEqual(rows.first { $0.label == "Subtitles" }?.value, "English (CC, SDH), French (Forced)")
+    }
+
+    /// R471 (44): a long language list shows whole entries up to the budget, then More with every entry.
+    func testALongLanguageListFillsItsBudgetThenMore() {
+        let names = (1...40).map { "Language \($0) (SDH)" }
+        let entry = ProductInfo.listed("Subtitles", names, budget: ProductInfo.languageBudget)
+        XCTAssertEqual(entry.full, names)
+        XCTAssertLessThanOrEqual(entry.value.count, ProductInfo.languageBudget)
+        let shown = entry.value.components(separatedBy: ", ")
+        XCTAssertGreaterThan(shown.count, ProductInfo.visibleLimit, "more than the three of a count limit")
+        XCTAssertEqual(shown, Array(names.prefix(shown.count)), "whole entries, in order, never cut mid-entry")
+        let long = String(repeating: "x", count: 300)
+        XCTAssertEqual(ProductInfo.listed("Audio", [long, "y"], budget: 200).value, long, "at least one entry")
     }
 
     func testRegionNamesAndTheDirectorLine() {

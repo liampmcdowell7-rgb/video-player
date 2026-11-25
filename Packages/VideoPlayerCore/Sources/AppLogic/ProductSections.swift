@@ -192,6 +192,8 @@ public enum ProductInfo {
     public static let accessibilityHeading = "Accessibility"
     /// How many languages a value lists before More.
     public static let visibleLimit = 3
+    /// R471 (44): how many characters of the Audio and Subtitles lists show before More (about five column lines).
+    public static let languageBudget = 200
 
     /// Information: Released, Run Time, Rated, Content Advisories, Region of Origin; each only when we hold it.
     public static func information(released: PartialDate?, year: Int?, durationSeconds: Double?, rating: String?,
@@ -227,7 +229,7 @@ public enum ProductInfo {
         } + describedTracks.compactMap { track in
             track.language.flatMap(name).map { ($0, AccessFeature.ad.badgeText) }
         })
-        if !audio.isEmpty { out.append(listed("Audio", audio)) }
+        if !audio.isEmpty { out.append(listed("Audio", audio, budget: languageBudget)) }
         let subtitles = described(tracks.subtitles.flatMap { track -> [(language: String, detail: String?)] in
             guard let language = track.language.flatMap(name) else { return [] }
             let codec = track.codec.lowercased()
@@ -237,7 +239,7 @@ public enum ProductInfo {
             if track.isForced { kinds.append("Forced") }
             return kinds.isEmpty ? [(language, nil)] : kinds.map { (language, $0) }
         }, ranked: [AccessFeature.cc.badgeText, AccessFeature.sdh.badgeText, "Forced"])
-        if !subtitles.isEmpty { out.append(listed("Subtitles", subtitles)) }
+        if !subtitles.isEmpty { out.append(listed("Subtitles", subtitles, budget: languageBudget)) }
         return out
     }
 
@@ -269,6 +271,21 @@ public enum ProductInfo {
     static func listed(_ label: String, _ values: [String]) -> InfoEntry {
         if values.count <= visibleLimit { return InfoEntry(label: label, value: values.joined(separator: ", ")) }
         return InfoEntry(label: label, value: values.prefix(visibleLimit).joined(separator: ", "), full: values)
+    }
+
+    /// R471 (44), PROVISIONAL (frames show t20s, movie t06s): a language list shows whole entries while they fit
+    /// `languageBudget` characters (about five lines of the column), then More; always at least one entry.
+    static func listed(_ label: String, _ values: [String], budget: Int) -> InfoEntry {
+        var shown: [String] = []
+        var length = 0
+        for value in values {
+            let added = (shown.isEmpty ? 0 : 2) + value.count
+            if !shown.isEmpty && length + added > budget { break }
+            shown.append(value)
+            length += added
+        }
+        if shown.count == values.count { return InfoEntry(label: label, value: values.joined(separator: ", ")) }
+        return InfoEntry(label: label, value: shown.joined(separator: ", "), full: values)
     }
 
     /// R471 (41): one entry per language, in the order of the file, with its tracks' kinds once each in brackets.
