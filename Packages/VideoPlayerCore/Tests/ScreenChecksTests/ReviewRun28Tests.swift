@@ -27,12 +27,11 @@ extension ScreenChecksTests {
         }
         let cast: String = try run28Body(of: "struct CastShelf: View {", in: detail)
         XCTAssertTrue(cast.contains(".productPageRow()"), "the cast row is not a focus section")
-        // R471 item 4: the episode page no longer has the season's other episodes; How to Watch and the columns are rows.
+        // R471 item 4: the episode page no longer has the season's other episodes; the columns are a row.
+        // R471 (21): How to Watch was removed by the owner.
         guard let sections = try appSource("App/Shared/ProductSectionsView.swift") else { return }
-        for name in ["struct HowToWatchCard: View {", "struct ProductInfoColumns: View {"] {
-            let part: String = try run28Body(of: name, in: sections)
-            XCTAssertTrue(part.contains(".productPageRow()"), "\(name) is not a focus section")
-        }
+        let columns: String = try run28Body(of: "struct ProductInfoColumns: View {", in: sections)
+        XCTAssertTrue(columns.contains(".productPageRow()"), "the columns are not a focus section")
         XCTAssertTrue(seasons.contains("seasonTabs\n                    // R424: Up from an episode card at the right (x 980 in run #28) reaches the picker at the left.\n                    .productPageRow()"), "the season tabs are not a focus section")
         XCTAssertTrue(seasons.contains(".id(season.season)\n                    // R424: Up from any cast entry reaches the episodes.\n                    .productPageRow()"), "the show page's episodes are not a focus section")
         // The Information block is one accessibility container with its own name (the "PG-13" of 58's Down path).

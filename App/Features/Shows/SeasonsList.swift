@@ -91,12 +91,6 @@ struct SeasonsList: View {
         return out
     }
 
-    private var howToWatch: HowToWatch? {
-        HowToWatch.make(sourceKind: nextSource?.kind, sourceName: nextSource?.name, progress: content.resumeEpisode?.progress,
-                        durationSeconds: content.resumeEpisode?.durationSeconds,
-                        seasonsLine: HowToWatch.seasonsLine(content.seasons.map(\.season)))
-    }
-
     private var information: [InfoEntry] {
         ProductInfo.information(released: details?.releaseDate, year: nil, durationSeconds: nil, rating: details?.contentRating,
                                 advisories: details?.contentDescriptors ?? [], regions: ProductInfo.regionNames(details?.regions ?? []))
@@ -172,10 +166,8 @@ struct SeasonsList: View {
                 if let cast = details?.cast, !cast.isEmpty {
                     CastShelf(cast: cast)
                 }
-                // R471 item 6 (frames show t16s to t20s): How to Watch, About, then the columns; each only with data.
-                if let howToWatch, let resume = content.resumeEpisodeID {
-                    HowToWatchCard(card: howToWatch) { onPlay(resume) }
-                }
+                // R471 item 6 (frames show t16s to t20s): About, then the columns; each only with data. How to Watch and its
+                // "Seasons" line were removed by the owner (R471 (21)): About follows the cast directly.
                 let guidance: AgeGuidance? = AgeGuidance.make(rating: details?.contentRating, layer: ratingLayer,
                                                               descriptors: details?.contentDescriptors ?? [])
                 if details?.overview != nil || guidance != nil {

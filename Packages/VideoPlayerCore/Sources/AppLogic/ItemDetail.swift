@@ -78,7 +78,7 @@ public struct ItemDetailContent: Equatable, Sendable {
     public var hasExplicitVersion: Bool = false
     /// R471 item 2: CC, SDH and AD from the preferred file's tracks (`AccessFeature.detect`); empty until they are read.
     public var access: [AccessFeature] = []
-    /// R471 item 2: the kind and name of the source the preferred file is on (the glyph of the kind line, How to Watch).
+    /// R471 item 2: the kind and name of the source the preferred file is on (the glyph of the kind line).
     public var sourceKind: SourceKind? = nil
     public var sourceName: String? = nil
     /// R471 item 2: the duration in seconds (the facts line's "43m"); nil when unknown.

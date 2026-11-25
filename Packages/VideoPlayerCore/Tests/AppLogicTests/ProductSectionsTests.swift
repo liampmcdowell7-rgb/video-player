@@ -3,37 +3,9 @@ import LibraryIndex
 import MetadataOnline
 @testable import AppLogic
 
-/// R471 item 4: How to Watch and the Information, Languages and Accessibility columns, from data we hold only.
+/// R471 item 4: the Information, Languages and Accessibility columns, from data we hold only (How to Watch removed, R471 (21)).
 final class ProductSectionsTests: XCTestCase {
     private let en = Locale(identifier: "en_US")
-
-    func testHowToWatchNamesTheSourceAndWhatIsLeft() {
-        let resume = HowToWatch.make(sourceKind: .plex, sourceName: "Living Room", progress: 0.5, durationSeconds: 3600)
-        XCTAssertEqual(resume, HowToWatch(symbol: "server.rack", spokenKind: "Media server", sourceName: "Living Room", action: "Resume", detail: "30m left"))
-        let play = HowToWatch.make(sourceKind: .smb, sourceName: "NAS", progress: nil, durationSeconds: 2580)
-        XCTAssertEqual(play?.action, "Play")
-        XCTAssertEqual(play?.detail, "43m")
-        XCTAssertEqual(play?.symbol, "externaldrive.connected.to.line.below")
-    }
-
-    func testHowToWatchFallsBackToTheKindAndIsNilWithoutASource() {
-        XCTAssertNil(HowToWatch.make(sourceKind: nil, sourceName: nil, progress: nil, durationSeconds: 60))
-        XCTAssertNil(HowToWatch.make(sourceKind: nil, sourceName: "  ", progress: nil, durationSeconds: 60))
-        XCTAssertEqual(HowToWatch.make(sourceKind: .webdav, sourceName: "", progress: nil, durationSeconds: nil)?.sourceName, "Network folder")
-        XCTAssertNil(HowToWatch.make(sourceKind: .webdav, sourceName: "Box", progress: nil, durationSeconds: nil)?.detail)
-    }
-
-    func testAShowsCardSaysWhichSeasonsAreHeld() {
-        XCTAssertEqual(HowToWatch.seasonsLine([1]), "Season 1")
-        XCTAssertEqual(HowToWatch.seasonsLine([3, 1, 2, 4, 2]), "Seasons 1–4")
-        XCTAssertEqual(HowToWatch.seasonsLine([1, 3, 5]), "Seasons 1, 3, 5")
-        XCTAssertEqual(HowToWatch.seasonsLine([0, 1, 2]), "Seasons 1–2 · Specials")
-        XCTAssertEqual(HowToWatch.seasonsLine([0]), "Specials")
-        XCTAssertNil(HowToWatch.seasonsLine([]))
-        let show = HowToWatch.make(sourceKind: .jellyfin, sourceName: "Den", progress: 0.2, durationSeconds: 1200, seasonsLine: "Seasons 1–4")
-        XCTAssertEqual(show?.detail, "Seasons 1–4")
-        XCTAssertEqual(show?.action, "Resume")
-    }
 
     func testInformationListsOnlyWhatIsHeld() {
         let rows = ProductInfo.information(released: PartialDate(year: 2024, month: 3, day: 5), year: 2024, durationSeconds: 2580,

@@ -97,7 +97,7 @@ public enum SourceGlyph {
         }
     }
 
-    /// What the glyph means, spoken and used as the How to Watch card's kind.
+    /// What the glyph means, spoken.
     public static func spoken(_ kind: SourceKind) -> String {
         switch kind {
         case .plex, .jellyfin, .emby: return "Media server"

@@ -1,38 +1,6 @@
 import SwiftUI
 import AppLogic
 
-/// R471 item 4 (PROVISIONAL; frames: episode t02s, movie t04s and t06s): the "How to Watch" card. One system card button
-/// (`.card`, the system's focus lift): the source kind's symbol, the source's name, then the action and what is left.
-/// Selecting it plays, as the Play button does.
-struct HowToWatchCard: View {
-    let card: HowToWatch
-    let action: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading) {
-            ShelfHeader(HowToWatch.heading)
-            Button(action: action) {
-                HStack {
-                    Image(systemName: card.symbol)
-                        .font(.title2)
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading) {
-                        FittingText(card.sourceName, style: .headline)
-                        FittingText([card.action, card.detail].compactMap { $0 }.joined(separator: " · "), style: .callout)
-                            .foregroundStyle(ReadableSecondary.style)
-                    }
-                }
-                .padding()
-            }
-            .buttonStyle(.card)
-            .accessibilityLabel([card.action, card.sourceName, card.spokenKind, card.detail].compactMap { $0 }.joined(separator: ", "))
-            .accessibilityIdentifier("product.howToWatch")
-        }
-        // R424: a focus section the page's whole width, so Up and Down reach it from any column.
-        .productPageRow()
-    }
-}
-
 /// R471 item 7 (PROVISIONAL): a shelf of the title's own extra videos (Trailers, or Bonus Content), 16:9 system card
 /// buttons with the file's name. Selecting one opens its facts (name, kind, size) in a full-screen cover: the player plays
 /// library items only, so an extra file cannot be played yet (OPEN_QUESTIONS R471 (7)). The same files stay listed in the

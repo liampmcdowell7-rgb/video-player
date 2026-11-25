@@ -67,12 +67,6 @@ struct ItemDetailContentView: View {
     /// R387: the rating on the metadata line: the title's own, else (an episode) its show's.
     private var rating: String? { EpisodePage.rating(episode: details?.contentRating, series: seriesRating) }
 
-    /// R471 item 4: How to Watch, from the preferred file's source.
-    private var howToWatch: HowToWatch? {
-        HowToWatch.make(sourceKind: content.sourceKind, sourceName: content.sourceName, progress: content.progress,
-                        durationSeconds: content.durationSeconds)
-    }
-
     /// R471 item 4: the three columns (Information, Languages, Accessibility), each only with rows we hold.
     private var information: [InfoEntry] {
         ProductInfo.information(released: details?.releaseDate, year: content.year, durationSeconds: content.durationSeconds,
@@ -88,11 +82,13 @@ struct ItemDetailContentView: View {
                 hero
                 let hasColumns: Bool = !information.isEmpty || !languages.isEmpty || !accessibilityRows.isEmpty
                 // R471 item 1: the part below the hero starts with the title, centred.
-                if howToWatch != nil || hasColumns || content.extras.contains(where: \.isVideo)
-                    || (content.kind == .movie && !(details?.cast ?? []).isEmpty) {
+                // R471 (21): the header stands over whatever follows; How to Watch no longer guarantees a section.
+                if hasColumns || content.extras.contains(where: \.isVideo)
+                    || (content.kind == .movie && (!(details?.cast ?? []).isEmpty || !related.isEmpty || details?.overview != nil)) {
                     BelowHeroHeader(title: content.episodeTitle ?? content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil)
                 }
-                // R471 item 4 (frames episode t02s, movie t04s): How to Watch first, then a movie's cast, then the columns.
+                // R471 item 4 (frames episode t02s, movie t04s): a movie's cast, then the columns. How to Watch was removed by
+                // the owner (R471 (21)); the columns follow the section before them directly.
                 // The episode page no longer repeats the season's other episodes (the show page has them; Go to Season is in
                 // the details button) and no longer shows the cast (the frames show none; Starring stays on the hero).
                 // R471 item 7 (frames movie t02s, t04s): the title's own trailers and bonus videos first.
@@ -102,9 +98,6 @@ struct ItemDetailContentView: View {
                 }
                 if !shelves.bonus.isEmpty {
                     ExtrasShelf(heading: ExtraShelves.bonusHeading, extras: shelves.bonus)
-                }
-                if let howToWatch {
-                    HowToWatchCard(card: howToWatch) { onPlay(false) }
                 }
                 if content.kind == .movie, let cast = details?.cast, !cast.isEmpty {
                     CastShelf(cast: cast)

@@ -6,56 +6,6 @@ import MetadataLocal
 /// R471 item 4 (PROVISIONAL): the sections under the hero of the product pages, built only from data we hold.
 /// Layout from the reference frames (episode t02s, movie t04s and t06s); wording our own.
 
-/// "How to Watch": one card per page, from the item's own source. A generic symbol for the KIND of source (never a
-/// service's logo), the source's name, and the action with what is left ("Resume", "18m left") or the length ("Play",
-/// "43m"); a show's card says which seasons the library holds.
-public struct HowToWatch: Equatable, Sendable {
-    public var symbol: String
-    public var spokenKind: String
-    public var sourceName: String
-    public var action: String
-    public var detail: String?
-
-    public init(symbol: String, spokenKind: String, sourceName: String, action: String, detail: String?) {
-        self.symbol = symbol; self.spokenKind = spokenKind; self.sourceName = sourceName; self.action = action; self.detail = detail
-    }
-
-    public static let heading = "How to Watch"
-
-    /// Nil when the item has no file on any source (nothing to watch it from).
-    public static func make(sourceKind: SourceKind?, sourceName: String?, progress: Double?, durationSeconds: Double?,
-                            seasonsLine: String? = nil) -> HowToWatch? {
-        let name = sourceName?.trimmingCharacters(in: .whitespaces)
-        guard sourceKind != nil || !(name ?? "").isEmpty else { return nil }
-        let symbol = sourceKind.map(SourceGlyph.symbol) ?? "play.rectangle"
-        let spoken = sourceKind.map(SourceGlyph.spoken) ?? "Library"
-        let shownName = (name?.isEmpty == false ? name : nil) ?? spoken
-        let capsule = PlayCapsule.make(progress: progress, durationSeconds: durationSeconds)
-        let resuming = capsule.progress != nil
-        var detail: String?
-        if let seasonsLine { detail = seasonsLine }
-        else if resuming, let left = capsule.timeLeft { detail = left + " left" }
-        else if let d = durationSeconds, d > 0 { detail = ShortDuration.text(d) }
-        return HowToWatch(symbol: symbol, spokenKind: spoken, sourceName: shownName, action: resuming ? "Resume" : "Play", detail: detail)
-    }
-
-    /// "Season 1", "Seasons 1–4", "Seasons 1, 3, 5", with "Specials" for season 0; nil for none.
-    public static func seasonsLine(_ numbers: [Int]) -> String? {
-        let sorted = Array(Set(numbers)).sorted()
-        let specials = sorted.contains(0)
-        let real = sorted.filter { $0 > 0 }
-        var parts: [String] = []
-        if real.count == 1 {
-            parts.append("Season \(real[0])")
-        } else if real.count > 1 {
-            let contiguous = real.last! - real.first! == real.count - 1
-            parts.append(contiguous ? "Seasons \(real.first!)–\(real.last!)" : "Seasons " + real.map(String.init).joined(separator: ", "))
-        }
-        if specials { parts.append("Specials") }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-}
-
 /// R471 item 6 (owner's Part 1 correction): the age guidance card of About: the rating we hold (R371), where it came
 /// from, and the rating's descriptors only when that source gives them. No sentence of our own about the content.
 public struct AgeGuidance: Equatable, Sendable {
