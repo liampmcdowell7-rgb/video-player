@@ -634,9 +634,11 @@ struct CastShelf: View {
                                 .containerRelativeFrame(.horizontal, count: ProductPageSpacing.castColumns, spacing: 40)
                                 // design-lint:allow R341: Apple's tvOS media catalog sample attaches the borderless lockup's highlight by hand to a custom artwork view; the system effect, not our own
                                 .hoverEffect(.highlight)
-                            CastCaption(text: person.name, style: .caption)
+                            // R471 (45), PROVISIONAL (frame movie t04s): the name at the About card title's size and
+                            // weight, the role at its genre line's size, secondary.
+                            CastCaption(text: person.name, style: .headline)
                             if let role = person.role {
-                                CastCaption(text: role, style: .caption2)
+                                CastCaption(text: role, style: .caption)
                                     .foregroundStyle(.secondary)
                             }
                         }

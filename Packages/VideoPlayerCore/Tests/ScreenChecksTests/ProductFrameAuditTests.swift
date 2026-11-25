@@ -106,4 +106,11 @@ extension ScreenChecksTests {
         XCTAssertTrue(rest.contains(".fixedSize(horizontal: false, vertical: true)"), "the row takes its natural height")
         XCTAssertEqual(rest.components(separatedBy: "maxHeight: .infinity").count - 1, 2, "each card fills it")
     }
+
+    /// R471 (45): a cast name is headline size (as the About title), its role caption and secondary (as the genre line).
+    func testCastNamesMatchTheAboutTitle() throws {
+        guard let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift") else { return }
+        XCTAssertTrue(detail.contains("CastCaption(text: person.name, style: .headline)"))
+        XCTAssertTrue(detail.contains("CastCaption(text: role, style: .caption)\n                                    .foregroundStyle(.secondary)"))
+    }
 }
