@@ -199,11 +199,15 @@ public actor PlexClient: MediaSource {
         treeStarted = now()
         do {
             let tree = try await task.value
-            skippedParts = tree.skippedParts
-            heldTree = tree
+            // R471 (64): only the newest walk sets what is held (an older one finishing late leaves the newer listing).
+            if treeTask == task {
+                skippedParts = tree.skippedParts
+                heldTree = tree
+            }
             return tree
         } catch {
-            treeTask = nil
+            // R471 (64): a walk that fails after a newer one started (a refresh) leaves the newer one in place.
+            if treeTask == task { treeTask = nil }
             throw error
         }
     }
