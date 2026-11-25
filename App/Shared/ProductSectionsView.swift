@@ -95,6 +95,8 @@ struct AboutSection: View {
     let summary: String?
     let artworkKey: String?
     let guidance: AgeGuidance?
+    /// R471 (30), PROVISIONAL (frames show t18s, t20s, movie t06s): the title's genres, one line under its name.
+    var genres: [String] = []
     @State private var showsSummary = false
     @State private var showsGuidance = false
 
@@ -106,6 +108,12 @@ struct AboutSection: View {
                     Button { showsSummary = true } label: {
                         VStack(alignment: .leading) {
                             FittingText(title, style: .headline)
+                            let genreLine = AboutGenres.line(genres)
+                            if let genreLine {
+                                // Secondary, as the label of a fact (rule S1: one line, scaled, never cut).
+                                FittingText(genreLine, style: .caption)
+                                    .foregroundStyle(ReadableSecondary.style)
+                            }
                             Text(summary)
                                 .font(.callout)
                                 .lineLimit(4, reservesSpace: true)

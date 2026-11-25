@@ -62,6 +62,25 @@ public enum EpisodeStillLabel {
     }
 }
 
+/// R471 (30), PROVISIONAL (frames show t18s, t20s, movie t06s): the About card's genre line under the title, "Comedy,
+/// Sports". Blank and repeated names are dropped and at most three are kept (rule S1: the line is never cut, so the
+/// later genres go first). Nil when none is left.
+public enum AboutGenres {
+    public static let limit = 3
+
+    public static func line(_ genres: [String]) -> String? {
+        var seen = Set<String>()
+        var kept: [String] = []
+        for raw in genres {
+            let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty, seen.insert(name.lowercased()).inserted else { continue }
+            kept.append(name)
+            if kept.count == limit { break }
+        }
+        return kept.isEmpty ? nil : kept.joined(separator: ", ")
+    }
+}
+
 /// R471 item 6: the show hero's description: the next-up episode's own synopsis after "S4, E4 · Title:" when we hold one
 /// (frames show t08s), else the show's synopsis with no prefix.
 public enum ShowHeroText {

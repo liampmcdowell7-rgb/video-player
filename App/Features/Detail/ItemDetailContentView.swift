@@ -109,7 +109,8 @@ struct ItemDetailContentView: View {
                 }
                 // Then About (the synopsis card only, frame t06s).
                 if content.kind == .movie, let summary = details?.overview {
-                    AboutSection(title: content.title, summary: summary, artworkKey: content.artworkKey, guidance: nil)
+                    AboutSection(title: content.title, summary: summary, artworkKey: content.artworkKey, guidance: nil,
+                                 genres: details?.genres ?? [])
                 }
                 if hasColumns {
                     ProductInfoColumns(information: information, languages: languages, accessibility: accessibilityRows)

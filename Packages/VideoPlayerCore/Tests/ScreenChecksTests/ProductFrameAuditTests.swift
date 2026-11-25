@@ -16,4 +16,17 @@ extension ScreenChecksTests {
         XCTAssertTrue(detail.contains(#"return "\(content.title): \(episode)""#))
         XCTAssertFalse(detail.contains(#"return "(content.title): (episode)""#))
     }
+
+    /// R471 (30): both product pages give the About card their genres; the card shows the line under the title.
+    func testTheAboutCardHasTheGenreLine() throws {
+        guard let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift"),
+              let seasons = try appSource("App/Features/Shows/SeasonsList.swift"),
+              let sections = try appSource("App/Shared/ProductSectionsView.swift") else { return }
+        XCTAssertTrue(detail.contains("guidance: nil,\n                                 genres: details?.genres ?? [])"))
+        XCTAssertTrue(seasons.contains("guidance: guidance,\n                                 genres: details?.genres ?? [])"))
+        let title = try XCTUnwrap(sections.range(of: "FittingText(title, style: .headline)"))
+        let genre = try XCTUnwrap(sections.range(of: "AboutGenres.line(genres)"))
+        let summary = try XCTUnwrap(sections.range(of: "Text(summary)"))
+        XCTAssertTrue(title.lowerBound < genre.lowerBound && genre.lowerBound < summary.lowerBound, "title, genres, synopsis")
+    }
 }

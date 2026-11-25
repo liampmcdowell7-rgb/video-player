@@ -191,7 +191,8 @@ struct SeasonsList: View {
                 let guidance: AgeGuidance? = AgeGuidance.make(rating: details?.contentRating, layer: ratingLayer,
                                                               descriptors: details?.contentDescriptors ?? [])
                 if details?.overview != nil || guidance != nil {
-                    AboutSection(title: content.seriesTitle, summary: details?.overview, artworkKey: "series-\(seriesID)", guidance: guidance)
+                    AboutSection(title: content.seriesTitle, summary: details?.overview, artworkKey: "series-\(seriesID)", guidance: guidance,
+                                 genres: details?.genres ?? [])
                 }
                 let languages: [InfoEntry] = ProductInfo.languages(tracks: nextTracks, originalLanguage: details?.originalLanguage)
                 let access: [InfoEntry] = ProductInfo.accessibility(AccessFeature.detect(nextTracks))
