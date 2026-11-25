@@ -295,14 +295,18 @@ public struct MovieMetadata: Codable, Hashable, Sendable {
     public var ratings: RatingSet
     /// The language the text was requested in.
     public var language: String?
+    /// R471 item 5: the production countries (ISO 3166-1 codes, "US"), TMDB's `production_countries`, else its
+    /// `origin_country`. Optional so details cached before this field decode unchanged.
+    public var countries: [String]?
 
     public init(
         ids: ProviderIDs, title: String, originalTitle: String? = nil, originalLanguage: String? = nil,
         tagline: String? = nil, overview: String? = nil, releaseDate: CalendarDate? = nil, runtimeMinutes: Int? = nil,
         genres: [String] = [], certification: String? = nil, posterPath: String? = nil, backdropPath: String? = nil,
         images: ImageSet = .empty, credits: Credits = .empty, videos: [VideoLink] = [],
-        collection: CollectionRef? = nil, ratings: RatingSet = .empty, language: String? = nil
+        collection: CollectionRef? = nil, ratings: RatingSet = .empty, language: String? = nil, countries: [String]? = nil
     ) {
+        self.countries = countries
         self.ids = ids
         self.title = title
         self.originalTitle = originalTitle
@@ -362,6 +366,8 @@ public struct SeriesMetadata: Codable, Hashable, Sendable {
     public var videos: [VideoLink]
     public var ratings: RatingSet
     public var language: String?
+    /// R471 item 5: the show's countries of origin (ISO 3166-1 codes), TMDB's `origin_country`. Optional (older caches).
+    public var countries: [String]?
 
     public init(
         ids: ProviderIDs, name: String, originalName: String? = nil, originalLanguage: String? = nil,
@@ -369,8 +375,9 @@ public struct SeriesMetadata: Codable, Hashable, Sendable {
         status: String? = nil, genres: [String] = [], networks: [String] = [], certification: String? = nil,
         posterPath: String? = nil, backdropPath: String? = nil, seasons: [SeasonSummary] = [],
         images: ImageSet = .empty, credits: Credits = .empty, videos: [VideoLink] = [],
-        ratings: RatingSet = .empty, language: String? = nil
+        ratings: RatingSet = .empty, language: String? = nil, countries: [String]? = nil
     ) {
+        self.countries = countries
         self.ids = ids
         self.name = name
         self.originalName = originalName

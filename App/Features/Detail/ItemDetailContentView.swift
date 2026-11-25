@@ -56,9 +56,10 @@ struct ItemDetailContentView: View {
     /// R471 item 4: the three columns (Information, Languages, Accessibility), each only with rows we hold.
     private var information: [InfoEntry] {
         ProductInfo.information(released: details?.releaseDate, year: content.year, durationSeconds: content.durationSeconds,
-                                rating: rating, advisories: details?.contentDescriptors ?? [], regions: [])
+                                rating: rating, advisories: details?.contentDescriptors ?? [],
+                                regions: ProductInfo.regionNames(details?.regions ?? []))
     }
-    private var languages: [InfoEntry] { ProductInfo.languages(tracks: content.tracks) }
+    private var languages: [InfoEntry] { ProductInfo.languages(tracks: content.tracks, originalLanguage: details?.originalLanguage) }
     private var accessibilityRows: [InfoEntry] { ProductInfo.accessibility(content.access) }
 
     var body: some View {
@@ -176,8 +177,11 @@ struct ItemDetailContentView: View {
             // R470: the whole text column, from the series line of an episode down, reports its top for the cover behind it.
             .reportsArtTextTop()
             Spacer(minLength: 0)
-            if let starring = ProductPage.starring((details?.cast ?? []).map(\.name)) {
-                StarringBlock(names: starring)
+            // R471 item 5: "Starring" and, when TMDB's credits name one, "Director" (frames: movie photo).
+            let starring: String? = ProductPage.starring((details?.cast ?? []).map(\.name))
+            let director = ProductInfo.directorLine(details?.directors ?? [])
+            if starring != nil || director != nil {
+                StarringBlock(names: starring, director: director)
             }
         }
         // #33 I (OPEN_QUESTIONS R239, PROVISIONAL): room between the button row and the next heading.
@@ -360,19 +364,33 @@ struct SynopsisLink: View {
 /// as on Apple's movie page (picture B1: "Starring" in the secondary colour, the names after it, at most about 330 pt
 /// wide). Text only; the cast shelf below opens each person's page. No "Director" line: the library holds none.
 struct StarringBlock: View {
-    let names: String
+    let names: String?
+    /// R471 item 5: "Director" (or "Directors") and the names, a second paragraph under Starring.
+    var director: (label: String, names: String)? = nil
 
     var body: some View {
-        // R398: one `Text` with the label interpolated in the secondary style (Apple deprecates `Text` + `Text`: "Use
-        // string interpolation on Text instead").
-        Text("\(Text(ProductPage.starringLabel).foregroundStyle(.secondary)) \(names)")
-            .font(.caption)
-            .multilineTextAlignment(.leading)
-            .fixedSize(horizontal: false, vertical: true)
-            // R404 (item 6 a): the lines break only between names (`ProductPage.starring` keeps each name whole).
-            .frame(maxWidth: CGFloat(RowSpacing.creditsWidth), alignment: .leading)
-            .accessibilityLabel(ProductPage.starringLabel + ": " + names)
-            .accessibilityIdentifier("product.starring")
+        VStack(alignment: .leading) {
+            if let names {
+                // R398: one `Text` with the label interpolated in the secondary style (Apple deprecates `Text` + `Text`: "Use
+                // string interpolation on Text instead").
+                Text("\(Text(ProductPage.starringLabel).foregroundStyle(.secondary)) \(names)")
+                    .font(.caption)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel(ProductPage.starringLabel + ": " + names)
+                    .accessibilityIdentifier("product.starring")
+            }
+            if let director {
+                Text("\(Text(director.label).foregroundStyle(.secondary)) \(director.names)")
+                    .font(.caption)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel(director.label + ": " + director.names)
+                    .accessibilityIdentifier("product.director")
+            }
+        }
+        // R404 (item 6 a): the lines break only between names (`ProductPage.starring` keeps each name whole).
+        .frame(maxWidth: CGFloat(RowSpacing.creditsWidth), alignment: .leading)
     }
 }
 

@@ -168,6 +168,12 @@ public struct TitleDetails: Equatable, Sendable {
     public var genres: [String] = []
     /// R453: runtime in minutes from the online layer (the library's own runtime wins on the page); an edit replaces it.
     public var runtimeMinutes: Int? = nil
+    /// R471 item 5: the directors' names (TMDB credits, job "Director"), in the source's order; empty when none is held.
+    public var directors: [String] = []
+    /// R471 item 5: the countries of origin as ISO 3166-1 codes ("US"); the page shows their names (Region of Origin).
+    public var regions: [String] = []
+    /// R471 item 5: the original language's code ("en", "ja"), the Languages column's Original Audio.
+    public var originalLanguage: String? = nil
 
     /// The longest cast shelf. PROVISIONAL (OPEN_QUESTIONS R182).
     public static let castLimit = 15
@@ -190,6 +196,16 @@ public struct TitleDetails: Equatable, Sendable {
 
     public var isEmpty: Bool {
         overview == nil && cast.isEmpty && contentRating == nil && contentDescriptors.isEmpty && releaseDate == nil && genres.isEmpty
-            && runtimeMinutes == nil
+            && runtimeMinutes == nil && directors.isEmpty && regions.isEmpty && originalLanguage == nil
+    }
+
+    /// R471 item 5: the catalogue's facts beyond the synopsis and cast, from TMDB's cached details (no new request).
+    public mutating func addCatalogueFacts(crew: [Person], countries: [String]?, originalLanguage: String?) {
+        var seen = Set<String>()
+        directors = crew.filter { $0.job == "Director" }.map { $0.name.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && seen.insert($0.lowercased()).inserted }
+        regions = countries ?? []
+        let language = originalLanguage?.trimmingCharacters(in: .whitespaces)
+        self.originalLanguage = (language?.isEmpty ?? true) ? nil : language
     }
 }

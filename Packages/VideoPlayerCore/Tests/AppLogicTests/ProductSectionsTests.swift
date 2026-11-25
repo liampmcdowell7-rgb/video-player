@@ -1,5 +1,6 @@
 import XCTest
 import LibraryIndex
+import MetadataOnline
 @testable import AppLogic
 
 /// R471 item 4: How to Watch and the Information, Languages and Accessibility columns, from data we hold only.
@@ -66,6 +67,44 @@ final class ProductSectionsTests: XCTestCase {
         XCTAssertEqual(rows[2].full, ["English", "Spanish", "German", "Japanese"], "More opens the whole list")
         XCTAssertEqual(ProductInfo.languages(tracks: tracks, originalLanguage: "ja").first?.value, "Japanese")
         XCTAssertEqual(ProductInfo.languages(tracks: nil), [])
+    }
+
+    func testRegionNamesAndTheDirectorLine() {
+        XCTAssertEqual(ProductInfo.regionNames(["US", "GB"], locale: en), ["United States", "United Kingdom"])
+        XCTAssertEqual(ProductInfo.regionNames(["ZZ"], locale: en).count, 1)
+        XCTAssertEqual(ProductInfo.directorLine(["Ada Vale"])?.label, "Director")
+        XCTAssertEqual(ProductInfo.directorLine(["Ada Vale", "Bo Lin", "ada vale"])?.label, "Directors")
+        XCTAssertEqual(ProductInfo.directorLine(["Ada Vale", "Bo Lin"])?.names, "Ada Vale, Bo Lin")
+        XCTAssertNil(ProductInfo.directorLine([" "]))
+    }
+
+    func testTheCatalogueFactsComeFromTheCrewCountriesAndLanguage() {
+        var details = TitleDetails(overview: nil, cast: [])
+        details.addCatalogueFacts(crew: [Person(id: 1, name: "Ada Vale", job: "Director"), Person(id: 2, name: "Cy Moor", job: "Writer"),
+                                         Person(id: 1, name: "Ada Vale", job: "Director")],
+                                  countries: ["US"], originalLanguage: " ")
+        XCTAssertEqual(details.directors, ["Ada Vale"])
+        XCTAssertEqual(details.regions, ["US"])
+        XCTAssertNil(details.originalLanguage)
+        XCTAssertFalse(details.isEmpty)
+    }
+
+    func testTheLayersKeepTheFactsOfTheFirstLayerThatHasThem() {
+        var tmdb = TitleDetails(overview: "From the catalogue.", cast: [])
+        tmdb.genres = ["Drama"]
+        tmdb.releaseDate = PartialDate(year: 2001, month: 2, day: 3)
+        tmdb.directors = ["Ada Vale"]
+        tmdb.regions = ["US"]
+        tmdb.originalLanguage = "en"
+        var own = TitleDetails(overview: nil, cast: [])
+        own.genres = ["Thriller"]
+        let merged = LayeredDetails.merge([(.source, own), (.tmdb, tmdb)]).details
+        XCTAssertEqual(merged?.genres, ["Thriller"], "the first layer with genres wins")
+        XCTAssertEqual(merged?.releaseDate, PartialDate(year: 2001, month: 2, day: 3))
+        XCTAssertEqual(merged?.directors, ["Ada Vale"])
+        XCTAssertEqual(merged?.regions, ["US"])
+        XCTAssertEqual(merged?.originalLanguage, "en")
+        XCTAssertEqual(merged?.overview, "From the catalogue.")
     }
 
     func testAccessibilityExplainsEachFeatureTheFileCarries() {

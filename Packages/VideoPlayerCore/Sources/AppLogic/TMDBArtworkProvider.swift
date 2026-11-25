@@ -86,6 +86,8 @@ public struct TMDBArtworkProvider: OnlineArtworkProviding {
         details.releaseDate = movie.releaseDate.map { PartialDate(year: $0.year, month: $0.month, day: $0.day) }
         details.genres = movie.genres
         details.runtimeMinutes = movie.runtimeMinutes
+        // R471 item 5: Director, Region of Origin and Original Audio, from the same cached details.
+        details.addCatalogueFacts(crew: movie.credits.crew, countries: movie.countries, originalLanguage: movie.originalLanguage)
         return details
     }
 
@@ -98,6 +100,7 @@ public struct TMDBArtworkProvider: OnlineArtworkProviding {
         // R453: the first air date and the genres of the show.
         details.releaseDate = series.firstAirDate.map { PartialDate(year: $0.year, month: $0.month, day: $0.day) }
         details.genres = series.genres
+        details.addCatalogueFacts(crew: series.credits.crew, countries: series.countries, originalLanguage: series.originalLanguage)
         return details
     }
 

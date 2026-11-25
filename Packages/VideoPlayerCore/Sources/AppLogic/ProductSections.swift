@@ -111,6 +111,19 @@ public enum ProductInfo {
         features.map { InfoEntry(label: $0.spoken, value: $0.explanation) }
     }
 
+    /// R471 item 5: country names for Region of Origin, in the person's language ("United States"); a code the system does
+    /// not know stays as the code.
+    public static func regionNames(_ codes: [String], locale: Locale = .current) -> [String] {
+        codes.map { locale.localizedString(forRegionCode: $0) ?? $0 }
+    }
+
+    /// R471 item 5: "Director" or "Directors" and the names, for the hero's credits block; nil with none.
+    public static func directorLine(_ names: [String]) -> (label: String, names: String)? {
+        let clean = unique(names)
+        guard !clean.isEmpty else { return nil }
+        return (clean.count == 1 ? "Director" : "Directors", clean.joined(separator: ", "))
+    }
+
     /// A language's English name, nil for "undetermined" and "no linguistic content".
     static func name(_ code: String) -> String? {
         let key = code.lowercased().split(separator: "-").first.map(String.init) ?? ""

@@ -125,7 +125,8 @@ enum TMDBMapper {
             genres: genres(j), certification: movieCertification(j["release_dates"], region: region),
             posterPath: j["poster_path"].text, backdropPath: j["backdrop_path"].text,
             images: images(j["images"]), credits: credits(j["credits"]), videos: videos(j["videos"]),
-            collection: collection, ratings: ratings, language: language
+            collection: collection, ratings: ratings, language: language,
+            countries: countryCodes(j["production_countries"].array.compactMap { $0["iso_3166_1"].text }, else: j["origin_country"])
         )
     }
 
@@ -146,8 +147,17 @@ enum TMDBMapper {
             certification: tvCertification(j["content_ratings"], region: region),
             posterPath: j["poster_path"].text, backdropPath: j["backdrop_path"].text, seasons: seasons,
             images: images(j["images"]), credits: credits(j["credits"]), videos: videos(j["videos"]),
-            ratings: ratings, language: language
+            ratings: ratings, language: language,
+            countries: countryCodes([], else: j["origin_country"])
         )
+    }
+
+    /// R471 item 5: two-letter country codes, upper case, each once; `fallback` is a JSON array of codes. Nil for none.
+    static func countryCodes(_ codes: [String], else fallback: JSON) -> [String]? {
+        let raw = codes.isEmpty ? fallback.array.compactMap(\.text) : codes
+        var seen = Set<String>()
+        let clean = raw.map { $0.trimmingCharacters(in: .whitespaces).uppercased() }.filter { $0.count == 2 && seen.insert($0).inserted }
+        return clean.isEmpty ? nil : clean
     }
 
     static func episode(_ j: JSON, seriesID: Int, fallbackSeason: Int? = nil) -> EpisodeMetadata? {

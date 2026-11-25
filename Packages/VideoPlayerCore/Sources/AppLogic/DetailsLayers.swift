@@ -40,6 +40,7 @@ public struct LayeredDetails: Equatable, Sendable {
         // shown (only Wikidata gives them): none next to TMDB's or the source's rating.
         let rating = ContentRating.pick(layers.map { ($0.0, $0.1?.contentRating) }, preferLocal: preferLocal)
         var descriptors: [String] = []
+        var facts = TitleDetails(overview: nil, cast: [])
         for (layer, found) in layers {
             guard let found else { continue }
             var gave = false
@@ -56,12 +57,22 @@ public struct LayeredDetails: Equatable, Sendable {
             }
             if rating?.layer == layer { gave = true }
             if rating?.layer == layer, !found.contentDescriptors.isEmpty { descriptors = found.contentDescriptors }
+            // R471 item 5: the other facts, each from the first layer that has it. Before, the merge dropped them, so the
+            // release date, genres and runtime of TMDB never reached the page through the layers.
+            if facts.releaseDate == nil, let v = found.releaseDate { facts.releaseDate = v; gave = true }
+            if facts.genres.isEmpty, !found.genres.isEmpty { facts.genres = found.genres; gave = true }
+            if facts.runtimeMinutes == nil, let v = found.runtimeMinutes { facts.runtimeMinutes = v; gave = true }
+            if facts.directors.isEmpty, !found.directors.isEmpty { facts.directors = found.directors; gave = true }
+            if facts.regions.isEmpty, !found.regions.isEmpty { facts.regions = found.regions; gave = true }
+            if facts.originalLanguage == nil, let v = found.originalLanguage { facts.originalLanguage = v; gave = true }
             if gave { used.append(layer) }
         }
-        guard overview != nil || !cast.isEmpty || rating != nil || !descriptors.isEmpty else { return LayeredDetails(details: nil, used: []) }
-        var details = TitleDetails(overview: overview, cast: cast)
+        var details = facts
+        details.overview = overview
+        details.cast = cast
         details.contentRating = rating?.rating
         details.contentDescriptors = descriptors
+        guard !details.isEmpty else { return LayeredDetails(details: nil, used: []) }
         return LayeredDetails(details: details, used: used, ratingLayer: rating?.layer)
     }
 
