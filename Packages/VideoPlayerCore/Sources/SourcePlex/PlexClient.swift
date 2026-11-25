@@ -89,16 +89,32 @@ public actor PlexClient: MediaSource {
 
     public func read(_ path: String, range: ByteRange) async throws -> Data {
         if range.length == 0 { return Data() }
-        let url = try await partURL(path)
+        let url = try await keptPartURL(path)
         let last = range.offset + range.length - 1
         let response = try await http.send(http.request("GET", url, token: token, extra: ["Range": "bytes=\(range.offset)-\(last)"]))
         switch response.statusCode {
         case 206: return response.body.count > Int(range.length) ? response.body.prefix(Int(range.length)) : response.body
         case 200: throw SourceError.rangesNotSupported
         case 416: throw SourceError.rangeNotSatisfiable
+        case 404: partURLs[path] = nil; throw SourceError.notFound
         default: try PlexHTTP.check(response); throw SourceError.httpStatus(response.statusCode)
         }
     }
+
+    /// R471 (59): the address of a file once read, so later reads of it (every segment of a converted play) never wait for
+    /// the library listing to be read again when it expires (300 s, R305), nor fail with that listing's error. Forgotten on a
+    /// 404 and on `refresh()`.
+    private var partURLs: [String: URL] = [:]
+
+    private func keptPartURL(_ path: String) async throws -> URL {
+        if let url = partURLs[path] { return url }
+        let url = try await partURL(path)
+        partURLs[path] = url
+        return url
+    }
+
+    /// Files whose address is kept (tests).
+    var keptPartURLCount: Int { partURLs.count }
 
     public func playbackAccess(for path: String) async throws -> PlaybackAccess {
         let url = try await partURL(path)
@@ -108,6 +124,7 @@ public actor PlexClient: MediaSource {
     /// Reads the sections again (after the server added or removed files).
     public func refresh() async throws {
         treeTask = nil
+        partURLs.removeAll()
         _ = try await currentTree()
     }
 
