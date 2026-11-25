@@ -51,8 +51,12 @@ public struct FixMatchViewModel: Sendable {
     /// How many items the last choice changed (the screen can say "Applied to 8 episodes").
     public private(set) var appliedCount = 0
 
-    public init(store: any LibraryStore, searcher: any MatchSearching, itemID: Int64, kind: ItemKind, currentTitle: String, recorder: (any MatchChoiceRecording)? = nil) {
+    /// `scope`: the choice the screen opens with (R471 (12): the show page opens it on The Whole Show); a scope the kind does
+    /// not offer falls back to This File Only.
+    public init(store: any LibraryStore, searcher: any MatchSearching, itemID: Int64, kind: ItemKind, currentTitle: String,
+                recorder: (any MatchChoiceRecording)? = nil, scope: FixMatchScope = .thisFile) {
         self.store = store; self.searcher = searcher; self.itemID = itemID; self.kind = kind; self.query = currentTitle; self.recorder = recorder
+        if FixMatchScope.choices(for: kind).contains(scope) { self.scope = scope }
     }
 
     public var scopeChoices: [FixMatchScope] { FixMatchScope.choices(for: kind) }

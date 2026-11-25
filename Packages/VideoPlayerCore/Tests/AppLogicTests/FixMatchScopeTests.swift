@@ -20,6 +20,24 @@ final class FixMatchScopeTests: XCTestCase {
         XCTAssertEqual(FixMatchScope.choices(for: .episode), [.thisFile, .thisSeason, .wholeShow])
     }
 
+    /// R471 (12): the show page opens Fix Match on The Whole Show; a movie given that scope still opens on This File Only.
+    func testTheScreenCanOpenOnTheWholeShowForAnEpisodeOnly() throws {
+        let store = try LibraryRig.make().store
+        let episode = FixMatchViewModel(store: store, searcher: OneCandidate(), itemID: 1, kind: .episode, currentTitle: "x", scope: .wholeShow)
+        XCTAssertEqual(episode.scope, .wholeShow)
+        let movie = FixMatchViewModel(store: store, searcher: OneCandidate(), itemID: 1, kind: .movie, currentTitle: "x", scope: .wholeShow)
+        XCTAssertEqual(movie.scope, .thisFile)
+        XCTAssertEqual(FixMatchViewModel(store: store, searcher: OneCandidate(), itemID: 1, kind: .episode, currentTitle: "x").scope, .thisFile,
+                       "the episode page still opens on This File Only")
+    }
+
+    func testTheShowsManageOffersFixMatchUnlessRestricted() {
+        var c = ProductActionContext(kind: .show)
+        XCTAssertEqual(ProductActions.manageList(c), [.editMetadata, .fixMatch])
+        c.fixMatchAllowed = false
+        XCTAssertEqual(ProductActions.manageList(c), [.editMetadata])
+    }
+
     func testAMovieCannotBeGivenASeasonScope() throws {
         var vm = FixMatchViewModel(store: try LibraryRig.make().store, searcher: OneCandidate(), itemID: 1, kind: .movie, currentTitle: "x")
         vm.setScope(.wholeShow)

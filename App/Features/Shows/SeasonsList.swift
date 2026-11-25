@@ -56,6 +56,8 @@ struct SeasonsList: View {
     @State private var showTMDB: Int?
     @State private var editRequest: ShowEditRequest?
     @State private var editRevision = 0
+    /// R471 (12): Fix Match for the whole show, opened through this episode.
+    @State private var fixMatchEpisode: FixMatchRequest?
 
     /// R471 item 6: the description of the hero: the next-up episode's synopsis after its code and title, else the show's.
     private var heroDescription: (prefix: String?, text: String)? {
@@ -210,6 +212,12 @@ struct SeasonsList: View {
         })) { request in
             MetadataEditView(title: request.title, keys: request.keys, artworkKey: request.artworkKey, level: request.level)
         }
+        .taskCover(item: Binding(get: { fixMatchEpisode }, set: { new in
+            if new == nil, fixMatchEpisode != nil { showTMDB = nil; editRevision += 1 }
+            fixMatchEpisode = new
+        })) { request in
+            FixMatchView(itemID: request.id, kind: .episode, currentTitle: content.seriesTitle, initialScope: .wholeShow)
+        }
         // R471 item 6: the episodes' own details (synopsis, date, rating) for the shown season's cards and the next-up
         // episode, the source's layer and the user's edits (as R453 did for the focused card).
         .task(id: "\(shownSeason?.season ?? -1)|\(content.resumeEpisodeID ?? 0)|\(services.online.keyRevision)") {
@@ -327,6 +335,12 @@ struct SeasonsList: View {
                                                                       artworkKey: nil, level: .season)
                                     }
                                 }
+                                // R471 (12): Fix Match for the whole show, on the existing screen opened at The Whole Show
+                                // through one of its episodes; off while Restrictions are on (R460).
+                                if ProductActions.manageList(showActions).contains(.fixMatch), let episodeID = anyEpisodeID {
+                                    let fix = ProductAction.fixMatch
+                                    Button(fix.title, systemImage: fix.symbol) { fixMatchEpisode = FixMatchRequest(id: episodeID) }
+                                }
                             }
                         default:
                             EmptyView()
@@ -362,9 +376,13 @@ struct SeasonsList: View {
         var c = ProductActionContext(kind: .show)
         c.someUnwatched = content.canMarkWatched
         c.someWatched = content.canMarkUnwatched
-        c.fixMatchAllowed = false // Fix Match is not offered for a whole show yet
+        // R460: Fix Match lists catalogue titles that are not in the library, so it is off while Restrictions are on.
+        c.fixMatchAllowed = OnlineTitleSurface.fixMatchCandidates.isAvailable(restricted: services.restrictionsOn)
         return c
     }
+
+    /// One of the show's episodes: the next-up one, else the first. Fix Match for the whole show goes through it.
+    private var anyEpisodeID: Int64? { content.resumeEpisodeID ?? content.seasons.first?.episodes.first?.id }
 
     /// The entries of the show's list this page can act on today (Mark All, and Manage with Edit Details, R471 (11)); the
     /// rest of the list is not built for a show.
@@ -381,4 +399,9 @@ struct ShowEditRequest: Identifiable {
     /// The artwork galleries' key; nil for a season (no season artwork key yet, R471 (11)).
     let artworkKey: String?
     let level: ArtworkGalleryKind.Level
+}
+
+/// R471 (12): the episode Fix Match for the whole show is opened through.
+struct FixMatchRequest: Identifiable {
+    let id: Int64
 }

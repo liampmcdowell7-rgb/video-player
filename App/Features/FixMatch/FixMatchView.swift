@@ -8,6 +8,8 @@ struct FixMatchView: View {
     let itemID: Int64
     let kind: ItemKind
     let currentTitle: String
+    /// R471 (12): the scope the screen opens with (the show page passes The Whole Show).
+    var initialScope: FixMatchScope = .thisFile
     @Environment(AppServices.self) private var services
     @Environment(\.dismiss) private var dismiss
     @State private var model: ScreenModel<FixMatchViewModel>?
@@ -57,7 +59,7 @@ struct FixMatchView: View {
     private func ensureModel() {
         if model == nil {
             model = ScreenModel(FixMatchViewModel(store: services.store, searcher: services.online.searcher, itemID: itemID, kind: kind,
-                                                  currentTitle: currentTitle, recorder: services.online.recorder))
+                                                  currentTitle: currentTitle, recorder: services.online.recorder, scope: initialScope))
         }
     }
 
