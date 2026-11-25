@@ -55,6 +55,51 @@ public enum GridScrollRules {
         return CheckResult(passed: cut.isEmpty, lines: [line])
     }
 
+    /// R471 (49), owner's report of 25 Nov 2026 ("only one row displays at a time", one Down "skip[s] several items"):
+    /// one press of Down moves the focus to the row right under the one it was on, never further. `before` holds the cards
+    /// read before the press (with their frames then), `focusedBefore` and `focusedAfter` the focused card's label before
+    /// and after it. Passes on the last row (no row under it) when the focus stays in that row.
+    public static func downReachesNextRow(before: [(String, AXRect)], focusedBefore: String, focusedAfter: String,
+                                          rowTolerance: Double = 4) -> CheckResult {
+        let grouped: [[(String, AXRect)]] = rows(before, tolerance: rowTolerance)
+        guard let from = grouped.firstIndex(where: { $0.contains { $0.0 == focusedBefore } }) else {
+            return CheckResult(passed: false, lines: ["DOWN ONE ROW PROBLEM: “\(focusedBefore)” was not among the cards before the press"])
+        }
+        let expected: Int = min(from + 1, grouped.count - 1)
+        let landed: Int? = grouped.firstIndex(where: { $0.contains { $0.0 == focusedAfter } })
+        let nextLabels: String = grouped[expected].map { "“\($0.0)”" }.joined(separator: ", ")
+        if landed == expected {
+            return CheckResult(passed: true, lines: ["DOWN ONE ROW OK: “\(focusedBefore)” to “\(focusedAfter)”"])
+        }
+        let skipped: String = landed.map { "\($0 - from - 1) row(s) skipped" } ?? "a card that was not on the page before the press"
+        return CheckResult(passed: false, lines: ["DOWN ONE ROW PROBLEM: “\(focusedBefore)” to “\(focusedAfter)”, \(skipped); the next row was \(nextLabels)"])
+    }
+
+    /// R471 (49): after a move the focused card's row is wholly on screen (`screenTop` to `screenBottom`).
+    public static func focusedRowWhole(cards: [(String, AXRect)], focused: String, screenTop: Double, screenBottom: Double,
+                                       rowTolerance: Double = 4) -> CheckResult {
+        guard let row = rows(cards, tolerance: rowTolerance).first(where: { $0.contains { $0.0 == focused } }) else {
+            return CheckResult(passed: false, lines: ["FOCUSED ROW WHOLE PROBLEM: “\(focused)” is not a card on the page"])
+        }
+        let top: Double = row.map { $0.1.y }.min() ?? 0
+        let bottom: Double = row.map { $0.1.maxY }.max() ?? 0
+        let whole: Bool = top >= screenTop - 1 && bottom <= screenBottom + 1
+        return CheckResult(passed: whole, lines: [whole ? "FOCUSED ROW WHOLE OK (\(Int(top.rounded())) to \(Int(bottom.rounded())))"
+                                                       : "FOCUSED ROW WHOLE PROBLEM: the row of “\(focused)” runs \(Int(top.rounded())) to \(Int(bottom.rounded())), the screen \(Int(screenTop.rounded())) to \(Int(screenBottom.rounded()))"])
+    }
+
+    /// R471 (49): more than one row shows on screen when the grid has more than one row: the focused row and at least part
+    /// of a row above or under it (`shown` lists the cards that are drawn, not the ones hidden or off screen).
+    public static func moreThanOneRowShown(shown: [(String, AXRect)], totalRows: Int, screenTop: Double, screenBottom: Double,
+                                           rowTolerance: Double = 4) -> CheckResult {
+        let onScreen: [[(String, AXRect)]] = rows(shown, tolerance: rowTolerance).filter { row in
+            row.contains { $0.1.maxY > screenTop + 1 && $0.1.y < screenBottom - 1 }
+        }
+        let passed: Bool = totalRows < 2 || onScreen.count >= 2
+        return CheckResult(passed: passed, lines: [passed ? "ROWS ON SCREEN OK: \(onScreen.count)"
+                                                         : "ROWS ON SCREEN PROBLEM: \(onScreen.count) of \(totalRows) rows drawn on screen"])
+    }
+
     /// Cards grouped into rows by their top edge, rows from the top down, cards in a row from the left.
     static func rows(_ cards: [(String, AXRect)], tolerance: Double) -> [[(String, AXRect)]] {
         var rows: [[(String, AXRect)]] = []

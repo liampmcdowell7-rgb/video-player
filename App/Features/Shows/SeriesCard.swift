@@ -59,7 +59,7 @@ struct SeriesCard: View {
         .accessibilityValue(detail.full)
         // R471 (23): the show's actions on a long press, as a movie's poster has them.
         .seriesCardMenu(series)
-        .wholeRowOnly() // R443: in a library grid a row is drawn only when whole
+        // R471 (49): drawn at every scroll position (R443's whole-row hiding removed; see PosterGridLayout).
     }
 
     private var detail: ShortLine {

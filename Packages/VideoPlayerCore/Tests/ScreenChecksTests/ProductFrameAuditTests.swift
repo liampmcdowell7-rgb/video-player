@@ -145,6 +145,22 @@ extension ScreenChecksTests {
         }
     }
 
+    /// R471 (49): no library grid card is hidden by its scroll visibility (R443's whole-row rule showed one row at a time,
+    /// and one Down passed over the hidden rows).
+    func testNoGridCardIsHiddenWhileScrolling() throws {
+        guard let layout = try appSource("App/Shared/PosterGridLayout.swift"),
+              let poster = try appSource("App/Shared/PosterCard.swift"),
+              let series = try appSource("App/Features/Shows/SeriesCard.swift") else { return }
+        for (name, text) in [("PosterGridLayout", layout), ("PosterCard", poster), ("SeriesCard", series)] {
+            XCTAssertFalse(text.contains(".wholeRowOnly()"), name)
+            XCTAssertFalse(text.contains("onScrollVisibilityChange(threshold: 0.98)"), name)
+            XCTAssertFalse(text.contains(".opacity(whole ? 1 : 0)"), name)
+        }
+        XCTAssertTrue(layout.contains("LazyVGrid(columns:"), "the grid stays lazy: built rows keep their focus order")
+        XCTAssertTrue(layout.contains(".focusSection()"), "R361's focus section is kept")
+        XCTAssertTrue(layout.contains("if let header { header }"), "R443 item 1: the controls stay the grid's header")
+    }
+
     /// R471 (45): a cast name is headline size (as the About title), its role caption and secondary (as the genre line).
     func testCastNamesMatchTheAboutTitle() throws {
         guard let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift") else { return }

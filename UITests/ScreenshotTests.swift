@@ -2426,9 +2426,23 @@ final class ScreenshotTests: XCTestCase {
             }
             settle(); shot(prefix + "-0"); checkGridScroll(prefix + "-0", tab: tab, in: app)
             _ = focusContent(in: app)
+            // R471 (49): each Down must land on the row right under the focused one, wholly on screen, with more than one row
+            // drawn (owner's report of 25 Nov 2026: one row at a time, one Down passing over several rows).
+            var before: (cards: [(String, AXRect)], focused: String) = (gridCards(in: app), focusedLabel(in: app))
             for step in 1...4 {
                 XCUIRemote.shared.press(.down); sleep(1)
                 shot("\(prefix)-\(step)", endOfScroll: "Down on the \(tab) grid"); checkGridScroll("\(prefix)-\(step)", tab: tab, in: app)
+                let cards: [(String, AXRect)] = gridCards(in: app)
+                let focused: String = focusedLabel(in: app)
+                let screen: CGRect = app.windows.firstMatch.frame
+                let oneRow: CheckResult = GridScrollRules.downReachesNextRow(before: before.cards, focusedBefore: before.focused, focusedAfter: focused)
+                let whole: CheckResult = GridScrollRules.focusedRowWhole(cards: cards, focused: focused, screenTop: Double(screen.minY), screenBottom: Double(screen.maxY))
+                let shown: CheckResult = GridScrollRules.moreThanOneRowShown(shown: cards, totalRows: 2, screenTop: Double(screen.minY), screenBottom: Double(screen.maxY))
+                note("\(prefix)-\(step)-FOCUS", [oneRow, whole, shown].map { $0.text }.joined(separator: "\n"))
+                XCTAssertTrue(oneRow.passed, "\(prefix)-\(step): " + oneRow.verdict)
+                XCTAssertTrue(whole.passed, "\(prefix)-\(step): " + whole.verdict)
+                XCTAssertTrue(shown.passed, "\(prefix)-\(step): " + shown.verdict)
+                before = (cards, focused)
             }
             if openToolbarControl("More", id: ControlID.moreControls, in: app, name: prefix + "-more") {
                 sleep(1); shot(prefix + "-more-menu")
@@ -2449,15 +2463,14 @@ final class ScreenshotTests: XCTestCase {
             guard element.exists, !element.frame.isEmpty else { return nil }
             return (pair.0, AXRect(element.frame))
         }
-        let cardElements: [XCUIElement] = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Sample")).allElementsBoundByIndex
-        var seen: Set<String> = []
-        let cards: [(String, AXRect)] = cardElements.compactMap { (element: XCUIElement) -> (String, AXRect)? in
-            guard element.exists, !element.frame.isEmpty, seen.insert(element.label).inserted else { return nil }
-            return (element.label, AXRect(element.frame))
-        }
-        let headerBottom: Double = controls.map { $0.1.maxY }.max() ?? Double(app.windows.firstMatch.frame.minY)
+        let cards: [(String, AXRect)] = gridCards(in: app)
         let onPosters: CheckResult = GridScrollRules.controlsClearOfPosters(controls: controls, posters: cards)
-        let halfRow: CheckResult = GridScrollRules.noHalfRowUnderHeader(cards: cards, headerBottom: headerBottom)
+        // R471 (49): the half-row rule applies while the controls are on screen (R443 item 1). Once they have scrolled away
+        // there is no header area: a row may meet the screen's top edge, as on any tvOS grid (`focusedRowWhole` checks the
+        // focused row instead).
+        let halfRow: CheckResult = controls.isEmpty
+            ? CheckResult(passed: true, lines: ["NO HALF ROW UNDER THE HEADER: the controls have scrolled away"])
+            : GridScrollRules.noHalfRowUnderHeader(cards: cards, headerBottom: controls.map { $0.1.maxY }.max() ?? 0)
         let pitch = GridScrollRules.rowPitch(cards: cards)
         let marquees: Int = app.descendants(matching: .any).matching(identifier: ControlID.textMarquee).count
         let cut: [String] = marquees == 0 ? [] : ["\(marquees) title(s) shown by the marquee"]
@@ -2466,6 +2479,22 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(onPosters.passed, "\(name): " + onPosters.verdict)
         XCTAssertTrue(halfRow.passed, "\(name): " + halfRow.verdict)
         XCTAssertTrue(titles.passed, "\(name): " + titles.verdict)
+    }
+
+    /// The sample cards on a library grid with their frames, each title once.
+    func gridCards(in app: XCUIApplication) -> [(String, AXRect)] {
+        let elements: [XCUIElement] = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Sample")).allElementsBoundByIndex
+        var seen: Set<String> = []
+        return elements.compactMap { (element: XCUIElement) -> (String, AXRect)? in
+            guard element.exists, !element.frame.isEmpty, seen.insert(element.label).inserted else { return nil }
+            return (element.label, AXRect(element.frame))
+        }
+    }
+
+    /// The label of the element that has the focus ("" when none has).
+    func focusedLabel(in app: XCUIApplication) -> String {
+        let focused: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        return focused.exists ? focused.label : ""
     }
 
     /// R449: the edit screens of a movie page, one picture per screen, at the default and the Larger Text size

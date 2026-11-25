@@ -10,12 +10,6 @@ private struct LibraryGridHeaderKey: EnvironmentKey {
     static let defaultValue: AnyView? = nil
 }
 
-/// The grid draws a row only when it is fully visible (`WholeRowOnly`): on by default in `PosterGridLayout`, off for the
-/// horizontal rows of Home, which show their last card cut on purpose.
-private struct GridWholeRowsKey: EnvironmentKey {
-    static let defaultValue = false
-}
-
 /// R458 (General > List View, PROVISIONAL): the grid draws one row per title (a small poster, the title and its second line)
 /// instead of five posters across. The cards read it and draw their row form.
 private struct ListRowsKey: EnvironmentKey {
@@ -32,37 +26,18 @@ extension EnvironmentValues {
         get { self[LibraryGridHeaderKey.self] }
         set { self[LibraryGridHeaderKey.self] = newValue }
     }
-
-    var gridWholeRows: Bool {
-        get { self[GridWholeRowsKey.self] }
-        set { self[GridWholeRowsKey.self] = newValue }
-    }
 }
 
-/// R443 item 2: "a row is fully visible or not drawn under the header area; scrolling moves by whole rows". A card that
-/// is less than 98 % visible in its scroll view is not drawn (opacity 0, still focusable, so a move of the focus onto it
-/// scrolls it into view and it appears whole). Every card of a row has the same top and height, so a row appears and
-/// disappears as one. `onScrollVisibilityChange(threshold:action:)`: tvOS 18.0+ (https://developer.apple.com/documentation/swiftui/view/onscrollvisibilitychange(threshold:_:)).
-/// UNVERIFIED on a device: that the focus engine scrolls to an undrawn card, and the 98 % threshold at the lifted size.
-struct WholeRowOnly: ViewModifier {
-    @Environment(\.gridWholeRows) private var active
-    @State private var whole = true
-
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if active {
-            content
-                .opacity(whole ? 1 : 0)
-                .onScrollVisibilityChange(threshold: 0.98) { (visible: Bool) in whole = visible }
-        } else {
-            content
-        }
-    }
-}
-
-extension View {
-    func wholeRowOnly() -> some View { modifier(WholeRowOnly()) }
-}
+/// R471 (49), PROVISIONAL (owner's report of 25 Nov 2026: "only one row displays at a time and when i scroll down once the
+/// rows scroll down at least 3 and skip several items that i cant see"): every card is drawn at every scroll position.
+/// R443 item 2 hid a card less than 98 % visible (`WholeRowOnly`: opacity 0 from `onScrollVisibilityChange(threshold:
+/// 0.98)`). With rows 660 pt apart (a 2:3 poster five across, its caption and the 100 pt row gap) on a 1080 pt screen only
+/// one row is ever 98 % visible, so one row showed at a time. A card hidden that way is, by our reading, not a focus
+/// candidate (UIKit skips views it cannot see; UNVERIFIED for SwiftUI's `opacity(0)` on tvOS 27), while a row built below
+/// the screen but never yet seen kept its starting state (drawn), so one Down passed over the hidden rows to the first row
+/// that had never been on screen: three rows on. R443 item 1 stays (the controls are the grid's header and scroll away
+/// with it), so no row can sit under them; rows now meet the screen's edges as on any tvOS grid, and the focus engine
+/// scrolls the focused row fully into view (`GridScrollRules.focusedRowWhole`, `downReachesNextRow`).
 
 /// The standard poster grid frame: five columns with the layout guidance spacing. Content is whatever tiles the caller makes.
 struct PosterGridLayout<Content: View>: View {
@@ -84,7 +59,6 @@ struct PosterGridLayout<Content: View>: View {
                 LazyVGrid(columns: listView ? [GridItem(.flexible())] : columns, spacing: listView ? 40 : 100) { // design-lint:allow R458: the list's row gap, the layout guidance's 40 pt spacing
                     content
                 }
-                .environment(\.gridWholeRows, true)
                 .environment(\.listRows, listView)
             }
         }

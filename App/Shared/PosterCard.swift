@@ -115,7 +115,7 @@ struct PosterCard: View {
                 .accessibilityValue(card.subtitle ?? "")
                 .cardContextMenu(card)
                 .task(id: showFilenames) { await loadFileName() }
-                .wholeRowOnly() // R443: in a library grid a row is drawn only when whole
+                // R471 (49): drawn at every scroll position (R443's whole-row hiding removed; see PosterGridLayout).
             }
         }
     }
