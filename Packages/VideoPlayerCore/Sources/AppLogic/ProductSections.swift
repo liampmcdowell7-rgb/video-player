@@ -177,9 +177,12 @@ public struct InfoEntry: Equatable, Sendable, Identifiable {
     public var label: String
     public var value: String
     public var full: [String]?
+    /// R471 (33), PROVISIONAL (frames show t20s, movie t06s): an Accessibility entry is shown as its outlined badge
+    /// ("SDH") over the explanation; the label stays its spoken name. Nil for every other entry.
+    public var badge: String?
 
-    public init(label: String, value: String, full: [String]? = nil) {
-        self.label = label; self.value = value; self.full = full
+    public init(label: String, value: String, full: [String]? = nil, badge: String? = nil) {
+        self.label = label; self.value = value; self.full = full; self.badge = badge
     }
 }
 
@@ -222,7 +225,7 @@ public enum ProductInfo {
 
     /// Accessibility: each feature the file carries, with our own one-line explanation.
     public static func accessibility(_ features: [AccessFeature]) -> [InfoEntry] {
-        features.map { InfoEntry(label: $0.spoken, value: $0.explanation) }
+        features.map { InfoEntry(label: $0.spoken, value: $0.explanation, badge: $0.badgeText) }
     }
 
     /// R471 item 5: country names for Region of Origin, in the person's language ("United States"); a code the system does

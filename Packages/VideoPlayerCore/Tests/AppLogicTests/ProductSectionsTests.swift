@@ -83,6 +83,8 @@ final class ProductSectionsTests: XCTestCase {
         let rows = ProductInfo.accessibility([.sdh, .ad])
         XCTAssertEqual(rows.map(\.label), ["Subtitles for the deaf and hard of hearing", "Audio description"])
         XCTAssertTrue(rows.allSatisfy { !$0.value.isEmpty })
+        // R471 (33): each entry carries its outlined badge's text.
+        XCTAssertEqual(rows.map(\.badge), ["SDH", "AD"])
         XCTAssertEqual(ProductInfo.accessibility([]), [])
     }
 }

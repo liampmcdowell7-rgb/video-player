@@ -202,8 +202,15 @@ private struct InfoColumn: View {
                 .accessibilityAddTraits(.isHeader)
             ForEach(entries) { entry in
                 VStack(alignment: .leading) {
-                    FittingText(entry.label, style: .caption)
-                        .foregroundStyle(ReadableSecondary.style)
+                    if let badge = entry.badge {
+                        // R471 (33), PROVISIONAL (frames show t20s, movie t06s): an Accessibility entry is its outlined
+                        // badge ("SDH"), the one badge drawing (`BadgeOutline`), spoken by its full name.
+                        BadgeOutline(text: badge)
+                            .accessibilityLabel(entry.label)
+                    } else {
+                        FittingText(entry.label, style: .caption)
+                            .foregroundStyle(ReadableSecondary.style)
+                    }
                     Text(entry.value)
                         .font(.callout)
                         .fixedSize(horizontal: false, vertical: true)
