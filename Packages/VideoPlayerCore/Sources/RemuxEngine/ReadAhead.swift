@@ -94,6 +94,23 @@ public struct ReadAheadPlanner: Sendable {
     /// The player asked for a segment. Returns the segments to fetch now (not held, not in flight), nearest first, and
     /// the segments that should be cancelled or dropped because the playhead moved away from them.
     public mutating func requested(_ index: Int, now: Double) -> (fetch: [Int], cancel: [Int]) {
+        // R471 (82): a request a little behind the playhead is another track lagging (audio behind video), not a seek, when the
+        // lag and the read-ahead fit the budget together: the playhead stays and nothing ahead of it is dropped. Before, it
+        // moved the playhead back and dropped the windows read ahead for the leading track, which were then read again
+        // (audio one segment behind video read most windows twice).
+        if let p = playhead, index < p {
+            let before = lastRequestTime
+            lastRequestTime = now
+            let ahead = desiredAhead(now: now)
+            if (p - index) + max(ahead, 1) + 1 <= capacity {
+                held.insert(index)
+                let keep = Set(index...(p + max(ahead, 1)))
+                let drop = held.filter { !keep.contains($0) }
+                for d in drop { held.remove(d) }
+                return ([], drop.filter { inFlight.contains($0) }.sorted())
+            }
+            lastRequestTime = before
+        }
         var cancel: [Int] = []
         if let p = playhead, index < p || index > p + capacity + 1 {
             // A seek: everything in flight that is not near the new playhead is wasted work.
