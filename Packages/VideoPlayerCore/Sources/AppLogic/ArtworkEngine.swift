@@ -121,6 +121,10 @@ public actor ArtworkEngine {
     private let preferLocalArtwork: @Sendable () -> Bool
     private let now: @Sendable () -> Date
     private var misses: [String: Date] = [:]
+    /// R471 (75): the number of the newest lookup of each key still running (removed when it ends).
+    private var lookups: [String: Int] = [:]
+    /// Numbers never repeat, so a lookup still running is never mistaken for a later one of the same key.
+    private var lastLookup = 0
     /// How long a "found nothing" answer is remembered, so scrolling past a title does not repeat the lookups. PROVISIONAL.
     public static let missMemory: TimeInterval = 15 * 60
 
@@ -143,6 +147,11 @@ public actor ArtworkEngine {
         // R455: the user's choice beats every source, so a rescan, Fix Match or an online refresh never replaces it.
         if let field = await overrideField(for: key), let chosen = await overrides?.override(key: text, field: field) { return chosen }
         if let at = misses[text], now().timeIntervalSince(at) < Self.missMemory { return .none }
+        // R471 (75): only the newest lookup of a key records its answer; an older one that ends later (the engine is an
+        // actor, so lookups of one key interleave at every wait) leaves what the newer one found.
+        lastLookup += 1
+        let lookup = lastLookup
+        lookups[text] = lookup
         let result: ArtworkResult
         do {
             switch key {
@@ -154,7 +163,10 @@ public actor ArtworkEngine {
         } catch {
             result = .none
         }
-        if result == .none { misses[text] = now() } else { misses[text] = nil }
+        if lookups[text] == lookup {
+            lookups[text] = nil
+            if result == .none { misses[text] = now() } else { misses[text] = nil }
+        }
         return result
     }
 
