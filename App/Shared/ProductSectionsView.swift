@@ -16,7 +16,10 @@ struct ExtrasShelf: View {
 
     var body: some View {
         VStack(alignment: .leading) {
+            // R471 (113): room for the lifted card under the header and under the cards, as every other shelf of lifting
+            // cards (R402: Home, Discover, Related); frame show t16s spaces Bonus Content and Related alike.
             ShelfHeader(heading)
+                .padding(.bottom, CGFloat(RowSpacing.shelfFocusRoom))
             ScrollView(.horizontal) {
                 // design-lint:allow HIG Layout, 40 pt horizontal spacing between cards (docs/DESIGN_SYSTEM.md section 4)
                 LazyHStack(alignment: .top, spacing: 40) {
@@ -47,6 +50,7 @@ struct ExtrasShelf: View {
                 }
             }
             .scrollClipDisabled()
+            .padding(.bottom, CGFloat(RowSpacing.shelfFocusRoom))
         }
         .productPageRow()
         .taskCover(item: $shown) { extra in

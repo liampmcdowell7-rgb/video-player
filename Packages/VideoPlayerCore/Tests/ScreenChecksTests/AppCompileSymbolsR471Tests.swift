@@ -73,4 +73,17 @@ extension ScreenChecksTests {
         XCTAssertTrue(source.contains("return \"Every episode of \\(pending.season.title) will be marked as \\(state)\""),
                       "the confirmation's words changed")
     }
+
+    /// R471 (113): the Trailers and Bonus Content shelves keep the shared room for a lifted card under their header and
+    /// under their cards (R402), as the Related shelf in the same file does.
+    func testTheExtrasShelfHasRoomForTheLiftedCard() throws {
+        guard let source = try appSource("App/Shared/ProductSectionsView.swift") else { return }
+        let start = try XCTUnwrap(source.range(of: "struct ExtrasShelf: View {"))
+        let end = try XCTUnwrap(source.range(of: "struct RelatedShelf: View {"))
+        let extras = source[start.lowerBound..<end.lowerBound]
+        XCTAssertTrue(extras.contains("ShelfHeader(heading)\n                .padding(.bottom, CGFloat(RowSpacing.shelfFocusRoom))"),
+                      "no room under the extras header")
+        XCTAssertTrue(extras.contains(".scrollClipDisabled()\n            .padding(.bottom, CGFloat(RowSpacing.shelfFocusRoom))"),
+                      "no room under the extras cards")
+    }
 }
