@@ -11,7 +11,10 @@ private actor Flag {
 
 final class TimeBoxTests: XCTestCase {
     func testWorkThatFinishesInTimeGivesItsResult() async {
-        let result = await TimeBox.wait(atMost: 60, sleep: { _ in try? await Task.sleep(nanoseconds: 5_000_000_000) }) { 42 }
+        // R471 (109): the injected box is the full 60 s it names (was 5 s): under the whole suite's load the trivial work was
+        // once not scheduled within 5 s (26 Nov 2026, a nil). A normal run is not slower: the timer is cancelled, and its
+        // sleep ends, as soon as the work gives its result.
+        let result = await TimeBox.wait(atMost: 60, sleep: { _ in try? await Task.sleep(nanoseconds: 60_000_000_000) }) { 42 }
         XCTAssertEqual(result, 42)
     }
 
