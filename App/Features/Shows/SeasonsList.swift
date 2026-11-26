@@ -125,10 +125,8 @@ struct SeasonsList: View {
                     // R471 item 6 (frames show t08s, home photo): "TV Show · genres [rating]".
                     HeroKindLineView(segments: HeroLines.kindLine(kind: .show, source: nextSource?.kind, genres: details?.genres ?? [],
                                                                   rating: details?.contentRating))
-                    // R404: nothing in the stack without content advice, as on the movie page. (Also in Information below.)
-                    if let advice = details?.contentDescriptors, !advice.isEmpty {
-                        ContentAdviceLine(descriptors: advice)
-                    }
+                    // R471 (83): no content advice line on the hero (frames show t08s, t10s: the description follows the kind
+                    // line); the advice is the Information column's "Content Advisories" row, as on the movie and episode pages.
                     // R471 item 6: replaces R453's focus-driven info block: the next-up episode's synopsis after "S4, E4 · Title:",
                     // else the show's; the whole text one press away (rule L5).
                     if let description = heroDescription {

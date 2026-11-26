@@ -70,7 +70,9 @@ extension ScreenChecksTests {
         for (name, text) in [("movie page", detail), ("show page", seasons)] {
             XCTAssertFalse(text.contains("ContentAdviceLine(descriptors: details?.contentDescriptors ?? [])"), "the \(name) still puts an empty advice line into its stack")
         }
-        XCTAssertTrue(seasons.contains("if let advice = details?.contentDescriptors, !advice.isEmpty {"), "the show page does not test for advice first")
+        // R471 (83): the show page's hero has no advice line either (frames show t08s, t10s); its Information column has the row.
+        XCTAssertFalse(seasons.contains("ContentAdviceLine("), "the show page still has the advice line on the hero")
+        XCTAssertTrue(seasons.contains("advisories: details?.contentDescriptors ?? []"), "the show page's Information does not take the advice")
         // R471 item 4: the movie and episode pages show the advice as the Information column's row ("Content Advisories"),
         // which `ProductInfo.information` leaves out when there is none (ProductSectionsTests).
         XCTAssertFalse(detail.contains("ContentAdviceLine("), "the movie page still has the advice line on the hero")
