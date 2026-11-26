@@ -79,6 +79,13 @@ extension ScreenChecksTests {
         XCTAssertTrue(detail.contains("advisories: details?.contentDescriptors ?? []"), "the movie page's Information does not take the advice")
     }
 
+    /// R471 (84): the show hero's facts line takes the next-up episode's year and length (frames show t08s, t10s).
+    func testTheShowHeroFactsLineSpeaksForTheNextUpEpisode() throws {
+        guard let seasons = try appSource("App/Features/Shows/SeasonsList.swift") else { return }
+        XCTAssertTrue(seasons.contains("HeroLines.showFactsText(nextEpisodeDate:"), "the show hero's facts line is not the next-up episode's")
+        XCTAssertTrue(seasons.contains("nextEpisodeSeconds: content.resumeEpisode?.durationSeconds"), "the show hero gives no length")
+    }
+
     /// R407 (item 10, A11Y1): the UI-test text-size override is applied on every pushed page too, not only around each
     /// tab's navigation stack.
     func testPushedPagesTakeTheUITestOverrides() throws {

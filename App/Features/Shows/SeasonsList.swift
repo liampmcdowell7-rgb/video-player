@@ -133,8 +133,10 @@ struct SeasonsList: View {
                         HeroDescription(prefix: description.prefix, text: description.text, title: content.seriesTitle,
                                         artworkKey: "series-\(seriesID)")
                     }
-                    // R471 item 6: the first air year, then the next-up episode's glyph badges.
-                    HeroFactsLineView(texts: HeroLines.factsText(kind: .show, date: details?.releaseDate, year: nil, durationSeconds: nil),
+                    // R471 (84): the next-up episode's air year (else the show's first) and length, then its glyph badges.
+                    HeroFactsLineView(texts: HeroLines.showFactsText(nextEpisodeDate: content.resumeEpisode.flatMap { episodeDetails[$0.id]?.releaseDate },
+                                                                     nextEpisodeSeconds: content.resumeEpisode?.durationSeconds,
+                                                                     showDate: details?.releaseDate),
                                       badges: HeroBadges.make(format: content.resumeEpisode?.badges ?? [], access: AccessFeature.detect(nextTracks)))
                     if details?.overview == nil, !services.online.hasCatalogueKey {
                         // #26 item 4: one short line saying the synopsis needs the key and where to add it.

@@ -49,6 +49,17 @@ final class HeroLinesTests: XCTestCase {
         XCTAssertEqual(HeroLines.factsText(kind: .episode, date: nil, year: 2020, durationSeconds: 0, locale: en), ["2020"])
     }
 
+    /// R471 (84): the show's facts line takes the next-up episode's year and length (frames show t08s, t10s).
+    func testTheShowsFactsLineSpeaksForTheNextUpEpisode() {
+        XCTAssertEqual(HeroLines.showFactsText(nextEpisodeDate: PartialDate(year: 2026, month: 8, day: 26), nextEpisodeSeconds: 43 * 60,
+                                               showDate: PartialDate(year: 2019, month: 3, day: 1)), ["2026", "43m"])
+        XCTAssertEqual(HeroLines.showFactsText(nextEpisodeDate: nil, nextEpisodeSeconds: 43 * 60, showDate: PartialDate(year: 2019, month: 3, day: 1)),
+                       ["2019", "43m"], "no episode date: the show's first air year")
+        XCTAssertEqual(HeroLines.showFactsText(nextEpisodeDate: nil, nextEpisodeSeconds: nil, showDate: PartialDate(year: 2019, month: 3, day: 1)),
+                       ["2019"], "no next-up episode: the year alone, as before")
+        XCTAssertEqual(HeroLines.showFactsText(nextEpisodeDate: nil, nextEpisodeSeconds: nil, showDate: nil), [])
+    }
+
     func testShortDurationsAndTimeLeft() {
         XCTAssertEqual(ShortDuration.text(43 * 60), "43m")
         XCTAssertEqual(ShortDuration.text(112 * 60), "1h 52m")

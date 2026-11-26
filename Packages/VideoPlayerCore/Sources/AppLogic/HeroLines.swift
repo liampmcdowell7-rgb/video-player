@@ -75,6 +75,14 @@ public enum HeroLines {
         return out
     }
 
+    /// R471 (84): a show's line 5 speaks for the next-up episode, as its badges do (frames show t08s, t10s: "2026 · 43m", the
+    /// year and length of the episode Play starts): that episode's air year, else the show's first air year, then the
+    /// episode's length. No next-up episode: the show's first air year alone, as before.
+    public static func showFactsText(nextEpisodeDate: PartialDate?, nextEpisodeSeconds: Double?, showDate: PartialDate?) -> [String] {
+        let date: PartialDate? = (nextEpisodeDate?.year ?? 0) > 0 ? nextEpisodeDate : showDate
+        return factsText(kind: .show, date: date, year: nil, durationSeconds: nextEpisodeSeconds)
+    }
+
     /// Line 4: an episode's description starts with its code and a colon ("S4, E4:"), drawn in the semibold weight; nil
     /// prefix for a movie or a show's own description. The text itself is never invented: no text, no line.
     public static func episodePrefix(code: String?) -> String? {
