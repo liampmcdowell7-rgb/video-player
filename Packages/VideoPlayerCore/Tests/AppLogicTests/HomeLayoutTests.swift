@@ -1,6 +1,7 @@
 import XCTest
 @testable import AppLogic
 import LibraryIndex
+import VideoPlayerCore
 
 // R349 (item C): the featured title of Home and the shape of each shelf.
 final class HomeLayoutTests: XCTestCase {
@@ -43,6 +44,15 @@ final class HomeLayoutTests: XCTestCase {
         let episode = HomeFeatured(card: card(2, "B", kind: .episode, series: 4), shelf: .nextUp)
         XCTAssertEqual(episode.kindLine(genres: [], rating: nil), [.text("TV Show")], "an episode is shown as its show")
         XCTAssertEqual(HomeFeatured.synopsisLines, 3)
+    }
+
+    /// R471 (86): the featured kind line starts with the source's glyph, as the pages' line does.
+    func testTheFeaturedKindLineStartsWithTheSourceGlyph() {
+        let movie = HomeFeatured(card: card(1, "A"), shelf: .recentlyAdded)
+        XCTAssertEqual(movie.kindLine(source: .plex, genres: ["Drama"], rating: "PG"),
+                       HeroLines.kindLine(kind: .movie, source: .plex, genres: ["Drama"], rating: "PG"))
+        XCTAssertEqual(movie.kindLine(source: .plex, genres: [], rating: nil).first,
+                       .glyph(symbol: SourceGlyph.symbol(.plex), spoken: SourceGlyph.spoken(.plex)))
     }
 
     func testAnEpisodeShowsItsShowsArtworkAndLogo() {

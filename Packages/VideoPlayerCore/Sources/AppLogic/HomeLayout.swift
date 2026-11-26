@@ -1,5 +1,6 @@
 import Foundation
 import LibraryIndex
+import VideoPlayerCore
 
 /// R349 (owner's device test of build 5, 21 Nov 2026, item C; PROVISIONAL): Home follows the Home screen of Apple's TV app
 /// on tvOS 27 (written description of the owner's request; the owner's photos of the TV app replace it as the reference
@@ -32,9 +33,10 @@ public struct HomeFeatured: Equatable, Sendable {
     }
 
     /// R471 (46), PROVISIONAL (Home hero photo): the featured title's kind line, as on its page: "Movie" or "TV Show" (an
-    /// episode is shown as its show), its genres, then the rating's box.
-    public func kindLine(genres: [String], rating: String?) -> [HeroLines.Segment] {
-        HeroLines.kindLine(kind: card.kind == .movie ? .movie : .show, source: nil, genres: genres, rating: rating)
+    /// episode is shown as its show), its genres, then the rating's box. R471 (86): led by the source's generic glyph, as
+    /// the product pages' kind line is (the card's file's source; nil, no glyph, until it is known).
+    public func kindLine(source: SourceKind? = nil, genres: [String], rating: String?) -> [HeroLines.Segment] {
+        HeroLines.kindLine(kind: card.kind == .movie ? .movie : .show, source: source, genres: genres, rating: rating)
     }
 
     /// R471 (46): how many lines of the synopsis Home shows under the featured title (the photo shows three).

@@ -1,5 +1,7 @@
 import SwiftUI
 import AppLogic
+import VideoPlayerCore
+import LibraryIndex
 
 /// R349 (owner's device test of build 5, 21 Nov 2026, item C; PROVISIONAL): the featured area at the top of Home, as the
 /// Home screen of Apple's TV app on tvOS 27 (docs/DESIGN_SYSTEM.md "Reference screens"): the title's large artwork across
@@ -16,6 +18,8 @@ struct HomeFeaturedView: View {
     @State private var overview: String?
     /// R471 (46): the featured title's genres, for its kind line.
     @State private var genres: [String] = []
+    /// R471 (86): the kind of source the featured card's file is on, for the kind line's glyph.
+    @State private var sourceKind: SourceKind?
     /// R388 (item B): Play takes the focus once, at launch, as the TV app opens on its featured title (`HomeLaunchFocus`).
     @FocusState private var playFocused: Bool
 
@@ -25,7 +29,8 @@ struct HomeFeaturedView: View {
             TitleHeader(title: featured.card.title, artworkKey: featured.titleArtworkKey)
             // R471 (46), PROVISIONAL (Home hero photo): the kind line of the title's page ("Movie · Drama", then the
             // rating's box), the shared view, in place of the card's own line and format badges (those stay on the page).
-            HeroKindLineView(segments: featured.kindLine(genres: genres, rating: rating))
+            // R471 (86): led by the source's glyph, as on the pages.
+            HeroKindLineView(segments: featured.kindLine(source: sourceKind, genres: genres, rating: rating))
             // R471 (46): three lines of the synopsis, as the photo (R396 had one), in the shared text column. A long
             // synopsis ends with the system's "…" here; the whole text is on the title's page (More). Nothing without one.
             if let overview {
@@ -74,6 +79,14 @@ struct HomeFeaturedView: View {
             rating = details?.contentRating
             overview = details?.overview
             genres = details?.genres ?? []
+        }
+        // R471 (86): the source of the file Play starts (the card's own item: the movie, or the episode), as the show
+        // page finds its next-up episode's source.
+        .task(id: featured.card.id) {
+            guard let item = try? await services.store.item(id: featured.card.id) else { sourceKind = nil; return }
+            let files = (try? await services.store.versions(of: featured.card.id)) ?? []
+            let file = PlayVersion.pick(files, explicit: item.preferredFileID, mode: .auto) ?? files.first
+            sourceKind = (try? await services.store.sources())?.first { $0.id == file?.sourceID }?.kind
         }
         // R388: Home's first frame has nothing focusable (the library is still loading), so tvOS put the focus in the
         // sidebar, which expands, and nothing moved it to the page. The first featured title right after launch asks for it.

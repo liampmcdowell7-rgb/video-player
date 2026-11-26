@@ -110,7 +110,9 @@ extension ScreenChecksTests {
     /// R471 (46): Home's featured area: the page's kind line, three lines of synopsis, the Play capsule, the info button.
     func testHomeFeaturedFollowsTheHomePhoto() throws {
         guard let home = try appSource("App/Features/Home/HomeFeaturedView.swift") else { return }
-        XCTAssertTrue(home.contains("HeroKindLineView(segments: featured.kindLine(genres: genres, rating: rating))"))
+        // R471 (86): with the source's glyph, found from the card's file.
+        XCTAssertTrue(home.contains("HeroKindLineView(segments: featured.kindLine(source: sourceKind, genres: genres, rating: rating))"))
+        XCTAssertTrue(home.contains("sourceKind = (try? await services.store.sources())?.first { $0.id == file?.sourceID }?.kind"))
         XCTAssertTrue(home.contains(".lineLimit(HomeFeatured.synopsisLines)"))
         XCTAssertTrue(home.contains("PlayCapsuleButton(capsule: PlayCapsule.make(progress: featured.card.progress"))
         XCTAssertFalse(home.contains(".buttonStyle(.borderedProminent)"), "no prominent button left on Home")
