@@ -774,6 +774,8 @@ public final class RemuxHost: @unchecked Sendable {
     public private(set) var info: RemuxMediaInfo?
     /// R390: the first requests of the player and how they were answered (set when the server starts).
     public private(set) var serveLog: LoopbackServeLog?
+    /// R471 (90): every request of this play, the last 20 kept (Settings > Playback > Loopback Requests).
+    public let requestTrail = LoopbackRequestTrail()
 
     public init(reader: any ByteRangeReader, options: RemuxOptions = RemuxOptions(), server: any LoopbackServer = POSIXLoopbackServer()) {
         self.session = MatroskaRemuxSession(reader: reader, options: options)
@@ -786,12 +788,15 @@ public final class RemuxHost: @unchecked Sendable {
         let s = session
         let log = LoopbackServeLog()
         serveLog = log
+        let trail = requestTrail
         let base = try server.start { request in
             // R390: logged only; the answer is the session's, unchanged.
             let token = log.asked(request.path)
+            let step = trail.asked(request.path)
             do {
                 let response = try await s.resource(path: request.path)
                 log.answered(token, status: response.status)
+                trail.answered(step, status: response.status)
                 return response
             } catch {
                 // R441: a thrown error becomes the loopback's 500; the entry keeps the (redacted) text next to it. A cancelled
@@ -801,7 +806,7 @@ public final class RemuxHost: @unchecked Sendable {
                 // the log keeps the status and the Last Event row names the resource and the cause.
                 let cancelled = error is CancellationError || (error as? RemuxError) == .cancelled
                 if cancelled && Task.isCancelled { log.failed(token, error: String(describing: error)) }
-                else { log.failed(token, status: 500, error: String(describing: error)) }
+                else { log.failed(token, status: 500, error: String(describing: error)); trail.answered(step, status: 500) }
                 throw error
             }
         }

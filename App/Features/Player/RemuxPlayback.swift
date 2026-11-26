@@ -3,6 +3,13 @@ import RemuxEngine
 import AppLogic
 import AudioDecode
 
+/// R471 (90), PROVISIONAL: the request trail of the last converted play, for Settings > Playback > Loopback Requests. In
+/// memory only; the trail itself is filled by the loopback handler, so nothing runs while no play runs.
+@MainActor
+enum LoopbackRequestsStore {
+    static var last: LoopbackRequestTrail?
+}
+
 /// One converted playback: the file's bytes are read through a `ByteRangeReader`, rewritten on demand as fragmented MP4 and
 /// served on a loopback address, and the player opens that address like any other stream (docs/PLAYBACK_WIRING.md).
 ///
@@ -42,6 +49,8 @@ final class RemuxPlayback {
             _ = try await host.session.prepare()
             fileOpened()
             let url = try await host.start()
+            // R471 (90): Settings > Playback > Loopback Requests shows this play's requests from now on.
+            LoopbackRequestsStore.last = host.requestTrail
             guard let info = host.info else { throw PlaybackFailures.damaged }
             return RemuxPlayback(host: host, url: url, info: info)
         } catch {

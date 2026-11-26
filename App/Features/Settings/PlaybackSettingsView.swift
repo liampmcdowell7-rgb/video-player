@@ -1,5 +1,6 @@
 import SwiftUI
 import AppLogic
+import RemuxEngine
 
 /// Settings > Playback. #15 3.2: bounded column (`SettingsPane`), footers of one or two lines, the full explanations on
 /// "Learn More" pages (SettingsTexts).
@@ -91,6 +92,22 @@ struct PlaybackSettingsView: View {
                     StatusText(PlaybackProblem.noneText)
                         .readableRow()
                 }
+            }
+            // R471 (90): the last 20 loopback requests of the last converted play (resource names only), so a photo shows
+            // how far the audio requests run behind the video ones. Each row takes the focus (R389).
+            Section {
+                let rows = LoopbackRequestsStore.last?.rows ?? []
+                if rows.isEmpty {
+                    StatusText(LoopbackRequestsText.none).readableRow()
+                } else {
+                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                        ValueRow(row.label, value: row.value).readableRow()
+                    }
+                }
+            } header: {
+                Text(LoopbackRequestsText.sectionTitle)
+            } footer: {
+                Text(LoopbackRequestsText.footer)
             }
             // R471 (51): what a photo of this page tells about a Down press that passed over rows (the row and column of each
             // focus move with the page's scroll offset) and about slow scrolling (slow frames per screen). In memory only,
