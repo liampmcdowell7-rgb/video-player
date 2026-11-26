@@ -39,4 +39,25 @@ public final class LiveSourceCache<Source>: @unchecked Sendable {
     public func forget(id: String) {
         lock.withLock { held[id] = nil }
     }
+
+    /// Whether an object of this source is kept now (for tests and checks).
+    public func isHolding(id: String) -> Bool { lock.withLock { held[id] != nil } }
+}
+
+/// R471 (68), PROVISIONAL (owner 25 Nov 2026 round 8, Part B item 2): saving a source's definition (an edit, a new
+/// certificate trusted, a rename or an option) drops its kept live object, so nothing built from the old definition is
+/// held after the edit. The save is passed on unchanged; a save that fails drops nothing (the definition is unchanged).
+public struct ForgettingDefinitionSaver: SourceDefinitionSaving {
+    private let inner: any SourceDefinitionSaving
+    private let forget: @Sendable (String) -> Void
+
+    public init(inner: any SourceDefinitionSaving, forget: @escaping @Sendable (String) -> Void) {
+        self.inner = inner
+        self.forget = forget
+    }
+
+    public func saveDefinition(_ definition: UDSourceDefinition) async throws {
+        try await inner.saveDefinition(definition)
+        forget(definition.id)
+    }
 }

@@ -68,6 +68,9 @@ final class SourceFactory {
     /// R471 (65): the next `source(for:)` of this source builds a new client (a scan wants a fresh listing).
     func forgetLiveSource(id: String) { live.forget(id: id) }
 
+    /// R471 (68): the same, as a closure the definition saver calls after every save (an edited source).
+    var liveSourceForgetter: @Sendable (String) -> Void { { [live] id in live.forget(id: id) } }
+
     func unavailableReason(for definition: UDSourceDefinition) -> String? {
         do { _ = try source(for: definition); return nil }
         catch { return (error as? LocalizedError)?.errorDescription ?? "This source cannot be opened." }

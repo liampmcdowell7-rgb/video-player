@@ -205,7 +205,11 @@ final class AppServices {
 
     var definitions: [UDSourceDefinition] { ledger.sourceDefinitions() }
 
-    var definitionSaver: any SourceDefinitionSaving { LedgerSourceDefinitions(ledger: ledger, essentials: essentials) }
+    /// R471 (68): every save of a definition (an edited source) drops the source's kept live client.
+    var definitionSaver: any SourceDefinitionSaving {
+        ForgettingDefinitionSaver(inner: LedgerSourceDefinitions(ledger: ledger, essentials: essentials),
+                                  forget: sourceFactory.liveSourceForgetter)
+    }
 
     func makeSource(_ definition: UDSourceDefinition) -> (any MediaSource)? { sourceFactory.makeSource(definition) }
 
@@ -464,6 +468,8 @@ final class AppServices {
         try? essentials.save(from: ledger)
         _ = try? await secrets.remove(sourceID: id)
         trust.clear(sourceID: id)
+        // R471 (68): the kept Plex client of a removed source is let go (before, it lived until the app quit).
+        sourceFactory.forgetLiveSource(id: id)
         libraryRevision += 1
         backup.libraryChanged()
         await writeTopShelf()
