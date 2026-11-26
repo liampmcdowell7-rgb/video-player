@@ -212,7 +212,8 @@ public enum ProductInfo {
         let advice = unique(advisories)
         if !advice.isEmpty { out.append(listed("Content Advisories", advice)) }
         let places = unique(regions)
-        if !places.isEmpty { out.append(listed("Region of Origin", places)) }
+        // R471 (95): "Regions of Origin" for more than one (frame show t20s), "Region of Origin" for one (movie t06s).
+        if !places.isEmpty { out.append(listed(places.count > 1 ? "Regions of Origin" : "Region of Origin", places)) }
         return out
     }
 

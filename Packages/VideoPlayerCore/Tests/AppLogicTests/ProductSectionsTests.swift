@@ -45,6 +45,18 @@ final class ProductSectionsTests: XCTestCase {
         XCTAssertEqual(runTime(20), "1m")
     }
 
+    /// R471 (95): the region label is plural for more than one region (frame show t20s), singular for one (movie t06s).
+    func testRegionLabelFollowsTheCount() {
+        func label(_ regions: [String]) -> String? {
+            ProductInfo.information(released: nil, year: nil, durationSeconds: nil, rating: nil, advisories: [], regions: regions)
+                .first?.label
+        }
+        XCTAssertEqual(label(["United States"]), "Region of Origin")
+        XCTAssertEqual(label(["United States", "United Kingdom"]), "Regions of Origin")
+        XCTAssertEqual(label(["United States", "United States"]), "Region of Origin", "a region named twice is one region")
+        XCTAssertNil(label([]))
+    }
+
     func testLanguagesComeFromTheFilesTracksEachOnce() {
         let tracks = FileTrackDetails(
             frameRate: nil,
