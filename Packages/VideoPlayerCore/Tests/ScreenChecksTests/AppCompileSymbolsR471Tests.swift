@@ -40,4 +40,24 @@ extension ScreenChecksTests {
         XCTAssertTrue(grid.contains("ForEach(Array(cards.enumerated()), id: \\.element.id) { (index: Int, card: ItemCard) in"),
                       "the app's form changed; check this probe still matches it")
     }
+
+    /// R471 (105): R471 (99) and (100) were reverted by the owner. The app's two preference actions change their state
+    /// directly, in the same update (a compiler warning in Swift 5 mode, no change in behaviour): no `assumeIsolated`, which
+    /// would stop the app if an action ever ran off the main thread, and no hop to a later frame (R471 (105) (b), not chosen).
+    func testPreferenceActionsUpdateDirectlyAsBeforeR471_99() throws {
+        let expected: [(path: String, opening: String, firstLine: String)] = [
+            ("App/Shared/ArtTextTop.swift", ".onPreferenceChange(ArtTextTopKey.self) { (value: CGFloat?) in", "contentTop = value"),
+            ("App/Shared/PosterCard.swift", ".onPreferenceChange(CaptionHeightKey.self) { (tallest: CGFloat) in",
+             "if abs(tallest - height) >= 0.5 { height = tallest }"),
+        ]
+        for entry in expected {
+            guard let source = try appSource(entry.path) else { return }
+            XCTAssertFalse(source.contains("assumeIsolated"), "\(entry.path): the owner reverted assumeIsolated (R471 (105))")
+            let action = try XCTUnwrap(source.range(of: entry.opening), "\(entry.path): the preference action changed")
+            let first = source[action.upperBound...].split(separator: "\n")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .first { !$0.isEmpty && !$0.hasPrefix("//") }
+            XCTAssertEqual(first, entry.firstLine, "\(entry.path): the action no longer updates its state directly")
+        }
+    }
 }
