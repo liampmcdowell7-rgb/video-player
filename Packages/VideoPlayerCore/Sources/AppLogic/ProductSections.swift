@@ -40,12 +40,14 @@ public struct EpisodeCardText: Equatable, Sendable {
     public var date: String?
     public var rating: String?
 
+    /// R471 (96): `seriesRating`, the show's own rating, stands in when the episode has none (frames show t12s, t14s: a
+    /// rating box on every card), as the episode page borrows it (`EpisodePage.rating`, R471 (85)).
     public static func make(number: Int, title: String, details: TitleDetails?, watched: Bool, hideSpoilers: Bool,
-                            locale: Locale = .current) -> EpisodeCardText {
+                            seriesRating: String? = nil, locale: Locale = .current) -> EpisodeCardText {
         EpisodeCardText(overline: number > 0 ? "Episode \(number)" : nil, title: title,
                         description: SpoilerRules.synopsis(details?.overview, watched: watched, hideSpoilers: hideSpoilers),
                         date: details?.releaseDate.map { InfoDateText.text($0, locale: locale) },
-                        rating: details?.contentRating)
+                        rating: EpisodePage.rating(episode: details?.contentRating, series: seriesRating))
     }
 }
 

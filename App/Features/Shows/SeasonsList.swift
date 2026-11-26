@@ -101,8 +101,9 @@ struct SeasonsList: View {
     private var cardTexts: [Int64: EpisodeCardText] {
         var out: [Int64: EpisodeCardText] = [:]
         for e in shownSeason?.episodes ?? [] {
+            // R471 (96): the show's rating when the episode has none.
             out[e.id] = EpisodeCardText.make(number: e.number, title: e.title, details: episodeDetails[e.id], watched: e.isWatched,
-                                             hideSpoilers: hideSpoilers)
+                                             hideSpoilers: hideSpoilers, seriesRating: details?.contentRating)
         }
         return out
     }

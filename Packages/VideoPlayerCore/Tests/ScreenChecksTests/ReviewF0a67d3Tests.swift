@@ -119,6 +119,13 @@ extension ScreenChecksTests {
         XCTAssertTrue(detail.contains("yearOnly: content.kind == .movie)"), "the movie page's Released row is not the year")
     }
 
+    /// R471 (96): the show page's episode cards are given the show's rating to fall back on.
+    func testShowPageEpisodeCardsBorrowTheShowsRating() throws {
+        guard let seasons = try appSource("App/Features/Shows/SeasonsList.swift") else { return }
+        XCTAssertTrue(seasons.contains("hideSpoilers: hideSpoilers, seriesRating: details?.contentRating)"),
+                      "the episode cards do not fall back on the show's rating")
+    }
+
     /// R407 (item 10, A11Y1): the UI-test text-size override is applied on every pushed page too, not only around each
     /// tab's navigation stack.
     func testPushedPagesTakeTheUITestOverrides() throws {

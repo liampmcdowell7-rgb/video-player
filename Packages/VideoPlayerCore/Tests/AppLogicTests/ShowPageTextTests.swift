@@ -32,6 +32,21 @@ final class ShowPageTextTests: XCTestCase {
         XCTAssertNil(bare.date)
     }
 
+    /// R471 (96): an episode card with no rating of its own shows the show's (frames show t12s, t14s); its own rating wins.
+    func testAnEpisodeCardBorrowsTheShowsRating() {
+        let bare = EpisodeCardText.make(number: 1, title: "Pilot", details: nil, watched: false, hideSpoilers: false,
+                                        seriesRating: "TV-MA", locale: en)
+        XCTAssertEqual(bare.rating, "TV-MA")
+        var own = TitleDetails(overview: nil, cast: [])
+        own.contentRating = "TV-14"
+        XCTAssertEqual(EpisodeCardText.make(number: 1, title: "Pilot", details: own, watched: false, hideSpoilers: false,
+                                            seriesRating: "TV-MA", locale: en).rating, "TV-14")
+        own.contentRating = " "
+        XCTAssertEqual(EpisodeCardText.make(number: 1, title: "Pilot", details: own, watched: false, hideSpoilers: false,
+                                            seriesRating: "TV-MA", locale: en).rating, "TV-MA", "a blank rating is none")
+        XCTAssertNil(EpisodeCardText.make(number: 1, title: "Pilot", details: nil, watched: false, hideSpoilers: false).rating)
+    }
+
     func testTheShowHeroDescribesTheNextEpisodeElseTheShow() {
         let next = ShowHeroText.description(showOverview: "The show.", nextCode: "S4, E4", nextTitle: "Low Tide", nextOverview: "The episode.")
         XCTAssertEqual(next?.prefix, "S4, E4 · Low Tide:")
