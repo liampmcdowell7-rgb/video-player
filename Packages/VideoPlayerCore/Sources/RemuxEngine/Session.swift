@@ -460,8 +460,19 @@ public actor MatroskaRemuxSession: RemuxSession {
         for key in windows.keys where !keep.contains(key) && key != k && (waiting[key] ?? 0) == 0 { windows[key] = nil }
         planner = p
         for idx in plan.fetch where windows[idx] == nil {
-            Task { [weak self] in _ = try? await self?.loadWindow(idx, request: false) }
+            Task { [weak self] in await self?.readAhead(idx) }
         }
+    }
+
+    /// R471 (79): a test's hold at the start of a read-ahead task (internal; nil in the app), so a test can start the task
+    /// late, as a busy thread pool does.
+    var readAheadHold: (@Sendable (Int) async -> Void)?
+    func setReadAheadHold(_ hold: (@Sendable (Int) async -> Void)?) { readAheadHold = hold }
+
+    /// One read-ahead task's body.
+    private func readAhead(_ idx: Int) async {
+        if let hold = readAheadHold { await hold(idx) }
+        _ = try? await loadWindow(idx, request: false)
     }
 
     // MARK: Resources
