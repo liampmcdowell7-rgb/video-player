@@ -85,9 +85,24 @@ public actor PlexClient: MediaSource {
     }
 
     public func info(_ path: String) async throws -> SourceEntry {
-        let tree = try await currentTree()
+        let tree = try await lookupTree(for: path)
         guard let node = tree.node(at: path) else { throw SourceError.notFound }
         return node.entry
+    }
+
+    /// R471 (71): the listing for a lookup of ONE file (`info`, a file's address). When the listing has expired, or a walk
+    /// is running, and the last complete listing has the file, that listing answers at once and a new walk runs in the
+    /// background. Before, the lookup waited for the whole walk, inside steps with a time limit: the 8 s track probe of a
+    /// detail page and the start of a play could spend all their time on it. Folder lists (`list`, the scan) still wait.
+    private func lookupTree(for path: String) async throws -> PlexTree {
+        let fresh = treeTask != nil && treeArrived.map { now().timeIntervalSince($0) < treeLifetime } == true
+        if !fresh, let held = heldTree, held.node(at: path) != nil {
+            if !(treeTask != nil && treeArrived == nil) {
+                Task { _ = try? await self.currentTree() }   // no walk running: start one, nobody waits for it
+            }
+            return held
+        }
+        return try await currentTree()
     }
 
     public func read(_ path: String, range: ByteRange) async throws -> Data {
@@ -261,7 +276,7 @@ public actor PlexClient: MediaSource {
     }
 
     private func partURL(_ path: String) async throws -> URL {
-        guard let node = try await currentTree().node(at: path), let key = node.part?.key, !node.entry.isDirectory else {
+        guard let node = try await lookupTree(for: path).node(at: path), let key = node.part?.key, !node.entry.isDirectory else {
             throw SourceError.notFound
         }
         guard let url = URL(string: key, relativeTo: baseURL)?.absoluteURL else { throw SourceError.notFound }
