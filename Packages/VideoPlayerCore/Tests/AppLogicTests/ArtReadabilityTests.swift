@@ -67,34 +67,34 @@ final class ArtReadabilityTests: XCTestCase {
     /// The four pages that put text over artwork (Library, Search and the player: no text of ours over art; see R470).
     static var pages: [(name: String, blocks: [Placed])] {
         // Episode and movie pages: the hero is 0.8 of the page from the top inset, 40 pt under the buttons (ItemDetailContentView).
+        // R471 (76): the blocks of R471 item 2's hero (overline, title, kind line, description, facts line, buttons); R470's
+        // model still listed the earlier hero (content advice, info line, genres, a 3-line synopsis, time left).
         let productBottom = topInset + 0.8 * screen - 40
+        let facts = Block(name: "facts line with two-line glyph badges (caption 2, 2 lines)", points: 23, lines: 2)
         let episode: [Block] = [
-            Block(name: "series line (headline)", points: 38),
+            Block(name: "series line (episode overline, headline)", points: 38),
             titleLine,
-            Block(name: "content advice (caption 2)", points: 23),
-            Block(name: "info line with rating box, e.g. TV-MA 1080p (callout)", points: 31),
-            Block(name: "genres (callout)", points: 31),
-            Block(name: "synopsis (callout, 3 lines)", points: 31, lines: 3),
-            Block(name: "time left (callout)", points: 31),
+            Block(name: "kind line with rating box (callout)", points: 31),
+            Block(name: "description (callout, \(HeroLines.descriptionLines) lines)", points: 31, lines: HeroLines.descriptionLines),
+            facts,
             buttons,
         ]
         let movie: [Block] = Array(episode.dropFirst())
         // Show and season page: the hero is only 0.30 of the page (InfoBlockLayout.showHeroFraction) but as tall as its content.
         let show: [Block] = [
             titleLine,
+            Block(name: "kind line with rating box (callout)", points: 31),
             Block(name: "content advice (caption 2)", points: 23),
-            Block(name: "info block title line (headline)", points: 38),
-            Block(name: "info line with rating box (callout)", points: 31),
-            Block(name: "genres (callout)", points: 31),
-            Block(name: "synopsis (callout, 3 lines, fixed)", points: 31, lines: 3),
+            Block(name: "description (callout, \(HeroLines.descriptionLines) lines)", points: 31, lines: HeroLines.descriptionLines),
+            facts,
             buttons,
         ]
         let showBottom = topInset + InfoBlockLayout.showHeroFraction * screen - 40
         // Home: the featured area is 0.8 of the screen (HomeFeaturedLayout), about 85 pt above the first shelf's header.
         let home: [Block] = [
             titleLine,
-            Block(name: "metadata line with rating (callout)", points: 31),
-            Block(name: "overview (callout, 1 line)", points: 31),
+            Block(name: "kind line with rating box (callout)", points: 31),
+            Block(name: "synopsis (callout, \(HomeFeatured.synopsisLines) lines)", points: 31, lines: HomeFeatured.synopsisLines),
             buttons,
         ]
         let homeBottom = topInset + 0.8 * screen - 85
