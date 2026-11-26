@@ -63,8 +63,15 @@ private struct ArtTextTopReader: ViewModifier {
                 publish()
             }
             .onPreferenceChange(ArtTextTopKey.self) { (value: CGFloat?) in
-                contentTop = value
-                publish()
+                // R471 (99): the SDK gives this action as a @Sendable closure, so it is not main-actor isolated, while the
+                // state and `publish()` are. SwiftUI runs preference actions during its view update on the main thread, so
+                // the update stays synchronous (same frame, same look) under an explicit main-actor assumption, valid in
+                // Swift 5 and Swift 6 mode. UNVERIFIED on a device: that no preference action ever runs off the main thread
+                // (assumeIsolated would stop the app there rather than race).
+                MainActor.assumeIsolated {
+                    contentTop = value
+                    publish()
+                }
             }
     }
 
