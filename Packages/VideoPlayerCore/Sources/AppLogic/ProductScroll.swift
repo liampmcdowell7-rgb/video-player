@@ -151,6 +151,14 @@ public enum HeroMotion {
     /// Our choice: motion-4 shows the fade, not its height.
     public static let topFadeHeight: Double = 90
 
+    /// R471 (121): the hero group's opacity below the hero: faded out, but never 0. The hero holds Play and every control
+    /// of the first screen, and Up from the rows must land on Play (R424). Apple's `canBecomeFocused` page: a view "is not
+    /// focusable ... when the view's alpha value is equal to 0"; `hitTest(_:with:)` ignores views with "an alpha level
+    /// less than 0.01". The run on 8e43578 (opacity 0) left the focus on the rows on both pages. 0.02 is above both limits
+    /// and, under the blurred, dimmed backdrop and mostly above the screen, not visible. That SwiftUI's opacity is the view's
+    /// alpha for the focus engine is UNVERIFIED.
+    public static let heroHiddenOpacity: Double = 0.02
+
     /// Everything the motion moves, for one state of the page (points and opacities).
     public struct Frame: Equatable, Sendable {
         public var heroOpacity: Double
@@ -174,7 +182,7 @@ public enum HeroMotion {
         let move: Double = reduceMotion ? 0 : 1
         let height: Double = pageHeight.isFinite ? max(0, pageHeight) : 0
         if belowHero {
-            return Frame(heroOpacity: 0, heroOffset: -heroEntry * height * move, headerOpacity: 1, headerOffset: 0,
+            return Frame(heroOpacity: heroHiddenOpacity, heroOffset: -heroEntry * height * move, headerOpacity: 1, headerOffset: 0,
                          sectionOffset: 0, topFadeOff: 0, heroTitleIsAccessible: !hasHeader)
         }
         let section: Double = sectionRise * move

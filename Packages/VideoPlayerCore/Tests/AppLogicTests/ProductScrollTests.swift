@@ -120,7 +120,7 @@ final class HeroMotionTests: XCTestCase {
             XCTAssertEqual(before.topFadeOff, 1)
             XCTAssertTrue(before.heroTitleIsAccessible)
 
-            XCTAssertEqual(after.heroOpacity, 0)
+            XCTAssertEqual(after.heroOpacity, HeroMotion.heroHiddenOpacity, "faded out, still focusable (R471 (121))")
             XCTAssertEqual(after.heroOffset, -HeroMotion.heroEntry * page, accuracy: 0.001, "the hero waits above")
             XCTAssertEqual(after.headerOpacity, 1)
             XCTAssertEqual(HeroMotion.headerTotalOffset(after), 0, "the header at its place")
@@ -163,6 +163,23 @@ final class HeroMotionTests: XCTestCase {
         XCTAssertEqual(below.heroOffset, 0)
         let hero = HeroMotion.frame(belowHero: false, title: .logo, reduceMotion: false, pageHeight: .nan)
         XCTAssertEqual(hero.headerOffset, 0)
+    }
+
+    /// R471 (121): below the hero the hero group (Play and the first screen's controls) never reaches opacity 0, the
+    /// value at which a view stops being focusable (Apple's `canBecomeFocused`), nor UIKit's 0.01 hit-test limit, so Up
+    /// from the rows can land on Play; it is still faded far below any readable strength.
+    func testTheHeroStaysFocusableBelowTheHero() {
+        XCTAssertGreaterThan(HeroMotion.heroHiddenOpacity, 0.01)
+        XCTAssertLessThanOrEqual(HeroMotion.heroHiddenOpacity, 0.05)
+        for title in [HeroMotion.Title.logo, .text] {
+            for reduceMotion in [false, true] {
+                for height in [0.0, 1080] {
+                    let below = HeroMotion.frame(belowHero: true, title: title, reduceMotion: reduceMotion, pageHeight: height)
+                    XCTAssertGreaterThan(below.heroOpacity, 0, "the hero would leave the focus chain")
+                    XCTAssertEqual(below.heroOpacity, HeroMotion.heroHiddenOpacity)
+                }
+            }
+        }
     }
 
     /// Exactly one title instance carries the label; a page with no header keeps the hero's.
