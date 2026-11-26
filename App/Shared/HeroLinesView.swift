@@ -132,8 +132,8 @@ struct HeroGlyphBadge: View {
     }
 }
 
-/// R471 item 2 (Part 2, episode page): the description with its prefix ("S4, E4:") in the semibold weight, three lines,
-/// the whole text one press away (rule L5, `SynopsisLink`).
+/// R471 item 2 (Part 2, episode page): the description with its prefix ("S4, E4:") in the semibold weight, at most
+/// `HeroLines.descriptionLines` lines (four since R471 (47)), the whole text one press away (rule L5, `SynopsisLink`).
 struct HeroDescription: View {
     let prefix: String?
     let text: String
