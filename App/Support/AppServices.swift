@@ -220,26 +220,33 @@ final class AppServices {
 
     /// Scans every source. A call while a scan runs waits for that scan instead of returning at once, so a caller that needs
     /// the finished index (the start-up rebuild of a lost database, R169) never goes on with a half-scanned one.
+    /// R471 (74): a call while a scan runs asks it for one more round (`scanAgain`) and waits for it, so a source added or a
+    /// setting changed during a scan is scanned before the caller goes on. The scan clears its own handle right after its
+    /// last check, with no wait between, so a call after that always starts a new scan.
     func scanAll() async {
-        if let running = scanTask { await running.value; return }
+        if let running = scanTask { scanAgain = true; await running.value; return }
         let task = Task { @MainActor in
-            isScanning = true
-            await scanSources()
-            // Signal d (docs/SORTING.md): with the user's own key, Needs Review files are checked online once per launch;
-            // anything it moves is filed by one more scan. Without a TMDB key `sortLookup` is nil and nothing is sent
-            // (OnlineSortPass, tested in SortingLogicTests).
-            let pass = await OnlineSortPass.run(store: sqlite, lookup: online.sortLookup, writer: ledger, tried: onlineSortTried)
-            onlineSortTried.formUnion(pass.checked)
-            if !pass.saved.isEmpty { await scanSources() }
-            isScanning = false
-            scanProgress = nil
-            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: LastScan.key)
-            libraryRevision += 1
-            backup.libraryChanged()
-            await writeTopShelf()
-            // R460: while Restrictions are on, a new title is read for its rating by this scan, so it does not wait hidden
-            // for the button (the lists are read again when the reading ends).
-            if restrictionsOn { await readRatings() }
+            repeat {
+                scanAgain = false
+                isScanning = true
+                await scanSources()
+                // Signal d (docs/SORTING.md): with the user's own key, Needs Review files are checked online once per launch;
+                // anything it moves is filed by one more scan. Without a TMDB key `sortLookup` is nil and nothing is sent
+                // (OnlineSortPass, tested in SortingLogicTests).
+                let pass = await OnlineSortPass.run(store: sqlite, lookup: online.sortLookup, writer: ledger, tried: onlineSortTried)
+                onlineSortTried.formUnion(pass.checked)
+                if !pass.saved.isEmpty { await scanSources() }
+                isScanning = false
+                scanProgress = nil
+                UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: LastScan.key)
+                libraryRevision += 1
+                backup.libraryChanged()
+                await writeTopShelf()
+                // R460: while Restrictions are on, a new title is read for its rating by this scan, so it does not wait hidden
+                // for the button (the lists are read again when the reading ends).
+                if restrictionsOn { await readRatings() }
+            } while scanAgain
+            scanTask = nil
         }
         // Stored before the first suspension: this method and the task body both run on the main actor, so the body cannot
         // start before the handle is here, and a later cancel always finds it. The syncer reads `Task.isCancelled` at every
@@ -247,10 +254,11 @@ final class AppServices {
         // control for a scan today.
         scanTask = task
         await task.value
-        scanTask = nil
     }
 
     @ObservationIgnored private var scanTask: Task<Void, Never>?
+    /// R471 (74): set by a call to `scanAll` while a scan runs; the scan then goes round once more.
+    @ObservationIgnored private var scanAgain = false
     /// Needs Review files already checked online in this launch (not sent again until the next launch).
     @ObservationIgnored private var onlineSortTried: Set<String> = []
     /// R471 (25): keeps the genres a title page has read in the library, for Related on the movie and show pages.
@@ -428,10 +436,9 @@ final class AppServices {
     }
 
     /// A scan already running may have passed the changed file; one more scan then picks the change up.
+    /// R471 (74): a call during a scan makes that scan go round once more (`scanAgain`), so one call is enough.
     private func rescanAfterSortChange() async {
-        let wasRunning = isScanning
         await scanAll()
-        if wasRunning { await scanAll() }
     }
 
     // MARK: Launch (time-boxed, OPEN_QUESTIONS R169)
