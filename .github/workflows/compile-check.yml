@@ -743,7 +743,7 @@ jobs:
             test13_MovieSynopsisAndCast \
             test15_ShowPageResponsive \
             test04_LibraryScreens \
-            test16_LibraryToolbars
+            test16_LibraryToolbars \
             test16b_LibraryGridScroll
 
       # Runs whatever happened above: copies any picture a cut-off test step left and writes index.md again (never fails).
@@ -757,7 +757,7 @@ jobs:
             test13_MovieSynopsisAndCast \
             test15_ShowPageResponsive \
             test04_LibraryScreens \
-            test16_LibraryToolbars
+            test16_LibraryToolbars \
             test16b_LibraryGridScroll
 
       - name: Summarise errors (file, line, message)
@@ -921,7 +921,7 @@ jobs:
             test14_ShowsToolbarAndCardMenu \
             test10b_SortingScreensLargerText \
             test12b_PlayerAudioMenu \
-            test12c_PlayerSubtitlesMenu
+            test12c_PlayerSubtitlesMenu \
             test17_EditScreens
 
       # Runs whatever happened above: copies any picture a cut-off test step left and writes index.md again (never fails).
@@ -935,7 +935,7 @@ jobs:
             test14_ShowsToolbarAndCardMenu \
             test10b_SortingScreensLargerText \
             test12b_PlayerAudioMenu \
-            test12c_PlayerSubtitlesMenu
+            test12c_PlayerSubtitlesMenu \
             test17_EditScreens
 
       - name: Summarise errors (file, line, message)

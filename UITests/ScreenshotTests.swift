@@ -1291,6 +1291,52 @@ final class ScreenshotTests: XCTestCase {
 
     func back() { XCUIRemote.shared.press(.menu); sleep(1) }
 
+    /// R471 (116): true when a Settings page titled `title` is on screen: every page draws its title as text in the LEFT
+    /// column (`PaneColumns`, App/Shared/SettingsPane.swift), while the rows of the Settings list that open them sit in the
+    /// right column, so a row with the same words does not count.
+    func settingsPageShown(_ title: String, in app: XCUIApplication, timeout: TimeInterval = 5) -> Bool {
+        let window: CGRect = app.windows.firstMatch.frame
+        let deadline: Date = Date().addingTimeInterval(timeout)
+        repeat {
+            let texts: [XCUIElement] = app.staticTexts.matching(NSPredicate(format: "label == %@", title)).allElementsBoundByIndex
+            if texts.prefix(6).contains(where: { $0.exists && !$0.frame.isEmpty && (window.width <= 0 || $0.frame.midX < window.midX) }) {
+                return true
+            }
+            usleep(300_000)
+        } while Date() < deadline
+        return false
+    }
+
+    /// R471 (116): `open` the row `row`, then wait for the page titled `title`. When Select did not open it, the note says
+    /// what is on screen and NO Menu is pressed for it (a Menu at the Settings root opens the sidebar).
+    func openSettingsPage(_ row: String, title: String, in app: XCUIApplication, name: String) -> Bool {
+        guard open(row, in: app, name: name) else { closeSidebarIfFocused(in: app, name: name); return false }
+        guard settingsPageShown(title, in: app) else {
+            notReached(name, "Select on “\(row)” did not open the page titled “\(title)” (focus on \(focusedLabel(in: app))).\n"
+                       + focusPathText() + "\nAccessibility tree (first 80 lines):\n\(trimmedHierarchy(app, lines: 80))")
+            closeSidebarIfFocused(in: app, name: name)
+            return false
+        }
+        return true
+    }
+
+    /// R471 (116): Menu out of a Settings page, then make sure the focus is back in the Settings list, not in the sidebar.
+    func leaveSettingsPage(in app: XCUIApplication) {
+        back()
+        closeSidebarIfFocused(in: app, name: "settings-back")
+    }
+
+    /// R471 (116): when the focus is in the sidebar (a Menu too many at a tab's root opens it), Right returns it to the
+    /// content, as a person would. Written as "<name>-SIDEBAR" when it happens.
+    func closeSidebarIfFocused(in app: XCUIApplication, name: String) {
+        guard usesSidebar(app) else { return }
+        let chrome: XCUIElement = navigationChrome(in: app)
+        let focused: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        guard chrome.exists, focused.exists, chrome.frame.contains(CGPoint(x: focused.frame.midX, y: focused.frame.midY)) else { return }
+        XCUIRemote.shared.press(.right); sleep(1)
+        note(name + "-SIDEBAR", "The focus was in the sidebar (on \(focusedLabel(in: app)) after Right); Right pressed to return to the content.")
+    }
+
     func settle() { sleep(2) }
 
     // MARK: Empty library (clean start)
@@ -1474,11 +1520,17 @@ final class ScreenshotTests: XCTestCase {
         hierarchy("30-settings", of: app)
         // R456: the reorganised top level. Online Lookup is one level down now (its picture keeps its name); Language is new (45).
         // R457: Storage and iCloud and Backup are ONE page, Sync and Backup (37), so there is no second picture of it.
-        let pages = [("31", "Playback"), ("32", "General"), ("33", "Sources"), ("35", "Library"), ("36", "Metadata and Artwork"),
-                     ("37", "Sync and Backup"), ("38", "Accessibility"), ("45", "Language")]
+        // R471 (116): Audio is a row of the TOP level (App/Features/Settings/SettingsView.swift, R458), not of Playback. The
+        // run on f5015b0 looked for it inside Playback: `open("Audio")` fell through to its "label CONTAINS" rule, pressed
+        // Select on the "Remember Audio and Subtitle Choice for Each Show" switch, so 46 showed Playback, and the two Menu
+        // presses after it left Playback AND opened the sidebar at the Settings root: 32, 33 and 35 were then NOT REACHED.
+        let pages = [("31", "Playback"), ("46", "Audio"), ("32", "General"), ("33", "Sources"), ("35", "Library"),
+                     ("36", "Metadata and Artwork"), ("37", "Sync and Backup"), ("38", "Accessibility"), ("45", "Language")]
         for (n, page) in pages {
             let name = "\(n)-settings-" + page.lowercased().replacingOccurrences(of: " ", with: "-")
-            guard open(page, in: app, name: name) else { continue }
+            // R471 (116): a page is photographed only once its own title is on screen, and Menu is pressed only for a page
+            // that opened, so one wrong Select can no longer send the next pages to the sidebar.
+            guard openSettingsPage(page, title: page, in: app, name: name) else { continue }
             settle()
             let pageTop: String = focusedLabel(in: app)
             shot(name)
@@ -1490,31 +1542,30 @@ final class ScreenshotTests: XCTestCase {
                 lastRowCheck(name, in: app)
                 // R346 (item A): the longest Settings pane; Up from its last row must reach its first row first.
                 scrollUpCheck(name, top: pageTop, in: app)
-                // R458: the new Audio page, one level down from Playback.
-                if open("Audio", in: app, name: "46-settings-audio") {
-                    settle(); shot("46-settings-audio"); textContrast("46-settings-audio", in: app); back()
-                }
             }
             if page == "Library" {
                 // R389: the counts below Needs Review hold no control; Down must reach the last one (Files).
                 lastRowCheck(name, in: app)
             }
-            if page == "Metadata and Artwork", open("Metadata Fetching", in: app, name: "36-settings-online-lookup") {
-                settle(); shot("36-settings-online-lookup"); textContrast("36-settings-online-lookup", in: app); back()
+            if page == "Metadata and Artwork",
+               openSettingsPage("Metadata Fetching", title: "Online Lookup", in: app, name: "36-settings-online-lookup") {
+                settle(); shot("36-settings-online-lookup"); textContrast("36-settings-online-lookup", in: app)
+                leaveSettingsPage(in: app)
             }
-            if page == "Sources", open("Sample Library", in: app, name: "34-settings-source-detail") {
-                settle(); shot("34-settings-source-detail"); textContrast("34-settings-source-detail", in: app); back()
+            if page == "Sources", openSettingsPage("Sample Library", title: "Sample Library", in: app, name: "34-settings-source-detail") {
+                settle(); shot("34-settings-source-detail"); textContrast("34-settings-source-detail", in: app)
+                leaveSettingsPage(in: app)
             }
-            back()
+            leaveSettingsPage(in: app)
         }
         // R459: Parental Controls sit above Accessibility on the top level: the page, then the passcode entry behind Change
         // Passcode (Menu leaves the entry first, then the page).
-        if open("Parental Controls", in: app, name: "47-settings-parental-controls") {
+        if openSettingsPage("Parental Controls", title: "Parental Controls", in: app, name: "47-settings-parental-controls") {
             settle(); shot("47-settings-parental-controls"); textContrast("47-settings-parental-controls", in: app)
             if open("Change Passcode", id: "parental.changePasscode", in: app, name: "48-settings-parental-passcode") {
                 settle(); shot("48-settings-parental-passcode"); back()
             }
-            back()
+            leaveSettingsPage(in: app)
         }
         app.terminate()
 
@@ -1523,7 +1574,8 @@ final class ScreenshotTests: XCTestCase {
         let about = launch("-UITestFixtures", tab: "settings")
         guard waitForScreen("screen.settings", in: about), waitFor("Playback", in: about) else { return notReached("40-about", "Settings did not open for About.") }
         _ = moveFocusToEnd(in: about)
-        guard open("About", in: about, name: "40-about") else { return }
+        // R471 (116): photographed only once the About page's own title is on screen.
+        guard openSettingsPage("About", title: "About", in: about, name: "40-about") else { return }
         settle()
         shot("40-about")
         let aboutTop: String = focusedLabel(in: about)
@@ -2204,7 +2256,13 @@ final class ScreenshotTests: XCTestCase {
             notReached(number, "The show page did not open."); app.terminate(); return
         }
         let episodeLabel: String = "S1, E1, A quiet beginning"
-        if !app.buttons[episodeLabel].exists {
+        // R471 (117): the run on f5015b0 left 25 and 26 NOT REACHED with the SHOW page on screen, so they stopped before
+        // the episode page (the player was never asked for). test12 reaches the same card with the same steps, but first
+        // runs `checkResponsive`: Down, then Up, with a second's wait after each, which moves the page to the season tabs
+        // and episodes and back. These sessions looked for the card at once. They now make the same Down and Up first and
+        // give the card up to 5 s to appear before they go by the Season 1 tab.
+        for move in [XCUIRemote.Button.down, XCUIRemote.Button.up] { XCUIRemote.shared.press(move); sleep(1) }
+        if !app.buttons[episodeLabel].waitForExistence(timeout: 5) {
             let seasonOne: XCUIElement = app.buttons["Season 1"]
             _ = focus(seasonOne.exists ? seasonOne : control("Season 1", in: app), in: app); sleep(1)
         }
