@@ -17,7 +17,8 @@ public actor PlexClient: MediaSource {
     private let http: PlexHTTP
     private let pageSize: Int
     private var treeTask: Task<PlexTree, Error>?
-    private var treeStarted: Date?
+    /// R471 (70): when the walk of `treeTask` arrived (nil while it runs); the lifetime counts from here, not from its start.
+    private var treeArrived: Date?
     /// R380: the last listing read completely (kept after it expires), for answers that must not start a request.
     private var heldTree: PlexTree?
     /// How long a listing of the server is reused before it is read again (R305): browsing, scanning and starting
@@ -193,18 +194,23 @@ public actor PlexClient: MediaSource {
     // MARK: Tree
 
     private func currentTree() async throws -> PlexTree {
-        if let running = treeTask, let started = treeStarted, now().timeIntervalSince(started) < treeLifetime {
-            return try await running.value
+        // R471 (70): a walk still running is joined however long it takes, and a listing is fresh for `treeLifetime` after
+        // it ARRIVED. Counted from the start, a walk longer than the lifetime (a large library, a slow link) was stale on
+        // arrival, and every folder of a scan started another full walk.
+        if let running = treeTask {
+            guard let arrived = treeArrived else { return try await running.value }
+            if now().timeIntervalSince(arrived) < treeLifetime { return try await running.value }
         }
         let task = Task { try await self.buildTree() }
         treeTask = task
-        treeStarted = now()
+        treeArrived = nil
         do {
             let tree = try await task.value
             // R471 (64): only the newest walk sets what is held (an older one finishing late leaves the newer listing).
             if treeTask == task {
                 skippedParts = tree.skippedParts
                 heldTree = tree
+                treeArrived = now()
             }
             return tree
         } catch {
