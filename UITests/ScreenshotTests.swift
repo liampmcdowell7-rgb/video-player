@@ -2428,12 +2428,12 @@ final class ScreenshotTests: XCTestCase {
             _ = focusContent(in: app)
             // R471 (49): each Down must land on the row right under the focused one, wholly on screen, with more than one row
             // drawn (owner's report of 25 Nov 2026: one row at a time, one Down passing over several rows).
-            var before: (cards: [(String, AXRect)], focused: String) = (gridCards(in: app), focusedLabel(in: app))
+            var before: (cards: [(String, AXRect)], focused: String) = (gridCards(in: app), focusedLabelOrEmpty(in: app))
             for step in 1...4 {
                 XCUIRemote.shared.press(.down); sleep(1)
                 shot("\(prefix)-\(step)", endOfScroll: "Down on the \(tab) grid"); checkGridScroll("\(prefix)-\(step)", tab: tab, in: app)
                 let cards: [(String, AXRect)] = gridCards(in: app)
-                let focused: String = focusedLabel(in: app)
+                let focused: String = focusedLabelOrEmpty(in: app)
                 let screen: CGRect = app.windows.firstMatch.frame
                 let oneRow: CheckResult = GridScrollRules.downReachesNextRow(before: before.cards, focusedBefore: before.focused, focusedAfter: focused)
                 let whole: CheckResult = GridScrollRules.focusedRowWhole(cards: cards, focused: focused, screenTop: Double(screen.minY), screenBottom: Double(screen.maxY))
@@ -2491,8 +2491,9 @@ final class ScreenshotTests: XCTestCase {
         }
     }
 
-    /// The label of the element that has the focus ("" when none has).
-    func focusedLabel(in app: XCUIApplication) -> String {
+    /// The label of the element that has the focus ("" when none has), plain, for comparing with card labels.
+    /// R471 (115): was a second `focusedLabel(in:)`, an invalid redeclaration of the one that returns “label” or "none".
+    func focusedLabelOrEmpty(in app: XCUIApplication) -> String {
         let focused: XCUIElement = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
         return focused.exists ? focused.label : ""
     }
