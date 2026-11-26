@@ -45,6 +45,9 @@ struct SeasonsList: View {
     @State private var textTop: CGFloat?
     /// R471 item 1: the page is scrolled below its hero (the backdrop is the blurred copy).
     @State private var belowHero = false
+    /// R471 (120): the hero draws the show's logo (else its text title), for the motion's values.
+    @State private var heroHasLogo = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var playFocused: Bool
     /// R339: the season the person chose with the tabs; nil until they choose (then `SeasonTabs.shown` picks).
     @State private var chosenSeason: Int?
@@ -122,6 +125,13 @@ struct SeasonsList: View {
         return "Every episode of \(pending.season.title) will be marked as \(state)"
     }
 
+    /// R471 (120): the hero-to-rows motion for the page's state (`HeroMotion`): the logo's values (the owner's A, B, D), or
+    /// the episode page's (C) while the show has no logo.
+    private var motionKind: HeroMotion.Title { heroHasLogo ? .logo : .text }
+    private var motion: HeroMotion.Frame {
+        HeroMotion.frame(belowHero: belowHero, title: motionKind, reduceMotion: reduceMotion, pageHeight: Double(pageHeight))
+    }
+
     private var shownSeason: SeasonSection? {
         SeasonTabs.shown(content.seasons, chosen: chosenSeason ?? startSeason, resumeEpisodeID: content.resumeEpisodeID)
     }
@@ -131,7 +141,9 @@ struct SeasonsList: View {
             VStack(alignment: .leading) {
                 // R350 (item D): the hero area fills the first screen, its content at the bottom over the clear artwork.
                 VStack(alignment: .leading) {
-                    TitleHeader(title: content.seriesTitle, artworkKey: "series-\(seriesID)")
+                    TitleHeader(title: content.seriesTitle, artworkKey: "series-\(seriesID)", logoShown: $heroHasLogo)
+                        // R471 (120): exactly one title instance is read out: this one at the hero only.
+                        .accessibilityHidden(!motion.heroTitleIsAccessible)
                     // R471 item 6 (frames show t08s, home photo): "TV Show · genres [rating]".
                     HeroKindLineView(segments: HeroLines.kindLine(kind: .show, source: nextSource?.kind, genres: details?.genres ?? [],
                                                                   rating: details?.contentRating))
@@ -171,12 +183,16 @@ struct SeasonsList: View {
                             .padding(.bottom, DetailPageLayout.belowActions)
                     }
                 }
+                // R471 (120): the hero group fades and moves up below the hero, and back.
+                .heroGroupMotion(motion, kind: motionKind, belowHero: belowHero)
                 // R424 (run #28, 56-show-page-SCROLL-UP): as on the movie page, Up from any card below climbs back into
                 // the hero, and Play takes the focus there (reasons: ItemDetailContentView's hero).
                 .focusSection()
                 .defaultFocus($playFocused, true, priority: .userInitiated)
+                // R471 (120): everything below the hero is one group that rises into place below the hero.
+                VStack(alignment: .leading) {
                 // R471 item 1: the part below the hero starts with the show's logo (or title), centred (frames t06s, t12s).
-                BelowHeroHeader(title: content.seriesTitle, artworkKey: "series-\(seriesID)")
+                BelowHeroHeader(title: content.seriesTitle, artworkKey: "series-\(seriesID)", motion: motion, kind: motionKind, belowHero: belowHero)
                 // #25 B7 (OPEN_QUESTIONS R193, the alternative now taken, still PROVISIONAL): the episodes right after Play,
                 // the cast after them. R339: the season tabs, then the chosen season's episodes.
                 seasonTabs
@@ -230,6 +246,8 @@ struct SeasonsList: View {
                 if !information.isEmpty || !languages.isEmpty || !access.isEmpty {
                     ProductInfoColumns(information: information, languages: languages, accessibility: access)
                 }
+                }
+                .belowHeroSectionMotion(motion, kind: motionKind, belowHero: belowHero)
             }
             // R470: the space the hero column reports its top in (ArtTextTop).
             .artTextContent()
@@ -241,6 +259,8 @@ struct SeasonsList: View {
         .reportsBelowHero($belowHero, heroHeight: pageHeight * CGFloat(InfoBlockLayout.showHeroFraction))
         // R345: the focused buttons and cards grow past the page's scroll view; it must not clip them.
         .scrollClipDisabled()
+        // R471 (120), motion-4: below the hero, content passing under the top edge fades (the header is not pinned).
+        .belowHeroTopFade(motion, kind: motionKind, belowHero: belowHero)
         // R346 (item A): the scrolling page is one focus region, so Up scrolls back to its first row before it
         // can leave for the tab bar (reason and UNVERIFIED cause: PaneColumns, App/Shared/SettingsPane.swift).
         .focusSection()

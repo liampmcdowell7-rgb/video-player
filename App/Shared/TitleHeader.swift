@@ -9,6 +9,11 @@ struct TitleHeader: View {
     let title: String
     /// `item-N` (a movie) or `series-N` (a show); nil for pages that never show a logo (an episode page).
     let artworkKey: String?
+    /// R471 (120), PROVISIONAL: the logo's size as a multiple of its fitted size (`HeroMotion.headerLogoWidthRatio` for the
+    /// header below the hero); 1 everywhere else. Above 1 a small logo file can be drawn larger than its own pixels.
+    var logoScale: Double = 1
+    /// R471 (120): told whether the logo is drawn (true) or the text title (false), so the page picks the motion's values.
+    var logoShown: Binding<Bool>? = nil
     @AppStorage(SettingsKey.showTitleLogos.rawValue) private var showLogos = true
     @Environment(AppServices.self) private var services
     @Environment(\.displayScale) private var displayScale
@@ -21,7 +26,7 @@ struct TitleHeader: View {
                 Image(decorative: logo.image, scale: displayScale)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: size.width, height: size.height) // design-lint:allow the logo's own fitted size from TitleLogoRules (never enlarged, never cropped), not a fixed card
+                    .frame(width: size.width * logoScale, height: size.height * logoScale) // design-lint:allow the logo's own fitted size from TitleLogoRules (never cropped; enlarged only by logoScale, R471 (120)), not a fixed card
                     .accessibilityElement()
                     .accessibilityLabel(title)
             } else {
@@ -44,9 +49,14 @@ struct TitleHeader: View {
         // R404: found by the -TITLE-GAP note of the UI tests.
         .accessibilityIdentifier("product.title")
         .task(id: "\(artworkKey ?? "")|\(showLogos)|\(services.online.keyRevision)") {
-            guard showLogos, let artworkKey else { logo = nil; return }
+            guard showLogos, let artworkKey else {
+                logo = nil
+                logoShown?.wrappedValue = false
+                return
+            }
             let candidates = await services.online.logoCandidates(key: artworkKey)
             logo = await TitleLogoLoader.firstAcceptable(candidates, session: services.online.imageSession)
+            logoShown?.wrappedValue = logo != nil
         }
     }
 

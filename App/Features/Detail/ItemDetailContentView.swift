@@ -40,6 +40,9 @@ struct ItemDetailContentView: View {
     @State private var textTop: CGFloat?
     /// R471 item 1: the page is scrolled below its hero (the backdrop is the blurred copy).
     @State private var belowHero = false
+    /// R471 (120): the hero draws the movie's logo (else the text title; an episode page never has a logo).
+    @State private var heroHasLogo = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// R471 item 3: the movie is on the watchlist (the round "+" shows a check).
     @State private var onWatchlist = false
     /// R387, R471 (85): the show's details, asked for only when an episode lacks its own rating, genres, content advice or
@@ -84,16 +87,33 @@ struct ItemDetailContentView: View {
     private var languages: [InfoEntry] { ProductInfo.languages(tracks: content.tracks, originalLanguage: details?.originalLanguage) }
     private var accessibilityRows: [InfoEntry] { ProductInfo.accessibility(content.access) }
 
+    /// R471 item 1, R471 (21): the header title below the hero is drawn only when a section follows it.
+    private var hasBelowHeroHeader: Bool {
+        let hasColumns: Bool = !information.isEmpty || !languages.isEmpty || !accessibilityRows.isEmpty
+        if hasColumns || content.extras.contains(where: \.isVideo) { return true }
+        return content.kind == .movie && (!(details?.cast ?? []).isEmpty || !related.isEmpty || details?.overview != nil)
+    }
+
+    /// R471 (120): the hero-to-rows motion for the page's state (`HeroMotion`): a movie with a logo moves as the show page
+    /// does; an episode, or a movie without a logo, as the episode page (text title).
+    private var motionKind: HeroMotion.Title { content.kind == .movie && heroHasLogo ? .logo : .text }
+    private var motion: HeroMotion.Frame {
+        HeroMotion.frame(belowHero: belowHero, title: motionKind, reduceMotion: reduceMotion, pageHeight: Double(pageHeight),
+                         hasHeader: hasBelowHeroHeader)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading) {
                 hero
                 let hasColumns: Bool = !information.isEmpty || !languages.isEmpty || !accessibilityRows.isEmpty
+                // R471 (120): everything below the hero is one group that rises into place below the hero.
+                VStack(alignment: .leading) {
                 // R471 item 1: the part below the hero starts with the title, centred.
                 // R471 (21): the header stands over whatever follows; How to Watch no longer guarantees a section.
-                if hasColumns || content.extras.contains(where: \.isVideo)
-                    || (content.kind == .movie && (!(details?.cast ?? []).isEmpty || !related.isEmpty || details?.overview != nil)) {
-                    BelowHeroHeader(title: content.episodeTitle ?? content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil)
+                if hasBelowHeroHeader {
+                    BelowHeroHeader(title: content.episodeTitle ?? content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil,
+                                    motion: motion, kind: motionKind, belowHero: belowHero)
                 }
                 // R471 item 4 (frames episode t02s, movie t04s): a movie's cast, then the columns. How to Watch was removed by
                 // the owner (R471 (21)); the columns follow the section before them directly.
@@ -123,6 +143,8 @@ struct ItemDetailContentView: View {
                 if hasColumns {
                     ProductInfoColumns(information: information, languages: languages, accessibility: accessibilityRows)
                 }
+                }
+                .belowHeroSectionMotion(motion, kind: motionKind, belowHero: belowHero)
             }
             // R470: the space the hero column reports its top in (ArtTextTop).
             .artTextContent()
@@ -134,6 +156,8 @@ struct ItemDetailContentView: View {
         .reportsBelowHero($belowHero, heroHeight: pageHeight * ProductPageLayout.heroFraction)
         // R345: the focused buttons and rows grow past the page's scroll view; it must not clip them.
         .scrollClipDisabled()
+        // R471 (120), motion-4: below the hero, content passing under the top edge fades (the header is not pinned).
+        .belowHeroTopFade(motion, kind: motionKind, belowHero: belowHero)
         // R346 (item A): the scrolling page is one focus region, so Up scrolls back to its first row before it
         // can leave for the tab bar (reason and UNVERIFIED cause: PaneColumns, App/Shared/SettingsPane.swift).
         .focusSection()
@@ -227,7 +251,10 @@ struct ItemDetailContentView: View {
                         .accessibilityIdentifier("product.episodeOverline")
                 }
                 // #15 Part 9: a movie's title logo when one is found and the setting is on; otherwise the text title.
-                TitleHeader(title: content.episodeTitle ?? content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil)
+                TitleHeader(title: content.episodeTitle ?? content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil,
+                            logoShown: $heroHasLogo)
+                    // R471 (120): exactly one title instance is read out: this one at the hero (or when no header follows).
+                    .accessibilityHidden(!motion.heroTitleIsAccessible)
                 // R471 item 2: the kind line: source glyph, "Movie" (none for an episode), genres, the age rating's box.
                 HeroKindLineView(segments: HeroLines.kindLine(kind: heroKind, source: content.sourceKind, genres: genres,
                                                               rating: rating))
@@ -261,6 +288,8 @@ struct ItemDetailContentView: View {
         }
         // #33 I (OPEN_QUESTIONS R239, PROVISIONAL): room between the button row and the next heading.
         .padding(.bottom, DetailPageLayout.belowActions)
+        // R471 (120): the hero group fades and moves up below the hero, and back.
+        .heroGroupMotion(motion, kind: motionKind, belowHero: belowHero)
         .productHero(pageHeight: pageHeight)
         // R424 (run #28, 58-movie-detail-SCROLL-UP): the hero is a focus section the page's whole width, so Up from any
         // entry of the row below (the cast, the season's episodes) climbs back into it, and Play (or Resume) takes the
