@@ -136,6 +136,10 @@ public actor MatroskaRemuxSession: RemuxSession {
     /// subtitle prefetch behaviour decides how much of the file this costs).
     public private(set) var subtitleWindowLoads = 0
     public private(set) var windowLoads = 0
+    /// R471 (81): told of every window load (its segment index, and whether a player request made it rather than read-ahead),
+    /// for the end-to-end test's read limit (internal; nil in the app).
+    var loadObserver: (@Sendable (Int, Bool) -> Void)?
+    func setLoadObserver(_ observer: (@Sendable (Int, Bool) -> Void)?) { loadObserver = observer }
     /// Diagnostics: the most windows held at once and the biggest window read so far (bytes).
     public private(set) var peakCachedWindows = 0
     public private(set) var largestWindowBytes: Int64 = 0
@@ -424,6 +428,7 @@ public actor MatroskaRemuxSession: RemuxSession {
         let clock = options.clock
         if !forSubtitles { planner?.started(k) } else { subtitleWindowLoads += 1 }
         windowLoads += 1
+        loadObserver?(k, request)
         let task = Task<DemuxedWindow, Error> {
             try await demuxer.window(for: spec, next: next, tracks: want)
         }
