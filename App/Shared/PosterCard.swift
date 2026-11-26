@@ -220,7 +220,11 @@ struct EqualCaptionRow: ViewModifier {
         content
             .environment(\.reservedCaptionHeight, height)
             .onPreferenceChange(CaptionHeightKey.self) { (tallest: CGFloat) in
-                if abs(tallest - height) >= 0.5 { height = tallest }
+                // R471 (100): the SDK's @Sendable action is not main-actor isolated and `height` is, so the read and the
+                // write run under an explicit main-actor assumption (synchronous, same look), as in ArtTextTop (R471 (99)).
+                MainActor.assumeIsolated {
+                    if abs(tallest - height) >= 0.5 { height = tallest }
+                }
             }
     }
 }
