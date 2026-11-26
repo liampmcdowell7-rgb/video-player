@@ -119,6 +119,16 @@ extension ScreenChecksTests {
         XCTAssertTrue(detail.contains("yearOnly: content.kind == .movie)"), "the movie page's Released row is not the year")
     }
 
+    /// R471 (97): the show hero's key line stands only where no description is shown (the hero's own description, not the
+    /// show's overview alone, decides).
+    func testTheShowHerosKeyLineOnlyWithoutADescription() throws {
+        guard let seasons = try appSource("App/Features/Shows/SeasonsList.swift") else { return }
+        XCTAssertTrue(seasons.contains("if heroDescription == nil, !services.online.hasCatalogueKey {"),
+                      "the key line does not follow the hero's description")
+        XCTAssertFalse(seasons.contains("if details?.overview == nil, !services.online.hasCatalogueKey {"),
+                       "the key line can still sit under a next-up episode's description")
+    }
+
     /// R471 (96): the show page's episode cards are given the show's rating to fall back on.
     func testShowPageEpisodeCardsBorrowTheShowsRating() throws {
         guard let seasons = try appSource("App/Features/Shows/SeasonsList.swift") else { return }

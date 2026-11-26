@@ -135,9 +135,11 @@ struct SeasonsList: View {
                         HeroDescription(prefix: description.prefix, text: description.text, title: content.seriesTitle,
                                         artworkKey: "series-\(seriesID)")
                     }
-                    if details?.overview == nil, !services.online.hasCatalogueKey {
+                    if heroDescription == nil, !services.online.hasCatalogueKey {
                         // #26 item 4: one short line saying the synopsis needs the key and where to add it. R471 (87): in the
-                        // description's place, before the facts line, as on the movie page.
+                        // description's place, before the facts line, as on the movie page. R471 (97): only when the hero has
+                        // no description at all (a next-up episode's synopsis from the media server is one), so the line never
+                        // sits under a description.
                         StatusText(OnlineLookupText.detailsNeedKey)
                     }
                     // R471 (84): the next-up episode's air year (else the show's first) and length, then its glyph badges.
