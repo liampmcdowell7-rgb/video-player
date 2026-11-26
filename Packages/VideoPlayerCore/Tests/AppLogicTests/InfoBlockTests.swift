@@ -85,7 +85,9 @@ final class InfoBlockTests: XCTestCase {
 
     func testButtonSymbolNames() {
         XCTAssertEqual(PageButtonSymbols.watched(true), "checkmark.circle")
-        XCTAssertEqual(PageButtonSymbols.watched(false), "eye")
+        // R471 (103): a plain check while something is left to watch (frames show t08s, t10s); no eye on a hero.
+        XCTAssertEqual(PageButtonSymbols.watched(false), "checkmark")
+        XCTAssertNotEqual(PageButtonSymbols.watched(false), PageButtonSymbols.watched(true), "the two states look different")
         XCTAssertEqual(PageButtonSymbols.favourite(true), "heart.fill")
         XCTAssertEqual(PageButtonSymbols.favourite(false), "heart")
     }

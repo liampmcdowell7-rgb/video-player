@@ -459,7 +459,8 @@ struct SeasonsList: View {
                 .focused($playFocused)
                 .accessibilityIdentifier(ControlID.play)
             }
-            // R453: the round Watched button: the check when everything is watched, the eye otherwise. With the focus on this
+            // R453: the round Watched button: the circled check when everything is watched, a plain check otherwise (R471 (103),
+            // frames show t08s, t10s: no eye on the hero). With the focus on this
             // button no episode is focused, so it acts on the whole show; one episode is marked from its card's menu.
             if content.canMarkWatched || content.canMarkUnwatched {
                 let everythingWatched: Bool = !content.canMarkWatched

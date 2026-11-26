@@ -183,7 +183,9 @@ public enum InfoBlockLayout {
 /// The round icon buttons of the page's button row (R453 item 3), by SF Symbol name; the same on show, season, episode and movie pages.
 public enum PageButtonSymbols {
     public static let watched = "checkmark.circle"
-    public static let unwatched = "eye"
+    /// R471 (103), PROVISIONAL (frames show t08s, t10s; owner R471 Part 2: no eye on the hero): a plain check while
+    /// something is left to watch, as the reference show page's round button. Was "eye" (R453).
+    public static let unwatched = "checkmark"
     public static let favourite = "heart"
     public static let favouriteOn = "heart.fill"
     public static let more = "ellipsis"
