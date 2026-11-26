@@ -103,7 +103,11 @@ struct FixMatchView: View {
     private func search() async {
         ensureModel()
         let typed = text
-        await model?.run { await $0.search(typed) }
+        // R471 (72): no copy of the model is held across the search; an older answer is dropped, Applies To is kept.
+        var asked: String?
+        await model?.run { asked = $0.beginSearch(typed) }
+        guard let asked, let found = await model?.screen.findMatches(asked) else { return }
+        await model?.run { $0.finishSearch(found) }
     }
 
     private func choose(_ candidate: MatchCandidate) async {

@@ -116,6 +116,10 @@ struct ItemDetailView: View {
         let mode = playVersion
         await model?.run { $0.playVersion = mode; await $0.load() }
         // #21 C: the frame rate and every audio and subtitle track, read from the file's header once and then kept.
-        await model?.run { await $0.loadTrackDetails() }
+        // R471 (72): read without holding a copy of the page, then put the details on the page as it is now (a Favorite or
+        // Watched change made during the read stays).
+        if let read = await model?.screen.readTrackDetails() {
+            await model?.run { $0.applyTrackDetails(read) }
+        }
     }
 }

@@ -64,17 +64,42 @@ public struct FixMatchViewModel: Sendable {
     public mutating func setScope(_ new: FixMatchScope) { if scopeChoices.contains(new) { scope = new } }
 
     public mutating func search(_ text: String, year: Int? = nil) async {
+        guard let asked = beginSearch(text) else { return }
+        finishSearch(await findMatches(asked, year: year))
+    }
+
+    /// R471 (72): a search in three steps, so the screen writes back only what changed and never across an `await`:
+    /// `beginSearch` (no waiting) sets the query and the loading state; `findMatches` (does not change the model) asks the
+    /// catalogue; `finishSearch` (no waiting) shows the answer only when it is for the query still asked. Before, the whole
+    /// model was copied, searched and written back, so a slow search that ended after a newer one showed the older matches,
+    /// and one that ended after a change of Applies To put the old scope back (and `choose` then used it).
+    public struct SearchResult: Sendable {
+        public let query: String
+        public let state: ViewState<[MatchCandidate]>
+    }
+
+    /// The trimmed query now asked, or nil (empty: nothing to search, the list is cleared).
+    public mutating func beginSearch(_ text: String) -> String? {
         query = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { state = .idle; return }
+        guard !query.isEmpty else { state = .idle; return nil }
         state = .loading
+        return query
+    }
+
+    public func findMatches(_ asked: String, year: Int? = nil) async -> SearchResult {
         do {
-            let found = try await searcher.search(title: query, year: year, kind: kind)
-            state = found.isEmpty
+            let found = try await searcher.search(title: asked, year: year, kind: kind)
+            return SearchResult(query: asked, state: found.isEmpty
                 ? .empty(EmptyState(reason: .noMatches, title: "No Matches", message: "Try the title without the year, or fewer words."))
-                : .loaded(found)
+                : .loaded(found))
         } catch {
-            state = .failed(ErrorState.from(error, doing: "search for matches"))
+            return SearchResult(query: asked, state: .failed(ErrorState.from(error, doing: "search for matches")))
         }
+    }
+
+    public mutating func finishSearch(_ result: SearchResult) {
+        guard result.query == query else { return }   // an older search, answered after a newer one was asked
+        state = result.state
     }
 
     /// Saves the chosen match on the item. The title, year and id replace the guessed ones.

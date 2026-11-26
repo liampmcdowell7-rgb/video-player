@@ -140,15 +140,34 @@ public struct ItemDetailViewModel: Sendable {
     /// Reads the preferred file's header when nothing is cached yet (#21 C), keeps it in the index and rebuilds the page.
     /// Called after `load()`; a failed or slow read leaves the rows at "Not checked yet" (#25 B6).
     public mutating func loadTrackDetails() async {
-        guard let file = preferredFile, let reader = trackReader, case .loaded(let content) = state else { return }
+        guard let read = await readTrackDetails() else { return }
+        applyTrackDetails(read)
+    }
+
+    /// R471 (72): the header read in two steps, so the screen never writes a copy of the whole page back after the read's
+    /// wait (up to 8 s on a slow server): `readTrackDetails` (does not change the model) reads and keeps the details;
+    /// `applyTrackDetails` (no waiting) puts them on the page as it is NOW. Before, a Favorite or Watched change made during
+    /// the read was undone when the read's older copy of the page was written back.
+    public struct ReadTrackDetails: Sendable {
+        public let fileID: Int64
+        public let details: FileTrackDetails
+    }
+
+    public func readTrackDetails() async -> ReadTrackDetails? {
+        guard let file = preferredFile, let reader = trackReader, case .loaded = state else { return nil }
         let alreadyRead = (try? await store.trackDetails(fileID: file.id)) ?? nil
-        if alreadyRead != nil { return }
-        guard let details = await reader(file) else { return }
+        if alreadyRead != nil { return nil }
+        guard let details = await reader(file) else { return nil }
         try? await store.setTrackDetails(fileID: file.id, details)
-        var updated = content
-        updated.mediaInfo = MediaInfo.rows(file: file, sidecars: preferredSidecars, sourceName: preferredSourceName, tracks: details)
-        updated.access = AccessFeature.detect(details)
-        updated.tracks = details
+        return ReadTrackDetails(fileID: file.id, details: details)
+    }
+
+    /// Puts read details on the page, when it still shows the same file.
+    public mutating func applyTrackDetails(_ read: ReadTrackDetails) {
+        guard let file = preferredFile, file.id == read.fileID, case .loaded(var updated) = state else { return }
+        updated.mediaInfo = MediaInfo.rows(file: file, sidecars: preferredSidecars, sourceName: preferredSourceName, tracks: read.details)
+        updated.access = AccessFeature.detect(read.details)
+        updated.tracks = read.details
         state = .loaded(updated)
     }
 
