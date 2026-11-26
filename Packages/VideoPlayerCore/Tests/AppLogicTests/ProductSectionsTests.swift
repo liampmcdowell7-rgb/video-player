@@ -11,7 +11,7 @@ final class ProductSectionsTests: XCTestCase {
         let rows = ProductInfo.information(released: PartialDate(year: 2024, month: 3, day: 5), year: 2024, durationSeconds: 2580,
                                            rating: "TV-14", advisories: ["Language", "language", "Violence"], regions: ["United States"], locale: en)
         XCTAssertEqual(rows.map(\.label), ["Released", "Run Time", "Rated", "Content Advisories", "Region of Origin"])
-        XCTAssertEqual(rows[1].value, "43 min")
+        XCTAssertEqual(rows[1].value, "43m", "R471 (94): the short form (frame movie t06s)")
         XCTAssertEqual(rows[3].value, "Language, Violence")
         XCTAssertNil(rows[3].full)
         let bare = ProductInfo.information(released: nil, year: 1999, durationSeconds: nil, rating: " ", advisories: [], regions: [])
@@ -31,6 +31,18 @@ final class ProductSectionsTests: XCTestCase {
         let episode = ProductInfo.information(released: date, year: nil, durationSeconds: nil, rating: nil, advisories: [], regions: [],
                                               locale: en)
         XCTAssertEqual(episode, [InfoEntry(label: "Released", value: InfoDateText.text(date, locale: en))])
+    }
+
+    /// R471 (94): Run Time in the short form, as the reference frame (movie t06s, "25m") and our hero facts line give it.
+    func testRunTimeIsTheShortForm() {
+        func runTime(_ seconds: Double) -> String? {
+            ProductInfo.information(released: nil, year: nil, durationSeconds: seconds, rating: nil, advisories: [], regions: [])
+                .first { $0.label == "Run Time" }?.value
+        }
+        XCTAssertEqual(runTime(1500), "25m")
+        XCTAssertEqual(runTime(5400), "1h 30m")
+        XCTAssertEqual(runTime(7200), "2h")
+        XCTAssertEqual(runTime(20), "1m")
     }
 
     func testLanguagesComeFromTheFilesTracksEachOnce() {

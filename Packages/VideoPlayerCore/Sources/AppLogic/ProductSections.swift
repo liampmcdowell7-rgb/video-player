@@ -206,7 +206,8 @@ public enum ProductInfo {
             if let y = released?.year ?? year, y > 0 { out.append(InfoEntry(label: "Released", value: String(y))) }
         } else if let released { out.append(InfoEntry(label: "Released", value: InfoDateText.text(released, locale: locale))) }
         else if let year, year > 0 { out.append(InfoEntry(label: "Released", value: String(year))) }
-        if let d = durationSeconds, d > 0 { out.append(InfoEntry(label: "Run Time", value: DisplayText.runtime(d))) }
+        // R471 (94): the short form, "25m" or "1h 30m" (frame movie t06s), as on the hero facts line.
+        if let d = durationSeconds, d > 0 { out.append(InfoEntry(label: "Run Time", value: ShortDuration.text(d))) }
         if let r = rating?.trimmingCharacters(in: .whitespaces), !r.isEmpty { out.append(InfoEntry(label: "Rated", value: r)) }
         let advice = unique(advisories)
         if !advice.isEmpty { out.append(listed("Content Advisories", advice)) }
