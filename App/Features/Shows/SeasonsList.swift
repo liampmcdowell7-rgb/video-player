@@ -525,6 +525,16 @@ struct SeasonsList: View {
                                                                   artworkKey: "series-\(seriesID)", level: .show)
                                 }
                                 if let season = shownSeason {
+                                    // R471 (98): the season on screen has Change Artwork here too, as the show has, the same
+                                    // request as the season heading's menu (the edit screen opened on Artwork).
+                                    Button("Change \(season.title) Artwork", systemImage: artwork.symbol) {
+                                        editRequest = ShowEditRequest(id: "season-\(season.season)-artwork",
+                                                                      title: "\(content.seriesTitle), \(season.title)",
+                                                                      keys: EditTarget.seasonKeys(tmdbID: showTMDB, title: content.seriesTitle,
+                                                                                                  season: season.season),
+                                                                      artworkKey: ArtworkKey.seasonKey(seriesID: seriesID, number: season.season),
+                                                                      level: .season, startGroup: .artwork)
+                                    }
                                     Button("Edit \(season.title) Details", systemImage: edit.symbol) {
                                         editRequest = ShowEditRequest(id: "season-\(season.season)", title: "\(content.seriesTitle), \(season.title)",
                                                                       keys: EditTarget.seasonKeys(tmdbID: showTMDB, title: content.seriesTitle,

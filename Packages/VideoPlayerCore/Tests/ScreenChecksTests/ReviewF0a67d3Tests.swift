@@ -129,6 +129,21 @@ extension ScreenChecksTests {
                        "the key line can still sit under a next-up episode's description")
     }
 
+    /// R471 (98): the show's Manage menu offers Change Artwork for the season on screen, next to its Edit Details, opening the
+    /// season's edit screen on Artwork as the season heading's menu does.
+    func testTheShowsManageMenuChangesTheSeasonsArtwork() throws {
+        guard let seasons = try appSource("App/Features/Shows/SeasonsList.swift") else { return }
+        let manage = try XCTUnwrap(seasons.range(of: "case .manage:"), "no Manage menu on the show page")
+        let rest = seasons[manage.lowerBound...]
+        let change = try XCTUnwrap(rest.range(of: "Button(\"Change \\(season.title) Artwork\", systemImage: artwork.symbol)"),
+                                   "no Change Season Artwork in the Manage menu")
+        let edit = try XCTUnwrap(rest.range(of: "Button(\"Edit \\(season.title) Details\", systemImage: edit.symbol)"))
+        XCTAssertLessThan(change.lowerBound, edit.lowerBound, "Change Artwork comes before Edit Details, as for the show")
+        let request = rest[change.lowerBound..<edit.lowerBound]
+        XCTAssertTrue(request.contains("id: \"season-\\(season.season)-artwork\""))
+        XCTAssertTrue(request.contains("level: .season, startGroup: .artwork)"))
+    }
+
     /// R471 (96): the show page's episode cards are given the show's rating to fall back on.
     func testShowPageEpisodeCardsBorrowTheShowsRating() throws {
         guard let seasons = try appSource("App/Features/Shows/SeasonsList.swift") else { return }
