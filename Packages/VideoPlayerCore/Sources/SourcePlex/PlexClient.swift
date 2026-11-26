@@ -50,6 +50,8 @@ public actor PlexClient: MediaSource {
     /// One client per server address and token for the whole app (R305). The app builds a new source object for every
     /// scan, browse and play; sharing the client keeps one listing of the server instead of reading the whole library
     /// again each time. Kept in memory only.
+    /// R471 (69): the app no longer uses this; its SourceFactory keeps one client per saved source (R471 (65)), which it
+    /// can let go. Kept as R471 (69)'s alternative (b).
     public static func shared(baseURL: URL, token: String, identity: PlexClientIdentity) -> PlexClient {
         let key = [baseURL.absoluteString, identity.clientIdentifier, token].joined(separator: " ")
         return sharedLock.withLock {
