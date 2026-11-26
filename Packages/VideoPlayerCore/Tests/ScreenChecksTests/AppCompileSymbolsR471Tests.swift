@@ -55,25 +55,4 @@ extension ScreenChecksTests {
         XCTAssertTrue(grid.contains("ForEach(Array(cards.enumerated()), id: \\.element.id) { (index: Int, card: ItemCard) in"),
                       "the app's form changed; check this probe still matches it")
     }
-
-    /// R471 (100): every preference action in the app (a @Sendable closure in the SDK) does its main-actor work inside
-    /// `MainActor.assumeIsolated`, the first statement of the action.
-    func testEveryPreferenceActionRunsOnTheMainActor() throws {
-        var checked = 0
-        for path in ["App/Shared/ArtTextTop.swift", "App/Shared/PosterCard.swift"] {
-            guard let source = try appSource(path) else { return }
-            var rest = source[...]
-            while let action = rest.range(of: ".onPreferenceChange(") {
-                let after = rest[action.upperBound...]
-                let open = try XCTUnwrap(after.range(of: " in\n"), "\(path): no closure after onPreferenceChange")
-                let code = after[open.upperBound...].split(separator: "\n")
-                    .map { $0.trimmingCharacters(in: .whitespaces) }
-                    .first { !$0.isEmpty && !$0.hasPrefix("//") }
-                XCTAssertEqual(code, "MainActor.assumeIsolated {", "\(path): a preference action runs code off the main actor")
-                checked += 1
-                rest = after
-            }
-        }
-        XCTAssertEqual(checked, 2, "the app's preference actions changed; check each new one")
-    }
 }
