@@ -133,15 +133,16 @@ struct SeasonsList: View {
                         HeroDescription(prefix: description.prefix, text: description.text, title: content.seriesTitle,
                                         artworkKey: "series-\(seriesID)")
                     }
+                    if details?.overview == nil, !services.online.hasCatalogueKey {
+                        // #26 item 4: one short line saying the synopsis needs the key and where to add it. R471 (87): in the
+                        // description's place, before the facts line, as on the movie page.
+                        StatusText(OnlineLookupText.detailsNeedKey)
+                    }
                     // R471 (84): the next-up episode's air year (else the show's first) and length, then its glyph badges.
                     HeroFactsLineView(texts: HeroLines.showFactsText(nextEpisodeDate: content.resumeEpisode.flatMap { episodeDetails[$0.id]?.releaseDate },
                                                                      nextEpisodeSeconds: content.resumeEpisode?.durationSeconds,
                                                                      showDate: details?.releaseDate),
                                       badges: HeroBadges.make(format: content.resumeEpisode?.badges ?? [], access: AccessFeature.detect(nextTracks)))
-                    if details?.overview == nil, !services.online.hasCatalogueKey {
-                        // #26 item 4: one short line saying the synopsis needs the key and where to add it.
-                        StatusText(OnlineLookupText.detailsNeedKey)
-                    }
                     actions
                         // #33 I (OPEN_QUESTIONS R239, PROVISIONAL): room between the button row and the first season heading.
                         .padding(.bottom, DetailPageLayout.belowActions)

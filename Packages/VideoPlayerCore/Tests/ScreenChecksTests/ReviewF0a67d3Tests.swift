@@ -99,6 +99,18 @@ extension ScreenChecksTests {
         XCTAssertTrue(seasons.contains("nextEpisodeSeconds: content.resumeEpisode?.durationSeconds"), "the show hero gives no length")
     }
 
+    /// R471 (87): the "needs the key" line stands in the description's place, before the facts line, on the show page as on
+    /// the movie page.
+    func testTheNeedsTheKeyLineComesBeforeTheFactsLineOnBothPages() throws {
+        guard let seasons = try appSource("App/Features/Shows/SeasonsList.swift"),
+              let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift") else { return }
+        for (name, text) in [("show page", seasons), ("movie page", detail)] {
+            let key = try XCTUnwrap(text.range(of: "StatusText(OnlineLookupText.detailsNeedKey)"), "no key line on the \(name)")
+            let facts = try XCTUnwrap(text.range(of: "HeroFactsLineView("), "no facts line on the \(name)")
+            XCTAssertLessThan(key.lowerBound, facts.lowerBound, "the \(name)'s key line follows its facts line")
+        }
+    }
+
     /// R407 (item 10, A11Y1): the UI-test text-size override is applied on every pushed page too, not only around each
     /// tab's navigation stack.
     func testPushedPagesTakeTheUITestOverrides() throws {
