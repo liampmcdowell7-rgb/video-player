@@ -19,6 +19,20 @@ final class ProductSectionsTests: XCTestCase {
         XCTAssertEqual(ProductInfo.information(released: nil, year: nil, durationSeconds: 0, rating: nil, advisories: [], regions: []), [])
     }
 
+    /// R471 (92): a movie's and a show's Released row is the year (frames movie t06s, show t20s); an episode's the full date.
+    func testReleasedIsTheYearForAMovieOrAShow() {
+        let date = PartialDate(year: 2020, month: 8, day: 14)
+        let yearOnly = ProductInfo.information(released: date, year: nil, durationSeconds: nil, rating: nil, advisories: [], regions: [],
+                                               yearOnly: true, locale: en)
+        XCTAssertEqual(yearOnly, [InfoEntry(label: "Released", value: "2020")])
+        let fromYear = ProductInfo.information(released: nil, year: 1973, durationSeconds: nil, rating: nil, advisories: [], regions: [],
+                                               yearOnly: true, locale: en)
+        XCTAssertEqual(fromYear, [InfoEntry(label: "Released", value: "1973")])
+        let episode = ProductInfo.information(released: date, year: nil, durationSeconds: nil, rating: nil, advisories: [], regions: [],
+                                              locale: en)
+        XCTAssertEqual(episode, [InfoEntry(label: "Released", value: InfoDateText.text(date, locale: en))])
+    }
+
     func testLanguagesComeFromTheFilesTracksEachOnce() {
         let tracks = FileTrackDetails(
             frameRate: nil,

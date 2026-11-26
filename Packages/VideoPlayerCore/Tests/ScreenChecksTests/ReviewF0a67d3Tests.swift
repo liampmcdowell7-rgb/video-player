@@ -111,6 +111,14 @@ extension ScreenChecksTests {
         }
     }
 
+    /// R471 (92): the movie and show pages ask for the year only in Information; the episode page keeps the full date.
+    func testReleasedIsTheYearOnTheMovieAndShowPages() throws {
+        guard let seasons = try appSource("App/Features/Shows/SeasonsList.swift"),
+              let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift") else { return }
+        XCTAssertTrue(seasons.contains("yearOnly: true)"), "the show page's Released row is not the year")
+        XCTAssertTrue(detail.contains("yearOnly: content.kind == .movie)"), "the movie page's Released row is not the year")
+    }
+
     /// R407 (item 10, A11Y1): the UI-test text-size override is applied on every pushed page too, not only around each
     /// tab's navigation stack.
     func testPushedPagesTakeTheUITestOverrides() throws {

@@ -109,7 +109,8 @@ struct SeasonsList: View {
 
     private var information: [InfoEntry] {
         ProductInfo.information(released: details?.releaseDate, year: nil, durationSeconds: nil, rating: details?.contentRating,
-                                advisories: details?.contentDescriptors ?? [], regions: ProductInfo.regionNames(details?.regions ?? []))
+                                advisories: details?.contentDescriptors ?? [], regions: ProductInfo.regionNames(details?.regions ?? []),
+                                yearOnly: true)
     }
 
     private var shownSeason: SeasonSection? {

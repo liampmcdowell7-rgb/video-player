@@ -79,7 +79,7 @@ struct ItemDetailContentView: View {
     private var information: [InfoEntry] {
         ProductInfo.information(released: details?.releaseDate, year: content.year, durationSeconds: content.durationSeconds,
                                 rating: rating, advisories: advisories,
-                                regions: ProductInfo.regionNames(regions))
+                                regions: ProductInfo.regionNames(regions), yearOnly: content.kind == .movie)
     }
     private var languages: [InfoEntry] { ProductInfo.languages(tracks: content.tracks, originalLanguage: details?.originalLanguage) }
     private var accessibilityRows: [InfoEntry] { ProductInfo.accessibility(content.access) }

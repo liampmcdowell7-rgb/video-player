@@ -196,10 +196,15 @@ public enum ProductInfo {
     public static let languageBudget = 200
 
     /// Information: Released, Run Time, Rated, Content Advisories, Region of Origin; each only when we hold it.
+    /// R471 (92): `yearOnly` for a movie or a show (frames movie t06s "1973", show t20s "2020"); an episode keeps its full
+    /// date (episode t02s).
     public static func information(released: PartialDate?, year: Int?, durationSeconds: Double?, rating: String?,
-                                   advisories: [String], regions: [String], locale: Locale = .current) -> [InfoEntry] {
+                                   advisories: [String], regions: [String], yearOnly: Bool = false,
+                                   locale: Locale = .current) -> [InfoEntry] {
         var out: [InfoEntry] = []
-        if let released { out.append(InfoEntry(label: "Released", value: InfoDateText.text(released, locale: locale))) }
+        if yearOnly {
+            if let y = released?.year ?? year, y > 0 { out.append(InfoEntry(label: "Released", value: String(y))) }
+        } else if let released { out.append(InfoEntry(label: "Released", value: InfoDateText.text(released, locale: locale))) }
         else if let year, year > 0 { out.append(InfoEntry(label: "Released", value: String(year))) }
         if let d = durationSeconds, d > 0 { out.append(InfoEntry(label: "Run Time", value: DisplayText.runtime(d))) }
         if let r = rating?.trimmingCharacters(in: .whitespaces), !r.isEmpty { out.append(InfoEntry(label: "Rated", value: r)) }
