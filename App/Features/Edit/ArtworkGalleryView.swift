@@ -18,6 +18,8 @@ struct ArtworkGalleryView: View {
     @State private var filter: ArtworkLanguageFilter = .all
     @State private var chosenID: String?
     @State private var working = false
+    /// R471 (73): each choice and Automatic take a new number; a fetch sets its picture only if none was made while it waited.
+    @State private var choiceGeneration = 0
     @State private var problem: String?
     @State private var webAddress = ""
     @State private var revision = 0
@@ -121,7 +123,10 @@ struct ArtworkGalleryView: View {
     private func choose(_ candidate: ArtworkCandidate) async {
         guard !working, let primary = keys.first else { return }
         working = true; problem = nil
+        choiceGeneration += 1
+        let generation = choiceGeneration
         let result = await services.online.storeChosenPicture(candidate, key: artworkKey, kind: kind)
+        guard generation == choiceGeneration else { working = false; return }
         if let name = result.name {
             services.ledger.setEdit(primary, kind.field, .artwork(.file(name)))
             UserDefaults.standard.set(candidate.id, forKey: originKey)
@@ -136,7 +141,10 @@ struct ArtworkGalleryView: View {
     private func chooseWebAddress() async {
         guard !working, let primary = keys.first else { return }
         working = true; problem = nil
+        choiceGeneration += 1
+        let generation = choiceGeneration
         let result = await UserArtworkFolder.download(webAddress)
+        guard generation == choiceGeneration else { working = false; return }
         if let name = result.name {
             services.ledger.setEdit(primary, kind.field, .artwork(.file(name)))
             UserDefaults.standard.removeObject(forKey: originKey)
@@ -151,6 +159,7 @@ struct ArtworkGalleryView: View {
 
     /// Automatic: the choice is removed and today's rule shows again.
     private func automatic() {
+        choiceGeneration += 1                     // R471 (73): a picture still being fetched is not set when it arrives
         keys.forEach { services.ledger.resetEdit($0, kind.field) }
         UserDefaults.standard.removeObject(forKey: originKey)
         chosenID = nil
