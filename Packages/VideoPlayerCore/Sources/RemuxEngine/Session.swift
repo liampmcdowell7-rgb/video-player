@@ -459,9 +459,23 @@ public actor MatroskaRemuxSession: RemuxSession {
         // instead of reading the window again (the planner has already let go of a window R471 (55) did not cancel).
         for key in windows.keys where !keep.contains(key) && key != k && (waiting[key] ?? 0) == 0 { windows[key] = nil }
         planner = p
-        for idx in plan.fetch where windows[idx] == nil {
+        // R471 (80): one task per window until it starts (the planner hears of a load only when it starts, so each request
+        // for the same segment asked for the same windows again).
+        for idx in plan.fetch where windows[idx] == nil && !readAheadQueued.contains(idx) {
+            readAheadQueued.insert(idx)
             Task { [weak self] in await self?.readAhead(idx) }
         }
+    }
+
+    /// R471 (80): read-ahead tasks spawned and not yet started, by window.
+    private var readAheadQueued: Set<Int> = []
+
+    /// R471 (80): whether a read-ahead task that starts now still has a reason to read `idx`: it is ahead of the player's
+    /// last request and within what the planner reads ahead now. A task that starts late (a busy thread pool) found its
+    /// window served and evicted, behind the playhead, and read it again.
+    private func readAheadStillWanted(_ idx: Int) -> Bool {
+        guard let p = planner, let head = p.playhead else { return false }
+        return idx > head && idx <= head + max(p.desiredAhead(now: options.clock.now), 1)
     }
 
     /// R471 (79): a test's hold at the start of a read-ahead task (internal; nil in the app), so a test can start the task
@@ -472,6 +486,8 @@ public actor MatroskaRemuxSession: RemuxSession {
     /// One read-ahead task's body.
     private func readAhead(_ idx: Int) async {
         if let hold = readAheadHold { await hold(idx) }
+        readAheadQueued.remove(idx)
+        guard readAheadStillWanted(idx) else { return }
         _ = try? await loadWindow(idx, request: false)
     }
 

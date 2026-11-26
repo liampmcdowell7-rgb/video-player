@@ -58,4 +58,39 @@ final class ReadAheadLateStartR471Tests: XCTestCase {
         let seen = await wait(2) { gate.starts(1) > 0 }
         XCTAssertTrue(seen, "the read-ahead task for window 1 passes the hold")
     }
+
+    /// R471 (80): the traced order, made deterministic. The first read-ahead task for window 1 starts only after the player
+    /// has been served segments 0 to 4 (window 1 is evicted by then); it must not read window 1 again.
+    func testAReadAheadTaskThatStartsLateDoesNotReadAWindowBehindThePlayhead() async throws {
+        let s = session()
+        let gate = Gate { k, nth in k == 1 && nth == 1 }
+        await s.setReadAheadHold { await gate.hold($0) }
+        _ = try await s.prepare()
+        for k in 0...4 { try await ask(s, k) }
+        // Let the other read-ahead tasks finish, then count.
+        _ = await wait(0.3) { false }
+        let before = await s.windowLoads
+        XCTAssertEqual(gate.starts(1) >= 1, true, "the held task for window 1 has started")
+        gate.release()
+        let readAgain = await wait(1) { await s.windowLoads > before }
+        let after = await s.windowLoads
+        print("R471 (80) | late read-ahead | loads before release \(before), after \(after)")
+        XCTAssertFalse(readAgain, "the late task read window 1 again behind the playhead (\(before) loads, then \(after))")
+    }
+
+    /// R471 (80): one read-ahead task per window while the first has not started. Today each request for segment 0 (video and
+    /// two audio tracks) spawned another task for window 1.
+    func testOneReadAheadTaskPerWindowUntilItStarts() async throws {
+        let s = session()
+        let gate = Gate { _, _ in true }
+        await s.setReadAheadHold { await gate.hold($0) }
+        _ = try await s.prepare()
+        try await ask(s, 0)
+        _ = await wait(2) { gate.starts(1) >= 1 }
+        _ = await wait(0.3) { false }
+        let tasks = gate.starts(1)
+        gate.release()
+        print("R471 (80) | read-ahead tasks for window 1 after three requests for segment 0: \(tasks)")
+        XCTAssertEqual(tasks, 1, "one read-ahead task for window 1")
+    }
 }
