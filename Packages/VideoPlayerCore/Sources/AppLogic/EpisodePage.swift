@@ -31,4 +31,21 @@ public enum EpisodePage {
     public static func needsSeriesRating(kind: ItemKind, seriesID: Int64?, ownRating: String?) -> Bool {
         kind == .episode && seriesID != nil && rating(episode: ownRating, series: nil) == nil
     }
+
+    /// R471 (85): a list the episode's own details leave empty (genres, content advice, regions of origin) is the show's,
+    /// as the rating is (frame episode t00s: the show's genres on the kind line; t02s: Content Advisories and Region of
+    /// Origin). Online catalogues give an episode none of these. The episode's own list wins when it has one.
+    public static func borrowed<T>(_ episode: [T]?, series: [T]?) -> [T] {
+        if let own = episode, !own.isEmpty { return own }
+        return series ?? []
+    }
+
+    /// Whether the page asks for the show's details: an episode with a show whose own details lack the rating, the genres,
+    /// the content advice or the regions.
+    public static func needsSeriesDetails(kind: ItemKind, seriesID: Int64?, ownRating: String?, ownGenres: [String]?,
+                                          ownAdvisories: [String]?, ownRegionCount: Int) -> Bool {
+        guard kind == .episode, seriesID != nil else { return false }
+        return rating(episode: ownRating, series: nil) == nil || (ownGenres ?? []).isEmpty || (ownAdvisories ?? []).isEmpty
+            || ownRegionCount == 0
+    }
 }

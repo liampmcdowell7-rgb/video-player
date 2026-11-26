@@ -76,7 +76,20 @@ extension ScreenChecksTests {
         // R471 item 4: the movie and episode pages show the advice as the Information column's row ("Content Advisories"),
         // which `ProductInfo.information` leaves out when there is none (ProductSectionsTests).
         XCTAssertFalse(detail.contains("ContentAdviceLine("), "the movie page still has the advice line on the hero")
-        XCTAssertTrue(detail.contains("advisories: details?.contentDescriptors ?? []"), "the movie page's Information does not take the advice")
+        // R471 (85): the advice is the title's own, else (an episode) its show's.
+        XCTAssertTrue(detail.contains("rating: rating, advisories: advisories,"), "the movie page's Information does not take the advice")
+        XCTAssertTrue(detail.contains("EpisodePage.borrowed(details?.contentDescriptors, series: seriesDetails?.contentDescriptors)"),
+                      "an episode does not borrow its show's content advice")
+    }
+
+    /// R471 (85): an episode's kind line and Information borrow the show's genres and regions when its own have none
+    /// (frames episode t00s, t02s).
+    func testAnEpisodeBorrowsItsShowsGenresAndRegions() throws {
+        guard let detail = try appSource("App/Features/Detail/ItemDetailContentView.swift") else { return }
+        XCTAssertTrue(detail.contains("EpisodePage.borrowed(details?.genres, series: seriesDetails?.genres)"), "no borrowed genres")
+        XCTAssertTrue(detail.contains("source: content.sourceKind, genres: genres,"), "the kind line does not use the borrowed genres")
+        XCTAssertTrue(detail.contains("EpisodePage.borrowed(details?.regions, series: seriesDetails?.regions)"), "no borrowed regions")
+        XCTAssertTrue(detail.contains("EpisodePage.needsSeriesDetails("), "the show's details are not asked for")
     }
 
     /// R471 (84): the show hero's facts line takes the next-up episode's year and length (frames show t08s, t10s).

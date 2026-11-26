@@ -56,4 +56,30 @@ final class EpisodePageTests: XCTestCase {
         XCTAssertFalse(EpisodePage.needsSeriesRating(kind: .episode, seriesID: nil, ownRating: nil))
         XCTAssertFalse(EpisodePage.needsSeriesRating(kind: .movie, seriesID: nil, ownRating: nil))
     }
+
+    /// R471 (85): genres, content advice and regions the episode lacks are the show's; its own win.
+    func testAnEpisodeBorrowsTheShowsListsWhenItHasNone() {
+        XCTAssertEqual(EpisodePage.borrowed([], series: ["Comedy", "Sports"]), ["Comedy", "Sports"])
+        XCTAssertEqual(EpisodePage.borrowed(nil, series: ["Comedy"]), ["Comedy"])
+        XCTAssertEqual(EpisodePage.borrowed(["Drama"], series: ["Comedy"]), ["Drama"])
+        XCTAssertEqual(EpisodePage.borrowed([String](), series: nil), [])
+    }
+
+    func testAnEpisodeAsksForTheShowsDetailsWhenAnyListOrTheRatingIsMissing() {
+        let full = (rating: "TV-14", genres: ["Drama"], advice: ["Violence"], regions: 1)
+        XCTAssertFalse(EpisodePage.needsSeriesDetails(kind: .episode, seriesID: 5, ownRating: full.rating, ownGenres: full.genres,
+                                                      ownAdvisories: full.advice, ownRegionCount: full.regions))
+        XCTAssertTrue(EpisodePage.needsSeriesDetails(kind: .episode, seriesID: 5, ownRating: full.rating, ownGenres: [],
+                                                     ownAdvisories: full.advice, ownRegionCount: full.regions))
+        XCTAssertTrue(EpisodePage.needsSeriesDetails(kind: .episode, seriesID: 5, ownRating: full.rating, ownGenres: full.genres,
+                                                     ownAdvisories: nil, ownRegionCount: full.regions))
+        XCTAssertTrue(EpisodePage.needsSeriesDetails(kind: .episode, seriesID: 5, ownRating: full.rating, ownGenres: full.genres,
+                                                     ownAdvisories: full.advice, ownRegionCount: 0))
+        XCTAssertTrue(EpisodePage.needsSeriesDetails(kind: .episode, seriesID: 5, ownRating: nil, ownGenres: full.genres,
+                                                     ownAdvisories: full.advice, ownRegionCount: full.regions))
+        XCTAssertFalse(EpisodePage.needsSeriesDetails(kind: .episode, seriesID: nil, ownRating: nil, ownGenres: nil,
+                                                      ownAdvisories: nil, ownRegionCount: 0))
+        XCTAssertFalse(EpisodePage.needsSeriesDetails(kind: .movie, seriesID: nil, ownRating: nil, ownGenres: nil,
+                                                      ownAdvisories: nil, ownRegionCount: 0))
+    }
 }

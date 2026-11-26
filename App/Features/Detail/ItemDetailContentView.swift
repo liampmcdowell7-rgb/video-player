@@ -42,8 +42,9 @@ struct ItemDetailContentView: View {
     @State private var belowHero = false
     /// R471 item 3: the movie is on the watchlist (the round "+" shows a check).
     @State private var onWatchlist = false
-    /// R387: the show's age rating, asked for only when an episode has none of its own (`EpisodePage.needsSeriesRating`).
-    @State private var seriesRating: String?
+    /// R387, R471 (85): the show's details, asked for only when an episode lacks its own rating, genres, content advice or
+    /// regions (`EpisodePage.needsSeriesDetails`); each missing part is borrowed from them.
+    @State private var seriesDetails: TitleDetails?
     /// R471 item 4: File Info (the technical table) is open.
     @State private var showsFileInfo = false
     /// R471 item 7: the library's movies sharing a genre with this one.
@@ -67,13 +68,18 @@ struct ItemDetailContentView: View {
     private var heroKind: HeroLines.Kind { content.kind == .episode ? .episode : .movie }
 
     /// R387: the rating on the metadata line: the title's own, else (an episode) its show's.
-    private var rating: String? { EpisodePage.rating(episode: details?.contentRating, series: seriesRating) }
+    private var rating: String? { EpisodePage.rating(episode: details?.contentRating, series: seriesDetails?.contentRating) }
+
+    /// R471 (85): the genres, content advice and regions: the title's own, else (an episode) its show's.
+    private var genres: [String] { EpisodePage.borrowed(details?.genres, series: seriesDetails?.genres) }
+    private var advisories: [String] { EpisodePage.borrowed(details?.contentDescriptors, series: seriesDetails?.contentDescriptors) }
+    private var regions: [String] { EpisodePage.borrowed(details?.regions, series: seriesDetails?.regions) }
 
     /// R471 item 4: the three columns (Information, Languages, Accessibility), each only with rows we hold.
     private var information: [InfoEntry] {
         ProductInfo.information(released: details?.releaseDate, year: content.year, durationSeconds: content.durationSeconds,
-                                rating: rating, advisories: details?.contentDescriptors ?? [],
-                                regions: ProductInfo.regionNames(details?.regions ?? []))
+                                rating: rating, advisories: advisories,
+                                regions: ProductInfo.regionNames(regions))
     }
     private var languages: [InfoEntry] { ProductInfo.languages(tracks: content.tracks, originalLanguage: details?.originalLanguage) }
     private var accessibilityRows: [InfoEntry] { ProductInfo.accessibility(content.access) }
@@ -160,11 +166,13 @@ struct ItemDetailContentView: View {
                 own = hidden
             }
             details = own
-            if EpisodePage.needsSeriesRating(kind: content.kind, seriesID: content.seriesID, ownRating: own?.contentRating),
+            if EpisodePage.needsSeriesDetails(kind: content.kind, seriesID: content.seriesID, ownRating: own?.contentRating,
+                                              ownGenres: own?.genres, ownAdvisories: own?.contentDescriptors,
+                                              ownRegionCount: own?.regions.count ?? 0),
                let seriesID = content.seriesID {
-                seriesRating = await services.online.details(key: "series-\(seriesID)")?.contentRating
+                seriesDetails = await services.online.details(key: "series-\(seriesID)")
             } else {
-                seriesRating = nil
+                seriesDetails = nil
             }
         }
         // R471 item 7: Related, from the library only (no online lookup), again when the genres or the library change.
@@ -221,7 +229,7 @@ struct ItemDetailContentView: View {
                 // #15 Part 9: a movie's title logo when one is found and the setting is on; otherwise the text title.
                 TitleHeader(title: content.episodeTitle ?? content.title, artworkKey: content.kind == .movie ? content.artworkKey : nil)
                 // R471 item 2: the kind line: source glyph, "Movie" (none for an episode), genres, the age rating's box.
-                HeroKindLineView(segments: HeroLines.kindLine(kind: heroKind, source: content.sourceKind, genres: details?.genres ?? [],
+                HeroKindLineView(segments: HeroLines.kindLine(kind: heroKind, source: content.sourceKind, genres: genres,
                                                               rating: rating))
                 // R471 item 4: the content advice is the Information column's "Content Advisories" row now.
                 // R471 item 2: the description, an episode's starting with its code ("S4, E4:"); the whole text one press away.
