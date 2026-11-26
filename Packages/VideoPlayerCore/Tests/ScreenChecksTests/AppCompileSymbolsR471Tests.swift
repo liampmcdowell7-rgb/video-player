@@ -60,4 +60,17 @@ extension ScreenChecksTests {
             XCTAssertEqual(first, entry.firstLine, "\(entry.path): the action no longer updates its state directly")
         }
     }
+
+    /// R471 (107): the season Mark confirmation was one `+` chain of four literals and a ternary inside a `map` closure
+    /// inside `?? ""` inside `Text(...)` (f29e0da, never compiled), the shape that can fail with "unable to type-check this
+    /// expression in reasonable time". The text is now a typed `String` property; the words are unchanged.
+    func testTheSeasonMarkMessageIsATypedString() throws {
+        guard let source = try appSource("App/Features/Shows/SeasonsList.swift") else { return }
+        XCTAssertFalse(source.contains("pendingMarkSeason.map { \"Every episode of \" +"), "the long expression is back")
+        XCTAssertTrue(source.contains("Text(markSeasonMessage)"))
+        XCTAssertTrue(source.contains("private var markSeasonMessage: String {"))
+        XCTAssertTrue(source.contains("let state: String = pending.watched ? \"watched.\" : \"unwatched.\""))
+        XCTAssertTrue(source.contains("return \"Every episode of \\(pending.season.title) will be marked as \\(state)\""),
+                      "the confirmation's words changed")
+    }
 }

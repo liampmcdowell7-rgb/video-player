@@ -114,6 +114,14 @@ struct SeasonsList: View {
                                 yearOnly: true)
     }
 
+    /// R471 (23), R471 (107): the season's Mark confirmation text ("Every episode of Season 2 will be marked as watched."),
+    /// empty when nothing is asked. Built here, with explicit types, so the dialog's `Text` gets one `String`.
+    private var markSeasonMessage: String {
+        guard let pending = pendingMarkSeason else { return "" }
+        let state: String = pending.watched ? "watched." : "unwatched."
+        return "Every episode of \(pending.season.title) will be marked as \(state)"
+    }
+
     private var shownSeason: SeasonSection? {
         SeasonTabs.shown(content.seasons, chosen: chosenSeason ?? startSeason, resumeEpisodeID: content.resumeEpisodeID)
     }
@@ -319,7 +327,8 @@ struct SeasonsList: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text(pendingMarkSeason.map { "Every episode of " + $0.season.title + " will be marked as " + ($0.watched ? "watched." : "unwatched.") } ?? "")
+            // R471 (107): the text is built in a typed property, not one long `+` chain inside a closure (type-checking time).
+            Text(markSeasonMessage)
         }
         .taskCover(item: Binding(get: { fixMatchEpisode }, set: { new in
             if new == nil, fixMatchEpisode != nil { showTMDB = nil; editRevision += 1 }
