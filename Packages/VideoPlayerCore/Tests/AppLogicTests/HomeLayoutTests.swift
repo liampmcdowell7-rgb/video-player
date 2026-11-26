@@ -72,4 +72,23 @@ final class HomeLayoutTests: XCTestCase {
         XCTAssertTrue(HomeRowID.nextUp.usesLandscapeCards)
         XCTAssertFalse(HomeRowID.recentlyAdded.usesLandscapeCards)
     }
+
+    /// R471 (102): Home's Play gets the featured title's length, the played file's first, so a started title shows the
+    /// time left inside the capsule as its page does; nothing invented when no length is known.
+    func testTheFeaturedPlayKnowsTheTitlesLength() async throws {
+        let rig = try LibraryRig.make()
+        try await rig.fill()
+        let episodes = try await rig.episodes(ofSeriesTitle: "Show One")
+        var item = try XCTUnwrap(episodes.first)
+        item.runtime = 2_700
+        item.watch.duration = 3_000
+        XCTAssertEqual(HomeFeatured.playSeconds(of: item), 3_000, "the played file's own length first")
+        item.watch.duration = nil
+        XCTAssertEqual(HomeFeatured.playSeconds(of: item), 2_700, "else the catalogue runtime")
+        item.runtime = 0
+        XCTAssertNil(HomeFeatured.playSeconds(of: item))
+        item.runtime = 3_000
+        let capsule = PlayCapsule.make(progress: 0.4, durationSeconds: HomeFeatured.playSeconds(of: item))
+        XCTAssertEqual(capsule.timeLeft, "30m", "40% of 50 minutes watched: 30m left in Play")
+    }
 }

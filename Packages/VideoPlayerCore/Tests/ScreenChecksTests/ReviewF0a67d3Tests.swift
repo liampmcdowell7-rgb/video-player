@@ -129,6 +129,15 @@ extension ScreenChecksTests {
                        "the key line can still sit under a next-up episode's description")
     }
 
+    /// R471 (102): Home's Play capsule is given the featured title's length (read with the item the source glyph needs).
+    func testHomePlayIsGivenTheTitlesLength() throws {
+        guard let home = try appSource("App/Features/Home/HomeFeaturedView.swift") else { return }
+        XCTAssertTrue(home.contains("PlayCapsule.make(progress: featured.card.progress, durationSeconds: playSeconds)"),
+                      "Home's Play has no length, so no time left")
+        XCTAssertTrue(home.contains("playSeconds = HomeFeatured.playSeconds(of: item)"))
+        XCTAssertFalse(home.contains("durationSeconds: nil)"), "Home's Play still passes no length")
+    }
+
     /// R471 (98): the show's Manage menu offers Change Artwork for the season on screen, next to its Edit Details, opening the
     /// season's edit screen on Artwork as the season heading's menu does.
     func testTheShowsManageMenuChangesTheSeasonsArtwork() throws {

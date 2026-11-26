@@ -42,6 +42,14 @@ public struct HomeFeatured: Equatable, Sendable {
     /// R471 (46): how many lines of the synopsis Home shows under the featured title (the photo shows three).
     public static let synopsisLines = 3
 
+    /// R471 (102): the featured title's length for the time left inside Play ("18m", Home hero photo and the product pages'
+    /// capsule): the played file's own length first, which the progress is measured against, else the catalogue runtime,
+    /// as Continue Watching's cards count it. Nil (the bar alone, no invented time) when neither is known.
+    public static func playSeconds(of item: LibraryItem) -> Double? {
+        guard let seconds = item.watch.duration ?? item.runtime, seconds.isFinite, seconds > 0 else { return nil }
+        return seconds
+    }
+
     /// Which shelf gives the featured title, first one with a card wins: Continue Watching (what the person is in the
     /// middle of, as the TV app's Home leads with it), then Recently Added, then Next Up.
     public static let order: [HomeRowID] = [.continueWatching, .recentlyAdded, .nextUp]

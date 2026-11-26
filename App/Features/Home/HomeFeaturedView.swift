@@ -20,6 +20,8 @@ struct HomeFeaturedView: View {
     @State private var genres: [String] = []
     /// R471 (86): the kind of source the featured card's file is on, for the kind line's glyph.
     @State private var sourceKind: SourceKind?
+    /// R471 (102): the featured title's length, for the time left inside Play.
+    @State private var playSeconds: Double?
     /// R388 (item B): Play takes the focus once, at launch, as the TV app opens on its featured title (`HomeLaunchFocus`).
     @FocusState private var playFocused: Bool
 
@@ -45,7 +47,8 @@ struct HomeFeaturedView: View {
             ActionRow {
                 // R471 (46): the product pages' Play capsule (R471 item 3: the system bordered capsule, light when
                 // focused), with the mini bar for a started title.
-                PlayCapsuleButton(capsule: PlayCapsule.make(progress: featured.card.progress, durationSeconds: nil)) {
+                // R471 (102): with the title's length, so a started title shows the time left, as on its page.
+                PlayCapsuleButton(capsule: PlayCapsule.make(progress: featured.card.progress, durationSeconds: playSeconds)) {
                     services.playRequest = PlayRequest(itemID: featured.card.id, fromStart: false)
                 }
                 .focused($playFocused)
@@ -83,7 +86,8 @@ struct HomeFeaturedView: View {
         // R471 (86): the source of the file Play starts (the card's own item: the movie, or the episode), as the show
         // page finds its next-up episode's source.
         .task(id: featured.card.id) {
-            guard let item = try? await services.store.item(id: featured.card.id) else { sourceKind = nil; return }
+            guard let item = try? await services.store.item(id: featured.card.id) else { sourceKind = nil; playSeconds = nil; return }
+            playSeconds = HomeFeatured.playSeconds(of: item)
             let files = (try? await services.store.versions(of: featured.card.id)) ?? []
             let file = PlayVersion.pick(files, explicit: item.preferredFileID, mode: .auto) ?? files.first
             sourceKind = (try? await services.store.sources())?.first { $0.id == file?.sourceID }?.kind
