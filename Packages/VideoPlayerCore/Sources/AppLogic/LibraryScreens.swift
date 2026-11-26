@@ -562,6 +562,14 @@ public struct EpisodeRow: Equatable, Sendable, Identifiable {
 
     /// R453: the card's caption, "4. Title" (the number, then the title); only the title when the file gives no number.
     public var cardCaption: String { number > 0 ? "\(number). \(title)" : title }
+
+    /// R471 (93): the facts the long press on a show page's episode card needs to offer the page's own actions
+    /// (`ProductActions.cardList`), as every other episode card does: the episode, started or watched. No show (Go to Show
+    /// would open the page it is on) and not matched (Unmatch and Fix Match stay with the show's own actions).
+    public var longPressCard: ItemCard {
+        ItemCard(id: id, kind: .episode, title: title, subtitle: nil, progress: progress, isWatched: isWatched, isFavorite: false,
+                 badges: [], artworkKey: artworkKey)
+    }
 }
 
 public struct SeasonSection: Equatable, Sendable, Identifiable {

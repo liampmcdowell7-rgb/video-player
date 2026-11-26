@@ -8,6 +8,9 @@ import UserData
 /// (Match top menu actions to swipe actions: none here.)
 struct CardContextMenu: ViewModifier {
     let card: ItemCard
+    /// R471 (93): false on the show page's episode cards: only the page's own actions, without the card's extras (Go to,
+    /// Favorites, Remove from Continue Watching, Move), which there would open the same page or show a state not read.
+    var extras = true
     @Environment(AppServices.self) private var services
     @State private var move: SortMoveTarget?
     @State private var showEdit = false
@@ -23,7 +26,7 @@ struct CardContextMenu: ViewModifier {
     func body(content: Content) -> some View {
         content
             .contextMenu {
-                if let title = card.goToTitle {
+                if extras, let title = card.goToTitle {
                     Button(title, systemImage: card.kind == .movie ? "film" : "tv") {
                         services.openRequest = card.seriesID.map { Route.series($0) } ?? .item(card.id)
                     }
@@ -48,19 +51,21 @@ struct CardContextMenu: ViewModifier {
                         Button(action.title, systemImage: action.symbol, role: action == .unmatch || action == .delete ? .destructive : nil) { run(action) }
                     }
                 }
-                Button(card.isFavorite ? "Remove from Favorites" : "Add to Favorites", systemImage: card.isFavorite ? "heart.slash" : "heart") {
-                    Task { await services.setFavorite(card.id, !card.isFavorite) }
-                }
-                if card.canRemoveFromContinue {
-                    // The store's hide mark (R186): the item leaves Continue Watching and keeps its progress.
-                    Button("Remove from Continue Watching", systemImage: "minus.circle") {
-                        Task { await services.hideFromContinue(card.id) }
+                if extras {
+                    Button(card.isFavorite ? "Remove from Favorites" : "Add to Favorites", systemImage: card.isFavorite ? "heart.slash" : "heart") {
+                        Task { await services.setFavorite(card.id, !card.isFavorite) }
                     }
-                }
-                if card.kind == .movie {
-                    Button("Move to Shows", systemImage: "tv") { move = .item(card.id, .episode) }
-                } else if card.kind == .episode {
-                    Button("Move to Movies", systemImage: "film") { move = .item(card.id, .movie) }
+                    if card.canRemoveFromContinue {
+                        // The store's hide mark (R186): the item leaves Continue Watching and keeps its progress.
+                        Button("Remove from Continue Watching", systemImage: "minus.circle") {
+                            Task { await services.hideFromContinue(card.id) }
+                        }
+                    }
+                    if card.kind == .movie {
+                        Button("Move to Shows", systemImage: "tv") { move = .item(card.id, .episode) }
+                    } else if card.kind == .episode {
+                        Button("Move to Movies", systemImage: "film") { move = .item(card.id, .movie) }
+                    }
                 }
             }
             .confirmationDialog(unmatchText.title, isPresented: $askUnmatch, titleVisibility: .visible) {
@@ -130,5 +135,5 @@ struct CardContextMenu: ViewModifier {
 }
 
 extension View {
-    func cardContextMenu(_ card: ItemCard) -> some View { modifier(CardContextMenu(card: card)) }
+    func cardContextMenu(_ card: ItemCard, extras: Bool = true) -> some View { modifier(CardContextMenu(card: card, extras: extras)) }
 }

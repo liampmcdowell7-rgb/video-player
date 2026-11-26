@@ -113,13 +113,10 @@ struct EpisodeCard: View {
         // joined ('badge.resolution-badge.hdr' on "S2, E1, Second chances", 410 x 231), so it was counted as a badge. The
         // badges are still spoken in the value above.
         .accessibilityIdentifier("card.episode.\(episode.id)")
-        .contextMenu {
-            // R471 (10): the same words and symbol as the page's actions list.
-            let mark: ProductAction = episode.isWatched ? .markUnwatched : .markWatched
-            Button(mark.title, systemImage: mark.symbol) {
-                Task { await model.run { await $0.setWatched(!episode.isWatched, episodeID: episode.id) } }
-            }
-        }
+        // R471 (93): the page's own actions on a long press, as on every other episode card (R471 (10), (13) to (17):
+        // Mark, Change Artwork, Edit Details, Rate, the list menus, Delete), through the shared card menu without its extras.
+        // The page reloads on the library's change (SeriesView), as it did after the model's own Mark.
+        .cardContextMenu(episode.longPressCard, extras: false)
     }
 
     /// The duration and "Watched", spoken after the label (typed steps).
