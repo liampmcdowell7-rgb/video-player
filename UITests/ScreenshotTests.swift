@@ -857,9 +857,22 @@ final class ScreenshotTests: XCTestCase {
     }
 
     /// R453: the frame of the page's info block (`product.infoBlock`), nil when the page has none.
+    /// R471 (122): no page draws that block since R471 items 2 and 6 (77efc93, 8b3da89); the hero's facts line
+    /// (`product.factsLine`, App/Shared/HeroLinesView.swift) took its place, so it stands in when the block is absent.
     func infoBlockFrame(in app: XCUIApplication) -> CGRect? {
-        let block: XCUIElement = app.descendants(matching: .any).matching(identifier: "product.infoBlock").firstMatch
+        let block: XCUIElement = firstElement(["product.infoBlock", "product.factsLine"], in: app)
         return block.exists ? block.frame : nil
+    }
+
+    /// R471 (122): the first of `identifiers` on screen (the old product-page identifier first, then the hero line that
+    /// replaced it in R471 item 2), else the last one's query, which does not exist.
+    func firstElement(_ identifiers: [String], in app: XCUIApplication) -> XCUIElement {
+        var element: XCUIElement = app.descendants(matching: .any).matching(identifier: identifiers.last ?? "").firstMatch
+        for id in identifiers {
+            let candidate: XCUIElement = app.descendants(matching: .any).matching(identifier: id).firstMatch
+            if candidate.exists { element = candidate; break }
+        }
+        return element
     }
 
     /// R453: "<name>-INFOBLOCK": the info block keeps ONE size when the focus moves from the show to an episode and back
@@ -881,7 +894,8 @@ final class ScreenshotTests: XCTestCase {
                 if part.exists, part.frame.maxY > block.maxY + 1 || part.frame.maxX > block.maxX + 1 { problems.append("\(id) runs out of the block (\(part.frame))") }
             }
         }
-        let line: XCUIElement = app.descendants(matching: .any).matching(identifier: "product.metadataLine").firstMatch
+        // R471 (122): the facts line (date and length) replaced the metadata line in R471 item 2.
+        let line: XCUIElement = firstElement(["product.metadataLine", "product.factsLine"], in: app)
         if line.exists {
             lines.append("metadata line \(Int(line.frame.width)) x \(Int(line.frame.height)): \(line.label)")
             if line.frame.height > 70 { problems.append("the metadata line is \(Int(line.frame.height)) pt high: it broke across lines (a date must not)") }
@@ -1020,7 +1034,8 @@ final class ScreenshotTests: XCTestCase {
         // R431 (run #29, item 3): a group that holds single badges is not an overlap (`ScreenRules.badgeOverlaps`).
         problems += ScreenRules.badgeOverlaps(badges: frames.map { (pair: (String, CGRect)) -> (String, AXRect) in (pair.0, AXRect(pair.1)) })
         if found.isEmpty && expectBadges { problems.append("no badge element found") }
-        let line: XCUIElement = app.descendants(matching: .any).matching(identifier: "product.metadataLine").firstMatch
+        // R471 (122): since R471 item 2 the rating ("Rated TV-14") is said by the hero's kind line (`product.kindLine`).
+        let line: XCUIElement = firstElement(["product.metadataLine", "product.kindLine"], in: app)
         if line.exists {
             let f: CGRect = line.frame
             lines.append("metadata line “\(line.label)” x \(Int(f.minX)) w \(Int(f.width))")
