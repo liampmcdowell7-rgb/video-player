@@ -689,6 +689,9 @@ struct CastShelf: View {
                 }
             }
             .scrollClipDisabled()
+            // R471 (123): the focused circle grows and moves its name and role down; the shared room under a shelf (R402),
+            // as the other shelves of the page have (R471 (113)), so the role never touches the next heading.
+            .padding(.bottom, CGFloat(RowSpacing.shelfFocusRoom))
         }
         // R424: the cast row is a focus section the page's whole width (show, movie and episode pages).
         .productPageRow()
