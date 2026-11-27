@@ -158,9 +158,10 @@ private struct DiscoverCard: View {
                 // line in Caption 2 (the floor), and only a title that does not fit even there wraps. R393 had every
                 // title wrap in Caption, so short titles broke ("Sample / Suggestion 1"). Titles of one shelf may now
                 // differ in size (R393's reason for one size; its alternative (f)).
-                CardCaption(text: title.title)
-                // Rule S1: "2021 · Because you watched …" on one line; the year goes first when it does not fit.
-                FittingLine(line: DiscoverCardText.detailLine(title), style: .caption2)
+                // R471 (124): one line always (the owner's rule: never a second line, never "…").
+                DiscoverCardCaption(text: title.title)
+                // Rule S1: "2021 · Similar to Sample Movie 1" on one line; then shorter lines, each whole (R471 (124)).
+                DiscoverDetailLine(title: title)
                     .foregroundStyle(.secondary)
                 if title.onWatchlist {
                     Label("On Your Watchlist", systemImage: "checkmark")
@@ -179,6 +180,78 @@ private struct DiscoverCard: View {
             let action = DiscoverCardText.watchlistAction(title)
             Button(action.label, systemImage: action.symbol, action: onToggle)
         }
+    }
+}
+
+/// R471 (124), PROVISIONAL (owner's report of the run on 8e43578, 75-search-discover-cards: "Sample Suggested Show" on a
+/// second line): a Discover card's title on ONE line always. Caption, else Caption 2, else Caption 2 scaled down to fit
+/// (`ShortLine.minimumScale`, rule S1's readable floor). `CardCaption` wraps at Caption 2 instead; the owner's rule for
+/// short texts (names, labels, values) is never a second line, never "…".
+private struct DiscoverCardCaption: View {
+    let text: String
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            oneLine(TVTextStyle.caption)
+            oneLine(TVTextStyle.caption2)
+            Text(text)
+                .font(TVTextStyle.caption2.font)
+                .lineLimit(1) // design-lint:allow R471 (124): one line, scaled to fit the card's width (the owner's rule: never a second line)
+                // design-lint:allow R471 (124): the title shrinks to the card's width, no smaller than rule S1's readable floor
+                .minimumScaleFactor(CGFloat(ShortLine.minimumScale))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// One line in `style`; `ViewThatFits` uses it only when its natural width fits, so it is never cut (rule S1).
+    private func oneLine(_ style: TVTextStyle) -> some View {
+        Text(text)
+            .font(style.font)
+            .lineLimit(1) // design-lint:allow R471 (124): offered to ViewThatFits only at its natural width, so it is never cut (rule S1)
+    }
+}
+
+/// R471 (124), PROVISIONAL (75-search-discover-cards: "Similar to Sample M…"): a Discover card's detail line, in Caption 2,
+/// as the first of these lines that fits WHOLE: the year and the reason ("2021 · Similar to Sample Movie 1"), the reason,
+/// the reason shortened on purpose ("Like Sample Movie 1"; a collection's name is the shelf's heading already, "More from
+/// …", so it goes), then the year alone. Each line is offered to `ViewThatFits` only at its natural width, so none is
+/// cut; the last one is used when none fits. VoiceOver hears the whole line. Before, `FittingLine`'s last candidate (the
+/// reason) was drawn with one line and no room to scale (Caption 2 is the floor), so the system cut it.
+private struct DiscoverDetailLine: View {
+    let title: DiscoverTitle
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            ForEach(Self.lines(title), id: \.self) { (line: String) in
+                Text(line)
+                    .font(TVTextStyle.caption2.font)
+                    .lineLimit(1) // design-lint:allow R471 (124): offered to ViewThatFits only at its natural width, so it is never cut (rule S1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(DiscoverCardText.detailLine(title).full)
+    }
+
+    /// The lines from longest to shortest, each whole, no repeats; never empty (a space keeps the line's height).
+    static func lines(_ title: DiscoverTitle) -> [String] {
+        let year: String? = title.year.map { String($0) }
+        let reason: String = title.reason
+        var shortReason: String? = nil
+        if reason.hasPrefix("Similar to ") {
+            shortReason = "Like " + String(reason.dropFirst("Similar to ".count))
+        }
+        var out: [String] = []
+        func add(_ line: String?) {
+            guard let line, !line.isEmpty, !out.contains(line) else { return }
+            out.append(line)
+        }
+        if let year, !reason.isEmpty { add(year + ShortLine.separator + reason) }
+        add(reason.hasPrefix("Part of ") ? nil : reason)
+        add(shortReason)
+        add(year)
+        if out.isEmpty { out.append(" ") }
+        return out
     }
 }
 
